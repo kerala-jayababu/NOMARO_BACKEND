@@ -471,14 +471,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+            if(dto.IdPercentageSalaryHead > 0)
+            {
+                var percentageSalaryHeadExists = (await _salaryservice.GetSalaryHeadList())
+                .Any(s => s.IdSalaryHead == dto.IdPercentageSalaryHead);
 
-            var existingSalaryHead = (await _salaryservice.GetSalaryHeadList())
+                if (!percentageSalaryHeadExists)
+                {
+                    return Conflict(ApiResponseDto<string>.CreateFailure("IdPercentageSalaryHead does not exist."));
+                }
+
+
+            }
+            else
+            {
+                var existingSalaryHead = (await _salaryservice.GetSalaryHeadList())
                 .FirstOrDefault(s => s.SalaryHeadCode == dto.SalaryHeadCode && s.SalaryHeadName == dto.SalaryHeadName);
 
-            if (existingSalaryHead != null)
-            {
-                return Conflict(ApiResponseDto<string>.CreateFailure("Salary head already exists."));
-            }
+                if (existingSalaryHead != null)
+                {
+                    return Conflict(ApiResponseDto<string>.CreateFailure("Salary head already exists."));
+                }
+
+            }            
 
             try
             {

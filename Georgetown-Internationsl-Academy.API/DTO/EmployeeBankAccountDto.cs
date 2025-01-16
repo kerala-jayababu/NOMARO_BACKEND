@@ -1,0 +1,16 @@
+﻿namespace Georgetown_Internationsl_Academy.API.DTO
+{
+  
+    public class EmployeeBankAccountDto
+    {
+        public int IdEmployeeBankAccount { get; set; }
+        public int IdEmployee { get; set; }
+        public int IdBank { get; set; }
+        public string AccountNumber { get; set; }
+        public string BranchName { get; set; }
+        public string BranchCode { get; set; }
+        public decimal SalaryPercentageDistributed { get; set; }
+        public string CurrencyCode { get; set; }
+    }
+
+}

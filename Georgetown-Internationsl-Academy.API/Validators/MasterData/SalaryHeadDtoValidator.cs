@@ -22,9 +22,11 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
                 .NotEmpty().WithMessage("SalaryHeadName is required.")
                 .MaximumLength(60).WithMessage("SalaryHeadName must not exceed 60 characters.");
 
+            
             RuleFor(s => s.HeadType)
-                .NotEmpty().WithMessage("HeadType is required.")
-                .MaximumLength(50).WithMessage("HeadType must not exceed 50 characters.");
+              .NotEmpty().WithMessage("HeadType is required.")
+              .MaximumLength(50).WithMessage("HeadType must not exceed 50 characters.")
+              .Must(BeAValidHeadType).WithMessage("HeadType must be either 'Earning' or 'Deduction'.");
 
             RuleFor(s => s.IsTaxable)
                 .NotNull().WithMessage("IsTaxable is required.");
@@ -66,6 +68,12 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
             var validCalculationMethods = new[] { "FORMULA", "PERCENTAGE", "FIXEDAMOUNT" };
             return !string.IsNullOrWhiteSpace(calculationMethod) &&
                    validCalculationMethods.Contains(calculationMethod.ToUpper());
+        }
+        private bool BeAValidHeadType(string headType)
+        {
+            var validHeadTypes = new[] { "Earning", "Deduction" };
+            return !string.IsNullOrWhiteSpace(headType) &&
+                   validHeadTypes.Contains(headType);
         }
     }
 

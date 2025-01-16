@@ -61,6 +61,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 var salaryHeadEntity = _mapper.Map<SalaryHeads>(dto);              
                 salaryHeadEntity.CreatedOn = DateTime.Now;
+                salaryHeadEntity.HeadType = dto.HeadType.ToUpper().Trim();
                 salaryHeadEntity.CreatedBy = 1;
                 var addedEntity = await _dbContext.SalaryHeads.AddAsync(salaryHeadEntity);
                 await _dbContext.SaveChangesAsync();

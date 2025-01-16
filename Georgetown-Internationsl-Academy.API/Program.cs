@@ -63,6 +63,8 @@ builder.Services.AddScoped<IBudgetCodeServices, BudgetCodeServices>();
 builder.Services.AddScoped<IDesignationServices, DesignationServices>();
 builder.Services.AddScoped<IDepartmentServices, DepartmentServices>();
 builder.Services.AddScoped<ISalaryHeadServices, SalaryHeadServices>();
+builder.Services.AddScoped<IOptionService, OptionService>();
+builder.Services.AddScoped<IEmployeeServices, EmployeeServices>();
 
 
 var app = builder.Build();
