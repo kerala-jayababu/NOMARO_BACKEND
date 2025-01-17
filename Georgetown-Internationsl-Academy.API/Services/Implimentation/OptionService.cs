@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -18,11 +19,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _logger = logger;
         }
 
-        public async Task<List<SelectOptionIntDto>> GetSalaryHeadsOptions()
+        public async Task<AllOptionsDto> GetAllOptions()
         {
             try
             {
-                // Fetch the relevant fields from the database
+                // Fetch Salary Heads
                 var salaryHeads = await _dbContext.SalaryHeads
                     .Select(s => new SelectOptionIntDto
                     {
@@ -31,59 +32,50 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     })
                     .ToListAsync();
 
-                return salaryHeads?.Any() == true ? salaryHeads : null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching the list of salary heads.");
-                throw;
-            }
-        }
-        public async Task<List<SelectOptionIntDto>> GetBudgetCodeOptions()
-        {
-            try
-            {
-                // Fetch the relevant fields from the database
-                var budgetHeads = await _dbContext.BudgetCodes
-                    .Select(s => new SelectOptionIntDto
+                // Fetch Budget Codes
+                var budgetCodes = await _dbContext.BudgetCodes
+                    .Select(b => new SelectOptionIntDto
                     {
-                        Value = s.IdBudgetCode,
-                        DisplayName = s.BudgetCodeName
+                        Value = b.IdBudgetCode,
+                        DisplayName = b.BudgetCodeName
                     })
                     .ToListAsync();
 
-                return budgetHeads?.Any() == true ? budgetHeads : null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching the list of budget code.");
-                throw;
-            }
-        }
-
-        public async Task<List<SelectOptionIntDto>> GetBanksOptions()
-        {
-            try
-            {
-                // Fetch the relevant fields from the database
+                // Fetch Banks
                 var banks = await _dbContext.Banks
-                    .Select(s => new SelectOptionIntDto
+                    .Select(b => new SelectOptionIntDto
                     {
-                        Value = s.IdBank,
-                        DisplayName = s.BankName
+                        Value = b.IdBank,
+                        DisplayName = b.BankName
                     })
                     .ToListAsync();
 
-                return banks?.Any() == true ? banks : null;
+                var branches = await _dbContext.BankBranches
+                   .Select(b => new SelectOptionIntDto
+                   {
+                       Value = b.IdBankBranches,
+                       DisplayName = b.BranchName
+                   })
+                   .ToListAsync();
+
+                // Return all options together
+                return new AllOptionsDto
+                {
+                    SalaryHeads = salaryHeads,
+                    BudgetCodes = budgetCodes,
+                    Banks = banks,
+                    BankBranches= branches
+                };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching the list of banks.");
+                _logger.LogError(ex, "Error fetching all options.");
                 throw;
             }
         }
 
-        
+
+
 
 
     }

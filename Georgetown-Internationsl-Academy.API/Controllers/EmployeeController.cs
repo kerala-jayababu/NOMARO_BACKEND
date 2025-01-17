@@ -1,6 +1,8 @@
 ﻿using Asp.Versioning;
+using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,9 +15,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     public class EmployeeController : ControllerBase
     {
         private readonly IEmployeeServices _employeeservice;
-        public EmployeeController(IEmployeeServices employeeservice)
+        private readonly IValidator<List<EmployeeBankAccountDtoList>> _employeeBankAccountvalidator;
+        private readonly IValidator<List<EmployeeOvertimeConfigDtoList>> _employeeOverTimevalidator;
+        public EmployeeController(IEmployeeServices employeeservice, IValidator<List<EmployeeBankAccountDtoList>> employeeBankAccountvalidator, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator)
         {
             _employeeservice = employeeservice;
+            _employeeBankAccountvalidator = employeeBankAccountvalidator;
+            _employeeOverTimevalidator = employeeOverTimevalidator;
         }
 
 
@@ -101,6 +107,94 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+     
+
+
+        [HttpPost("UpdateEmployeeDetails")]
+
+        public async Task<IActionResult> UpdateEmployeeDetails([FromBody]  UpdateEmployeeDto dto)
+        {
+            if (dto.EmployeeId <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Employee ID. Employee ID must be greater than 0."));
+            }
+            if (dto.BudgetCodeId <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Budget Code ID. Budget Code ID must be greater than 0."));
+            }
+            if (dto.ChildCount < 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Child Count. Child Count cannot be negative."));
+            }
+
+            try
+            {                
+                var updateResult = await _employeeservice.UpdateEmployeeDetails(dto);
+                if (!updateResult)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update employee."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+            
+        }
+
+
+        [HttpPost("ManageEmployeeBankAccounts")]
+        public async Task<IActionResult> ManageEmployeeBankAccounts([FromBody] List<EmployeeBankAccountDtoList> bankAccounts)
+        {
+            if (bankAccounts == null || !bankAccounts.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Bank account list cannot be empty."));
+            }
+
+            try
+            {
+                var result = await _employeeservice.ManageEmployeeBankAccounts(bankAccounts);
+                if (!result)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to manage employee bank accounts."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee bank accounts managed successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("ManageEmployeeOvertimeConfigs")]
+        public async Task<IActionResult> ManageEmployeeOvertimeConfigs([FromBody] List<EmployeeOvertimeConfigDtoList> overtimeConfigs)
+        {
+            if (overtimeConfigs == null || !overtimeConfigs.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Overtime config list cannot be null or empty."));
+            }
+
+            try
+            {
+                var result = await _employeeservice.ManageEmployeeOvertimeConfigs(overtimeConfigs);
+                if (!result)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to manage employee overtime configs."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee overtime configs managed successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+
 
 
 

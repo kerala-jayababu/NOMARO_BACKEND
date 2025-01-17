@@ -13,11 +13,11 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<DesignationEntity> Designations { get; set; }
         public DbSet<DepartmentEntity> Departments { get; set; }
         public DbSet<SalaryHeads> SalaryHeads { get; set; }
-        public DbSet<Employee> Employee { get; set; }
+        public DbSet<Employee> Employees { get; set; }
         public DbSet<Banks> Banks { get; set; }
-        public DbSet<EmployeeBankAccount> EmployeeBankAccount { get; set; }
+        public DbSet<EmployeeBankAccount> EmployeeBankAccounts { get; set; }
         public DbSet<EmployeeOvertimeConfig> EmployeeOvertimeConfig { get; set; }
-
+        public DbSet<BankBranches> BankBranches { get; set; }
         
     }
 }

@@ -13,6 +13,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<DesignationEntity, DesignationDto>().ReverseMap();
             CreateMap<DepartmentEntity, DepartmentDto>().ReverseMap();
             CreateMap<SalaryHeads, SalaryHeadDto>().ReverseMap();
+            CreateMap<Employee, EmployeeDto>().ReverseMap();
         }
      }
 }

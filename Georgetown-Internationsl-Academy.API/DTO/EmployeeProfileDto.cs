@@ -9,5 +9,7 @@
         public string Department { get; set; } 
         public DateTime JoiningDate { get; set; }
         public string CurrentStatus { get; set; }
+        public int IdDepartment { get; set; }
+        public int IdDesignation { get; set; }
     }
 }

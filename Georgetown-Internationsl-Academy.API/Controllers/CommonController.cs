@@ -15,25 +15,25 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             _optionService = optionService;
         }
+        [HttpGet("GetAllOptions")]
+        public async Task<IActionResult> GetAllOptions()
+        {
+            try
+            {
+                var options = await _optionService.GetAllOptions();
 
-        [HttpGet("GetSalaryHeadsOptions")]
-        public async Task<IActionResult> GetSalaryHeadsOptions()
-        {
-            var options = await _optionService.GetSalaryHeadsOptions();
-            return Ok(options);
+                if (options == null)
+                {
+                    return NotFound("No options found.");
+                }
+
+                return Ok(options);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
         }
 
-        [HttpGet("GetBudgetCodeOptions")]
-        public async Task<IActionResult> GetBudgetCodeOptions()
-        {
-            var options = await _optionService.GetBudgetCodeOptions();
-            return Ok(options);
-        }
-        [HttpGet("GetBanksOptions")]
-        public async Task<IActionResult> GetBanksOptions()
-        {
-            var options = await _optionService.GetBanksOptions();
-            return Ok(options);
-        }
     }
 }
