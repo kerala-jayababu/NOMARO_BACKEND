@@ -24,6 +24,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<SystemParameter> SystemParameters { get; set; }
         public DbSet<NotificationConfig> NotificationsConfig { get; set; }
         public DbSet<VacationMode> VacationModes { get; set; }
+        public DbSet<TaxConfig> TaxConfigs { get; set; }
         
 
     }

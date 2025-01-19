@@ -19,6 +19,8 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<SystemParameter, SystemParameterDto>().ReverseMap();
             CreateMap<NotificationConfig, NotificationConfigDto>().ReverseMap();
             CreateMap<VacationMode, VacationModeDto>().ReverseMap();
+            CreateMap<TaxConfig, TaxConfigDto>().ReverseMap();
+            CreateMap<TaxConfig, TaxConfigManageDto>().ReverseMap();
 
         }
      }

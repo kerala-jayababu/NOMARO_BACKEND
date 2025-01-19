@@ -72,6 +72,7 @@ builder.Services.AddScoped<IRoleBasedScreenService, RoleBasedScreenService>();
 builder.Services.AddScoped<ISystemParameterService,SystemParameterService>();
 builder.Services.AddScoped<INotificationConfigService, NotificationConfigService>();
 builder.Services.AddScoped<IVacationModeService, VacationModeService>();
+builder.Services.AddScoped<ITaxConfigService, TaxConfigService>();
 
 
 var app = builder.Build();
