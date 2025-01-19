@@ -73,6 +73,7 @@ builder.Services.AddScoped<ISystemParameterService,SystemParameterService>();
 builder.Services.AddScoped<INotificationConfigService, NotificationConfigService>();
 builder.Services.AddScoped<IVacationModeService, VacationModeService>();
 builder.Services.AddScoped<ITaxConfigService, TaxConfigService>();
+builder.Services.AddScoped<ITaxSlabService, TaxSlabService>();
 
 
 var app = builder.Build();

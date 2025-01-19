@@ -11,12 +11,19 @@ public class TaxConfigsController : ControllerBase
 {
     private readonly ITaxConfigService _taxConfigService;
     private readonly IValidator<TaxConfigManageDto> _validator;
+    private readonly ITaxSlabService _taxSlabService;
+    private readonly IValidator<TaxSlabDto> _taxSlabValidator;
 
-    public TaxConfigsController(ITaxConfigService taxConfigService, IValidator<TaxConfigManageDto> validator)
+    public TaxConfigsController(ITaxConfigService taxConfigService, IValidator<TaxConfigManageDto> validator, ITaxSlabService taxSlabService, IValidator<TaxSlabDto> taxSlabValidator)
     {
         _taxConfigService = taxConfigService;
         _validator = validator;
+        _taxSlabService = taxSlabService;
+        _taxSlabValidator = taxSlabValidator;
     }
+
+
+    #region TaxConfig
 
     [HttpGet("GetAllTaxConfigs")]
     public async Task<IActionResult> GetAllTaxConfigs()
@@ -111,4 +118,91 @@ public class TaxConfigsController : ControllerBase
             return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
         }
     }
+
+    #endregion
+
+    #region TaxSlabs
+    [HttpGet("GetAllTaxSlabs")]
+    public async Task<IActionResult> GetAllTaxSlabs()
+    {
+        try
+        {
+            var taxSlabs = await _taxSlabService.GetAllTaxSlabs();
+            if (!taxSlabs.Any())
+                return NotFound("No tax slabs found.");
+
+            return Ok(taxSlabs);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
+    }
+
+    [HttpGet("GetTaxSlabById")]
+    public async Task<IActionResult> GetTaxSlabById(int id)
+    {
+        try
+        {
+            var taxSlab = await _taxSlabService.GetTaxSlabById(id);
+            if (taxSlab == null)
+                return NotFound($"No tax slab found with ID: {id}");
+
+            return Ok(taxSlab);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
+    }
+
+    [HttpPost("AddTaxSlab")]
+    public async Task<IActionResult> AddTaxSlab([FromBody] TaxSlabDto dto)
+    {
+        var validationResult = await _taxSlabValidator.ValidateAsync(dto);
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return BadRequest($"Validation failed: {errors}");
+        }
+
+        try
+        {
+            var result = await _taxSlabService.AddTaxSlab(dto);
+            if (result == null)
+                return StatusCode(500, "Failed to add tax slab.");
+
+            return Ok("Tax slab added successfully.");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
+    }
+
+    [HttpPost("UpdateTaxSlab")]
+    public async Task<IActionResult> UpdateTaxSlab([FromBody] TaxSlabDto dto)
+    {
+        var validationResult = await _taxSlabValidator.ValidateAsync(dto);
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return BadRequest($"Validation failed: {errors}");
+        }
+
+        try
+        {
+            var result = await _taxSlabService.UpdateTaxSlab(dto);
+            if (result == null)
+                return NotFound($"No tax slab found with ID: {dto.IdTaxSlab}");
+
+            return Ok("Tax slab updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
+    }
+    #endregion
+
 }

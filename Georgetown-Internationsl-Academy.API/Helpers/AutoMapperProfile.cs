@@ -21,6 +21,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<VacationMode, VacationModeDto>().ReverseMap();
             CreateMap<TaxConfig, TaxConfigDto>().ReverseMap();
             CreateMap<TaxConfig, TaxConfigManageDto>().ReverseMap();
+            CreateMap<TaxSlab, TaxSlabDto>().ReverseMap();
 
         }
      }
