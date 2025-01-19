@@ -18,6 +18,13 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<EmployeeBankAccount> EmployeeBankAccounts { get; set; }
         public DbSet<EmployeeOvertimeConfig> EmployeeOvertimeConfig { get; set; }
         public DbSet<BankBranches> BankBranches { get; set; }
+        public DbSet<PayrollScreens> PayrollScreens { get; set; }
+        public DbSet<EmployeePermissions> EmployeePermissions { get; set; }
+        public DbSet<RoleBasedPermission> RoleBasedPermissions { get; set; }
+        public DbSet<SystemParameter> SystemParameters { get; set; }
+        public DbSet<NotificationConfig> NotificationsConfig { get; set; }
+        public DbSet<VacationMode> VacationModes { get; set; }
         
+
     }
 }

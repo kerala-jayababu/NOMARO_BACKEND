@@ -1,9 +1,13 @@
 ﻿using Asp.Versioning;
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel.DataAnnotations;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -17,18 +21,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<DesignationDto> _designationvalidator;
         private readonly IValidator<DepartmentDto> _deparmentvalidator;
         private readonly IValidator<SalaryHeadDto> _salaryvalidator;
+        private readonly IValidator<SystemParameterDto> _systsemValidator;
 
         private readonly IBudgetCodeServices _budgetCodeServices;
         private readonly IDesignationServices _designationservices;
         private readonly IDepartmentServices _deparmentservices;
         private readonly ISalaryHeadServices _salaryservice;
-
+        private readonly ISystemParameterService _systemParameterService;
+        private readonly INotificationConfigService _notificationConfigService;
+        private readonly IValidator<NotificationConfigDto> _notificationvalidator;
+        private readonly IVacationModeService _vacationModeService;
+        private readonly IValidator<VacationModeDto> _vacationModevalidator;
         public MasterDataController(IBudgetCodeServices budgetCodeServices, 
             IDesignationServices designationServices,
             IDepartmentServices deparmentservices,
+            ISystemParameterService systemParameterService,
             IValidator<BudgetCodeDto> budgetvalidator,
             IValidator<DesignationDto> designationvalidator,
             IValidator<DepartmentDto> departmentValidator,
+            IValidator<SystemParameterDto> systsemValidator,
+            INotificationConfigService notificationConfigService, 
+            IValidator<NotificationConfigDto> notificationvalidator,
+            IVacationModeService vacationModeService, 
+            IValidator<VacationModeDto> vacationModevalidator,
             IValidator<SalaryHeadDto> salaryvalidator,            
             ISalaryHeadServices salaryservice)
         {
@@ -38,8 +53,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _budgetvalidator = budgetvalidator;
             _designationvalidator = designationvalidator;
             _deparmentvalidator = departmentValidator;
+            _systsemValidator = systsemValidator;
             _salaryvalidator = salaryvalidator;            
             _salaryservice = salaryservice;
+            _systemParameterService = systemParameterService;
+            _notificationConfigService = notificationConfigService;
+            _notificationvalidator = notificationvalidator;
+            _vacationModeService = vacationModeService;
+            _vacationModevalidator = vacationModevalidator;
         }
 
         #region BudgetCodes
@@ -556,6 +577,294 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         #endregion
+
+        #region SystemParameters
+        [HttpGet("GetSystemParameters")]
+        public async Task<IActionResult> GetSystemParameters()
+        {
+            try
+            {
+                var parameters = await _systemParameterService.GetAllSystemParameters();
+
+                if (!parameters.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No system parameters found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<SystemParameterDto>>.CreateSuccess(parameters, "System parameters retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetSystemParameterById")]
+        public async Task<IActionResult> GetSystemParameterById(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid System Parameter ID."));
+            }
+
+            try
+            {
+                var parameter = await _systemParameterService.GetSystemParameterById(id);
+
+                if (parameter == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure($"System parameter not found for ID: {id}"));
+                }
+
+                return Ok(ApiResponseDto<SystemParameterDto>.CreateSuccess(parameter, "System parameter retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateSystemParameter")]
+        public async Task<IActionResult> UpdateSystemParameter([FromBody] SystemParameterDto dto)
+        {
+          
+
+            // Ensure ID is valid
+            if (dto.IdSystemParameter <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid System Parameter ID."));
+            }
+
+            try
+            {
+                var existingParameter = await _systemParameterService.GetSystemParameterById(dto.IdSystemParameter);
+                if (existingParameter == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure($"System parameter not found for ID: {dto.IdSystemParameter}"));
+                }
+
+                var result = await _systemParameterService.UpdateSystemParameter(dto);
+                if (!result)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update system parameter."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("System parameter updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+
+        #endregion
+
+        #region NotificationConfig
+        [HttpGet("GetNotificationConfigList")]
+        public async Task<IActionResult> GetNotificationConfigList()
+        {
+            try
+            {
+                var notificationConfigList = await _notificationConfigService.GetNotificationConfigList();
+
+                if (!notificationConfigList.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No notification configurations found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<NotificationConfigDto>>.CreateSuccess(notificationConfigList, "Notification configuration list retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetNotificationConfigByID")]
+        public async Task<IActionResult> GetNotificationConfigByID(int id)
+        {
+            try
+            {
+                var notificationConfig = await _notificationConfigService.GetNotificationConfigById(id);
+
+                if (notificationConfig == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Notification configuration not found."));
+                }
+
+                return Ok(ApiResponseDto<NotificationConfigDto>.CreateSuccess(notificationConfig, "Notification configuration retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddNotificationConfig")]
+        public async Task<IActionResult> AddNotificationConfig([FromBody] NotificationConfigDto dto)
+        {
+           
+
+            var existingNotificationConfig = (await _notificationConfigService.GetNotificationConfigList())
+                .FirstOrDefault(n => n.NotificationType == dto.NotificationType);
+
+            if (existingNotificationConfig != null)
+            {
+                return Conflict(ApiResponseDto<string>.CreateFailure("Notification configuration already exists."));
+            }
+
+            try
+            {
+                var result = await _notificationConfigService.AddNotificationConfig(dto);
+                if (result == null)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create notification configuration."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Notification configuration created successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateNotificationConfig")]
+        public async Task<IActionResult> UpdateNotificationConfig([FromBody] NotificationConfigDto dto)
+        {
+            var validationResult = await _notificationvalidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            if (dto.IdNotificationConfig <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for updating a notification configuration."));
+            }
+
+            try
+            {
+                var existingNotificationConfig = await _notificationConfigService.GetNotificationConfigById(dto.IdNotificationConfig);
+                if (existingNotificationConfig == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Notification configuration not found."));
+                }
+
+                var result = await _notificationConfigService.UpdateNotificationConfig(dto);
+                if (result == null)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update notification configuration."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Notification configuration updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        #endregion
+
+        #region VactionMode
+        [HttpGet("GetAllVacationModes")]
+        public async Task<IActionResult> GetAllVacationModes()
+        {
+            try
+            {
+                var vacationModes = await _vacationModeService.GetAllVacationModes();
+
+                if (!vacationModes.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No vacation modes found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<VacationModeDto>>.CreateSuccess(vacationModes, "Vacation modes retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetVacationModeById")]
+        public async Task<IActionResult> GetVacationModeById(int id)
+        {
+            try
+            {
+                var vacationMode = await _vacationModeService.GetVacationModeById(id);
+
+                if (vacationMode == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Vacation mode not found."));
+                }
+
+                return Ok(ApiResponseDto<VacationModeDto>.CreateSuccess(vacationMode, "Vacation mode retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddVacationMode")]
+        public async Task<IActionResult> AddVacationMode([FromBody] VacationModeDto dto)
+        {
+            var validationResult = await _vacationModevalidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            try
+            {
+                var result = await _vacationModeService.AddVacationMode(dto);
+
+                if (result == null)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add vacation mode."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Vacation mode added successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateVacationMode")]
+        public async Task<IActionResult> UpdateVacationMode([FromBody] VacationModeDto dto)
+        {
+            var validationResult = await _vacationModevalidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            try
+            {
+                var result = await _vacationModeService.UpdateVacationMode(dto);
+
+                if (result == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Vacation mode not found."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Vacation mode updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        #endregion
+
 
 
 

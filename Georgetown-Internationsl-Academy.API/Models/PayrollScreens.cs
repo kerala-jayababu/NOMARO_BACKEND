@@ -1,0 +1,13 @@
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Georgetown_Internationsl_Academy.API.Models
+{
+    public class PayrollScreens
+    {
+        [Key]
+        public int IdPayrollScreen { get; set; }
+        public string ScreenName { get; set; }
+        public string? ValidPermissions { get; set; }
+        public int? IdParentPayrollScreen { get; set; }
+    }
+}

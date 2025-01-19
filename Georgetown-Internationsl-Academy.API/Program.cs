@@ -1,9 +1,12 @@
 using Asp.Versioning;
+using FluentValidation;
 using FluentValidation.AspNetCore;
 using Georgetown_International_Academy.API.Database;
+using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Georgetown_Internationsl_Academy.API.Validators.MasterData;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -65,6 +68,10 @@ builder.Services.AddScoped<IDepartmentServices, DepartmentServices>();
 builder.Services.AddScoped<ISalaryHeadServices, SalaryHeadServices>();
 builder.Services.AddScoped<IOptionService, OptionService>();
 builder.Services.AddScoped<IEmployeeServices, EmployeeServices>();
+builder.Services.AddScoped<IRoleBasedScreenService, RoleBasedScreenService>();
+builder.Services.AddScoped<ISystemParameterService,SystemParameterService>();
+builder.Services.AddScoped<INotificationConfigService, NotificationConfigService>();
+builder.Services.AddScoped<IVacationModeService, VacationModeService>();
 
 
 var app = builder.Build();
