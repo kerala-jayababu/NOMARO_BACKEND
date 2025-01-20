@@ -22,6 +22,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<TaxConfig, TaxConfigDto>().ReverseMap();
             CreateMap<TaxConfig, TaxConfigManageDto>().ReverseMap();
             CreateMap<TaxSlab, TaxSlabDto>().ReverseMap();
+            CreateMap<CurrencyConversion, CurrencyConversionDto>().ReverseMap();
 
         }
      }

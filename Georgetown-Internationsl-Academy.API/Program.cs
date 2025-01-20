@@ -74,6 +74,7 @@ builder.Services.AddScoped<INotificationConfigService, NotificationConfigService
 builder.Services.AddScoped<IVacationModeService, VacationModeService>();
 builder.Services.AddScoped<ITaxConfigService, TaxConfigService>();
 builder.Services.AddScoped<ITaxSlabService, TaxSlabService>();
+builder.Services.AddScoped<ICurrencyConversionService, CurrencyConversionService>();
 
 
 var app = builder.Build();
