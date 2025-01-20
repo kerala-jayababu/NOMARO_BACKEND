@@ -1,0 +1,12 @@
+﻿using Georgetown_Internationsl_Academy.API.DTO;
+
+namespace Georgetown_Internationsl_Academy.API.Services.Interface
+{
+    public interface ISalaryTemplateService
+    {
+        Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates();
+        Task<SalaryTemplateDto?> GetSalaryTemplateById(int id);
+        Task<SalaryTemplateDto?> AddSalaryTemplate(SalaryTemplateManageDto salaryTemplate);
+        Task<SalaryTemplateDto?> UpdateSalaryTemplate(SalaryTemplateDto salaryTemplate);
+    }
+}

@@ -27,7 +27,12 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<TaxConfig> TaxConfigs { get; set; }
         public DbSet<TaxSlab> TaxSlabs { get; set; }
         public DbSet<CurrencyConversion> CurrencyConversions { get; set; }
+        public DbSet<ChildTaxThreshold> ChildTaxThresholds { get; set; }
+        public DbSet<SalaryTemplate> SalaryTemplates { get; set; }
+
         
+
+
 
 
 

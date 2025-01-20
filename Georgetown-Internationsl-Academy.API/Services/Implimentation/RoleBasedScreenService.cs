@@ -22,15 +22,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var payrollScreens = await _dbContext.PayrollScreens
+                var screens = await _dbContext.PayrollScreens.ToListAsync();
+                var payrollScreens = screens
                     .Select(screen => new PayrollScreenDto
                     {
                         IdPayrollScreen = screen.IdPayrollScreen,
                         ScreenName = screen.ScreenName,
                         ValidPermissions = screen.ValidPermissions,
                         IdParentPayrollScreen = screen.IdParentPayrollScreen
-                    })
-                    .ToListAsync();
+                    }).Where(x => x.IdParentPayrollScreen == 0).ToList();
+
+                foreach (var screen in payrollScreens)
+                {
+                    screen.SubMenus = screens.Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen).ToList();
+                }
 
                 return payrollScreens;
             }

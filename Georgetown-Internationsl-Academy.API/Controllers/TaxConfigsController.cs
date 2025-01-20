@@ -13,13 +13,17 @@ public class TaxConfigsController : ControllerBase
     private readonly IValidator<TaxConfigManageDto> _validator;
     private readonly ITaxSlabService _taxSlabService;
     private readonly IValidator<TaxSlabDto> _taxSlabValidator;
-
-    public TaxConfigsController(ITaxConfigService taxConfigService, IValidator<TaxConfigManageDto> validator, ITaxSlabService taxSlabService, IValidator<TaxSlabDto> taxSlabValidator)
+    private readonly IChildTaxThresholdService _childTaxservice;
+    private readonly IValidator<ChildTaxThresholdDto> _childTaxvalidator;
+    public TaxConfigsController(ITaxConfigService taxConfigService, IValidator<TaxConfigManageDto> validator, ITaxSlabService taxSlabService,
+        IValidator<TaxSlabDto> taxSlabValidator, IChildTaxThresholdService childTaxservice, IValidator<ChildTaxThresholdDto> childTaxvalidator)
     {
         _taxConfigService = taxConfigService;
         _validator = validator;
         _taxSlabService = taxSlabService;
         _taxSlabValidator = taxSlabValidator;
+        _childTaxservice = childTaxservice;
+        _childTaxvalidator = childTaxvalidator;
     }
 
 
@@ -201,6 +205,127 @@ public class TaxConfigsController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
+    }
+    #endregion
+
+    #region ChildTaxThresholds
+    [HttpGet("GetChildTaxThresholdList")]
+    public async Task<IActionResult> GetChildTaxThresholdList()
+    {
+        try
+        {
+            var childTaxThresholdList = await _childTaxservice.GetAllChildTaxThresholds();
+
+            if (!childTaxThresholdList.Any())
+            {
+                return NotFound(ApiResponseDto<string>.CreateFailure("No child tax thresholds found."));
+            }
+
+            return Ok(ApiResponseDto<IEnumerable<ChildTaxThresholdDto>>.CreateSuccess(childTaxThresholdList, "Child tax thresholds retrieved successfully."));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+        }
+    }
+
+    [HttpGet("GetChildTaxThresholdByID")]
+    public async Task<IActionResult> GetChildTaxThresholdByID(int id)
+    {
+        try
+        {
+            var childTaxThreshold = await _childTaxservice.GetChildTaxThresholdById(id);
+
+            if (childTaxThreshold == null)
+            {
+                return NotFound(ApiResponseDto<string>.CreateFailure("No child tax threshold found."));
+            }
+
+            return Ok(ApiResponseDto<ChildTaxThresholdDto>.CreateSuccess(childTaxThreshold, "Child tax threshold retrieved successfully."));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+        }
+    }
+
+    [HttpPost("AddChildTaxThreshold")]
+    public async Task<IActionResult> AddChildTaxThreshold([FromBody] ChildTaxThresholdDto dto)
+    {
+        var validationResult = await _childTaxvalidator.ValidateAsync(dto);
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+        }
+
+        var existingThreshold = (await _childTaxservice.GetAllChildTaxThresholds())
+            .FirstOrDefault(t => t.IdTaxConfig == dto.IdTaxConfig && t.ChildrenCount == dto.ChildrenCount);
+
+        if (existingThreshold != null)
+        {
+            return Conflict(ApiResponseDto<string>.CreateFailure("Child tax threshold already exists."));
+        }
+
+        try
+        {
+            var result = await _childTaxservice.AddChildTaxThreshold(dto);
+            if (result == null)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add child tax threshold."));
+            }
+
+            return Ok(ApiResponseDto<string>.CreateSuccess("Child tax threshold added successfully."));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+        }
+    }
+
+    [HttpPost("UpdateChildTaxThreshold")]
+    public async Task<IActionResult> UpdateChildTaxThreshold([FromBody] ChildTaxThresholdDto dto)
+    {
+        var validationResult = await _childTaxvalidator.ValidateAsync(dto);
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+        }
+
+        if (dto.IdChildTaxThreshold <= 0)
+        {
+            return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for updating a child tax threshold."));
+        }
+
+        try
+        {
+            var existingThreshold = await _childTaxservice.GetChildTaxThresholdById(dto.IdChildTaxThreshold);
+            if (existingThreshold == null)
+            {
+                return NotFound(ApiResponseDto<string>.CreateFailure("Child tax threshold not found."));
+            }
+
+            var conflictThreshold = (await _childTaxservice.GetAllChildTaxThresholds())
+                .FirstOrDefault(t => t.IdTaxConfig == dto.IdTaxConfig && t.ChildrenCount == dto.ChildrenCount && t.IdChildTaxThreshold != dto.IdChildTaxThreshold);
+
+            if (conflictThreshold != null)
+            {
+                return Conflict(ApiResponseDto<string>.CreateFailure("Child tax threshold conflicts with an existing entry."));
+            }
+
+            var result = await _childTaxservice.UpdateChildTaxThreshold(dto);
+            if (result == null)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update child tax threshold."));
+            }
+
+            return Ok(ApiResponseDto<string>.CreateSuccess("Child tax threshold updated successfully."));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
         }
     }
     #endregion
