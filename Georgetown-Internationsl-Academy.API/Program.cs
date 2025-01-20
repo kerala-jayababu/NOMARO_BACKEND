@@ -60,7 +60,18 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddDbContext<ApplicationDBContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbContext")));
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigins", policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:5174",
+            "http://localhost:5173"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod();
+    });
+});
 
 builder.Services.AddScoped<IBudgetCodeServices, BudgetCodeServices>();
 builder.Services.AddScoped<IDesignationServices, DesignationServices>();
@@ -95,7 +106,7 @@ else
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("AllowSpecificOrigins");
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapControllers();
