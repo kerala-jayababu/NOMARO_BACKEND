@@ -60,16 +60,17 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddDbContext<ApplicationDBContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbContext")));
+// Read CORS configuration from appsettings.json
+var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();
+
+// Add CORS policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        policy.WithOrigins(
-            "http://localhost:5174",
-            "http://localhost:5173"
-        )
-        .AllowAnyHeader()
-        .AllowAnyMethod();
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
