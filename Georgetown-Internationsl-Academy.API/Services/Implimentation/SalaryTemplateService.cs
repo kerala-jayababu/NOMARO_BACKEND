@@ -90,4 +90,5 @@ public class SalaryTemplateService : ISalaryTemplateService
             return null;
         }
     }
+
 }

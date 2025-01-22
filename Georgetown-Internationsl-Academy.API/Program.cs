@@ -89,7 +89,7 @@ builder.Services.AddScoped<ITaxSlabService, TaxSlabService>();
 builder.Services.AddScoped<ICurrencyConversionService, CurrencyConversionService>();
 builder.Services.AddScoped<IChildTaxThresholdService, ChildTaxThresholdService>();
 builder.Services.AddScoped<ISalaryTemplateService, SalaryTemplateService>();
-
+builder.Services.AddScoped<IOvertimeTransactionService, OvertimeTransactionService>();
 
 var app = builder.Build();
 

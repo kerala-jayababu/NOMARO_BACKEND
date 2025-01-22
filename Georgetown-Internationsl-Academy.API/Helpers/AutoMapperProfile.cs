@@ -26,8 +26,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<ChildTaxThreshold, ChildTaxThresholdDto>().ReverseMap();
             CreateMap<SalaryTemplate, SalaryTemplateDto>().ReverseMap();
             CreateMap<SalaryTemplate, SalaryTemplateManageDto>().ReverseMap();
-            
-
+            CreateMap<OvertimeTransactionEntity, OvertimeTransactionDto>().ReverseMap();
         }
      }
 }

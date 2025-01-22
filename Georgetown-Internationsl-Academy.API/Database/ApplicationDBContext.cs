@@ -1,4 +1,5 @@
-﻿using Georgetown_Internationsl_Academy.API.Models;
+﻿using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 namespace Georgetown_International_Academy.API.Database
@@ -29,12 +30,6 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<CurrencyConversion> CurrencyConversions { get; set; }
         public DbSet<ChildTaxThreshold> ChildTaxThresholds { get; set; }
         public DbSet<SalaryTemplate> SalaryTemplates { get; set; }
-
-        
-
-
-
-
-
+        public DbSet<OvertimeTransactionEntity> OvertimeTransactions { get; set; }
     }
 }

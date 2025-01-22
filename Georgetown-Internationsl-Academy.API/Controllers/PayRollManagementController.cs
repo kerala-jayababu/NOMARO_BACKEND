@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +14,18 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     public class PayRollManagementController : ControllerBase
     {
         private readonly ICurrencyConversionService _currencyConversionService;
+        private readonly IOvertimeTransactionService _overtimeTransactionService;
         private readonly IValidator<CurrencyConversionDto> _currencyConversionValidator;
-        public PayRollManagementController(ICurrencyConversionService currencyConversionService, IValidator<CurrencyConversionDto> currencyConversionValidator)
+        private readonly IValidator<OvertimeTransactionDto> _overtimeTransactionValidator;
+        public PayRollManagementController(ICurrencyConversionService currencyConversionService, 
+            IValidator<CurrencyConversionDto> currencyConversionValidator,
+            IOvertimeTransactionService overtimeTransactionService, 
+            IValidator<OvertimeTransactionDto> overtimeTransactionValidator)
         {
             _currencyConversionService = currencyConversionService;
             _currencyConversionValidator = currencyConversionValidator;
+            _overtimeTransactionService = overtimeTransactionService;
+            _overtimeTransactionValidator = overtimeTransactionValidator;
         }
 
         [HttpGet("GetAllCurrencyConversions")]
@@ -111,9 +119,96 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetOvertimeTransactions")]
+        public async Task<IActionResult> GetOvertimeTransactions()
+        {
+            try
+            {
+                var transactions = await _overtimeTransactionService.GetOvertimeTransactionList();
 
+                if (!transactions.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No overtime transactions found."));
+                }
 
+                return Ok(ApiResponseDto<IEnumerable<OvertimeTransactionDto>>.CreateSuccess(transactions, "Overtime transactions retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
+        [HttpGet("GetOvertimeTransactionById")]
+        public async Task<IActionResult> GetOvertimeTransactionById(int id)
+        {
+            try
+            {
+                var transaction = await _overtimeTransactionService.GetOvertimeTransactionById(id);
 
+                if (transaction == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Overtime transaction not found."));
+                }
+
+                return Ok(ApiResponseDto<OvertimeTransactionDto>.CreateSuccess(transaction, "Overtime transaction retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddOvertimeTransaction")]
+        public async Task<IActionResult> AddOvertimeTransaction([FromBody] OvertimeTransactionDto dto)
+        {
+            var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            try
+            {
+                var result = await _overtimeTransactionService.AddOvertimeTransaction(dto);
+                if (result == null)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add overtime transaction."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Overtime transaction added successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateOvertimeTransaction")]
+        public async Task<IActionResult> UpdateOvertimeTransaction([FromBody] OvertimeTransactionDto dto)
+        {
+            var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            try
+            {
+                var result = await _overtimeTransactionService.UpdateOvertimeTransaction(dto);
+                if (result == null)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update overtime transaction."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Overtime transaction updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
     }
 }
