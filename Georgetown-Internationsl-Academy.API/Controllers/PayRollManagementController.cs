@@ -3,8 +3,11 @@ using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Georgetown_Internationsl_Academy.API.Validators.PayrollManagement;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel.DataAnnotations;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -17,16 +20,40 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IOvertimeTransactionService _overtimeTransactionService;
         private readonly IValidator<CurrencyConversionDto> _currencyConversionValidator;
         private readonly IValidator<OvertimeTransactionDto> _overtimeTransactionValidator;
+        private readonly ISalaryAdjustmentService _salaryAdjustmentService;
+        private readonly IValidator<SalaryAdjustmentDto> _salaryAdjustmentvalidator;
+        private readonly IScheduledSalaryDeductionService _ScheduledSalaryDeductionScheduledSalaryDeductionservice;
+        private readonly IValidator<ScheduledSalaryDeductionDto> _scheduledSalaryDeductionscheduledSalaryDeductionValidator;
+        private readonly IMaternityLeaveSalaryService _maternityLeaveSalaryService;
+        private readonly IValidator<MaternityLeaveSalaryDto> _maternityLeaveSalaryValidator;
+        private readonly IRentFreeQuarterService _rentfreeservice;
+        private readonly IValidator<RentFreeQuarterDto> _rentfreevalidator;
+
         public PayRollManagementController(ICurrencyConversionService currencyConversionService, 
             IValidator<CurrencyConversionDto> currencyConversionValidator,
             IOvertimeTransactionService overtimeTransactionService, 
-            IValidator<OvertimeTransactionDto> overtimeTransactionValidator)
+            IValidator<OvertimeTransactionDto> overtimeTransactionValidator,
+            ISalaryAdjustmentService salaryAdjustmentService, IValidator<SalaryAdjustmentDto> salaryAdjustmentvalidator,
+            IScheduledSalaryDeductionService ScheduledSalaryDeductionservice,
+            IValidator<ScheduledSalaryDeductionDto> scheduledSalaryDeductionValidator,
+            IMaternityLeaveSalaryService maternityLeaveSalaryService, IValidator<MaternityLeaveSalaryDto> maternityLeaveSalaryValidator,
+            IRentFreeQuarterService rentfreeservice, IValidator<RentFreeQuarterDto> rentfreevalidator)
         {
             _currencyConversionService = currencyConversionService;
             _currencyConversionValidator = currencyConversionValidator;
             _overtimeTransactionService = overtimeTransactionService;
             _overtimeTransactionValidator = overtimeTransactionValidator;
+            _salaryAdjustmentService = salaryAdjustmentService;
+            _salaryAdjustmentvalidator = salaryAdjustmentvalidator;
+            _ScheduledSalaryDeductionScheduledSalaryDeductionservice = ScheduledSalaryDeductionservice;
+            _scheduledSalaryDeductionscheduledSalaryDeductionValidator = scheduledSalaryDeductionValidator;
+            _maternityLeaveSalaryService = maternityLeaveSalaryService;
+            _maternityLeaveSalaryValidator = maternityLeaveSalaryValidator;
+            _rentfreeservice = rentfreeservice;
+            _rentfreevalidator = rentfreevalidator;
         }
+
+        #region CurrencyConversions
 
         [HttpGet("GetAllCurrencyConversions")]
         public async Task<IActionResult> GetAllCurrencyConversions()
@@ -118,6 +145,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+        #endregion
+
+        #region OvertimeTransactions
 
         [HttpGet("GetOvertimeTransactions")]
         public async Task<IActionResult> GetOvertimeTransactions()
@@ -210,5 +240,349 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+        #endregion
+
+        #region salaryAdjustments
+        [HttpGet("GetAllSalaryAdjustments")]
+        public async Task<IActionResult> GetAllSalaryAdjustments()
+        {
+            try
+            {
+                var adjustments = await _salaryAdjustmentService.GetAllSalaryAdjustments();
+                if (!adjustments.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No salary adjustments found."));
+                }
+                return Ok(ApiResponseDto<IEnumerable<SalaryAdjustmentDto>>.CreateSuccess(adjustments, "Salary adjustments retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetSalaryAdjustmentById")]
+        public async Task<IActionResult> GetSalaryAdjustmentById(int id)
+        {
+            try
+            {
+                var adjustment = await _salaryAdjustmentService.GetSalaryAdjustmentById(id);
+                if (adjustment == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Salary adjustment not found."));
+                }
+                return Ok(ApiResponseDto<SalaryAdjustmentDto>.CreateSuccess(adjustment, "Salary adjustment retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddSalaryAdjustment")]
+        public async Task<IActionResult> AddSalaryAdjustment([FromBody] SalaryAdjustmentDto dto)
+        {
+            var validationResult = await _salaryAdjustmentvalidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            var result = await _salaryAdjustmentService.AddSalaryAdjustment(dto);
+            if (result == null)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add salary adjustment."));
+            }
+            return Ok(ApiResponseDto<string>.CreateSuccess("Salary adjustment added successfully."));
+        }
+
+        [HttpPost("UpdateSalaryAdjustment")]
+        public async Task<IActionResult> UpdateSalaryAdjustment([FromBody] SalaryAdjustmentDto dto)
+        {
+            var validationResult = await _salaryAdjustmentvalidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            var result = await _salaryAdjustmentService.UpdateSalaryAdjustment(dto);
+            if (result == null)
+            {
+                return NotFound(ApiResponseDto<string>.CreateFailure("Salary adjustment not found."));
+            }
+            return Ok(ApiResponseDto<string>.CreateSuccess("Salary adjustment updated successfully."));
+        }
+        #endregion
+
+        #region   ScheduledDeductions
+        
+     [HttpGet("GetAllScheduledSalaryDeductionservice")]
+    public async Task<IActionResult> GetAllScheduledSalaryDeductionservice()
+        {
+            try
+            {
+                var deductions = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.GetScheduledDeductions();
+                return Ok(ApiResponseDto<IEnumerable<ScheduledSalaryDeductionDto>>.CreateSuccess(deductions, "Scheduled deductions retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetScheduledSalaryDeductionserviceById")]
+        public async Task<IActionResult> GetScheduledSalaryDeductionserviceById(int id)
+        {
+            try
+            {
+                var deduction = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.GetScheduledDeductionById(id);
+                if (deduction == null)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Scheduled deduction not found."));
+
+                return Ok(ApiResponseDto<ScheduledSalaryDeductionDto>.CreateSuccess(deduction, "Scheduled deduction retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddscheduledSalaryDeductionservice")]
+        public async Task<IActionResult> AddscheduledSalaryDeductionservice([FromBody] ScheduledSalaryDeductionDto dto)
+        {
+            var validationResult = await _scheduledSalaryDeductionscheduledSalaryDeductionValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            try
+            {
+                var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.AddScheduledDeduction(dto);
+                if (result == null)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create scheduled deduction."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Scheduled deduction created successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdatescheduledSalaryDeductionservice")]
+        public async Task<IActionResult> UpdatescheduledSalaryDeductionservice([FromBody] ScheduledSalaryDeductionDto dto)
+        {
+            var validationResult = await _scheduledSalaryDeductionscheduledSalaryDeductionValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            try
+            {
+                var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.UpdateScheduledDeduction(dto);
+                if (result == null)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Scheduled deduction not found."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Scheduled deduction updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        #endregion
+
+        #region MaternityLeaveSalaries
+
+        [HttpGet("GetAllMaternityLeaveSalaries")]
+        public async Task<IActionResult> GetAllMaternityLeaveSalaries()
+        {
+            try
+            {
+                var leaveSalaries = await _maternityLeaveSalaryService.GetAllMaternityLeaveSalaries();
+
+                if (!leaveSalaries.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No maternity leave salaries found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<MaternityLeaveSalaryDto>>.CreateSuccess(leaveSalaries, "Maternity leave salaries retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetMaternityLeaveSalaryById")]
+        public async Task<IActionResult> GetMaternityLeaveSalaryById(int id)
+        {
+            try
+            {
+                var leaveSalary = await _maternityLeaveSalaryService.GetMaternityLeaveSalaryById(id);
+
+                if (leaveSalary == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Maternity leave salary not found."));
+                }
+
+                return Ok(ApiResponseDto<MaternityLeaveSalaryDto>.CreateSuccess(leaveSalary, "Maternity leave salary retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddMaternityLeaveSalary")]
+        public async Task<IActionResult> AddMaternityLeaveSalary([FromBody] MaternityLeaveSalaryDto dto)
+        {
+            var validationResult = await _maternityLeaveSalaryValidator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            try
+            {
+                var result = await _maternityLeaveSalaryService.AddMaternityLeaveSalary(dto);
+
+                if (result == null)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create maternity leave salary."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Maternity leave salary created successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateMaternityLeaveSalary")]
+        public async Task<IActionResult> UpdateMaternityLeaveSalary([FromBody] MaternityLeaveSalaryDto dto)
+        {
+            var validationResult = await _maternityLeaveSalaryValidator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            if (dto.IdMaternityLeaveSalary <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid ID. ID must be greater than 0."));
+            }
+
+            try
+            {
+                var result = await _maternityLeaveSalaryService.UpdateMaternityLeaveSalary(dto);
+
+                if (result == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Maternity leave salary not found."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Maternity leave salary updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        #endregion
+
+        #region rentFreeQuarter
+        [HttpGet("GetRentFreeQuarterList")]
+        public async Task<IActionResult> GetRentFreeQuarterList()
+        {
+            try
+            {
+                var list = await _rentfreeservice.GetRentFreeQuarters();
+                if (!list.Any())
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No Rent-Free Quarters found."));
+
+                return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterDto>>.CreateSuccess(list, "Rent-Free Quarters retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetRentFreeQuarterByID")]
+        public async Task<IActionResult> GetRentFreeQuarterByID(int id)
+        {
+            try
+            {
+                var rentFreeQuarter = await _rentfreeservice.GetRentFreeQuarterById(id);
+                if (rentFreeQuarter == null)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No Rent-Free Quarter found."));
+
+                return Ok(ApiResponseDto<RentFreeQuarterDto>.CreateSuccess(rentFreeQuarter, "Rent-Free Quarter retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddRentFreeQuarter")]
+        public async Task<IActionResult> AddRentFreeQuarter([FromBody] RentFreeQuarterDto dto)
+        {
+            var validationResult = await _rentfreevalidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage))}"));
+
+            try
+            {
+                var result = await _rentfreeservice.AddRentFreeQuarter(dto);
+                if (result == null)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add Rent-Free Quarter."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Rent-Free Quarter added successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateRentFreeQuarter")]
+        public async Task<IActionResult> UpdateRentFreeQuarter([FromBody] RentFreeQuarterDto dto)
+        {
+            var validationResult = await _rentfreevalidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage))}"));
+
+            try
+            {
+                var result = await _rentfreeservice.UpdateRentFreeQuarter(dto);
+                if (result == null)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Rent-Free Quarter not found."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Rent-Free Quarter updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+      
+        #endregion
+
+
     }
 }

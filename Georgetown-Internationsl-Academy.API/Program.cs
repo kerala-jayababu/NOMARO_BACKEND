@@ -90,6 +90,12 @@ builder.Services.AddScoped<ICurrencyConversionService, CurrencyConversionService
 builder.Services.AddScoped<IChildTaxThresholdService, ChildTaxThresholdService>();
 builder.Services.AddScoped<ISalaryTemplateService, SalaryTemplateService>();
 builder.Services.AddScoped<IOvertimeTransactionService, OvertimeTransactionService>();
+builder.Services.AddScoped<ISalaryTemplateDetailsService, SalaryTemplateDetailsService>();
+builder.Services.AddScoped<ISalaryAdjustmentService, SalaryAdjustmentService>();
+builder.Services.AddScoped<IScheduledSalaryDeductionService, ScheduledSalaryDeductionService>();
+builder.Services.AddScoped<IMaternityLeaveSalaryService, MaternityLeaveSalaryService>();
+builder.Services.AddScoped<IRentFreeQuarterService, RentFreeQuarterService>();
+builder.Services.AddScoped<IEmployeeSalaryConfigService, EmployeeSalaryConfigService>();
 
 var app = builder.Build();
 

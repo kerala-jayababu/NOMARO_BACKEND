@@ -58,13 +58,23 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                    })
                    .ToListAsync();
 
+                var overtime = await _dbContext.OvertimeTypes
+                   .Select(b => new SelectOptionIntDto
+                   {
+                       Value = b.IdOvertimeType,
+                       DisplayName = b.OvertimeTypeName
+                   })
+                   .ToListAsync();
+
+
                 // Return all options together
                 return new AllOptionsDto
                 {
                     SalaryHeads = salaryHeads,
                     BudgetCodes = budgetCodes,
                     Banks = banks,
-                    BankBranches= branches
+                    BankBranches= branches,
+                    OverTimesTypes = overtime
                 };
             }
             catch (Exception ex)

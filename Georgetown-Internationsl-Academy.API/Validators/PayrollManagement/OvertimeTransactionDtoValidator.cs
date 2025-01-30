@@ -7,23 +7,12 @@ namespace Georgetown_Internationsl_Academy.API.Validators.PayrollManagement
     {
         public OvertimeTransactionDtoValidator()
         {
-            RuleFor(o => o.IdEmployee).
-                GreaterThan(0).WithMessage("Employee ID is required.");
-
-            RuleFor(o => o.IdOvertimeType).
-               GreaterThan(0).WithMessage("Overtime Type is required.");
-
-            RuleFor(o => o.OvertimeDate)
-                .NotEmpty().WithMessage("Overtime date is required.");
-
-            RuleFor(o => o.StartTime)
-                .NotEmpty().WithMessage("Start time is required.");
-
-            RuleFor(o => o.DurationInHours)
-                .GreaterThan(0).WithMessage("Duration must be greater than 0.");
-
-            RuleFor(o => o.ReasonForOverTime)
-                .MaximumLength(200).WithMessage("Reason for overtime must not exceed 200 characters.");
+            RuleFor(x => x.IdEmployee).GreaterThan(0).WithMessage("Employee ID must be greater than 0.");
+            RuleFor(x => x.IdOvertimeType).GreaterThan(0).WithMessage("Overtime Type ID must be greater than 0.");
+            RuleFor(x => x.StartDate).LessThanOrEqualTo(x => x.EndDate)
+                .WithMessage("Start Date must be less than or equal to End Date.");
+            RuleFor(x => x.DurationInHours).GreaterThan(0).WithMessage("Duration in hours must be greater than 0.");
+            RuleFor(x => x.ReasonForOvertime).NotEmpty().WithMessage("Reason for overtime is required.");
         }
     }
 }

@@ -27,6 +27,13 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<SalaryTemplate, SalaryTemplateDto>().ReverseMap();
             CreateMap<SalaryTemplate, SalaryTemplateManageDto>().ReverseMap();
             CreateMap<OvertimeTransactionEntity, OvertimeTransactionDto>().ReverseMap();
+            CreateMap<SalaryTemplateDetails, SalaryTemplateDetailDto>().ReverseMap();
+            CreateMap<SalaryAdjustment, SalaryAdjustmentDto>().ReverseMap();
+            CreateMap<ScheduledSalaryDeduction, ScheduledSalaryDeductionDto>().ReverseMap();
+            CreateMap<MaternityLeaveSalaryEntity, MaternityLeaveSalaryDto>().ReverseMap();
+            CreateMap<RentFreeQuarter, RentFreeQuarterDto>().ReverseMap();
+            CreateMap<EmployeeSalaryConfig, EmployeeSalaryConfigDto>().ReverseMap();
+            CreateMap<EmployeeSalaryConfigDetails, EmployeeSalaryConfigDetailsDto>().ReverseMap();
         }
      }
 }

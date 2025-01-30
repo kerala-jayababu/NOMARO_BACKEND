@@ -30,6 +30,16 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<CurrencyConversion> CurrencyConversions { get; set; }
         public DbSet<ChildTaxThreshold> ChildTaxThresholds { get; set; }
         public DbSet<SalaryTemplate> SalaryTemplates { get; set; }
+        public DbSet<SalaryTemplateDetails> SalaryTemplateDetails { get; set; }
         public DbSet<OvertimeTransactionEntity> OvertimeTransactions { get; set; }
+        public DbSet<SalaryAdjustment> SalaryAdjustments { get; set; }
+        public DbSet<ScheduledSalaryDeduction> ScheduledDeductions { get; set; }
+        public DbSet<MaternityLeaveSalaryEntity> MaternityLeaveSalaries { get; set; }
+        public DbSet<RentFreeQuarter> RentFreeQuarters { get; set; }
+        public DbSet<OvertimeTypes> OvertimeTypes { get; set; }
+        public DbSet<EmployeeSalaryConfigDetails> EmployeeSalaryConfigDetails { get; set; }
+        public DbSet<EmployeeSalaryConfig> EmployeeSalaryConfig { get; set; }
+        
+
     }
 }
