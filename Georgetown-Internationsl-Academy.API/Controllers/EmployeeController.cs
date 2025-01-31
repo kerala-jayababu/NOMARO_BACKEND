@@ -68,6 +68,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
+        [HttpGet("GetEmployeeProfileByID")]
+        public async Task<IActionResult> GetEmployeeProfileByID(int Id)
+        {
+            try
+            {
+                var employeeProfile = await _employeeservice.GetEmployeeProfileByID(Id);
+
+                if (employeeProfile == null || !employeeProfile.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Employee bank account details not found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDetailsDto>>.CreateSuccess(employeeProfile, "Employee profile details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpGet("GetEmployeeBankAccountsByID")]
         public async Task<IActionResult> GetEmployeeBankAccountsByID(int Id)
         {

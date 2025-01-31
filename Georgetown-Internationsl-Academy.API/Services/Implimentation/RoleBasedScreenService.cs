@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
@@ -98,23 +99,41 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<List<EmployeePermissionDto>> GetEmployeePermissionsById(int employeeId)
         {
+            const string query = @"
+        SELECT 
+            ep.IdEmployeePermission,
+            ep.IdEmployee,
+            ep.IdPayrollScreen,
+            ep.Permission,
+            ps.ScreenName
+        FROM 
+            EmployeePermissions ep
+        left JOIN 
+            PayrollScreens ps ON ep.IdPayrollScreen = ps.IdPayrollScreen
+        WHERE 
+            ep.IdEmployee = @IdEmployee
+        ORDER BY 
+            ps.OrderNumber;
+    ";
+
             try
             {
-                // Fetch the permissions based on employeeId
-                var permissions = await _dbContext.EmployeePermissions
-                    .Where(permission => permission.IdEmployee == employeeId)
-                    .ToListAsync();
-                
-                var mappedPermissions = _mapper.Map<List<EmployeePermissionDto>>(permissions);
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
 
-                return mappedPermissions;
+                    var permissions = await connection.QueryAsync<EmployeePermissionDto>(query, new { IdEmployee = employeeId });
+                    return permissions.ToList(); 
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching permissions for Employee ID: {EmployeeId}", employeeId);
-                throw;
+                _logger.LogError(ex, $"Error fetching permissions for Employee ID: {employeeId} using Dapper.");
+                throw new Exception($"An error occurred while retrieving permissions for Employee ID: {employeeId}. Please try again later.", ex);
             }
         }
+
 
 
 

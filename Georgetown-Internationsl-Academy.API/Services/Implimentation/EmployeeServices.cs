@@ -180,6 +180,55 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+
+        public async Task<IEnumerable<EmployeeProfileDetailsDto>> GetEmployeeProfileByID(int Id)
+        {
+            var query = @"
+        SELECT 
+            e.IdEmployee,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', e.MiddleName, ' ', e.LastName) AS FullName,
+            e.EmailId,
+            e.PhoneNumber1 AS PhoneNumber1,
+            e.PhoneNumber2 AS PhoneNumber2,
+            e.WhatsAppNumber AS WhatsAppNumber,
+            d.DepartmentName AS Department,
+            des.DesignationName AS Designation,
+           CONCAT(r.FirstName, ' ', r.MiddleName, ' ', r.LastName) AS ReportingTo,
+            b.BudgetCodeName AS BudgetCode,
+            e.TaxIdNumber,
+            CONCAT(e.Address1, ', ', e.Address2, ',' , e.Address3, ',', e.City, ', ', e.State, ', ', e.ZipCode) AS Address,
+            e.CurrentStatus,
+            e.JoiningDate,            
+            e.Gender       -- Include Gender
+        FROM dbo.Employees e
+        LEFT JOIN dbo.Departments d ON e.IdDepartment = d.IdDepartment
+        LEFT JOIN dbo.Designations des ON e.IdDesignation = des.IdDesignation
+        LEFT JOIN dbo.Employees r ON e.ReportingTo = r.IdEmployee
+        LEFT JOIN dbo.BudgetCodes b ON e.IdBudgetCode = b.IdBudgetCode
+        WHERE e.IdEmployee = @Id;
+    ";
+
+            try
+            {
+
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var employeeProfileDetailsDtos = await connection.QueryAsync<EmployeeProfileDetailsDto>(query, new { Id = Id });
+                    return employeeProfileDetailsDtos;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error fetching employeeProfileDetails for Employee ID: {Id} using Dapper.");
+                throw;
+            }
+        }
+        
+
         public async Task<IEnumerable<EmployeeOvertimeConfigDto>> GetEmployeeOvertimeConfigsByID(int employeeId)
         {
             const string query = @"
