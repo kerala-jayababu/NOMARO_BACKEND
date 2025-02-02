@@ -41,6 +41,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     })
                     .ToListAsync();
 
+                // Fetch Employee Codes
+                var employee = await _dbContext.Employees
+                    .Select(b => new SelectOptionIntDto
+                    {
+                        Value = b.IdEmployee,
+                        DisplayName = $"{b.FirstName} {b.MiddleName} {b.LastName} "
+                    })
+                    .ToListAsync();
+
                 // Fetch Banks
                 var banks = await _dbContext.Banks
                     .Select(b => new SelectOptionIntDto
@@ -73,6 +82,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     SalaryHeads = salaryHeads,
                     BudgetCodes = budgetCodes,
                     Banks = banks,
+                    EmployeeList=employee,
                     BankBranches= branches,
                     OverTimesTypes = overtime
                 };

@@ -556,7 +556,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var conflictSalaryHead = (await _salaryservice.GetSalaryHeadList())
-                    .FirstOrDefault(s => s.SalaryHeadCode == dto.SalaryHeadCode && s.SalaryHeadName == dto.SalaryHeadName);
+         .FirstOrDefault(s => s.SalaryHeadCode == dto.SalaryHeadCode
+                           && s.SalaryHeadName == dto.SalaryHeadName
+                           && s.IdSalaryHead != dto.IdSalaryHead);
 
                 if (conflictSalaryHead != null)
                 {

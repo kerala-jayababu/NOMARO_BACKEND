@@ -7,5 +7,6 @@
         public List<SelectOptionIntDto> Banks { get; set; }
         public List<SelectOptionIntDto> BankBranches { get; set; }
         public List<SelectOptionIntDto> OverTimesTypes { get; set; }
+        public List<SelectOptionIntDto> EmployeeList { get; set; }
     }
 }
