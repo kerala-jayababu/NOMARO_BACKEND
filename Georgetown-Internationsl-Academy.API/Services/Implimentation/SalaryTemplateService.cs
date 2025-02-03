@@ -46,12 +46,12 @@ public class SalaryTemplateService : ISalaryTemplateService
         }
     }
 
-    public async Task<SalaryTemplateDto?> AddSalaryTemplate(SalaryTemplateManageDto salaryTemplate)
+    public async Task<SalaryTemplateDto?> AddSalaryTemplate(SalaryTemplateManageDto salaryTemplate,int IdEmployee)
     {
         try
         {
             var templateEntity = _mapper.Map<SalaryTemplate>(salaryTemplate);
-            templateEntity.CreatedBy = 1;
+            templateEntity.CreatedBy = IdEmployee;
             templateEntity.CreatedOn = DateTime.Now;
             var addedEntity = await _dbContext.SalaryTemplates.AddAsync(templateEntity);
             await _dbContext.SaveChangesAsync();
@@ -65,7 +65,7 @@ public class SalaryTemplateService : ISalaryTemplateService
         }
     }
 
-    public async Task<SalaryTemplateDto?> UpdateSalaryTemplate(SalaryTemplateDto salaryTemplate)
+    public async Task<SalaryTemplateDto?> UpdateSalaryTemplate(SalaryTemplateDto salaryTemplate,int IdEmployee)
     {
         try
         {
@@ -74,7 +74,7 @@ public class SalaryTemplateService : ISalaryTemplateService
 
             template.SalaryTemplateName = salaryTemplate.SalaryTemplateName;
             template.Description = salaryTemplate.Description;
-            template.ModifiedBy = 1;
+            template.ModifiedBy = IdEmployee;
             template.ModifiedOn = DateTime.UtcNow;
             template.ApprovalStatus = salaryTemplate.ApprovalStatus;
             template.ActiveStatus = salaryTemplate.ActiveStatus;

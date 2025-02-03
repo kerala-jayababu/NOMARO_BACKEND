@@ -6,8 +6,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
         Task<IEnumerable<TaxConfigDto>> GetAllTaxConfigs();
         Task<TaxConfigDto?> GetTaxConfigById(int id);
-        Task<TaxConfigManageDto?> AddTaxConfig(TaxConfigManageDto taxConfigDto);
-        Task<TaxConfigManageDto?> UpdateTaxConfig(TaxConfigManageDto taxConfigDto);
+        Task<TaxConfigManageDto?> AddTaxConfig(TaxConfigManageDto taxConfigDto, int IdEmployee);
+        Task<TaxConfigManageDto?> UpdateTaxConfig(TaxConfigManageDto taxConfigDto, int IdEmployee);
     }
 
 }

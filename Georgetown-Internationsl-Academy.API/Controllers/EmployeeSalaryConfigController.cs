@@ -3,6 +3,7 @@ using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -76,7 +77,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _employeeSalaryConfigService.AddConfig(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _employeeSalaryConfigService.AddConfig(dto,int.Parse(IdEmployee));
                 if (result == null)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add configuration."));
 

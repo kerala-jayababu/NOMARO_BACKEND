@@ -6,7 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
         Task<IEnumerable<OvertimeTransactionDto>> GetOvertimeTransactionList();
         Task<OvertimeTransactionDto?> GetOvertimeTransactionById(int id);
-        Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transaction);
+        Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transaction,int IdEmployee);
         Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transaction);
     }
 }

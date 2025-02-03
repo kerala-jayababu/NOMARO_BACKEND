@@ -49,7 +49,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<SalaryHeadDto?> AddSalaryHead(SalaryHeadDto dto)
+        public async Task<SalaryHeadDto?> AddSalaryHead(SalaryHeadDto dto,int IdEmployee)
         {
             try
             {
@@ -62,7 +62,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var salaryHeadEntity = _mapper.Map<SalaryHeads>(dto);              
                 salaryHeadEntity.CreatedOn = DateTime.Now;
                 salaryHeadEntity.HeadType = dto.HeadType.ToUpper().Trim();
-                salaryHeadEntity.CreatedBy = 1;
+                salaryHeadEntity.CreatedBy = IdEmployee;
                 var addedEntity = await _dbContext.SalaryHeads.AddAsync(salaryHeadEntity);
                 await _dbContext.SaveChangesAsync();
 
@@ -75,7 +75,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<SalaryHeadDto?> UpdateSalaryHead(SalaryHeadDto dto)
+        public async Task<SalaryHeadDto?> UpdateSalaryHead(SalaryHeadDto dto,int IdEmployee)
         {
             try
             {
@@ -92,7 +92,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 salaryHead.PercentageValue = dto.PercentageValue;
                 salaryHead.FixedValue = dto.FixedValue;
                 salaryHead.CustomFormula = dto.CustomFormula;
-                salaryHead.ModifiedBy = 1;
+                salaryHead.ModifiedBy = IdEmployee;
                 salaryHead.ModifiedOn = DateTime.Now;
                 salaryHead.IsLOPSalaryHead = dto.IsLOPSalaryHead;
 

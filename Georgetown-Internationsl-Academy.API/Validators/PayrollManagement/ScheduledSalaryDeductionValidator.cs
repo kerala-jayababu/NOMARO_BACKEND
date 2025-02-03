@@ -31,6 +31,12 @@ namespace Georgetown_Internationsl_Academy.API.Validators.PayrollManagement
                 .GreaterThan(0).WithMessage("Monthly deductible amount must be greater than 0.")
                 .Equal(x => x.TotalAmount / x.MonthCount)
                 .WithMessage("Monthly deductible amount must equal Total Amount divided by Month Count.");
+
+            RuleFor(x => x.DeductionFromSalaryMonthDate)
+                .NotEmpty().WithMessage("DeductionFromSalaryMonthDate is required");
+
+            RuleFor(x => x.DeductionToSalaryMonthDate)
+                .NotEmpty().WithMessage("DeductionToSalaryMonthDate is required");
         }
     }
 }

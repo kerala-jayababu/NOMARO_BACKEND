@@ -6,7 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
         Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs();
         Task<EmployeeSalaryConfigDto?> GetConfigById(int id);
-        Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto);
+        Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto, int IdEmployee);
         Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto);
 
         Task<IEnumerable<EmployeeSalaryConfigDetailsDto>> GetAllDetails();

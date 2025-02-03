@@ -6,6 +6,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -85,7 +86,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _salaryTemplateService.AddSalaryTemplate(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _salaryTemplateService.AddSalaryTemplate(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add salary template."));
@@ -111,7 +113,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _salaryTemplateService.UpdateSalaryTemplate(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _salaryTemplateService.UpdateSalaryTemplate(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("Salary template not found for update."));

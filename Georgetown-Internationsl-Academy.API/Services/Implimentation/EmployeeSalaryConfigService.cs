@@ -50,12 +50,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto)
+        public async Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto,int IdEmployee)
         {
             try
             {
                 var entity = _mapper.Map<EmployeeSalaryConfig>(dto);
-                entity.CreatedBy = 1;
+                entity.CreatedBy = IdEmployee;
                 entity.CreatedOn = DateTime.Now;
                 _dbContext.EmployeeSalaryConfig.Add(entity);
                 await _dbContext.SaveChangesAsync();

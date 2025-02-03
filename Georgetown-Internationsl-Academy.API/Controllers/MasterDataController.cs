@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -520,7 +521,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-               var res= await _salaryservice.AddSalaryHead(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var res= await _salaryservice.AddSalaryHead(dto, int.Parse(IdEmployee));
                 if (res == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create salary head."));
@@ -567,7 +569,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return Conflict(ApiResponseDto<string>.CreateFailure("Salary head conflicts with an existing entry."));
                 }
 
-              var res=    await _salaryservice.UpdateSalaryHead(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var res=    await _salaryservice.UpdateSalaryHead(dto, int.Parse(IdEmployee));
                 if (res == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update salary head."));

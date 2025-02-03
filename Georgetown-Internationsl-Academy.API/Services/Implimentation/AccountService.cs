@@ -43,6 +43,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var authClaims = new List<Claim>
             {
             new(ClaimTypes.Name,  user.FirstName+" "+user.LastName),
+            new(ClaimTypes.NameIdentifier, user.IdEmployee.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
@@ -67,7 +68,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var token = new JwtSecurityToken(
                 _configuration["JwtSettings:ValidIssuer"],
                 _configuration["JwtSettings:ValidAudience"],
-                expires: DateTime.Now.AddMinutes(30),
+                expires: DateTime.Now.AddMinutes(400),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             );

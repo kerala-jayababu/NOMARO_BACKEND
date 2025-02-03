@@ -17,11 +17,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string ReasonForOverTime { get; set; } = string.Empty;
         public string Attachment { get; set; } = string.Empty;
         public string AttachmentDescription { get; set; } = string.Empty;
-        public DateTime? ManagerApprovedDate { get; set; }
-        public DateTime? HRApprovedDate { get; set; }
-        public int? IdManagerApprovedBy { get; set; }
         public int? CreatedBy { get; set; }
-        public int? IdHRApprovedBy { get; set; }
         public DateTime? CreatedOn { get; set; }
+        public string? ApprovalStatus { get; set; }
     }
 }

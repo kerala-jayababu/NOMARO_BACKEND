@@ -4,6 +4,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 [ApiController]
 [ApiVersion(1)]
@@ -83,7 +84,8 @@ public class TaxConfigsController : ControllerBase
 
         try
         {
-            var result = await _taxConfigService.AddTaxConfig(dto);
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var result = await _taxConfigService.AddTaxConfig(dto, int.Parse(IdEmployee));
 
             if (result == null)
             {
@@ -110,7 +112,8 @@ public class TaxConfigsController : ControllerBase
 
         try
         {
-            var result = await _taxConfigService.UpdateTaxConfig(dto);
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var result = await _taxConfigService.UpdateTaxConfig(dto, int.Parse(IdEmployee));
 
             if (result == null)
             {

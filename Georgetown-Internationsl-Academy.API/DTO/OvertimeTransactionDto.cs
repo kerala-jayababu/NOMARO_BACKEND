@@ -14,9 +14,7 @@
         public string ReasonForOvertime { get; set; } = string.Empty;
         public string? Attachment { get; set; }
         public string? AttachmentDescription { get; set; }
-        public int? IdManagerApprovedBy { get; set; }
-        public DateTime? ManagerApprovedDate { get; set; }
-        public int? IdHRApprovedBy { get; set; }
-        public DateTime? HRApprovedDate { get; set; }
+        public IFormFile? File { get; set; }
+        public string? ApprovalStatus { get; set; }
     }
 }

@@ -193,7 +193,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddOvertimeTransaction")]
-        public async Task<IActionResult> AddOvertimeTransaction([FromBody] OvertimeTransactionDto dto)
+        public async Task<IActionResult> AddOvertimeTransaction(OvertimeTransactionDto dto)
         {
             var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -204,7 +204,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _overtimeTransactionService.AddOvertimeTransaction(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _overtimeTransactionService.AddOvertimeTransaction(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add overtime transaction."));
@@ -219,7 +220,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateOvertimeTransaction")]
-        public async Task<IActionResult> UpdateOvertimeTransaction([FromBody] OvertimeTransactionDto dto)
+        public async Task<IActionResult> UpdateOvertimeTransaction(OvertimeTransactionDto dto)
         {
             var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)

@@ -6,7 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
         Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates();
         Task<SalaryTemplateDto?> GetSalaryTemplateById(int id);
-        Task<SalaryTemplateDto?> AddSalaryTemplate(SalaryTemplateManageDto salaryTemplate);
-        Task<SalaryTemplateDto?> UpdateSalaryTemplate(SalaryTemplateDto salaryTemplate);
+        Task<SalaryTemplateDto?> AddSalaryTemplate(SalaryTemplateManageDto salaryTemplate, int IdEmployee);
+        Task<SalaryTemplateDto?> UpdateSalaryTemplate(SalaryTemplateDto salaryTemplate, int IdEmployee);
     }
 }

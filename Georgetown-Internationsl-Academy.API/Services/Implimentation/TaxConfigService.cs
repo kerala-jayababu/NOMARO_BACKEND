@@ -47,13 +47,13 @@ public class TaxConfigService : ITaxConfigService
         }
     }
 
-    public async Task<TaxConfigManageDto?> AddTaxConfig(TaxConfigManageDto taxConfigDto)
+    public async Task<TaxConfigManageDto?> AddTaxConfig(TaxConfigManageDto taxConfigDto,int IdEmployee)
     {
         try
         {
             var taxConfigEntity = _mapper.Map<TaxConfig>(taxConfigDto);
             taxConfigEntity.CreatedOn = DateTime.UtcNow;
-            taxConfigEntity.CreatedBy = 1;
+            taxConfigEntity.CreatedBy = IdEmployee;
             var addedEntity = await _dbContext.TaxConfigs.AddAsync(taxConfigEntity);
             await _dbContext.SaveChangesAsync();
 
@@ -66,7 +66,7 @@ public class TaxConfigService : ITaxConfigService
         }
     }
 
-    public async Task<TaxConfigManageDto?> UpdateTaxConfig(TaxConfigManageDto taxConfigDto)
+    public async Task<TaxConfigManageDto?> UpdateTaxConfig(TaxConfigManageDto taxConfigDto,int IdEmployee)
     {
         try
         {
@@ -82,7 +82,7 @@ public class TaxConfigService : ITaxConfigService
             taxConfig.ValidFrom = taxConfigDto.ValidFrom;
             taxConfig.ValidTo = taxConfigDto.ValidTo;
             taxConfig.ModifiedOn = DateTime.UtcNow;
-            taxConfig.ModifiedBy = 1;
+            taxConfig.ModifiedBy = IdEmployee;
 
             var updatedEntity = _dbContext.TaxConfigs.Update(taxConfig);
             await _dbContext.SaveChangesAsync();
