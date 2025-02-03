@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -7,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
+    [Authorize]
     public class CommonController : ControllerBase
     {
         private readonly IOptionService _optionService;
@@ -15,6 +17,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             _optionService = optionService;
         }
+
         [HttpGet("GetAllOptions")]
         public async Task<IActionResult> GetAllOptions()
         {
@@ -35,5 +38,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetAllSalaryMonths")]
+        public async Task<IActionResult> GetAllSalaryMonths()
+        {
+            var result = await _optionService.GetAllSalaryMonths();
+            return Ok(result);
+        }
     }
 }

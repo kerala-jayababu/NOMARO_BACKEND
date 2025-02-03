@@ -34,6 +34,8 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<RentFreeQuarter, RentFreeQuarterDto>().ReverseMap();
             CreateMap<EmployeeSalaryConfig, EmployeeSalaryConfigDto>().ReverseMap();
             CreateMap<EmployeeSalaryConfigDetails, EmployeeSalaryConfigDetailsDto>().ReverseMap();
+            CreateMap<SalaryMonths, SalaryMonthsDto>().ReverseMap();
+            CreateMap<MaternityLeaveSalaryDetail, MaternityLeaveSalaryDetailDto>().ReverseMap();
         }
      }
 }

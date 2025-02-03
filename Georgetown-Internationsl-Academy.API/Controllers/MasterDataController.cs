@@ -4,6 +4,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
+    [Authorize]
     //[EnableRateLimiting("FixedWindowPolicy")]
     public class MasterDataController : ControllerBase
     {

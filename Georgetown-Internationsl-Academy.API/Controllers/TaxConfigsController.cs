@@ -2,11 +2,13 @@
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [ApiVersion(1)]
 [Route("/api/v{v:apiVersion}/[controller]")]
+[Authorize]
 public class TaxConfigsController : ControllerBase
 {
     private readonly ITaxConfigService _taxConfigService;

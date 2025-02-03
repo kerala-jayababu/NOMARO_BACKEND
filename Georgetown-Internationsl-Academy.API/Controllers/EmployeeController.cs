@@ -4,6 +4,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,6 +13,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
+    [Authorize]
+
     public class EmployeeController : ControllerBase
     {
         private readonly IEmployeeServices _employeeservice;
@@ -213,10 +216,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-
-
-
-
-
+        [HttpGet("GetEmployeesByManagerID")]
+        public async Task<IActionResult>  GetEmployeesByManagerID(int managerId)
+        {
+            var result = await _employeeservice.GetEmployeesByManagerID(managerId);
+            return Ok(result);
+        }
     }
 }

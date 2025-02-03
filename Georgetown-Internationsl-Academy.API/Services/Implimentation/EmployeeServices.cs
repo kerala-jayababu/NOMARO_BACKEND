@@ -15,12 +15,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<EmployeeServices> _logger;
+        private readonly IConfiguration _configuration;
 
-        public EmployeeServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeServices> logger)
+        public EmployeeServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeServices> logger, IConfiguration configuration)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<EmployeeDetailsDto> GetEmployeeDetailsByID(int id)
@@ -107,7 +109,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching the list of employees using Dapper.");
-                throw; 
+                throw;
             }
         }
         public async Task<bool> UpdateEmployeeDetails(UpdateEmployeeDto dto)
@@ -411,10 +413,31 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<dynamic> GetEmployeesByManagerID(int managerId)
+        {
+            try
+            {
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(x => x.IdEmployee == managerId);
 
+                if (employee != null)
+                {
+                    var designation = await _dbContext.Designations.FirstOrDefaultAsync(x => x.IdDesignation == employee.IdDesignation);
+                    var designationCode = _configuration["Designations:Code"];
+                    if (designation.DesignationCode == designationCode)
+                    {
+                        var result = await _dbContext.Employees.Where(x => x.IdEmployee != managerId).Select(x => new { x.IdEmployee, x.EmployeeCode, x.EmailID }).ToListAsync();
+                        return result;
+                    }
+                }
 
-
-
-
+                var employees = await _dbContext.Employees.Where(x => x.ReportingTo == managerId).Select(x => new { x.IdEmployee, x.EmployeeCode, x.EmailID }).ToListAsync();
+                return employees;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employees for Manager ID: {managerId}", managerId);
+                throw;
+            }
+        }
     }
 }

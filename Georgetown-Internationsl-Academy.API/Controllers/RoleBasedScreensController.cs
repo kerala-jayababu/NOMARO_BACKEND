@@ -3,6 +3,7 @@ using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -10,6 +11,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
+    [Authorize]
     public class RoleBasedScreensController : ControllerBase
     {
         private readonly IRoleBasedScreenService _roleBasedScreenService;

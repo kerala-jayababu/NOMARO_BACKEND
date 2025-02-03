@@ -4,16 +4,19 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Validators.PayrollManagement;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
+    [Authorize]
     public class PayRollManagementController : ControllerBase
     {
         private readonly ICurrencyConversionService _currencyConversionService;
@@ -460,7 +463,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create maternity leave salary."));
                 }
 
-                return Ok(ApiResponseDto<string>.CreateSuccess("Maternity leave salary created successfully."));
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -493,7 +496,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return NotFound(ApiResponseDto<string>.CreateFailure("Maternity leave salary not found."));
                 }
 
-                return Ok(ApiResponseDto<string>.CreateSuccess("Maternity leave salary updated successfully."));
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -580,9 +583,40 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-      
+        [HttpGet("GetMaternityLeaveSalaryDetailById")]
+        public async Task<ActionResult<MaternityLeaveSalaryDetailDto>> GetMaternityLeaveSalaryDetailById(int id)
+        {
+            var result = await _maternityLeaveSalaryService.GetMaternityLeaveSalaryDetailByIdAsync(id);
+            if (result == null)
+            {
+                return NotFound($"MaternityLeaveSalaryDetail with ID {id} not found.");
+            }
+            return Ok(result);
+        }
+
+        [HttpPost("AddMaternityLeaveSalaryDetail")]
+        public async Task<ActionResult<MaternityLeaveSalaryDetailDto>> AddMaternityLeaveSalaryDetail([FromBody] MaternityLeaveSalaryDetailDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest("Invalid data.");
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var createdRecord = await _maternityLeaveSalaryService.AddMaternityLeaveSalaryDetail(dto,int.Parse(IdEmployee));
+            return Ok(createdRecord);
+        }
+
+        [HttpPost("UpdateMaternityLeaveSalaryDetail")]
+        public async Task<ActionResult<MaternityLeaveSalaryDetailDto>> UpdateMaternityLeaveSalaryDetail([FromBody] MaternityLeaveSalaryDetailDto dto)
+        {
+            var updatedRecord = await _maternityLeaveSalaryService.UpdateMaternityLeaveSalaryDetail(dto);
+            if (updatedRecord == null)
+            {
+                return NotFound($"MaternityLeaveSalaryDetail not found.");
+            }
+
+            return Ok(updatedRecord);
+        }
         #endregion
-
-
     }
 }

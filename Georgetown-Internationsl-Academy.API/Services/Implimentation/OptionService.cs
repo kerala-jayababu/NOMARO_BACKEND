@@ -12,11 +12,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
     {
         private readonly ApplicationDBContext _dbContext;
         private readonly ILogger<OptionService> _logger;
+        private readonly IMapper _mapper;
 
-        public OptionService(ApplicationDBContext dbContext, ILogger<OptionService> logger)
+        public OptionService(ApplicationDBContext dbContext, ILogger<OptionService> logger,IMapper mapper)
         {
             _dbContext = dbContext;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<AllOptionsDto> GetAllOptions()
@@ -94,9 +96,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-
-
-
-
+        public async Task<List<SalaryMonthsDto>> GetAllSalaryMonths()
+        {
+            try
+            {
+                var salaryMonths = await _dbContext.SalaryMonths.ToListAsync();
+                return _mapper.Map<List<SalaryMonthsDto>>(salaryMonths);
+            }catch(Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all GetAllSalaryMonths.");
+                throw;
+            }
+        }
     }
 }
