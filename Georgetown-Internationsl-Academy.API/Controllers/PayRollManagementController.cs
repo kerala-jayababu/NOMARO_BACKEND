@@ -153,11 +153,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region OvertimeTransactions
 
         [HttpGet("GetOvertimeTransactions")]
-        public async Task<IActionResult> GetOvertimeTransactions()
+        public async Task<IActionResult> GetOvertimeTransactions(int EmployeeId, string? searchText, DateTime? startDate, string? dropdownFilter = null)
         {
             try
             {
-                var transactions = await _overtimeTransactionService.GetOvertimeTransactionList();
+                if (EmployeeId <= 0)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("EmployeeId must be greater than 0"));
+                }
+
+                var transactions = await _overtimeTransactionService.GetOvertimeTransactionList(EmployeeId,searchText, startDate, dropdownFilter);
 
                 if (!transactions.Any())
                 {

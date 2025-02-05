@@ -11,10 +11,11 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime? ValidTo { get; set; }
         public int? IdSalaryTemplate { get; set; }
         public int? CreatedBy { get; set; }
-        public DateTime? CreatedOn { get; set; }
-        public int? ApprovedBy { get; set; }
-        public DateTime? ApprovedDate { get; set; }
+        public DateTime? CreatedOn { get; set; }       
         public string? ApprovalStatus { get; set; }
         public bool? ActiveStatus { get; set; }
+        public decimal? TotalEarnings { get; set; }
+        public decimal? TotalDeductions { get; set; }
+        public decimal? NetSalary { get; set; }
     }
 }

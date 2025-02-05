@@ -18,5 +18,11 @@ public class SalaryTemplateDtoValidator : AbstractValidator<SalaryTemplateManage
         // ActiveStatus is required
         RuleFor(x => x.ActiveStatus)
             .NotNull().WithMessage("ActiveStatus is required.");
+
+        RuleFor(x => x.TotalEarnings).GreaterThan(0).WithMessage("TotalEarnings is required.");
+        RuleFor(x => x.TotalDeductions).GreaterThan(0).WithMessage("TotalDeductions is required.");
+        RuleFor(x => x.NetSalary).GreaterThan(0).WithMessage("NetSalary is required.");
+
+
     }
 }

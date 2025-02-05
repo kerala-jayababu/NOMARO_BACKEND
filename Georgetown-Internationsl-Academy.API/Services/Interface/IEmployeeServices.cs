@@ -5,7 +5,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
 {
     public interface IEmployeeServices
     {
-        Task<IEnumerable<EmployeeProfileDto>> GetEmployeeList();
+        Task<IEnumerable<EmployeeProfileDto>> GetEmployeeList(string? searchText, DateTime? startDate);
         Task<EmployeeDetailsDto> GetEmployeeDetailsByID(int Id);
         Task<IEnumerable<EmployeeBankAccountDto>> GetEmployeeBankAccountsByID(int Id);
         Task<IEnumerable<EmployeeProfileDetailsDto>> GetEmployeeProfileByID(int Id);        
@@ -13,6 +13,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> UpdateEmployeeDetails(UpdateEmployeeDto updateEmployee);        
         Task<bool> ManageEmployeeBankAccounts(List<EmployeeBankAccountDtoList> bankAccounts);
         Task<bool> ManageEmployeeOvertimeConfigs(List<EmployeeOvertimeConfigDtoList> overtimeConfigs);
-        Task<dynamic> GetEmployeesByManagerID(int managerId);
+        Task<IEnumerable<EmployeeHierarchyDto>> GetEmployeesByHierarchy(int employeeId);
     }
 }

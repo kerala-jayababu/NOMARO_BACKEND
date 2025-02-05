@@ -32,11 +32,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region EmployeeSalaryConfig
 
         [HttpGet("GetAllEmployeeSalaryConfig")]
-        public async Task<IActionResult> GetAllEmployeeSalaryConfig()
+        public async Task<IActionResult> GetAllEmployeeSalaryConfig(string? searchText = null, DateTime? dateFilter = null, string? dropdownFilter = null)
         {
             try
             {
-                var configs = await _employeeSalaryConfigService.GetAllConfigs();
+                var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText,dateFilter, dropdownFilter);
                 if (!configs.Any())
                     return NotFound(ApiResponseDto<string>.CreateFailure("No configurations found."));
 
@@ -119,11 +119,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region EmployeeSalaryConfigDetails
 
         [HttpGet("GetAllEmployeeSalaryConfigDetails")]
-        public async Task<IActionResult> GetAllEmployeeSalaryConfigDetails()
+        public async Task<IActionResult> GetAllEmployeeSalaryConfigDetails(int Id)
         {
             try
             {
-                var details = await _employeeSalaryConfigService.GetAllDetails();
+                var details = await _employeeSalaryConfigService.GetAllDetails(Id);
+
                 if (!details.Any())
                     return NotFound(ApiResponseDto<string>.CreateFailure("No details found."));
 
@@ -135,22 +136,22 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpGet("GetEmployeeSalaryConfigDetailsById/{id}")]
-        public async Task<IActionResult> GetEmployeeSalaryConfigDetailsById(int id)
-        {
-            try
-            {
-                var detail = await _employeeSalaryConfigService.GetDetailById(id);
-                if (detail == null)
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Detail not found."));
+        //[HttpGet("GetEmployeeSalaryConfigDetailsById/{id}")]
+        //public async Task<IActionResult> GetEmployeeSalaryConfigDetailsById(int id)
+        //{
+        //    try
+        //    {
+        //        var detail = await _employeeSalaryConfigService.GetDetailById(id);
+        //        if (detail == null)
+        //            return NotFound(ApiResponseDto<string>.CreateFailure("Detail not found."));
 
-                return Ok(ApiResponseDto<EmployeeSalaryConfigDetailsDto>.CreateSuccess(detail, "EmployeeSalaryConfigDetailsById retrieved successfully."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
+        //        return Ok(ApiResponseDto<EmployeeSalaryConfigDetailsDto>.CreateSuccess(detail, "EmployeeSalaryConfigDetailsById retrieved successfully."));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+        //    }
+        //}
 
         [HttpPost("AddEmployeeSalaryConfigDetails")]
         public async Task<IActionResult> AddEmployeeSalaryConfigDetails([FromBody] EmployeeSalaryConfigDetailsDto dto)

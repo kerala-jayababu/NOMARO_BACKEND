@@ -1,9 +1,11 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -21,13 +23,92 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
         #region EmployeeSalaryConfig
-
-        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs()
+        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, DateTime? dateFilter = null, string? dropdownFilter = null)
         {
+            var query = new StringBuilder(@"
+         SELECT 
+      esc.IdEmployeeSalaryConfig,
+	  esc.ValidFrom,
+	  esc.ValidTo,
+	  esc.IdSalaryTemplate,
+	  esc.ActiveStatus,
+      e.IdEmployee,
+      e.EmployeeCode,
+      CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+      e.IdDesignation,
+      des.DesignationName,
+      e.IdDepartment,
+      d.DepartmentName,
+      e.JoiningDate,
+      e.Gender,
+      e.EmailID,
+      e.PhoneNumber1, 
+      e.PhoneNumber2,            
+      e.CurrentStatus,
+      esc. TotalEarnings,
+    esc.TotalDeductions,
+      esc.NetSalary,
+      esc.ApprovalStatus
+  FROM EmployeeSalaryConfig esc
+  INNER JOIN Employees e ON esc.IdEmployee = e.IdEmployee
+  INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+  INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+  WHERE 1=1 ");
+
+            var parameters = new DynamicParameters();
+
+            // Apply search filter if provided
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                query.Append(@"
+AND (
+    e.EmployeeCode LIKE @SearchText
+    OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
+    OR des.DesignationName LIKE @SearchText
+    OR d.DepartmentName LIKE @SearchText
+) ");
+                parameters.Add("SearchText", $"%{searchText}%");
+            }
+
+            // Apply date filter if provided
+            if (dateFilter.HasValue)
+            {
+                query.Append(@"
+AND (
+    esc.CreatedOn >= @DateFilter 
+) ");
+
+               
+
+
+                parameters.Add("DateFilter", dateFilter.Value.Date);
+            }
+
+            // Apply dropdown filter if provided (ApprovalStatus)
+            if (!string.IsNullOrEmpty(dropdownFilter))
+            {
+                query.Append(" AND esc.ApprovalStatus = @DropdownFilter ");
+                parameters.Add("DropdownFilter", dropdownFilter);
+
+                // If dropdownFilter is "Approved", also append ValidTo IS NULL
+                if (dropdownFilter.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    query.Append(" AND esc.ValidTo IS NULL ");
+                }
+            }
+
+            query.Append(" ORDER BY e.FirstName, e.LastName;");
+
             try
             {
-                var configs = await _dbContext.EmployeeSalaryConfig.ToListAsync();
-                return _mapper.Map<IEnumerable<EmployeeSalaryConfigDto>>(configs);
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var configs = await connection.QueryAsync<EmployeeSalaryConfigDto>(query.ToString(), parameters);
+                    return configs;
+                }
             }
             catch (Exception ex)
             {
@@ -84,8 +165,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 config.ValidFrom = dto.ValidFrom;
                 config.ValidTo = dto.ValidTo;
                 config.IdSalaryTemplate = dto.IdSalaryTemplate;               
-                config.ApprovedBy = dto.ApprovedBy;
-                config.ApprovedDate = dto.ApprovedDate;
+                config.TotalDeductions = dto.TotalDeductions;
+                config.TotalEarnings = dto.TotalEarnings;
+                config.NetSalary = dto.NetSalary;
                 config.ApprovalStatus = dto.ApprovalStatus;
                 config.ActiveStatus = dto.ActiveStatus;
 
@@ -106,11 +188,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         #region EmployeeSalaryConfigDetails
 
-        public async Task<IEnumerable<EmployeeSalaryConfigDetailsDto>> GetAllDetails()
+        public async Task<IEnumerable<EmployeeSalaryConfigDetailsDto>> GetAllDetails(int Id)
         {
             try
             {
-                var details = await _dbContext.EmployeeSalaryConfigDetails.ToListAsync();
+                var details = await _dbContext.EmployeeSalaryConfigDetails.Where(x=>x.IdEmployeeSalaryConfig == Id) .ToListAsync();
                 return _mapper.Map<IEnumerable<EmployeeSalaryConfigDetailsDto>>(details);
             }
             catch (Exception ex)

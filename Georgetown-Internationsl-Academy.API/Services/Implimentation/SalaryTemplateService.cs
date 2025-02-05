@@ -18,11 +18,33 @@ public class SalaryTemplateService : ISalaryTemplateService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates()
+    public async Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates(string? searchText = null,DateTime? dateFilter = null,string? dropdownFilter = null)
     {
         try
         {
-            var templates = await _dbContext.SalaryTemplates.ToListAsync();
+            var query = _dbContext.SalaryTemplates.Where(x=>x.ActiveStatus==true).AsQueryable();
+
+            // Apply search filter if provided
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                query = query.Where(x => x.SalaryTemplateName.Contains(searchText) || x.Description.Contains(searchText));
+            }
+
+            // Apply date filter if provided
+            if (dateFilter.HasValue)
+            {
+                query = query.Where(x => x.CreatedOn >= dateFilter.Value);
+            }
+
+            // Apply dropdown filter if provided (e.g., ApprovalStatus)
+            if (!string.IsNullOrEmpty(dropdownFilter))
+            {
+                query = query.Where(x => x.ApprovalStatus == dropdownFilter);
+
+               
+            }
+
+            var templates = await query.ToListAsync();
             return _mapper.Map<IEnumerable<SalaryTemplateDto>>(templates);
         }
         catch (Exception ex)

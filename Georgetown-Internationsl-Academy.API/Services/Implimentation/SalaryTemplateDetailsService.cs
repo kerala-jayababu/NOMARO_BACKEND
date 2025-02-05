@@ -20,19 +20,58 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _logger = logger;
         }
 
-        public async Task<IEnumerable<SalaryTemplateDetailDto>> GetAllSalaryTemplateDetails()
+        //public async Task<IEnumerable<SalaryTemplateDetailDto>> GetAllSalaryTemplateDetails(int Id)
+        //{
+        //    try
+        //    {
+        //        var details = await _dbContext.SalaryTemplateDetails.ToListAsync();
+        //        return _mapper.Map<IEnumerable<SalaryTemplateDetailDto>>(details);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error fetching salary template details.");
+        //        throw;
+        //    }
+        //}
+
+        public async Task<IEnumerable<SalaryTemplateDetailDto>> GetAllSalaryTemplateDetails(int idSalaryTemplate)
         {
             try
             {
-                var details = await _dbContext.SalaryTemplateDetails.ToListAsync();
-                return _mapper.Map<IEnumerable<SalaryTemplateDetailDto>>(details);
+                var result = await (from std in _dbContext.SalaryTemplateDetails
+                                    join sh in _dbContext.SalaryHeads
+                                    on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
+                                    from sh in shGroup.DefaultIfEmpty() // This makes it a LEFT JOIN
+                                    where std.IdSalaryTemplate == idSalaryTemplate
+                                    select new SalaryTemplateDetailDto
+                                    {
+                                        IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
+                                        IdSalaryTemplate = std.IdSalaryTemplate,
+                                        IdSalaryHead = std.IdSalaryHead,
+                                        SalaryHeadName = sh.SalaryHeadName ?? string.Empty, // Use null-coalescing
+                                        HeadType = sh.HeadType ?? string.Empty, // Use null-coalescing
+                                        IsTaxable = sh != null && sh.IsTaxable, // Handle null for boolean
+                                        OrderNumber = sh != null ? sh.OrderNumber : null, // Check null for nullable int
+                                        CalculationMethod = std.CalculationMethod,
+                                        FixedAmount = std.FixedAmount,
+                                        PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
+                                        PercentageValue = std.PercentageValue,
+                                        CustomFormula = std.CustomFormula,
+                                        FinalSalaryAmount = std.FinalSalaryAmount,
+                                        Remarks = std.Remarks
+                                    }).ToListAsync();
+
+
+
+                return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching salary template details.");
-                throw;
+                _logger.LogError(ex, "Error fetching Salary Template Details.");
+                throw new Exception("An error occurred while fetching salary template details. Please try again later.");
             }
         }
+
 
         public async Task<SalaryTemplateDetailDto?> GetSalaryTemplateDetailById(int id)
         {

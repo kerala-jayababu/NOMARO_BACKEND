@@ -56,11 +56,10 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
 
             RuleFor(s => s.CustomFormula)
                 .MaximumLength(100).WithMessage("CustomFormula must not exceed 100 characters.")
-                .When(s => !string.IsNullOrEmpty(s.CustomFormula));
-          
+                .When(s => !string.IsNullOrEmpty(s.CustomFormula));          
 
-            RuleFor(s => s.IsLOPSalaryHead)
-                .NotNull().WithMessage("IsLOPSalaryHead is required.");
+            RuleFor(s => s.OrderNumber)
+                .NotNull().WithMessage("OrderNumber is required.");
         }
 
         private bool BeAValidCalculationMethod(string calculationMethod)

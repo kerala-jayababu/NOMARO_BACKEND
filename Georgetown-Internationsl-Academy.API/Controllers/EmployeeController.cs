@@ -29,11 +29,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpGet("GetEmployeeList")]
-        public async Task<IActionResult> GetEmployeeList()
+        public async Task<IActionResult> GetEmployeeList(string? searchText, DateTime? startDate)
         {
             try
             {
-                var employeeList = await _employeeservice.GetEmployeeList();
+                var employeeList = await _employeeservice.GetEmployeeList(searchText, startDate);
 
                 if (!employeeList.Any())
                 {
@@ -216,11 +216,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpGet("GetEmployeesByManagerID")]
-        public async Task<IActionResult>  GetEmployeesByManagerID(int managerId)
+        [HttpGet("GetEmployeesByHierarchy")]
+        public async Task<IActionResult> GetEmployeesByHierarchy(int employeeId)
         {
-            var result = await _employeeservice.GetEmployeesByManagerID(managerId);
-            return Ok(result);
+            try
+            {
+                if (employeeId <= 0)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Employee ID."));
+                }
+
+                var result = await _employeeservice.GetEmployeesByHierarchy(employeeId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No employees found for the given hierarchy."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeHierarchyDto>>.CreateSuccess(result));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
         }
     }
 }

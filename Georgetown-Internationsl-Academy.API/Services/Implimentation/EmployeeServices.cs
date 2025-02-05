@@ -7,6 +7,7 @@ using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Text;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -72,46 +73,71 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-        public async Task<IEnumerable<EmployeeProfileDto>> GetEmployeeList()
+        public async Task<IEnumerable<EmployeeProfileDto>> GetEmployeeList(string? searchText = null, DateTime? dateFilter = null) 
         {
-            const string query = @"
-        SELECT 
-            e.IdEmployee,
-            e.EmployeeCode,
-            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS FullName,
-            d.DepartmentName AS Department,
-            des.DesignationName AS Designation,
-            e.JoiningDate,
-            e.CurrentStatus,
-            e.IdDepartment,
-            e.IdDesignation
-        FROM 
-            Employees e
-        INNER JOIN 
-            Departments d ON e.IdDepartment = d.IdDepartment
-        INNER JOIN 
-            Designations des ON e.IdDesignation = des.IdDesignation;
-    ";
+                        var query = new StringBuilder(@"
+            SELECT 
+                e.IdEmployee,
+                e.EmployeeCode,
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS FullName,
+                d.DepartmentName AS Department,
+                des.DesignationName AS Designation,
+                e.JoiningDate,
+                e.Gender,
+                e.EmailID,
+                e.PhoneNumber1,
+                e.PhoneNumber2,
+                e.CurrentStatus,
+                e.IdDepartment,
+                e.IdDesignation
+            FROM Employees e
+            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE 1=1 "); 
+
+            var parameters = new DynamicParameters();
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                query.Append(@"
+    AND (
+        e.EmployeeCode LIKE @SearchText
+        OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
+        OR d.DepartmentName LIKE @SearchText
+        OR des.DesignationName LIKE @SearchText
+    ) ");
+                parameters.Add("SearchText", $"%{searchText}%");
+            }
+
+            if (dateFilter.HasValue)
+            {
+                query.Append(" AND e.JoiningDate >= @DateFilter ");
+                parameters.Add("DateFilter", dateFilter.Value.Date); 
+            }
+
+            query.Append(" ORDER BY e.FirstName, e.LastName; ");
 
             try
             {
-                _logger.LogInformation("Fetching Employee list using Dapper.");
+                _logger.LogInformation("Fetching Employee list with filters using Dapper.");
 
                 using (var connection = _dbContext.Database.GetDbConnection())
                 {
                     if (connection.State == System.Data.ConnectionState.Closed)
                         await connection.OpenAsync();
 
-                    var employees = await connection.QueryAsync<EmployeeProfileDto>(query);
+                    var employees = await connection.QueryAsync<EmployeeProfileDto>(query.ToString(), parameters);
                     return employees;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching the list of employees using Dapper.");
+                _logger.LogError(ex, "Error fetching the Employee list using Dapper.");
                 throw;
             }
         }
+
+
         public async Task<bool> UpdateEmployeeDetails(UpdateEmployeeDto dto)
         {
             try
@@ -229,7 +255,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-        
+
 
         public async Task<IEnumerable<EmployeeOvertimeConfigDto>> GetEmployeeOvertimeConfigsByID(int employeeId)
         {
@@ -413,31 +439,85 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<dynamic> GetEmployeesByManagerID(int managerId)
+        public async Task<IEnumerable<EmployeeHierarchyDto>> GetEmployeesByHierarchy(int employeeId)
         {
+            const string designationQuery = @"
+    SELECT 
+        e.IdEmployee,
+        e.IdDesignation,
+        des.DesignationCode
+    FROM Employees e
+    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    WHERE e.IdEmployee = @EmployeeId;
+";
+
+            const string allEmployeesQuery = @"
+    SELECT 
+        e.IdEmployee,
+        e.EmployeeCode,
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        d.DepartmentName,
+        e.ReportingTo,
+        CONCAT(r.FirstName, ' ', COALESCE(r.MiddleName, ''), ' ', r.LastName) AS IdReportingToName
+    FROM Employees e
+    INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    LEFT JOIN Employees r ON e.ReportingTo = r.IdEmployee;
+";
+
+            const string hierarchyQuery = @"
+    SELECT 
+        e.IdEmployee,
+        e.EmployeeCode,
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        d.DepartmentName,
+        e.ReportingTo,
+        CONCAT(r.FirstName, ' ', COALESCE(r.MiddleName, ''), ' ', r.LastName) AS IdReportingToName
+    FROM Employees e
+    INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    LEFT JOIN Employees r ON e.ReportingTo = r.IdEmployee
+    WHERE e.ReportingTo = @EmployeeId OR e.IdEmployee = @EmployeeId;
+";
+
             try
             {
-                var employee = await _dbContext.Employees.FirstOrDefaultAsync(x => x.IdEmployee == managerId);
-
-                if (employee != null)
+                using (var connection = _dbContext.Database.GetDbConnection())
                 {
-                    var designation = await _dbContext.Designations.FirstOrDefaultAsync(x => x.IdDesignation == employee.IdDesignation);
-                    var designationCode = _configuration["Designations:Code"];
-                    if (designation.DesignationCode == designationCode)
-                    {
-                        var result = await _dbContext.Employees.Where(x => x.IdEmployee != managerId).Select(x => new { x.IdEmployee, x.EmployeeCode, x.EmailID }).ToListAsync();
-                        return result;
-                    }
-                }
+                    if (connection.State == ConnectionState.Closed)
+                        await connection.OpenAsync();
 
-                var employees = await _dbContext.Employees.Where(x => x.ReportingTo == managerId).Select(x => new { x.IdEmployee, x.EmployeeCode, x.EmailID }).ToListAsync();
-                return employees;
+                    // Step 1: Get the designation of the employee
+                    var designation = await connection.QueryFirstOrDefaultAsync(designationQuery, new { EmployeeId = employeeId });
+                    if (designation == null)
+                        throw new Exception("Employee not found.");
+
+                    // Step 2: Check if the designation code matches
+                    var requiredDesignationCode = _configuration["Designations:Code"];
+                    if (designation.DesignationCode == requiredDesignationCode)
+                    {
+                        // Return all employees
+                        return await connection.QueryAsync<EmployeeHierarchyDto>(allEmployeesQuery);
+                    }
+
+                    // Step 3: If designation does not match, fetch hierarchy under the employee
+                    return await connection.QueryAsync<EmployeeHierarchyDto>(hierarchyQuery, new { EmployeeId = employeeId });
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching employees for Manager ID: {managerId}", managerId);
+                _logger.LogError(ex, "Error fetching employees for hierarchy with Employee ID: {employeeId}", employeeId);
                 throw;
             }
         }
+
+
+
     }
 }

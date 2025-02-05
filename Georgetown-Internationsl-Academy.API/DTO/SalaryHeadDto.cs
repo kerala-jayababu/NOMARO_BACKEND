@@ -13,7 +13,7 @@
         public decimal? PercentageValue { get; set; }
         public decimal? FixedValue { get; set; }
         public string CustomFormula { get; set; }        
-        public bool IsLOPSalaryHead { get; set; }
+        public int? OrderNumber { get; set; }
     }
 
 }

@@ -10,5 +10,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime VacationFrom { get; set; }
         public DateTime VacationTo { get; set; }
         public int IdSubstitueEmployee { get; set; }
+        public string? ReasonForVacation { get; set; }
     }
 }

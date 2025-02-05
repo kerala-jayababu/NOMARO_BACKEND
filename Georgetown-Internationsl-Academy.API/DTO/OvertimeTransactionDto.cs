@@ -1,4 +1,8 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO
+﻿using System;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Http;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class OvertimeTransactionDto
     {
@@ -16,5 +20,19 @@
         public string? AttachmentDescription { get; set; }
         public IFormFile? File { get; set; }
         public string? ApprovalStatus { get; set; }
+
+        // Employee Related Details (Directly Mapped from Database)
+        [NotMapped]
+        public string EmployeeCode { get; set; } = string.Empty;
+        [NotMapped]
+        public string EmployeeName { get; set; } = string.Empty;
+        [NotMapped]
+        public string Department { get; set; } = string.Empty;
+        [NotMapped]
+        public string Designation { get; set; } = string.Empty;
+        [NotMapped]
+        public int IdDepartment { get; set; }
+        [NotMapped]
+        public int IdDesignation { get; set; }
     }
 }

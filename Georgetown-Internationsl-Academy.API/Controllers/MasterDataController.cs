@@ -296,7 +296,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var conflictDesignation = (await _designationservices.GetDesignationList())
-                    .FirstOrDefault(d => d.DesignationCode == dto.DesignationCode && d.DesignationName == dto.DesignationName);
+                    .FirstOrDefault(d => d.DesignationCode == dto.DesignationCode && d.DesignationName == dto.DesignationName && d.IdDesignation!=dto.IdDesignation);
 
                 if (conflictDesignation != null)
                 {
@@ -422,7 +422,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var conflictDepartment = (await _deparmentservices.GetDepartmentList())
-                    .FirstOrDefault(d => d.DepartmentCode == dto.DepartmentCode && d.DepartmentName == dto.DepartmentName);
+                    .FirstOrDefault(d => d.DepartmentCode == dto.DepartmentCode && d.DepartmentName == dto.DepartmentName && d.IdDepartment!= dto.IdDepartment);
 
                 if (conflictDepartment != null)
                 {
@@ -778,11 +778,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #region VactionMode
         [HttpGet("GetAllVacationModes")]
-        public async Task<IActionResult> GetAllVacationModes()
+        public async Task<IActionResult> GetAllVacationModes(string? searchText = null, DateTime? dateFilter = null)
         {
             try
             {
-                var vacationModes = await _vacationModeService.GetAllVacationModes();
+                var vacationModes = await _vacationModeService.GetAllVacationModes(searchText,dateFilter);
 
                 if (!vacationModes.Any())
                 {

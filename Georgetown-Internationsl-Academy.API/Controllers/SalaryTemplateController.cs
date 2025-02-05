@@ -36,12 +36,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #region SalaryTemplate
 
-        [HttpGet("GetAll")]
-        public async Task<IActionResult> GetAll()
+        [HttpGet("GetAllSalaryTemplates")]
+        public async Task<IActionResult> GetAll(string? searchText = null, DateTime? dateFilter = null, string? dropdownFilter = null)
         {
             try
             {
-                var templates = await _salaryTemplateService.GetAllSalaryTemplates();
+                var templates = await _salaryTemplateService.GetAllSalaryTemplates(searchText,dateFilter,dropdownFilter);
                 if (!templates.Any())
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("No salary templates found."));
@@ -55,7 +55,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpGet("GetById/{id}")]
+        [HttpGet("GetSalaryTemplateById")]
         public async Task<IActionResult> GetById(int id)
         {
             try
@@ -74,7 +74,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpPost("Add")]
+        [HttpPost("AddSalaryTemplate")]
         public async Task<IActionResult> Add([FromBody] SalaryTemplateManageDto dto)
         {
             var validationResult = await _salaryTemplateValidator.ValidateAsync(dto);
@@ -101,7 +101,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpPost("Update")]
+        [HttpPost("UpdateSalaryTemplate")]
         public async Task<IActionResult> Update([FromBody] SalaryTemplateDto dto)
         {
             var validationResult = await _salaryTemplateUpdateValidator.ValidateAsync(dto);
@@ -133,11 +133,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region SalaryTemplateDetails
 
         [HttpGet("GetAllSalaryTemplateDetails")]
-        public async Task<IActionResult> GetAllSalaryTemplateDetails()
+        public async Task<IActionResult> GetAllSalaryTemplateDetails(int Id)
         {
             try
             {
-                var details = await _salaryTemplateDetailsService.GetAllSalaryTemplateDetails();
+                var details = await _salaryTemplateDetailsService.GetAllSalaryTemplateDetails(Id);
                 if (!details.Any())
                     return NotFound(ApiResponseDto<string>.CreateFailure("No salary template details found."));
 
@@ -149,22 +149,22 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpGet("GetSalaryTemplateDetailById")]
-        public async Task<IActionResult> GetSalaryTemplateDetailById(int id)
-        {
-            try
-            {
-                var detail = await _salaryTemplateDetailsService.GetSalaryTemplateDetailById(id);
-                if (detail == null)
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Salary template detail not found."));
+        //[HttpGet("GetSalaryTemplateDetailById")]
+        //public async Task<IActionResult> GetSalaryTemplateDetailById(int id)
+        //{
+        //    try
+        //    {
+        //        var detail = await _salaryTemplateDetailsService.GetSalaryTemplateDetailById(id);
+        //        if (detail == null)
+        //            return NotFound(ApiResponseDto<string>.CreateFailure("Salary template detail not found."));
 
-                return Ok(ApiResponseDto<SalaryTemplateDetailDto>.CreateSuccess(detail, "Salary template detail retrieved successfully."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
+        //        return Ok(ApiResponseDto<SalaryTemplateDetailDto>.CreateSuccess(detail, "Salary template detail retrieved successfully."));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+        //    }
+        //}
 
         [HttpPost("AddSalaryTemplateDetail")]
         public async Task<IActionResult> AddSalaryTemplateDetail([FromBody] SalaryTemplateDetailDto dto)

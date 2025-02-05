@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 public class VacationModeService : IVacationModeService
 {
@@ -19,19 +21,83 @@ public class VacationModeService : IVacationModeService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<VacationModeDto>> GetAllVacationModes()
+    public async Task<IEnumerable<VacationModeDto>> GetAllVacationModes(string? searchText = null, DateTime? dateFilter = null)
     {
+        var query = new StringBuilder(@"
+        SELECT 
+ vm.IdVacationMode,
+            e.IdEmployee,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDesignation,
+            des.DesignationName,
+            e.IdDepartment,
+            d.DepartmentName,
+            e.JoiningDate,
+            e.Gender,
+            e.EmailID,
+            e.PhoneNumber1, 
+            e.PhoneNumber2,
+            e.CurrentStatus,
+            vm.VacationFrom ,
+            vm.VacationTo ,
+            vm.IdSubstitueEmployee,
+            CONCAT(se.FirstName, ' ', COALESCE(se.MiddleName, ''), ' ', se.LastName) AS SubstituteEmployeeName,
+            vm.ReasonForVacation
+        FROM VacationModes vm
+        INNER JOIN Employees e ON vm.IdEmployee = e.IdEmployee
+        INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        LEFT JOIN Employees se ON vm.IdSubstitueEmployee = se.IdEmployee
+        WHERE 1=1 ");
+
+        var parameters = new DynamicParameters();
+
+        // Apply search filter if provided
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            query.Append(@"
+AND (
+    e.EmployeeCode LIKE @SearchText
+    OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
+    OR des.DesignationName LIKE @SearchText
+    OR d.DepartmentName LIKE @SearchText
+) ");
+            parameters.Add("SearchText", $"%{searchText}%");
+        }
+
+        // Apply date filter if provided
+        if (dateFilter.HasValue)
+        {
+            query.Append(@"
+AND (
+    vm.VacationFrom  >= @DateFilter
+) ");
+            parameters.Add("DateFilter", dateFilter.Value.Date);
+        }
+
+        query.Append(" ORDER BY e.FirstName, e.LastName;");
+
         try
         {
-            var vacationModes = await _dbContext.VacationModes.ToListAsync();
-            return _mapper.Map<IEnumerable<VacationModeDto>>(vacationModes);
+            _logger.LogInformation("Fetching Vacation Employee list with filters using Dapper.");
+
+            using (var connection = _dbContext.Database.GetDbConnection())
+            {
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var vacationEmployees = await connection.QueryAsync<VacationModeDto>(query.ToString(), parameters);
+                return vacationEmployees;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching vacation modes.");
+            _logger.LogError(ex, "Error fetching the Vacation Employee list using Dapper.");
             throw;
         }
     }
+
 
     public async Task<VacationModeDto?> GetVacationModeById(int id)
     {
@@ -80,6 +146,7 @@ public class VacationModeService : IVacationModeService
             vacationMode.VacationFrom = vacationModeDto.VacationFrom;
             vacationMode.VacationTo = vacationModeDto.VacationTo;
             vacationMode.IdSubstitueEmployee = vacationModeDto.IdSubstitueEmployee;
+            vacationMode.ReasonForVacation = vacationModeDto.ReasonForVacation;
 
             var updatedEntity = _dbContext.VacationModes.Update(vacationMode);
             await _dbContext.SaveChangesAsync();

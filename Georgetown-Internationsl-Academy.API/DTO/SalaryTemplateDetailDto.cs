@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Georgetown_Internationsl_Academy.API.DTO
 {
@@ -15,6 +16,16 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? CustomFormula { get; set; }
         public decimal FinalSalaryAmount { get; set; }
         public string? Remarks { get; set; }
+
+        [NotMapped]
+        public string SalaryHeadName { get; set; }
+        [NotMapped]
+        public string HeadType { get; set; }
+        [NotMapped]
+        public bool IsTaxable { get; set; }
+        [NotMapped]
+        public int? OrderNumber { get; set; }
+      
     }
 
     public class ValidCalculationMethodAttribute : ValidationAttribute

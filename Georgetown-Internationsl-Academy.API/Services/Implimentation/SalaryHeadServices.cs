@@ -94,7 +94,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 salaryHead.CustomFormula = dto.CustomFormula;
                 salaryHead.ModifiedBy = IdEmployee;
                 salaryHead.ModifiedOn = DateTime.Now;
-                salaryHead.IsLOPSalaryHead = dto.IsLOPSalaryHead;
+                salaryHead.OrderNumber = dto.OrderNumber;
 
                 var updatedEntity = _dbContext.SalaryHeads.Update(salaryHead);
                 await _dbContext.SaveChangesAsync();

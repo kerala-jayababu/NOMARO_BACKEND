@@ -20,6 +20,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime CreatedOn { get; set; }
         public int? ModifiedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
-        public bool IsLOPSalaryHead { get; set; }
+        public int? OrderNumber { get; set; }
     }
 }
