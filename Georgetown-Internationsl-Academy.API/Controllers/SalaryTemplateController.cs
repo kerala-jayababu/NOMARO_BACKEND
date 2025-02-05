@@ -37,11 +37,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region SalaryTemplate
 
         [HttpGet("GetAllSalaryTemplates")]
-        public async Task<IActionResult> GetAll(string? searchText = null, DateTime? dateFilter = null, string? dropdownFilter = null)
+        public async Task<IActionResult> GetAll(string? searchText = null, string? dropdownFilter = null)
         {
             try
             {
-                var templates = await _salaryTemplateService.GetAllSalaryTemplates(searchText,dateFilter,dropdownFilter);
+                var templates = await _salaryTemplateService.GetAllSalaryTemplates(searchText,dropdownFilter);
                 if (!templates.Any())
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("No salary templates found."));

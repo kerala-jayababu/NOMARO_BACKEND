@@ -14,46 +14,48 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<EmployeeSalaryConfigService> _logger;
+        private readonly IConfiguration _configuration;
 
-        public EmployeeSalaryConfigService(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeSalaryConfigService> logger)
+        public EmployeeSalaryConfigService(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeSalaryConfigService> logger, IConfiguration configuration)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _configuration = configuration;
         }
 
         #region EmployeeSalaryConfig
-        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, DateTime? dateFilter = null, string? dropdownFilter = null)
+        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter = null)
         {
             var query = new StringBuilder(@"
-         SELECT 
-      esc.IdEmployeeSalaryConfig,
-	  esc.ValidFrom,
-	  esc.ValidTo,
-	  esc.IdSalaryTemplate,
-	  esc.ActiveStatus,
-      e.IdEmployee,
-      e.EmployeeCode,
-      CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-      e.IdDesignation,
-      des.DesignationName,
-      e.IdDepartment,
-      d.DepartmentName,
-      e.JoiningDate,
-      e.Gender,
-      e.EmailID,
-      e.PhoneNumber1, 
-      e.PhoneNumber2,            
-      e.CurrentStatus,
-      esc. TotalEarnings,
-    esc.TotalDeductions,
-      esc.NetSalary,
-      esc.ApprovalStatus
-  FROM EmployeeSalaryConfig esc
-  INNER JOIN Employees e ON esc.IdEmployee = e.IdEmployee
-  INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-  INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-  WHERE 1=1 ");
+    SELECT 
+        esc.IdEmployeeSalaryConfig,
+        esc.ValidFrom,
+        esc.ValidTo,
+        esc.IdSalaryTemplate,
+        esc.ActiveStatus,
+        e.IdEmployee,
+        e.EmployeeCode,
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        d.DepartmentName,
+        e.JoiningDate,
+        e.Gender,
+        e.EmailID,
+        e.PhoneNumber1, 
+        e.PhoneNumber2,            
+        e.CurrentStatus,
+        esc.TotalEarnings,
+        esc.TotalDeductions,
+        esc.NetSalary,
+        esc.ApprovalStatus
+    FROM EmployeeSalaryConfig esc
+    INNER JOIN Employees e ON esc.IdEmployee = e.IdEmployee
+    INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    WHERE 1=1 ");
 
             var parameters = new DynamicParameters();
 
@@ -61,39 +63,38 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (!string.IsNullOrEmpty(searchText))
             {
                 query.Append(@"
-AND (
-    e.EmployeeCode LIKE @SearchText
-    OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
-    OR des.DesignationName LIKE @SearchText
-    OR d.DepartmentName LIKE @SearchText
-) ");
+        AND (
+            e.EmployeeCode LIKE @SearchText
+            OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
+            OR des.DesignationName LIKE @SearchText
+            OR d.DepartmentName LIKE @SearchText
+        ) ");
                 parameters.Add("SearchText", $"%{searchText}%");
             }
 
-            // Apply date filter if provided
-            if (dateFilter.HasValue)
-            {
-                query.Append(@"
-AND (
-    esc.CreatedOn >= @DateFilter 
-) ");
-
-               
-
-
-                parameters.Add("DateFilter", dateFilter.Value.Date);
-            }
-
-            // Apply dropdown filter if provided (ApprovalStatus)
+            // Handle dropdown filter logic
             if (!string.IsNullOrEmpty(dropdownFilter))
             {
-                query.Append(" AND esc.ApprovalStatus = @DropdownFilter ");
-                parameters.Add("DropdownFilter", dropdownFilter);
-
-                // If dropdownFilter is "Approved", also append ValidTo IS NULL
-                if (dropdownFilter.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                if (dropdownFilter.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
                 {
-                    query.Append(" AND esc.ValidTo IS NULL ");
+                    // Include SUBMITTED and Interim Approved statuses
+                    query.Append(@"
+            AND (
+                esc.ApprovalStatus = 'SUBMITTED'
+                OR esc.ApprovalStatus = 'INTERIM APPROVED'
+            )");
+                }
+                else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Include only the record with MAX(ValidFrom) for APPROVED status
+                    query.Append(@"
+            AND esc.ApprovalStatus = 'APPROVED'
+            AND esc.ValidFrom = (
+                SELECT MAX(ValidFrom)
+                FROM EmployeeSalaryConfig
+                WHERE IdEmployee = esc.IdEmployee
+                AND ApprovalStatus = 'APPROVED'
+            )");
                 }
             }
 
@@ -117,12 +118,30 @@ AND (
             }
         }
 
+
         public async Task<EmployeeSalaryConfigDto?> GetConfigById(int id)
         {
             try
             {
-                var config = await _dbContext.EmployeeSalaryConfig.FindAsync(id);
-                return config == null ? null : _mapper.Map<EmployeeSalaryConfigDto>(config);
+                // Fetch EmployeeSalaryConfig by ID
+                var config = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == id);
+                if (config == null)
+                {
+                    return null; // Return null if config is not found
+                }
+
+                // Map the EmployeeSalaryConfig to DTO
+                var configDto = _mapper.Map<EmployeeSalaryConfigDto>(config);
+
+                // Fetch associated EmployeeSalaryConfigDetails
+                var details = await _dbContext.EmployeeSalaryConfigDetails
+                    .Where(d => d.IdEmployeeSalaryConfig == config.IdEmployeeSalaryConfig)
+                    .ToListAsync();
+
+                // Map the details to DTO and attach to config DTO
+                configDto.EmployeeSalaryConfigDetails = _mapper.Map<List<EmployeeSalaryConfigDetailsDto>>(details);
+
+                return configDto;
             }
             catch (Exception ex)
             {
@@ -131,139 +150,129 @@ AND (
             }
         }
 
-        public async Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto,int IdEmployee)
+
+        public async Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto, int IdEmployee)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
             try
             {
-                var entity = _mapper.Map<EmployeeSalaryConfig>(dto);
-                entity.CreatedBy = IdEmployee;
-                entity.CreatedOn = DateTime.Now;
-                _dbContext.EmployeeSalaryConfig.Add(entity);
+                // Map and insert EmployeeSalaryConfig
+                var configEntity = _mapper.Map<EmployeeSalaryConfig>(dto);
+                configEntity.CreatedBy = IdEmployee;
+                configEntity.CreatedOn = DateTime.Now;
+
+                _dbContext.EmployeeSalaryConfig.Add(configEntity);
                 await _dbContext.SaveChangesAsync();
-                return _mapper.Map<EmployeeSalaryConfigDto>(entity);
+
+                // Insert related EmployeeSalaryConfigDetails
+                if (dto.EmployeeSalaryConfigDetails != null && dto.EmployeeSalaryConfigDetails.Any())
+                {
+                    foreach (var detailDto in dto.EmployeeSalaryConfigDetails)
+                    {
+                        var detailEntity = _mapper.Map<EmployeeSalaryConfigDetails>(detailDto);
+                        detailEntity.IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig;
+
+                        _dbContext.EmployeeSalaryConfigDetails.Add(detailEntity);
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+                return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding new Employee Salary Configuration.");
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding Employee Salary Configuration and Details.");
                 throw new Exception("An error occurred while adding the configuration. Please try again later.");
             }
         }
 
+
         public async Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
             try
             {
-                var config = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == dto.IdEmployeeSalaryConfig);
-                if (config == null)
+                // Update EmployeeSalaryConfig
+                var configEntity = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == dto.IdEmployeeSalaryConfig);
+                if (configEntity == null)
                 {
-                    _logger.LogWarning("Attempt to update a non-existent employee salary configuration with ID: {Id}.", dto.IdEmployeeSalaryConfig);
+                    _logger.LogWarning("Attempt to update a non-existent Employee Salary Configuration with ID: {Id}.", dto.IdEmployeeSalaryConfig);
                     return null;
                 }
 
-                // Manual mapping
-                config.IdEmployee = dto.IdEmployee;
-                config.ValidFrom = dto.ValidFrom;
-                config.ValidTo = dto.ValidTo;
-                config.IdSalaryTemplate = dto.IdSalaryTemplate;               
-                config.TotalDeductions = dto.TotalDeductions;
-                config.TotalEarnings = dto.TotalEarnings;
-                config.NetSalary = dto.NetSalary;
-                config.ApprovalStatus = dto.ApprovalStatus;
-                config.ActiveStatus = dto.ActiveStatus;
+                // Manual mapping for update
+                configEntity.IdEmployee = dto.IdEmployee;
+                configEntity.ValidFrom = dto.ValidFrom;
+                configEntity.ValidTo = dto.ValidTo;
+                configEntity.IdSalaryTemplate = dto.IdSalaryTemplate;
+                configEntity.TotalEarnings = dto.TotalEarnings;
+                configEntity.TotalDeductions = dto.TotalDeductions;
+                configEntity.NetSalary = dto.NetSalary;
+                configEntity.ApprovalStatus = dto.ApprovalStatus;
+                configEntity.ActiveStatus = dto.ActiveStatus;
 
-                _dbContext.EmployeeSalaryConfig.Update(config);
+                _dbContext.EmployeeSalaryConfig.Update(configEntity);
                 await _dbContext.SaveChangesAsync();
 
-                return _mapper.Map<EmployeeSalaryConfigDto>(config);
+                // Update EmployeeSalaryConfigDetails
+                if (dto.EmployeeSalaryConfigDetails != null)
+                {
+                    var existingDetails = await _dbContext.EmployeeSalaryConfigDetails
+                        .Where(d => d.IdEmployeeSalaryConfig == configEntity.IdEmployeeSalaryConfig)
+                        .ToListAsync();
+
+                    // Delete details that are no longer in the DTO
+                    var detailsToDelete = existingDetails
+                        .Where(d => !dto.EmployeeSalaryConfigDetails.Any(dtoDetail => dtoDetail.IdEmployeeSalaryConfigDetail == d.IdEmployeeSalaryConfigDetail))
+                        .ToList();
+                    _dbContext.EmployeeSalaryConfigDetails.RemoveRange(detailsToDelete);
+
+                    // Update existing details
+                    foreach (var detailDto in dto.EmployeeSalaryConfigDetails)
+                    {
+                        var existingDetail = existingDetails.FirstOrDefault(d => d.IdEmployeeSalaryConfigDetail == detailDto.IdEmployeeSalaryConfigDetail);
+                        if (existingDetail != null)
+                        {
+                            existingDetail.IdSalaryHead = detailDto.IdSalaryHead;
+                            existingDetail.CalculationMethod = detailDto.CalculationMethod;
+                            existingDetail.FixedAmount = detailDto.FixedAmount;
+                            existingDetail.PercentageValue = detailDto.PercentageValue;
+                            existingDetail.CustomFormula = detailDto.CustomFormula;
+
+                            _dbContext.EmployeeSalaryConfigDetails.Update(existingDetail);
+                        }
+                        else
+                        {
+                            // Add new details
+                            var newDetailEntity = _mapper.Map<EmployeeSalaryConfigDetails>(detailDto);
+                            newDetailEntity.IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig;
+
+                            _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
+                        }
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+                return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error updating employee salary configuration with ID: {dto.IdEmployeeSalaryConfig}");
-                return null;
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error updating Employee Salary Configuration and Details.");
+                throw new Exception("An error occurred while updating the configuration. Please try again later.");
             }
         }
 
 
         #endregion
 
-        #region EmployeeSalaryConfigDetails
 
-        public async Task<IEnumerable<EmployeeSalaryConfigDetailsDto>> GetAllDetails(int Id)
-        {
-            try
-            {
-                var details = await _dbContext.EmployeeSalaryConfigDetails.Where(x=>x.IdEmployeeSalaryConfig == Id) .ToListAsync();
-                return _mapper.Map<IEnumerable<EmployeeSalaryConfigDetailsDto>>(details);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching Employee Salary Configuration Details.");
-                throw new Exception("An error occurred while fetching details. Please try again later.");
-            }
-        }
-
-        public async Task<EmployeeSalaryConfigDetailsDto?> GetDetailById(int id)
-        {
-            try
-            {
-                var detail = await _dbContext.EmployeeSalaryConfigDetails.FindAsync(id);
-                return detail == null ? null : _mapper.Map<EmployeeSalaryConfigDetailsDto>(detail);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error fetching Employee Salary Configuration Detail with ID {id}.");
-                throw new Exception("An error occurred while fetching the detail. Please try again later.");
-            }
-        }
-
-        public async Task<EmployeeSalaryConfigDetailsDto?> AddDetail(EmployeeSalaryConfigDetailsDto dto)
-        {
-            try
-            {
-                var entity = _mapper.Map<EmployeeSalaryConfigDetails>(dto);
-                _dbContext.EmployeeSalaryConfigDetails.Add(entity);
-                await _dbContext.SaveChangesAsync();
-                return _mapper.Map<EmployeeSalaryConfigDetailsDto>(entity);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error adding new Employee Salary Configuration Detail.");
-                throw new Exception("An error occurred while adding the detail. Please try again later.");
-            }
-        }
-
-        public async Task<EmployeeSalaryConfigDetailsDto?> UpdateDetail(EmployeeSalaryConfigDetailsDto dto)
-        {
-            try
-            {
-                var existingDetail = await _dbContext.EmployeeSalaryConfigDetails.FirstOrDefaultAsync(d => d.IdEmployeeSalaryConfigDetail == dto.IdEmployeeSalaryConfigDetail);
-                if (existingDetail == null)
-                {
-                    _logger.LogWarning("Attempt to update a non-existent employee salary config detail with ID: {Id}.", dto.IdEmployeeSalaryConfigDetail);
-                    return null;
-                }
-
-                // Manual mapping
-                existingDetail.IdEmployeeSalaryConfig = dto.IdEmployeeSalaryConfig;
-                existingDetail.IdSalaryHead = dto.IdSalaryHead;
-                existingDetail.CalculationMethod = dto.CalculationMethod;
-                existingDetail.FixedAmount = dto.FixedAmount;
-                existingDetail.PercentageValue = dto.PercentageValue;
-                existingDetail.CustomFormula = dto.CustomFormula;
-
-                _dbContext.EmployeeSalaryConfigDetails.Update(existingDetail);
-                await _dbContext.SaveChangesAsync();
-
-                return _mapper.Map<EmployeeSalaryConfigDetailsDto>(existingDetail);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error updating employee salary config detail with ID: {dto.IdEmployeeSalaryConfigDetail}");
-                return null;
-            }
-        }
-
-
-        #endregion
     }
 }

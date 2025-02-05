@@ -10,15 +10,18 @@ public class SalaryTemplateService : ISalaryTemplateService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<SalaryTemplateService> _logger;
+    private readonly IConfiguration _configuration;
 
-    public SalaryTemplateService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateService> logger)
+
+    public SalaryTemplateService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateService> logger, IConfiguration configuration)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _configuration = configuration;
     }
 
-    public async Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates(string? searchText = null,DateTime? dateFilter = null,string? dropdownFilter = null)
+    public async Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates(string? searchText = null,string? dropdownFilter = null)
     {
         try
         {
@@ -30,18 +33,22 @@ public class SalaryTemplateService : ISalaryTemplateService
                 query = query.Where(x => x.SalaryTemplateName.Contains(searchText) || x.Description.Contains(searchText));
             }
 
-            // Apply date filter if provided
-            if (dateFilter.HasValue)
-            {
-                query = query.Where(x => x.CreatedOn >= dateFilter.Value);
-            }
+            
 
             // Apply dropdown filter if provided (e.g., ApprovalStatus)
             if (!string.IsNullOrEmpty(dropdownFilter))
             {
-                query = query.Where(x => x.ApprovalStatus == dropdownFilter);
+                if(dropdownFilter == _configuration["DropdDownStatus:ApproveStatus"])
+                {
+                    var interminapprovedSatus = _configuration["DropdDownStatus:InterminApproved"];
+                    query = query.Where(x => x.ApprovalStatus == dropdownFilter ||x.ApprovalStatus == interminapprovedSatus);
+                }
+                else
+                {
+                    query = query.Where(x => x.ApprovalStatus == dropdownFilter);
 
-               
+                }
+
             }
 
             var templates = await query.ToListAsync();
