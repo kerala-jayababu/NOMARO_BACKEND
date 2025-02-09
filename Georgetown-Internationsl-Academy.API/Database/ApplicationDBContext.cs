@@ -2,6 +2,7 @@
 using Georgetown_Internationsl_Academy.API.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using YourNamespace.Models;
 namespace Georgetown_International_Academy.API.Database
 {
     public class ApplicationDBContext : DbContext
@@ -41,5 +42,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<EmployeeSalaryConfig> EmployeeSalaryConfig { get; set; }
         public DbSet<SalaryMonths> SalaryMonths { get; set; }
         public DbSet<MaternityLeaveSalaryDetail> MaternityLeaveSalaryDetail { get; set; }
+        public DbSet<HolidayTypeEntity> HolidayTypes { get; set; }
+        public DbSet<Holiday> Holidays { get; set; }
     }
 }

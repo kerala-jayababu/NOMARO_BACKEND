@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
@@ -77,6 +78,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                    })
                    .ToListAsync();
 
+             
 
                 // Return all options together
                 return new AllOptionsDto
@@ -105,6 +107,60 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }catch(Exception ex)
             {
                 _logger.LogError(ex, "Error fetching all GetAllSalaryMonths.");
+                throw;
+            }
+        }
+
+        public async Task<List<LatestEmployeeSalaryConfigDto>> GetEmployeeLatestSalaryStructure()
+        {
+            var query = @"
+    SELECT 
+        IdEmployeeSalaryConfig,
+        IdEmployee,
+        FirstName,
+        MiddleName,
+        LastName,
+        ValidFrom,
+        ValidTo,
+        IdSalaryTemplate,
+        CreatedBy,
+        CreatedOn,
+        ApprovalStatus,
+        ActiveStatus,
+        TotalEarnings,
+        TotalDeductions,
+        NetSalary
+    FROM vw_LatestEmployeeSalaryConfig";
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var result = await connection.QueryAsync<LatestEmployeeSalaryConfigDto>(query);
+                    return result.ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee latest salary structure.");
+                throw new Exception("An error occurred while fetching the latest salary structure. Please try again later.", ex);
+            }
+        }
+
+
+        public async Task<List<HolidayTypeDto>> GetHolidayTypes()
+        {
+            try
+            {
+                var salaryMonths = await _dbContext.HolidayTypes.ToListAsync();
+                return _mapper.Map<List<HolidayTypeDto>>(salaryMonths);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all GetHolidayTypes.");
                 throw;
             }
         }

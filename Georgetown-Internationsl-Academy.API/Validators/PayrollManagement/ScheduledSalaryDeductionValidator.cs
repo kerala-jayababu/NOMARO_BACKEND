@@ -14,10 +14,9 @@ namespace Georgetown_Internationsl_Academy.API.Validators.PayrollManagement
                 .GreaterThan(0).WithMessage("Total amount must be greater than 0.");
 
             RuleFor(x => x.DeductionFromSalaryMonth)
-                .InclusiveBetween(1, 12).WithMessage("Deduction from salary month must be a valid month (1-12).");
+                          .GreaterThan(0).WithMessage("DeductionFromSalaryMonth  must be greater than 0.");
 
-            RuleFor(x => x.DeductionToSalaryMonth)
-                .InclusiveBetween(1, 12).WithMessage("Deduction to salary month must be a valid month (1-12).")
+            RuleFor(x => x.DeductionToSalaryMonth)              
                 .GreaterThanOrEqualTo(x => x.DeductionFromSalaryMonth)
                 .WithMessage("Deduction to salary month must be greater than or equal to the deduction from salary month.");
 

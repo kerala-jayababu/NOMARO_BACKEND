@@ -1,9 +1,12 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
 {
@@ -18,131 +21,332 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries()
+    public async Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries(string? searchText = null, DateTime? fromDate = null)
     {
+        var query = new StringBuilder(@"
+        SELECT 
+            mls.IdMaternityLeaveSalary,
+            mls.IdEmployee,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.EmployeeCode,
+            e.IdDesignation,
+            des.DesignationName,
+            e.IdDepartment,
+            dept.DepartmentName,
+            e.JoiningDate,
+            e.Gender,
+            e.EmailID,
+            e.PhoneNumber1,
+            e.PhoneNumber2,
+            mls.IdSalaryMonthFrom,
+            smFrom.SalaryMonthText AS FromSalaryMonthText,
+            mls.IdSalaryMonthTo,
+            smTo.SalaryMonthText AS ToSalaryMonthText,
+            mls.MaternityLeaveFrom,
+            mls.MaternityLeaveTo,
+            mls.TotalEarnings AS TotalEarningsMaternity,
+            mls.TotalDeductions AS TotalDeductionsMaternity,
+            mls.MaternityLeaveNetSalary ,
+            esc.NetSalary AS DefaultNetSalary
+        FROM MaternityLeaveSalaries mls
+        INNER JOIN Employees e ON mls.IdEmployee = e.IdEmployee
+        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+        LEFT JOIN SalaryMonths smFrom ON mls.IdSalaryMonthFrom = smFrom.IdSalaryMonth
+        LEFT JOIN SalaryMonths smTo ON mls.IdSalaryMonthTo = smTo.IdSalaryMonth
+        LEFT JOIN vw_LatestEmployeeSalaryConfig esc ON mls.IdEmployee = esc.IdEmployee
+        WHERE 1 = 1
+    ");
+
+        var parameters = new DynamicParameters();
+
+        // Apply search filter if provided
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            query.Append(@"
+            AND (
+                e.EmployeeCode LIKE @SearchText OR
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+                des.DesignationName LIKE @SearchText OR
+                dept.DepartmentName LIKE @SearchText
+            )
+        ");
+            parameters.Add("SearchText", $"%{searchText}%");
+        }
+
+        // Apply filter for MaternityLeaveFrom date
+        if (fromDate.HasValue)
+        {
+            query.Append(" AND mls.MaternityLeaveFrom >= @FromDate");
+            parameters.Add("FromDate", fromDate.Value);
+        }
+
+        query.Append(" ORDER BY e.FirstName, e.LastName;");
+
         try
         {
-            var leaveSalaries = await _dbContext.MaternityLeaveSalaries.ToListAsync();
-            return _mapper.Map<IEnumerable<MaternityLeaveSalaryDto>>(leaveSalaries);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error fetching all maternity leave salaries.");
-            throw;
-        }
-    }
-
-    public async Task<MaternityLeaveSalaryDto?> GetMaternityLeaveSalaryById(int id)
-    {
-        try
-        {
-            var leaveSalary = await _dbContext.MaternityLeaveSalaries.FirstOrDefaultAsync(x => x.IdMaternityLeaveSalary == id);
-            return leaveSalary == null ? null : _mapper.Map<MaternityLeaveSalaryDto>(leaveSalary);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error fetching maternity leave salary with ID {Id}.", id);
-            throw;
-        }
-    }
-
-    public async Task<MaternityLeaveSalaryDto?> AddMaternityLeaveSalary(MaternityLeaveSalaryDto dto)
-    {
-        try
-        {
-            var entity = _mapper.Map<MaternityLeaveSalaryEntity>(dto);
-
-            var salaryMonths = await _dbContext.SalaryMonths.FirstOrDefaultAsync(x => x.IdSalaryMonth == dto.IdSalaryMonthTo && x.IdSalaryMonth == dto.IdSalaryMonthFrom);
-            if(salaryMonths == null)
+            using (var connection = _dbContext.Database.GetDbConnection())
             {
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var maternityLeaveSalaries = await connection.QueryAsync<MaternityLeaveSalaryDto>(query.ToString(), parameters);
+                return maternityLeaveSalaries;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching Maternity Leave Salaries.");
+            throw new Exception("An error occurred while fetching maternity leave salaries. Please try again later.");
+        }
+    }
+
+
+    public async Task<MaternityLeaveSalaryDto?> GetMaternityLeaveSalaryById(int idMaternityLeaveSalary)
+    {
+        try
+        {
+            // Fetch Maternity Leave Salary
+            var maternityLeaveSalary = await (from mls in _dbContext.MaternityLeaveSalaries
+                                              join smFrom in _dbContext.SalaryMonths on mls.IdSalaryMonthFrom equals smFrom.IdSalaryMonth
+                                              join smTo in _dbContext.SalaryMonths on mls.IdSalaryMonthTo equals smTo.IdSalaryMonth
+                                              join e in _dbContext.Employees on mls.IdEmployee equals e.IdEmployee
+                                              where mls.IdMaternityLeaveSalary == idMaternityLeaveSalary
+                                              select new MaternityLeaveSalaryDto
+                                              {
+                                                  IdMaternityLeaveSalary = mls.IdMaternityLeaveSalary,
+                                                  IdEmployee = mls.IdEmployee,
+                                                  EmployeeName = string.Concat(e.FirstName, " ", e.MiddleName ?? "", " ", e.LastName).Trim(),
+                                                  EmployeeCode = e.EmployeeCode,
+                                                  IdSalaryMonthFrom = (int)mls.IdSalaryMonthFrom,
+                                                  FromSalaryMonthText = smFrom.SalaryMonthText,
+                                                  IdSalaryMonthTo = (int)mls.IdSalaryMonthTo,
+                                                  ToSalaryMonthText = smTo.SalaryMonthText,
+                                                  MaternityLeaveFrom = mls.MaternityLeaveFrom,
+                                                  MaternityLeaveTo = mls.MaternityLeaveTo,
+                                                  MaternityLeaveSalary = mls.MaternityLeaveNetSalary, // Corrected column name
+                                                  MaternityLeaveSalaryDetailDto = new List<MaternityLeaveSalaryDetailDto>()
+                                              }).FirstOrDefaultAsync();
+
+            if (maternityLeaveSalary == null)
+            {
+                _logger.LogWarning("Maternity Leave Salary with ID {Id} not found.", idMaternityLeaveSalary);
                 return null;
             }
 
-            var addedEntity = await _dbContext.MaternityLeaveSalaries.AddAsync(entity);
-            await _dbContext.SaveChangesAsync();
+            // Fetch Maternity Leave Salary Details
+            maternityLeaveSalary.MaternityLeaveSalaryDetailDto = await (from mld in _dbContext.MaternityLeaveSalaryDetail
+                                                                        where mld.IdMaternityLeaveSalary == idMaternityLeaveSalary
+                                                                        select new MaternityLeaveSalaryDetailDto
+                                                                        {
+                                                                            IdMaternityLeaveSalary= mld.IdMaternityLeaveSalary,
+                                                                            IdMaternityLeaveSalaryDetail=mld.IdMaternityLeaveSalaryDetail,
+                                                                            IdSalaryHead = mld.IdSalaryHead,
+                                                                            SalaryHeadName = mld.SalaryHeadName,
+                                                                            SalaryHeadType = mld.SalaryHeadType,
+                                                                            Amount = mld.Amount,
+                                                                            AmountInUSD = mld.AmountInUSD,
+                                                                            CreatedBy = mld.CreatedBy,
+                                                                            CreatedDate = mld.CreatedDate
+                                                                        }).ToListAsync();
 
-            return _mapper.Map<MaternityLeaveSalaryDto>(addedEntity.Entity);
+            return maternityLeaveSalary;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error adding maternity leave salary.");
-            return null;
+            _logger.LogError(ex, "Error fetching details for Maternity Leave Salary with ID: {Id}", idMaternityLeaveSalary);
+            throw new Exception("An error occurred while fetching maternity leave salary details. Please try again later.");
         }
     }
 
-    public async Task<MaternityLeaveSalaryDto?> UpdateMaternityLeaveSalary(MaternityLeaveSalaryDto dto)
+
+
+    public async Task<MaternityLeaveSalaryDto?> AddMaternityLeaveSalary(MaternityLeaveSalaryDto dto,int EmployeeId)
     {
+
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
         try
         {
-            var entity = await _dbContext.MaternityLeaveSalaries.FirstOrDefaultAsync(x => x.IdMaternityLeaveSalary == dto.IdMaternityLeaveSalary);
+            // Calculate Total Earnings and Deductions
+            var totalEarnings = dto.MaternityLeaveSalaryDetailDto
+                .Where(detail => detail.SalaryHeadType == "EARNING")
+                .Sum(detail => detail.Amount ?? 0);
 
-            if (entity == null) return null;
+            var totalDeductions = dto.MaternityLeaveSalaryDetailDto
+                .Where(detail => detail.SalaryHeadType == "DEDUCTION")
+                .Sum(detail => detail.Amount ?? 0);
 
-            _mapper.Map(dto, entity);
-            _dbContext.MaternityLeaveSalaries.Update(entity);
+            // Insert into MaternityLeaveSalaries
+            var maternityLeaveSalary = new MaternityLeaveSalaryEntity
+            {
+                IdEmployee = dto.IdEmployee,
+                IdSalaryMonthFrom = dto.IdSalaryMonthFrom,
+                IdSalaryMonthTo = dto.IdSalaryMonthTo,
+                MaternityLeaveFrom = dto.MaternityLeaveFrom,
+                MaternityLeaveTo = dto.MaternityLeaveTo,
+                TotalEarnings = totalEarnings,
+                TotalDeductions = totalDeductions,
+                MaternityLeaveNetSalary = totalEarnings - totalDeductions,
+                
+            };
+
+            await _dbContext.MaternityLeaveSalaries.AddAsync(maternityLeaveSalary);
             await _dbContext.SaveChangesAsync();
 
-            return _mapper.Map<MaternityLeaveSalaryDto>(entity);
+            // Insert into MaternityLeaveSalaryDetails
+            foreach (var detail in dto.MaternityLeaveSalaryDetailDto)
+            {
+                var maternityLeaveDetail = new MaternityLeaveSalaryDetail
+                {
+                    IdMaternityLeaveSalary = (int)maternityLeaveSalary.IdMaternityLeaveSalary,
+                    IdSalaryHead = (int)detail.IdSalaryHead,
+                    SalaryHeadName = detail.SalaryHeadName,
+                    SalaryHeadType = detail.SalaryHeadType,
+                    Amount = (decimal)detail.Amount,
+                    AmountInUSD = 0,
+                    CreatedBy = EmployeeId,
+                    CreatedDate = DateTime.Now
+                };
+
+                await _dbContext.MaternityLeaveSalaryDetail.AddAsync(maternityLeaveDetail);
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return _mapper.Map< MaternityLeaveSalaryDto >(maternityLeaveSalary);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating maternity leave salary.");
-            return null;
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error creating Maternity Leave Salary.");
+            throw new Exception("An error occurred while creating the Maternity Leave Salary. Please try again.");
         }
     }
 
-    public async Task<MaternityLeaveSalaryDetailDto?> GetMaternityLeaveSalaryDetailByIdAsync(int id)
+    public async Task<MaternityLeaveSalaryDto?> UpdateMaternityLeaveSalary(MaternityLeaveSalaryDto dto, int updatedBy)
     {
-        try
-        {
-            var result = await _dbContext.MaternityLeaveSalaryDetail.FirstOrDefaultAsync(x => x.IdMaternityLeaveSalaryDetail == id);
-            return result == null ? null : _mapper.Map<MaternityLeaveSalaryDetailDto>(result);
-        }
-        catch(Exception ex)
-        {
-            _logger.LogError(ex, "Error updating maternity Leave Salary Detail.");
-            return null;
-        }
-    }
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-    public async Task<MaternityLeaveSalaryDetailDto> AddMaternityLeaveSalaryDetail(MaternityLeaveSalaryDetailDto maternityLeaveSalaryDetail,int IdEmployee)
-    {
         try
         {
-            var entity = _mapper.Map<MaternityLeaveSalaryDetail>(maternityLeaveSalaryDetail);
-            entity.CreatedDate = DateTime.Now;
-            entity.CreatedBy = IdEmployee;
-            var addedEntity = await _dbContext.MaternityLeaveSalaryDetail.AddAsync(entity);
+            // Fetch existing MaternityLeaveSalary
+            var existingSalary = await _dbContext.MaternityLeaveSalaries
+                .FirstOrDefaultAsync(mls => mls.IdMaternityLeaveSalary == dto.IdMaternityLeaveSalary);
+
+            if (existingSalary == null)
+            {
+                _logger.LogWarning("Maternity Leave Salary with ID {Id} not found.", dto.IdMaternityLeaveSalary);
+                return null;
+            }
+
+            // Update MaternityLeaveSalary fields
+            existingSalary.MaternityLeaveFrom = dto.MaternityLeaveFrom;
+            existingSalary.MaternityLeaveTo = dto.MaternityLeaveTo;
+            existingSalary.IdSalaryMonthFrom = dto.IdSalaryMonthFrom;
+            existingSalary.IdSalaryMonthTo = dto.IdSalaryMonthTo;
+          
+            // Calculate new Total Earnings and Deductions
+            var totalEarnings = dto.MaternityLeaveSalaryDetailDto?
+                .Where(d => d.SalaryHeadType == "EARNING")
+                .Sum(d => d.Amount) ?? 0;
+
+            var totalDeductions = dto.MaternityLeaveSalaryDetailDto?
+                .Where(d => d.SalaryHeadType == "DEDUCTION")
+                .Sum(d => d.Amount) ?? 0;
+
+            existingSalary.TotalEarnings = totalEarnings;
+            existingSalary.TotalDeductions = totalDeductions;
+            existingSalary.MaternityLeaveNetSalary = totalEarnings - totalDeductions;
+
+            
+            _dbContext.MaternityLeaveSalaries.Update(existingSalary);
             await _dbContext.SaveChangesAsync();
-            return _mapper.Map<MaternityLeaveSalaryDetailDto>(addedEntity.Entity);
+
+            // Fetch existing details
+            var existingDetails = await _dbContext.MaternityLeaveSalaryDetail
+                .Where(mld => mld.IdMaternityLeaveSalary == dto.IdMaternityLeaveSalary)
+                .ToListAsync();
+
+            // Handle details: delete, update, add
+            if (dto.MaternityLeaveSalaryDetailDto != null)
+            {
+                // Delete details not in the DTO
+                var detailsToDelete = existingDetails
+                    .Where(existing => !dto.MaternityLeaveSalaryDetailDto
+                        .Any(d => d.IdMaternityLeaveSalaryDetail == existing.IdMaternityLeaveSalaryDetail))
+                    .ToList();
+
+                if (detailsToDelete.Any())
+                {
+                    _dbContext.MaternityLeaveSalaryDetail.RemoveRange(detailsToDelete);
+                }
+
+                // Update existing details and add new ones
+                foreach (var detailDto in dto.MaternityLeaveSalaryDetailDto)
+                {
+                    var existingDetail = existingDetails
+                        .FirstOrDefault(ed => ed.IdMaternityLeaveSalaryDetail == detailDto.IdMaternityLeaveSalaryDetail);
+
+                    if (existingDetail != null)
+                    {
+                        // Update existing detail
+                        existingDetail.IdSalaryHead = (int)detailDto.IdSalaryHead;
+                        existingDetail.SalaryHeadName = detailDto.SalaryHeadName;
+                        existingDetail.SalaryHeadType = detailDto.SalaryHeadType;
+                        existingDetail.Amount = (decimal)detailDto.Amount;                        
+
+                        _dbContext.MaternityLeaveSalaryDetail.Update(existingDetail);
+                    }
+                    else
+                    {
+                        // Add new detail
+                        var newDetail = new MaternityLeaveSalaryDetail
+                        {
+                            IdMaternityLeaveSalary = (int)dto.IdMaternityLeaveSalary,
+                            IdSalaryHead = (int)detailDto.IdSalaryHead,
+                            SalaryHeadName = detailDto.SalaryHeadName,
+                            SalaryHeadType = detailDto.SalaryHeadType,
+                            Amount = (decimal)detailDto.Amount,
+                            AmountInUSD = 0,
+                            CreatedBy = updatedBy,
+                            CreatedDate = DateTime.UtcNow
+                        };
+
+                        await _dbContext.MaternityLeaveSalaryDetail.AddAsync(newDetail);
+                    }
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            // Map and return updated DTO
+            return new MaternityLeaveSalaryDto
+            {
+                IdMaternityLeaveSalary = existingSalary.IdMaternityLeaveSalary,
+                IdEmployee = existingSalary.IdEmployee,
+                MaternityLeaveFrom = existingSalary.MaternityLeaveFrom,
+                MaternityLeaveTo = existingSalary.MaternityLeaveTo,
+                IdSalaryMonthFrom = (int)existingSalary.IdSalaryMonthFrom,
+                IdSalaryMonthTo = (int)existingSalary.IdSalaryMonthTo,
+                TotalEarnings = existingSalary.TotalEarnings,
+                TotalDeductions = existingSalary.TotalDeductions,
+                MaternityLeaveSalary = existingSalary.MaternityLeaveNetSalary,
+                MaternityLeaveSalaryDetailDto = dto.MaternityLeaveSalaryDetailDto
+            };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error adding maternity Leave Salary Detail.");
-            return null;
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error updating Maternity Leave Salary with ID: {Id}", dto.IdMaternityLeaveSalary);
+            throw new Exception("An error occurred while updating the maternity leave salary. Please try again later.");
         }
     }
 
-    public async Task<MaternityLeaveSalaryDetailDto> UpdateMaternityLeaveSalaryDetail(MaternityLeaveSalaryDetailDto maternityLeaveSalaryDetail)
-    {
-        try
-        {
-            var entity = await _dbContext.MaternityLeaveSalaryDetail.FirstOrDefaultAsync(x => x.IdMaternityLeaveSalaryDetail == maternityLeaveSalaryDetail.IdMaternityLeaveSalaryDetail);
 
-            if (entity == null) return null;
 
-            maternityLeaveSalaryDetail.CreatedBy = entity.CreatedBy;
-            maternityLeaveSalaryDetail.CreatedDate = entity.CreatedDate;
-            _mapper.Map(maternityLeaveSalaryDetail, entity);
-            _dbContext.MaternityLeaveSalaryDetail.Update(entity);
-            await _dbContext.SaveChangesAsync();
-
-            return _mapper.Map<MaternityLeaveSalaryDetailDto>(entity);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating maternity leave salary detail.");
-            return null;
-        }
-    }
 }

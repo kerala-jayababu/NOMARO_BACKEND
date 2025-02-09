@@ -18,12 +18,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     public class SalaryTemplateController : ControllerBase
     {
         private readonly ISalaryTemplateService _salaryTemplateService;
-        private readonly IValidator<SalaryTemplateManageDto> _salaryTemplateValidator;
+        private readonly IValidator<SalaryTemplateDto> _salaryTemplateValidator;
         private readonly IValidator<SalaryTemplateDto> _salaryTemplateUpdateValidator;
         private readonly ISalaryTemplateDetailsService _salaryTemplateDetailsService;
         private readonly ISalaryHeadServices _salaryservice;
 
-        public SalaryTemplateController(ISalaryTemplateService salaryTemplateService, IValidator<SalaryTemplateManageDto> salaryTemplateValidator, 
+        public SalaryTemplateController(ISalaryTemplateService salaryTemplateService, IValidator<SalaryTemplateDto> salaryTemplateValidator, 
             IValidator<SalaryTemplateDto> salaryTemplateUpdateValidator, ISalaryTemplateDetailsService salaryTemplateDetailsService, ISalaryHeadServices salaryservice)
         {
             _salaryTemplateService = salaryTemplateService;
@@ -75,7 +75,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddSalaryTemplate")]
-        public async Task<IActionResult> Add([FromBody] SalaryTemplateManageDto dto)
+        public async Task<IActionResult> AddSalaryTemplate([FromBody] SalaryTemplateDto dto)
         {
             var validationResult = await _salaryTemplateValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -83,7 +83,39 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+            // Step 2: Check custom formulas in SalaryTemplateDetails
+            if (dto.SalaryTemplateDetails != null && dto.SalaryTemplateDetails.Any())
+            {
+                foreach (var detail in dto.SalaryTemplateDetails)
+                {
+                    if (detail.CalculationMethod == "FORMULA" && !string.IsNullOrWhiteSpace(detail.CustomFormula))
+                    {
+                        // Extract components from formula
+                        var formulaComponents = ExtractComponentsFromFormula(detail.CustomFormula);
+                        if (!formulaComponents.Any())
+                        {
+                            return BadRequest(ApiResponseDto<string>.CreateFailure(
+                                "Custom formula is invalid or contains no valid components."
+                            ));
+                        }
+                        // Fetch all valid SalaryHead codes
+                        var salaryHeads = await _salaryservice.GetSalaryHeadList();
+                        var validSalaryHeadCodes = salaryHeads.Select(sh => sh.SalaryHeadCode).ToList();
 
+                        // Find invalid components in the formula
+                        var invalidComponents = formulaComponents
+                            .Where(component => !validSalaryHeadCodes.Contains(component))
+                            .ToList();
+
+                        if (invalidComponents.Any())
+                        {
+                            return BadRequest(ApiResponseDto<string>.CreateFailure(
+                                $"The following components in custom formula are invalid: {string.Join(", ", invalidComponents)}"
+                            ));
+                        }
+                    }
+                }
+            }
             try
             {
                 var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -93,7 +125,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add salary template."));
                 }
 
-                return Ok(ApiResponseDto<object>.CreateSuccess(result,"Salary template added successfully."));
+                return Ok(ApiResponseDto<object>.CreateSuccess(result, "Salary template added successfully."));
             }
             catch (Exception ex)
             {
@@ -102,13 +134,47 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateSalaryTemplate")]
-        public async Task<IActionResult> Update([FromBody] SalaryTemplateDto dto)
+        public async Task<IActionResult> UpdateSalaryTemplate([FromBody] SalaryTemplateDto dto)
         {
             var validationResult = await _salaryTemplateUpdateValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            // Step 2: Check custom formulas in SalaryTemplateDetails
+            if (dto.SalaryTemplateDetails != null && dto.SalaryTemplateDetails.Any())
+            {
+                foreach (var detail in dto.SalaryTemplateDetails)
+                {
+                    if (detail.CalculationMethod == "FORMULA" && !string.IsNullOrWhiteSpace(detail.CustomFormula))
+                    {
+                        // Extract components from formula
+                        var formulaComponents = ExtractComponentsFromFormula(detail.CustomFormula);
+                        if (!formulaComponents.Any())
+                        {
+                            return BadRequest(ApiResponseDto<string>.CreateFailure(
+                                "Custom formula is invalid or contains no valid components."
+                            ));
+                        }
+                        // Fetch all valid SalaryHead codes
+                        var salaryHeads = await _salaryservice.GetSalaryHeadList();
+                        var validSalaryHeadCodes = salaryHeads.Select(sh => sh.SalaryHeadCode).ToList();
+
+                        // Find invalid components in the formula
+                        var invalidComponents = formulaComponents
+                            .Where(component => !validSalaryHeadCodes.Contains(component))
+                            .ToList();
+
+                        if (invalidComponents.Any())
+                        {
+                            return BadRequest(ApiResponseDto<string>.CreateFailure(
+                                $"The following components in custom formula are invalid: {string.Join(", ", invalidComponents)}"
+                            ));
+                        }
+                    }
+                }
             }
 
             try
@@ -120,7 +186,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return NotFound(ApiResponseDto<string>.CreateFailure("Salary template not found for update."));
                 }
 
-                return Ok(ApiResponseDto<SalaryTemplateDto>.CreateSuccess(result,"Salary template updated successfully."));
+                return Ok(ApiResponseDto<object>.CreateSuccess(result, "Salary template updated successfully."));
             }
             catch (Exception ex)
             {
@@ -128,79 +194,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        #endregion
-
-        #region SalaryTemplateDetails
-
-        [HttpGet("GetAllSalaryTemplateDetails")]
-        public async Task<IActionResult> GetAllSalaryTemplateDetails(int Id)
-        {
-            try
-            {
-                var details = await _salaryTemplateDetailsService.GetAllSalaryTemplateDetails(Id);
-                if (!details.Any())
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No salary template details found."));
-
-                return Ok(ApiResponseDto<IEnumerable<SalaryTemplateDetailDto>>.CreateSuccess(details, "Salary template details retrieved successfully."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
-
-        //[HttpGet("GetSalaryTemplateDetailById")]
-        //public async Task<IActionResult> GetSalaryTemplateDetailById(int id)
-        //{
-        //    try
-        //    {
-        //        var detail = await _salaryTemplateDetailsService.GetSalaryTemplateDetailById(id);
-        //        if (detail == null)
-        //            return NotFound(ApiResponseDto<string>.CreateFailure("Salary template detail not found."));
-
-        //        return Ok(ApiResponseDto<SalaryTemplateDetailDto>.CreateSuccess(detail, "Salary template detail retrieved successfully."));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-        //    }
-        //}
-
-        [HttpPost("AddSalaryTemplateDetail")]
-        public async Task<IActionResult> AddSalaryTemplateDetail([FromBody] SalaryTemplateDetailDto dto)
-        {           
-
-            try
-            {
-                if (dto.CalculationMethod == "FORMULA")
-                {
-                    // Extract the components from the formula
-                    var formulaComponents = ExtractComponentsFromFormula(dto.CustomFormula);
-
-                    // Query the database to check for missing components
-                    var salaryHeads = await _salaryservice.GetSalaryHeadList();
-                    var missingComponents = formulaComponents
-                        .Where(component => !salaryHeads.Any(sh => sh.SalaryHeadCode == component))
-                        .ToList();
-
-                    // If there are missing components, return validation error
-                    if (missingComponents.Any())
-                    {
-                        return BadRequest(ApiResponseDto<string>.CreateFailure($"The following components are not valid salary heads: {string.Join(", ", missingComponents)}"));
-                    }
-                }
-
-                var result = await _salaryTemplateDetailsService.AddSalaryTemplateDetail(dto);
-                if (result == null)
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create salary template detail."));
-
-                return Ok(ApiResponseDto<string>.CreateSuccess("Salary template detail created successfully."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
         private List<string> ExtractComponentsFromFormula(string formula)
         {
             // Use a regular expression to extract alphanumeric components from the formula
@@ -210,44 +203,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             return matches.Select(match => match.Value).Distinct().ToList();
         }
 
-        [HttpPost("UpdateSalaryTemplateDetail")]
-        public async Task<IActionResult> UpdateSalaryTemplateDetail([FromBody] SalaryTemplateDetailDto dto)
-        {
-            try
-            {
-                // Check if CalculationMethod is "Custom Formula"
-                if (dto.CalculationMethod == "FORMULA")
-                {
-                    // Extract the components from the formula
-                    var formulaComponents = ExtractComponentsFromFormula(dto.CustomFormula);
-
-                    // Query the database to check for missing components
-                    var salaryHeads = await _salaryservice.GetSalaryHeadList();
-                    var missingComponents = formulaComponents
-                        .Where(component => !salaryHeads.Any(sh => sh.SalaryHeadCode == component))
-                        .ToList();
-
-                    // If there are missing components, return validation error
-                    if (missingComponents.Any())
-                    {
-                        return BadRequest(ApiResponseDto<string>.CreateFailure($"The following components are not valid salary heads: {string.Join(", ", missingComponents)}"));
-                    }
-                }
-
-                // Call the service to update the salary template detail
-                var result = await _salaryTemplateDetailsService.UpdateSalaryTemplateDetail(dto);
-                if (result == null)
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update salary template detail."));
-
-                return Ok(ApiResponseDto<string>.CreateSuccess("Salary template detail updated successfully."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
-
         #endregion
+
 
     }
 }

@@ -44,5 +44,24 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             var result = await _optionService.GetAllSalaryMonths();
             return Ok(result);
         }
+
+
+        [HttpGet("GetHolidayTypes")]
+        public async Task<IActionResult> GetHolidayTypes()
+        {
+            var result = await _optionService.GetHolidayTypes();
+            return Ok(result);
+        }
+
+
+        [HttpGet("GetEmployeeLatestSalaryStructure")]
+        public async Task<IActionResult> GetEmployeeLatestSalaryStructure()
+        {
+            var result = await _optionService.GetEmployeeLatestSalaryStructure();
+            return Ok(result);
+        }
+
+
+
     }
 }

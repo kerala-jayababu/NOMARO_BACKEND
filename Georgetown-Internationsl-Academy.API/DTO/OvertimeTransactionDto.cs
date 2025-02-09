@@ -20,6 +20,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? AttachmentDescription { get; set; }
         public IFormFile? File { get; set; }
         public string? ApprovalStatus { get; set; }
+        public string? DayType { get; set; }
 
         // Employee Related Details (Directly Mapped from Database)
         [NotMapped]

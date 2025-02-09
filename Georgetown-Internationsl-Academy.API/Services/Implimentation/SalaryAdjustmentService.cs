@@ -1,10 +1,12 @@
 ﻿
 using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
 
@@ -21,33 +23,140 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _logger = logger;
         }
 
-        public async Task<IEnumerable<SalaryAdjustmentDto>> GetAllSalaryAdjustments()
+        public async Task<IEnumerable<SalaryAdjustmentDto>> GetAllSalaryAdjustments(string? searchText = null, DateTime? fromDate = null)
         {
+            var query = new StringBuilder(@"
+    SELECT 
+        sa.IdEmployee,
+        e.EmployeeCode,
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        dept.DepartmentName,
+        e.JoiningDate,
+        e.Gender,
+        e.EmailID,
+        e.PhoneNumber1 AS PhoneNumber1,
+ e.PhoneNumber2 AS PhoneNumber2,
+e.CurrentStatus ,
+        sa.IdSalaryAdjustment,
+        sa.PayAdjustmentDate,
+        sa.PayAdjustmentDetails,
+        sa.AllocatingSalaryHead,
+        sh.SalaryHeadName AS AllcoatingSalaryHeadName,
+        sa.EarningOrDeduction,
+        sa.AllocatingSalaryMonth,
+        sm.SalaryMonthText AS AllocatingSalaryMonthText,
+        sa.Amount,
+        sa.Remarks
+    FROM SalaryAdjustments sa
+    LEFT JOIN Employees e ON sa.IdEmployee = e.IdEmployee
+    LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    LEFT JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+    LEFT JOIN SalaryHeads sh ON sa.AllocatingSalaryHead = sh.IdSalaryHead
+    LEFT JOIN SalaryMonths sm ON sa.AllocatingSalaryMonth = sm.IdSalaryMonth
+    WHERE 1 = 1
+    ");
+
+            var parameters = new DynamicParameters();
+
+            // Apply search filter if provided
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                query.Append(@"
+        AND (
+            e.EmployeeCode LIKE @SearchText OR
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+            des.DesignationName LIKE @SearchText OR
+            dept.DepartmentName LIKE @SearchText
+        )
+        ");
+                parameters.Add("SearchText", $"%{searchText}%");
+            }
+
+            // Apply filter for PayAdjustmentDate
+            if (fromDate.HasValue)
+            {
+                query.Append(" AND sa.PayAdjustmentDate >= @FromDate");
+                parameters.Add("FromDate", fromDate.Value);
+            }
+
+            // Order the results
+            query.Append(" ORDER BY e.FirstName, e.LastName;");
+
             try
             {
-                var adjustments = await _dbContext.SalaryAdjustments.ToListAsync();
-                return _mapper.Map<IEnumerable<SalaryAdjustmentDto>>(adjustments);
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var salaryAdjustments = await connection.QueryAsync<SalaryAdjustmentDto>(query.ToString(), parameters);
+                    return salaryAdjustments;
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching all salary adjustments.");
-                throw;
+                _logger.LogError(ex, "Error fetching Salary Adjustments.");
+                throw new Exception("An error occurred while fetching salary adjustments. Please try again later.");
             }
         }
 
         public async Task<SalaryAdjustmentDto?> GetSalaryAdjustmentById(int id)
         {
+            var query = @"
+    SELECT 
+        sa.IdEmployee,
+        e.EmployeeCode,
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        dept.DepartmentName,
+        e.JoiningDate,
+        e.Gender,
+        e.EmailID,
+        e.PhoneNumber1 AS PhoneNumber1,
+        e.PhoneNumber2 AS PhoneNumber2,
+        e.CurrentStatus,
+        sa.IdSalaryAdjustment,
+        sa.PayAdjustmentDate,
+        sa.PayAdjustmentDetails,
+        sa.AllocatingSalaryHead,
+        sh.SalaryHeadName AS AllcoatingSalaryHeadName,
+        sa.EarningOrDeduction,
+        sa.AllocatingSalaryMonth,
+        sm.SalaryMonthText AS AllocatingSalaryMonthText,
+        sa.Amount,
+        sa.Remarks
+    FROM SalaryAdjustments sa
+    LEFT JOIN Employees e ON sa.IdEmployee = e.IdEmployee
+    LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    LEFT JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+    LEFT JOIN SalaryHeads sh ON sa.AllocatingSalaryHead = sh.IdSalaryHead
+    LEFT JOIN SalaryMonths sm ON sa.AllocatingSalaryMonth = sm.IdSalaryMonth
+    WHERE sa.IdSalaryAdjustment = @Id
+    ";
+
             try
             {
-                var adjustment = await _dbContext.SalaryAdjustments.FirstOrDefaultAsync(x => x.IdSalaryAdjustment == id);
-                return adjustment == null ? null : _mapper.Map<SalaryAdjustmentDto>(adjustment);
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var adjustment = await connection.QueryFirstOrDefaultAsync<SalaryAdjustmentDto>(query, new { Id = id });
+                    return adjustment;
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching salary adjustment with ID: {Id}", id);
-                throw;
+                throw new Exception($"An error occurred while fetching the salary adjustment with ID: {id}.", ex);
             }
         }
+
 
         public async Task<SalaryAdjustmentDto?> AddSalaryAdjustment(SalaryAdjustmentDto salaryAdjustment)
         {

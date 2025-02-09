@@ -2,7 +2,7 @@
 {
     public class SalaryTemplateDto
     {
-        public int IdSalaryTemplate { get; set; }
+        public int? IdSalaryTemplate { get; set; }
         public string SalaryTemplateName { get; set; }
         public string? Description { get; set; }
         public int? CreatedBy { get; set; }
@@ -14,5 +14,6 @@
         public decimal? TotalEarnings { get; set; }
         public decimal? TotalDeductions { get; set; }
         public decimal? NetSalary { get; set; }
+        public List<SalaryTemplateDetailDto>? SalaryTemplateDetails { get; set; }
     }
 }

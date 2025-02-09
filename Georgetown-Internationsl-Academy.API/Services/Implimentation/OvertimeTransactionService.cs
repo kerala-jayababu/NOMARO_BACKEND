@@ -261,6 +261,17 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                         await transactionDto.File.CopyToAsync(stream);
                     }
                 }
+                var holiday = await _dbContext.Holidays
+      .FirstOrDefaultAsync(h => h.HolidayDate.Date == transactionDto.StartDate.Date);
+
+                if (holiday != null)
+                {
+                    transactionEntity.DayType = holiday.HolidayType; // Use the HolidayType from Holidays table
+                }
+                else
+                {
+                    transactionEntity.DayType = "WORKINGDAY"; // Default value if no holiday exists
+                }
 
                 transactionEntity.CreatedBy = IdEmployee;
                 transactionEntity.CreatedOn = DateTime.Now;
@@ -308,7 +319,17 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                         await transactionDto.File.CopyToAsync(stream);
                     }
                 }
+                var holiday = await _dbContext.Holidays
+    .FirstOrDefaultAsync(h => h.HolidayDate.Date == transactionDto.StartDate.Date);
 
+                if (holiday != null)
+                {
+                    transaction.DayType = holiday.HolidayType; // Use the HolidayType from Holidays table
+                }
+                else
+                {
+                    transaction.DayType = "WORKINGDAY"; // Default value if no holiday exists
+                }
                 transaction.StartTime = transactionDto.StartTime;
                 transaction.EndTime = transactionDto.EndTime;
                 transaction.StartDate = transactionDto.StartDate;

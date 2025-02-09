@@ -5,12 +5,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
 {
     public interface IMaternityLeaveSalaryService
     {
-        Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries();
+        Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries(string? searchText = null, DateTime? fromDate = null);
         Task<MaternityLeaveSalaryDto?> GetMaternityLeaveSalaryById(int id);
-        Task<MaternityLeaveSalaryDto?> AddMaternityLeaveSalary(MaternityLeaveSalaryDto dto);
-        Task<MaternityLeaveSalaryDto?> UpdateMaternityLeaveSalary(MaternityLeaveSalaryDto dto);
-        Task<MaternityLeaveSalaryDetailDto?> GetMaternityLeaveSalaryDetailByIdAsync(int id);
-        Task<MaternityLeaveSalaryDetailDto> AddMaternityLeaveSalaryDetail(MaternityLeaveSalaryDetailDto entity,int IdEmployee);
-        Task<MaternityLeaveSalaryDetailDto> UpdateMaternityLeaveSalaryDetail(MaternityLeaveSalaryDetailDto entity);
+        Task<MaternityLeaveSalaryDto?> AddMaternityLeaveSalary(MaternityLeaveSalaryDto dto,int IdEmployee);
+        Task<MaternityLeaveSalaryDto?> UpdateMaternityLeaveSalary(MaternityLeaveSalaryDto dto,int EmployeeId);
+     
     }
 }

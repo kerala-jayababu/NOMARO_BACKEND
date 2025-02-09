@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Validators.PayrollManagement;
@@ -253,11 +254,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #region salaryAdjustments
         [HttpGet("GetAllSalaryAdjustments")]
-        public async Task<IActionResult> GetAllSalaryAdjustments()
+        public async Task<IActionResult> GetAllSalaryAdjustments(string? searchText = null, DateTime? fromDate = null)
         {
             try
             {
-                var adjustments = await _salaryAdjustmentService.GetAllSalaryAdjustments();
+                var adjustments = await _salaryAdjustmentService.GetAllSalaryAdjustments(searchText, fromDate);
                 if (!adjustments.Any())
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("No salary adjustments found."));
@@ -328,11 +329,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region   ScheduledDeductions
         
      [HttpGet("GetAllScheduledSalaryDeductionservice")]
-    public async Task<IActionResult> GetAllScheduledSalaryDeductionservice()
+    public async Task<IActionResult> GetAllScheduledSalaryDeductionservice(string? searchText = null, DateTime? fromDate = null)
         {
             try
             {
-                var deductions = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.GetScheduledDeductions();
+                var deductions = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.GetScheduledDeductions(searchText,fromDate);
                 return Ok(ApiResponseDto<IEnumerable<ScheduledSalaryDeductionDto>>.CreateSuccess(deductions, "Scheduled deductions retrieved successfully."));
             }
             catch (Exception ex)
@@ -370,7 +371,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.AddScheduledDeduction(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.AddScheduledDeduction(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create scheduled deduction."));
 
@@ -394,7 +396,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.UpdateScheduledDeduction(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.UpdateScheduledDeduction(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return NotFound(ApiResponseDto<string>.CreateFailure("Scheduled deduction not found."));
 
@@ -410,11 +413,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region MaternityLeaveSalaries
 
         [HttpGet("GetAllMaternityLeaveSalaries")]
-        public async Task<IActionResult> GetAllMaternityLeaveSalaries()
+        public async Task<IActionResult> GetAllMaternityLeaveSalaries(string? searchText = null, DateTime? fromDate = null)
         {
             try
             {
-                var leaveSalaries = await _maternityLeaveSalaryService.GetAllMaternityLeaveSalaries();
+                var leaveSalaries = await _maternityLeaveSalaryService.GetAllMaternityLeaveSalaries(searchText,fromDate);
 
                 if (!leaveSalaries.Any())
                 {
@@ -462,7 +465,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _maternityLeaveSalaryService.AddMaternityLeaveSalary(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var result = await _employeeSalaryConfigService.AddConfig(dto, int.Parse(IdEmployee));
+                var result = await _maternityLeaveSalaryService.AddMaternityLeaveSalary(dto, int.Parse(IdEmployee));
 
                 if (result == null)
                 {
@@ -495,7 +500,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _maternityLeaveSalaryService.UpdateMaternityLeaveSalary(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _maternityLeaveSalaryService.UpdateMaternityLeaveSalary(dto, int.Parse(IdEmployee));
 
                 if (result == null)
                 {
@@ -588,41 +594,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-
-        [HttpGet("GetMaternityLeaveSalaryDetailById")]
-        public async Task<ActionResult<MaternityLeaveSalaryDetailDto>> GetMaternityLeaveSalaryDetailById(int id)
-        {
-            var result = await _maternityLeaveSalaryService.GetMaternityLeaveSalaryDetailByIdAsync(id);
-            if (result == null)
-            {
-                return NotFound($"MaternityLeaveSalaryDetail with ID {id} not found.");
-            }
-            return Ok(result);
-        }
-
-        [HttpPost("AddMaternityLeaveSalaryDetail")]
-        public async Task<ActionResult<MaternityLeaveSalaryDetailDto>> AddMaternityLeaveSalaryDetail([FromBody] MaternityLeaveSalaryDetailDto dto)
-        {
-            if (dto == null)
-            {
-                return BadRequest("Invalid data.");
-            }
-            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var createdRecord = await _maternityLeaveSalaryService.AddMaternityLeaveSalaryDetail(dto,int.Parse(IdEmployee));
-            return Ok(createdRecord);
-        }
-
-        [HttpPost("UpdateMaternityLeaveSalaryDetail")]
-        public async Task<ActionResult<MaternityLeaveSalaryDetailDto>> UpdateMaternityLeaveSalaryDetail([FromBody] MaternityLeaveSalaryDetailDto dto)
-        {
-            var updatedRecord = await _maternityLeaveSalaryService.UpdateMaternityLeaveSalaryDetail(dto);
-            if (updatedRecord == null)
-            {
-                return NotFound($"MaternityLeaveSalaryDetail not found.");
-            }
-
-            return Ok(updatedRecord);
-        }
+       
         #endregion
     }
 }

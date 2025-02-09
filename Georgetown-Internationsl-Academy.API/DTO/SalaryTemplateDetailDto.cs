@@ -18,9 +18,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? Remarks { get; set; }
 
         [NotMapped]
-        public string SalaryHeadName { get; set; }
+        public string? SalaryHeadName { get; set; }
         [NotMapped]
-        public string HeadType { get; set; }
+        public string? HeadType { get; set; }
         [NotMapped]
         public bool IsTaxable { get; set; }
         [NotMapped]

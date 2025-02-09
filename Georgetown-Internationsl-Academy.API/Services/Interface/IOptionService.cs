@@ -9,5 +9,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
         Task<AllOptionsDto> GetAllOptions();
         Task<List<SalaryMonthsDto>> GetAllSalaryMonths();
+        Task<List<HolidayTypeDto>> GetHolidayTypes();
+        Task<List<LatestEmployeeSalaryConfigDto>> GetEmployeeLatestSalaryStructure();
+        
     }
 }
