@@ -151,6 +151,7 @@ builder.Services.AddScoped<IMaternityLeaveSalaryService, MaternityLeaveSalarySer
 builder.Services.AddScoped<IRentFreeQuarterService, RentFreeQuarterService>();
 builder.Services.AddScoped<IEmployeeSalaryConfigService, EmployeeSalaryConfigService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IApprovalWorkflowService, ApprovalWorkflowService>();
 
 var app = builder.Build();
 

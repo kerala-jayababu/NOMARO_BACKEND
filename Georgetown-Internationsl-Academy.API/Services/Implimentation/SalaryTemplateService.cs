@@ -11,14 +11,16 @@ public class SalaryTemplateService : ISalaryTemplateService
     private readonly IMapper _mapper;
     private readonly ILogger<SalaryTemplateService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IApprovalWorkflowService _approvalWorkflowService;
 
 
-    public SalaryTemplateService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateService> logger, IConfiguration configuration)
+    public SalaryTemplateService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
         _configuration = configuration;
+        _approvalWorkflowService = approvalWorkflowService;
     }
 
     public async Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates(string? searchText = null,string? dropdownFilter = null)
@@ -123,6 +125,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             var templateEntity = _mapper.Map<SalaryTemplate>(dto);
             templateEntity.CreatedBy = IdEmployee;
             templateEntity.CreatedOn = DateTime.UtcNow;
+            templateEntity.ApprovalStatus = "SUBMITTED";
 
             await _dbContext.SalaryTemplates.AddAsync(templateEntity);
             await _dbContext.SaveChangesAsync();
@@ -139,6 +142,14 @@ public class SalaryTemplateService : ISalaryTemplateService
                 }
 
                 await _dbContext.SaveChangesAsync();
+            }
+            var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
+            // Step: Call the approval workflow service
+            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED",null);
+
+            if (approvalResult != "Approval workflow initiated.")
+            {
+                throw new Exception(approvalResult);
             }
 
             await transaction.CommitAsync();

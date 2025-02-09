@@ -44,5 +44,8 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<MaternityLeaveSalaryDetail> MaternityLeaveSalaryDetail { get; set; }
         public DbSet<HolidayTypeEntity> HolidayTypes { get; set; }
         public DbSet<Holiday> Holidays { get; set; }
+        public DbSet<WorkFlowConfig> WorkFlowConfig { get; set; }
+        public DbSet<WorkFlowConfigDetails> WorkFlowConfigDetails { get; set; }
+        public DbSet<ApprovalWorkFlowAllocation> ApprovalWorkFlowAllocations { get; set; }
     }
 }
