@@ -18,9 +18,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<RoleBasedPermission, RoleBasedPermissionDto>().ReverseMap();
             CreateMap<SystemParameter, SystemParameterDto>().ReverseMap();
             CreateMap<NotificationConfig, NotificationConfigDto>().ReverseMap();
-            CreateMap<VacationMode, VacationModeDto>().ReverseMap();
-            CreateMap<TaxConfig, TaxConfigDto>().ReverseMap();
-            CreateMap<TaxConfig, TaxConfigManageDto>().ReverseMap();
+            CreateMap<VacationMode, VacationModeDto>().ReverseMap();          
             CreateMap<TaxSlab, TaxSlabDto>().ReverseMap();
             CreateMap<CurrencyConversion, CurrencyConversionDto>().ReverseMap();
             CreateMap<ChildTaxThreshold, ChildTaxThresholdDto>().ReverseMap();

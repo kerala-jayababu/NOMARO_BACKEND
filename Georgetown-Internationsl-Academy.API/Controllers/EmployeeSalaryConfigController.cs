@@ -102,7 +102,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _employeeSalaryConfigService.UpdateConfig(dto);
+
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _employeeSalaryConfigService.UpdateConfig(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return NotFound(ApiResponseDto<string>.CreateFailure("Configuration not found."));
 

@@ -235,6 +235,9 @@ public class SalaryTemplateService : ISalaryTemplateService
 
                 await _dbContext.SaveChangesAsync();
             }
+            var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
+            // Step: Call the approval workflow service
+            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED", null);
 
             await transaction.CommitAsync();
             return _mapper.Map<SalaryTemplateDto>(templateEntity);

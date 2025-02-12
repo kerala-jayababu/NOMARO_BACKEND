@@ -18,7 +18,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly IEmployeeServices _employeeServices;
         private readonly IConfiguration _configuration;
-        public OvertimeTransactionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<OvertimeTransactionService> logger, IConfiguration configuration, IWebHostEnvironment webHostEnvironment, IEmployeeServices employeeServices)
+        private readonly IApprovalWorkflowService _approvalWorkflowService;
+
+        public OvertimeTransactionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<OvertimeTransactionService> logger, IConfiguration configuration, 
+                                           IWebHostEnvironment webHostEnvironment, IEmployeeServices employeeServices, IApprovalWorkflowService approvalWorkflowService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
@@ -26,6 +29,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _webHostEnvironment = webHostEnvironment;
             _employeeServices = employeeServices;
             _configuration = configuration;
+            _approvalWorkflowService = approvalWorkflowService;
         }
 
         public async Task<IEnumerable<OvertimeTransactionDto>> GetOvertimeTransactionList(
@@ -276,8 +280,14 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                 transactionEntity.CreatedBy = IdEmployee;
                 transactionEntity.CreatedOn = DateTime.Now;
                 transactionEntity.Attachment = filePath;
+                transactionEntity.ApprovalStatus = "SUBMITTED";
                 await _dbContext.OvertimeTransactions.AddAsync(transactionEntity);
                 await _dbContext.SaveChangesAsync();
+                int insertedId = transactionEntity.IdOvertimeTransaction;
+                var entityCode = _configuration["WorkflowEntityCodes:Overtime"];
+                // Step: Call the approval workflow service
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(insertedId, entityCode, IdEmployee, "SUBMITTED", null);
+
                 return _mapper.Map<OvertimeTransactionDto>(transactionEntity);
             }
             catch (Exception ex)
@@ -287,7 +297,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
             }
         }
 
-        public async Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transactionDto)
+        public async Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transactionDto, int IdEmployee)
         {
             try
             {
@@ -341,7 +351,11 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                 transaction.Attachment = filePath;
 
                 _dbContext.OvertimeTransactions.Update(transaction);
-                await _dbContext.SaveChangesAsync();
+
+                await _dbContext.SaveChangesAsync();              
+                var entityCode = _configuration["WorkflowEntityCodes:Overtime"];
+                // Step: Call the approval workflow service
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(transaction.IdOvertimeTransaction, entityCode, IdEmployee, "SUBMITTED", null);
                 return _mapper.Map<OvertimeTransactionDto>(transaction);
             }
             catch (Exception ex)

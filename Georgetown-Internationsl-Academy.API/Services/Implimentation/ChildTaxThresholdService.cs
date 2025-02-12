@@ -19,17 +19,53 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
         _mapper = mapper;
         _logger = logger;
     }
-
-    public async Task<IEnumerable<ChildTaxThresholdDto>> GetAllChildTaxThresholds()
+    public async Task<IEnumerable<ChildTaxThresholdDto>> GetAllChildTaxThresholds(int? idFinancialYear = null)
     {
         try
         {
-            var thresholds = await _dbContext.ChildTaxThresholds.ToListAsync();
-            return _mapper.Map<IEnumerable<ChildTaxThresholdDto>>(thresholds);
+            int currentFinancialYearId;
+
+            if (idFinancialYear.HasValue)
+            {
+                // Use the provided IdFinancialYear
+                currentFinancialYearId = idFinancialYear.Value;
+            }
+            else
+            {
+                // Determine current financial year based on today's date
+                var currentDate = DateTime.UtcNow.Date;
+                var financialYear = await _dbContext.FinancialYears
+                    .Where(fy => fy.FinancialYearFrom <= currentDate && fy.FinancialYearTo >= currentDate)
+                    .FirstOrDefaultAsync();
+
+                if (financialYear == null)
+                    return Enumerable.Empty<ChildTaxThresholdDto>(); 
+
+                currentFinancialYearId = financialYear.IdFinancialYear;
+            }
+
+         
+            var thresholds = await _dbContext.ChildTaxThresholds
+                .Where(ctt => ctt.IdFinancialYear == currentFinancialYearId)
+                .Join(_dbContext.FinancialYears,
+                      ctt => ctt.IdFinancialYear,
+                      fy => fy.IdFinancialYear,
+                      (ctt, fy) => new ChildTaxThresholdDto
+                      {
+                          IdChildTaxThreshold = ctt.IdChildTaxThreshold,
+                          ChildrenCount = ctt.ChildrenCount,
+                          TaxThresholdAmount = ctt.TaxThresholdAmount,
+                          IdFinancialYear = ctt.IdFinancialYear,
+                          FinancialYearFrom = fy.FinancialYearFrom,
+                          FinancialYearTo = fy.FinancialYearTo
+                      })
+                .ToListAsync();
+
+            return thresholds;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching all child tax thresholds.");
+            _logger.LogError(ex, "Error fetching child tax thresholds.");
             throw;
         }
     }
@@ -71,7 +107,7 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
             var threshold = await _dbContext.ChildTaxThresholds.FirstOrDefaultAsync(x => x.IdChildTaxThreshold == dto.IdChildTaxThreshold);
             if (threshold == null) return null;
 
-            threshold.IdTaxConfig = dto.IdTaxConfig;
+            threshold.IdFinancialYear = dto.IdFinancialYear;
             threshold.ChildrenCount = dto.ChildrenCount;
             threshold.TaxThresholdAmount = dto.TaxThresholdAmount;
 

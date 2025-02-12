@@ -4,7 +4,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
 {
     public interface ITaxSlabService
     {
-        Task<IEnumerable<TaxSlabDto>> GetAllTaxSlabs();
+        Task<IEnumerable<TaxSlabDto>> GetAllTaxSlabs(int? idFinancialYear = null);
         Task<TaxSlabDto?> GetTaxSlabById(int id);
         Task<TaxSlabDto?> AddTaxSlab(TaxSlabDto taxSlabDto);
         Task<TaxSlabDto?> UpdateTaxSlab(TaxSlabDto taxSlabDto);

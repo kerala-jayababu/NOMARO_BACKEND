@@ -12,17 +12,15 @@ using System.Security.Claims;
 [Authorize]
 public class TaxConfigsController : ControllerBase
 {
-    private readonly ITaxConfigService _taxConfigService;
-    private readonly IValidator<TaxConfigManageDto> _validator;
+   
     private readonly ITaxSlabService _taxSlabService;
     private readonly IValidator<TaxSlabDto> _taxSlabValidator;
     private readonly IChildTaxThresholdService _childTaxservice;
     private readonly IValidator<ChildTaxThresholdDto> _childTaxvalidator;
-    public TaxConfigsController(ITaxConfigService taxConfigService, IValidator<TaxConfigManageDto> validator, ITaxSlabService taxSlabService,
+    public TaxConfigsController( ITaxSlabService taxSlabService,
         IValidator<TaxSlabDto> taxSlabValidator, IChildTaxThresholdService childTaxservice, IValidator<ChildTaxThresholdDto> childTaxvalidator)
     {
-        _taxConfigService = taxConfigService;
-        _validator = validator;
+   
         _taxSlabService = taxSlabService;
         _taxSlabValidator = taxSlabValidator;
         _childTaxservice = childTaxservice;
@@ -30,121 +28,23 @@ public class TaxConfigsController : ControllerBase
     }
 
 
-    #region TaxConfig
-
-    [HttpGet("GetAllTaxConfigs")]
-    public async Task<IActionResult> GetAllTaxConfigs()
-    {
-        try
-        {
-            var taxConfigs = await _taxConfigService.GetAllTaxConfigs();
-
-            if (!taxConfigs.Any())
-            {
-                return NotFound(ApiResponseDto<string>.CreateFailure("No tax configs found."));
-            }
-
-            return Ok(ApiResponseDto<IEnumerable<TaxConfigDto>>.CreateSuccess(taxConfigs, "Tax configs retrieved successfully."));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-        }
-    }
-
-    [HttpGet("GetTaxConfigById")]
-    public async Task<IActionResult> GetTaxConfigById(int id)
-    {
-        try
-        {
-            var taxConfig = await _taxConfigService.GetTaxConfigById(id);
-
-            if (taxConfig == null)
-            {
-                return NotFound(ApiResponseDto<string>.CreateFailure("Tax config not found."));
-            }
-
-            return Ok(ApiResponseDto<TaxConfigDto>.CreateSuccess(taxConfig, "Tax config retrieved successfully."));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-        }
-    }
-
-    [HttpPost("AddTaxConfig")]
-    public async Task<IActionResult> AddTaxConfig([FromBody] TaxConfigManageDto dto)
-    {
-        var validationResult = await _validator.ValidateAsync(dto);
-        if (!validationResult.IsValid)
-        {
-            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-        }
-
-        try
-        {
-            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var result = await _taxConfigService.AddTaxConfig(dto, int.Parse(IdEmployee));
-
-            if (result == null)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add tax config."));
-            }
-
-            return Ok(ApiResponseDto<string>.CreateSuccess("Tax config added successfully."));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-        }
-    }
-
-    [HttpPost("UpdateTaxConfig")]
-    public async Task<IActionResult> UpdateTaxConfig([FromBody] TaxConfigManageDto dto)
-    {
-        var validationResult = await _validator.ValidateAsync(dto);
-        if (!validationResult.IsValid)
-        {
-            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-        }
-
-        try
-        {
-            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var result = await _taxConfigService.UpdateTaxConfig(dto, int.Parse(IdEmployee));
-
-            if (result == null)
-            {
-                return NotFound(ApiResponseDto<string>.CreateFailure("Tax config not found."));
-            }
-
-            return Ok(ApiResponseDto<string>.CreateSuccess("Tax config updated successfully."));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-        }
-    }
-
-    #endregion
-
     #region TaxSlabs
     [HttpGet("GetAllTaxSlabs")]
-    public async Task<IActionResult> GetAllTaxSlabs()
+    public async Task<IActionResult> GetAllTaxSlabs(int? idFinancialYear = null)
     {
         try
         {
-            var taxSlabs = await _taxSlabService.GetAllTaxSlabs();
+            var taxSlabs = await _taxSlabService.GetAllTaxSlabs(idFinancialYear);
             if (!taxSlabs.Any())
-                return NotFound("No tax slabs found.");
+                return NotFound(ApiResponseDto<string>.CreateFailure("No tax slabs found."));
 
-            return Ok(taxSlabs);
+            return Ok(ApiResponseDto<IEnumerable<TaxSlabDto>>.CreateSuccess(taxSlabs, " taxSlabs retrieved successfully."));
+          
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"An error occurred: {ex.Message}");
+            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+           
         }
     }
 
@@ -155,13 +55,17 @@ public class TaxConfigsController : ControllerBase
         {
             var taxSlab = await _taxSlabService.GetTaxSlabById(id);
             if (taxSlab == null)
-                return NotFound($"No tax slab found with ID: {id}");
+            {
+                return NotFound(ApiResponseDto<string>.CreateFailure("taxSlabs not found."));
+            }
 
-            return Ok(taxSlab);
+
+            return Ok(ApiResponseDto<TaxSlabDto>.CreateSuccess(taxSlab, "taxSlabs retrieved successfully."));    
+            
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"An error occurred: {ex.Message}");
+            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
         }
     }
 
@@ -172,20 +76,21 @@ public class TaxConfigsController : ControllerBase
         if (!validationResult.IsValid)
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return BadRequest($"Validation failed: {errors}");
+            return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
         }
 
         try
         {
             var result = await _taxSlabService.AddTaxSlab(dto);
             if (result == null)
-                return StatusCode(500, "Failed to add tax slab.");
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add tax slab."));
 
-            return Ok("Tax slab added successfully.");
+
+            return Ok(ApiResponseDto<string>.CreateSuccess("tax slab added successfully."));
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"An error occurred: {ex.Message}");
+            return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
         }
     }
 
@@ -196,16 +101,18 @@ public class TaxConfigsController : ControllerBase
         if (!validationResult.IsValid)
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return BadRequest($"Validation failed: {errors}");
+            return BadRequest(ApiResponseDto<IEnumerable<string>>.CreateFailure(errors));
+            
         }
 
         try
         {
             var result = await _taxSlabService.UpdateTaxSlab(dto);
             if (result == null)
-                return NotFound($"No tax slab found with ID: {dto.IdTaxSlab}");
+                return NotFound(ApiResponseDto<string>.CreateFailure($"No tax slab found with ID: {dto.IdTaxSlab}"));
 
-            return Ok("Tax slab updated successfully.");
+
+            return Ok(ApiResponseDto<TaxSlabDto>.CreateSuccess(result, "Tax slab updated successfully."));
         }
         catch (Exception ex)
         {
@@ -216,11 +123,11 @@ public class TaxConfigsController : ControllerBase
 
     #region ChildTaxThresholds
     [HttpGet("GetChildTaxThresholdList")]
-    public async Task<IActionResult> GetChildTaxThresholdList()
+    public async Task<IActionResult> GetChildTaxThresholdList(int? idFinancialYear = null)
     {
         try
         {
-            var childTaxThresholdList = await _childTaxservice.GetAllChildTaxThresholds();
+            var childTaxThresholdList = await _childTaxservice.GetAllChildTaxThresholds(idFinancialYear);
 
             if (!childTaxThresholdList.Any())
             {
@@ -263,15 +170,7 @@ public class TaxConfigsController : ControllerBase
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-        }
-
-        var existingThreshold = (await _childTaxservice.GetAllChildTaxThresholds())
-            .FirstOrDefault(t => t.IdTaxConfig == dto.IdTaxConfig && t.ChildrenCount == dto.ChildrenCount);
-
-        if (existingThreshold != null)
-        {
-            return Conflict(ApiResponseDto<string>.CreateFailure("Child tax threshold already exists."));
-        }
+        }     
 
         try
         {
@@ -311,14 +210,7 @@ public class TaxConfigsController : ControllerBase
             {
                 return NotFound(ApiResponseDto<string>.CreateFailure("Child tax threshold not found."));
             }
-
-            var conflictThreshold = (await _childTaxservice.GetAllChildTaxThresholds())
-                .FirstOrDefault(t => t.IdTaxConfig == dto.IdTaxConfig && t.ChildrenCount == dto.ChildrenCount && t.IdChildTaxThreshold != dto.IdChildTaxThreshold);
-
-            if (conflictThreshold != null)
-            {
-                return Conflict(ApiResponseDto<string>.CreateFailure("Child tax threshold conflicts with an existing entry."));
-            }
+           
 
             var result = await _childTaxservice.UpdateChildTaxThreshold(dto);
             if (result == null)

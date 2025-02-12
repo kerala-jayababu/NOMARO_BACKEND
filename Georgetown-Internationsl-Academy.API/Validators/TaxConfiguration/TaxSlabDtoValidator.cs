@@ -5,7 +5,7 @@ public class TaxSlabDtoValidator : AbstractValidator<TaxSlabDto>
 {
     public TaxSlabDtoValidator()
     {
-        RuleFor(x => x.IdTaxConfig)
+        RuleFor(x => x.IdFinancialYear)
             .GreaterThan(0).WithMessage("IdTaxConfig must be greater than 0.");
 
         RuleFor(x => x.MinAmount)

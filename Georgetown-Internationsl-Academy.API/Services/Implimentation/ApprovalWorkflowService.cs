@@ -30,7 +30,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .OrderByDescending(a => a.LevelNumber)
                     .FirstOrDefaultAsync();
 
-                if (currentRecord == null)
+                if (currentRecord == null || status == "SUBMITTED")
                 {
                     // Step 1: Start the approval workflow by creating the first level
                     var workflowConfig = await _dbContext.WorkFlowConfig
@@ -64,7 +64,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         IdWorkFlowConfig = workflowConfig.IdWorkFlowConfig,
                         EntityCode = entityCode,
                         EntityTablePrimaryKeyID = entityTablePrimaryKeyID,
-                        CycleIndex = 1,
+                        CycleIndex = (currentRecord != null) ? currentRecord.CycleIndex + 1 : 1,
                         LevelNumber = 1,
                         SourceIdEmployee = loggedInEmployeeId,
                         TargetIdEmployee = targetEmployeeIds,
@@ -86,6 +86,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     return "You are not authorized to approve/reject this record.";
                 }
 
+
+             
+
+
+
                 // Step 4: Update current level's status
                 currentRecord.ActionStatus = status;
                 currentRecord.ActionDate = DateTime.Now;
@@ -95,7 +100,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Step 5: Handle rejection
                 if (status == "REJECTED")
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED");
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex);
                     //await transaction.CommitAsync();
                     return "Record rejected successfully. Workflow terminated.";
                 }
@@ -108,7 +113,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (workflowConfigDetails == null)
                 {
                     //await transaction.CommitAsync();
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "APPROVED");
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "APPROVED", currentRecord.CycleIndex);
                     return "Record approved successfully. Workflow completed.";
                 }
 
@@ -127,7 +132,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     IdWorkFlowConfig = currentRecord.IdWorkFlowConfig,
                     EntityCode = currentRecord.EntityCode,
                     EntityTablePrimaryKeyID = currentRecord.EntityTablePrimaryKeyID,
-                    CycleIndex = currentRecord.CycleIndex+1,
+                    CycleIndex = currentRecord.CycleIndex,
                     LevelNumber = nextLevelNumber,
                     SourceIdEmployee = loggedInEmployeeId,
                     TargetIdEmployee = targetEmployeeIdsForNextLevel,                    
@@ -135,7 +140,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 };
 
                 await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "INTERIMAPPROVED");
+                await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "INTERIMAPPROVED", newNextLevelRecord.CycleIndex);
                 await _dbContext.SaveChangesAsync();
                 //await transaction.CommitAsync();
 
@@ -150,27 +155,24 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus)
+        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus,int cycleIndex)
         {
-          bool allApproved = await _dbContext.ApprovalWorkFlowAllocations
-                    .Where(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode)
-                    .AllAsync(a => a.ActionStatus == "APPROVED");
+          //bool allApproved = await _dbContext.ApprovalWorkFlowAllocations
+          //          .Where(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode && a.CycleIndex == cycleIndex && a.ActionStatus !=null)
+          //          .AllAsync(a => a.ActionStatus == "APPROVED");
 
-                bool anySubmitted = await _dbContext.ApprovalWorkFlowAllocations
-                    .AnyAsync(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode && a.ActionStatus == "SUBMITTED");
+          //      bool anySubmitted = await _dbContext.ApprovalWorkFlowAllocations
+          //          .AnyAsync(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode && a.CycleIndex == cycleIndex && a.ActionStatus == "SUBMITTED");
 
-                if (allApproved)
-                {
-                    finalStatus = "APPROVED";
-                }
-                else if (anySubmitted)
-                {
-                    finalStatus = "INTERIMAPPROVED";
-                }
-                else
-                {
-                    finalStatus = "PENDING";
-                }
+          //      if (allApproved)
+          //      {
+          //          finalStatus = "APPROVED";
+          //      }
+          //      else if (anySubmitted)
+          //      {
+          //          finalStatus = finalStatus == "REJECTED"? "REJECTED": "INTERIMAPPROVED";
+          //      }
+               
             
 
             if (entityCode == _configuration["WorkflowEntityCodes:SalaryTemplate"])
@@ -185,6 +187,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"])
             {
                 var entity = await _dbContext.EmployeeSalaryConfig.FindAsync(entityTablePrimaryKeyID);
+                if (entity != null)
+                {
+                    entity.ApprovalStatus = finalStatus;
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+            else if (entityCode == _configuration["WorkflowEntityCodes:OVERTIME"])
+            {
+                var entity = await _dbContext.OvertimeTransactions.FindAsync(entityTablePrimaryKeyID);
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;

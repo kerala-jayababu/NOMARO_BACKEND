@@ -21,19 +21,59 @@ public class TaxSlabService : ITaxSlabService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<TaxSlabDto>> GetAllTaxSlabs()
+    public async Task<IEnumerable<TaxSlabDto>> GetAllTaxSlabs(int? idFinancialYear = null)
     {
         try
         {
-            var taxSlabs = await _dbContext.TaxSlabs.ToListAsync();
-            return _mapper.Map<IEnumerable<TaxSlabDto>>(taxSlabs);
+            int currentFinancialYearId;
+
+            if (idFinancialYear.HasValue)
+            {
+                // Use the provided IdFinancialYear
+                currentFinancialYearId = idFinancialYear.Value;
+            }
+            else
+            {
+               
+                var currentDate = DateTime.UtcNow.Date;
+                var financialYear = await _dbContext.FinancialYears
+                    .Where(fy => fy.FinancialYearFrom <= currentDate && fy.FinancialYearTo >= currentDate)
+                    .FirstOrDefaultAsync();
+
+                if (financialYear == null)
+                    return Enumerable.Empty<TaxSlabDto>(); 
+
+                currentFinancialYearId = financialYear.IdFinancialYear;
+            }
+
+ 
+            // Fetch tax slabs along with financial year details
+            var taxSlabs = await _dbContext.TaxSlabs
+                .Where(ts => ts.IdFinancialYear == currentFinancialYearId)
+                .Join(_dbContext.FinancialYears,
+                      ts => ts.IdFinancialYear,
+                      fy => fy.IdFinancialYear,
+                      (ts, fy) => new TaxSlabDto
+                      {
+                          IdTaxSlab = ts.IdTaxSlab,
+                          MinAmount = ts.MinAmount,
+                          MaxAmount = ts.MaxAmount,
+                          TaxRate = ts.TaxRate,
+                          IdFinancialYear = ts.IdFinancialYear,
+                          FinancialYearFrom = fy.FinancialYearFrom,
+                          FinancialYearTo = fy.FinancialYearTo
+                      })
+                .ToListAsync();
+
+            return taxSlabs;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching all tax slabs.");
+            _logger.LogError(ex, "Error fetching tax slabs.");
             throw;
         }
     }
+
 
     public async Task<TaxSlabDto?> GetTaxSlabById(int id)
     {

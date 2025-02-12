@@ -1,11 +1,18 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class TaxSlabDto
     {
-        public int IdTaxSlab { get; set; }
-        public int IdTaxConfig { get; set; }
+        public int IdTaxSlab { get; set; }     
         public decimal MinAmount { get; set; }
         public decimal MaxAmount { get; set; }
         public decimal TaxRate { get; set; }
+        public int? IdFinancialYear { get; set; }
+
+        [NotMapped]
+        public DateTime? FinancialYearFrom { get; set; }
+        [NotMapped] 
+        public DateTime? FinancialYearTo { get; set; }
     }
 }

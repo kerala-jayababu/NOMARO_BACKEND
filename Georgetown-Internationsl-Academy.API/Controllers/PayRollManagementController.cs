@@ -237,7 +237,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _overtimeTransactionService.UpdateOvertimeTransaction(dto);
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _overtimeTransactionService.UpdateOvertimeTransaction(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update overtime transaction."));

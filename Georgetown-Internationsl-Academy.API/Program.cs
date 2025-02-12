@@ -138,7 +138,6 @@ builder.Services.AddScoped<IRoleBasedScreenService, RoleBasedScreenService>();
 builder.Services.AddScoped<ISystemParameterService,SystemParameterService>();
 builder.Services.AddScoped<INotificationConfigService, NotificationConfigService>();
 builder.Services.AddScoped<IVacationModeService, VacationModeService>();
-builder.Services.AddScoped<ITaxConfigService, TaxConfigService>();
 builder.Services.AddScoped<ITaxSlabService, TaxSlabService>();
 builder.Services.AddScoped<ICurrencyConversionService, CurrencyConversionService>();
 builder.Services.AddScoped<IChildTaxThresholdService, ChildTaxThresholdService>();

@@ -5,8 +5,8 @@ public class ChildTaxThresholdDtoValidator : AbstractValidator<ChildTaxThreshold
 {
     public ChildTaxThresholdDtoValidator()
     {
-        RuleFor(x => x.IdTaxConfig)
-            .GreaterThan(0).WithMessage("IdTaxConfig must be greater than 0.");
+        RuleFor(x => x.IdFinancialYear)
+             .GreaterThan(0).WithMessage("IdTaxConfig must be greater than 0.");
 
         RuleFor(x => x.ChildrenCount)
             .GreaterThanOrEqualTo(0).WithMessage("ChildrenCount cannot be negative.");
