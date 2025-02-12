@@ -110,6 +110,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+        public async Task<List<FinancialYearsDto>> GetAllFiancialyear()
+        {
+            try
+            {
+                var financialYears = await _dbContext.FinancialYears.ToListAsync();
+                return _mapper.Map<List<FinancialYearsDto>>(financialYears);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all GetAllFiancialyear.");
+                throw;
+            }
+        }
+        
 
         public async Task<List<LatestEmployeeSalaryConfigDto>> GetEmployeeLatestSalaryStructure()
         {
