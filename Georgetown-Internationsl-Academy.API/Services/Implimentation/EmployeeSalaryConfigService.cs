@@ -156,7 +156,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto, int IdEmployee)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
-
             try
             {
                 // Map and insert EmployeeSalaryConfig
@@ -173,24 +172,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     foreach (var detailDto in dto.EmployeeSalaryConfigDetails)
                     {
-                        var detailEntity = _mapper.Map<EmployeeSalaryConfigDetails>(detailDto);
-                        detailEntity.IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig;
+                        var detailEntity = new EmployeeSalaryConfigDetails
+                        {
+                            IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig,
+                            IdSalaryHead = detailDto.IdSalaryHead,
+                            CalculationMethod = detailDto.CalculationMethod,
+                            FixedAmount = detailDto.FixedAmount,
+                            PercentageValue = detailDto.PercentageValue,
+                            CustomFormula = detailDto.CustomFormula,                           
+                        };
 
                         _dbContext.EmployeeSalaryConfigDetails.Add(detailEntity);
                     }
-
                     await _dbContext.SaveChangesAsync();
+
+               
                 }
 
-                var entityCode = _configuration["WorkflowEntityCodes:EMPSALCONFIG"];
-                // Step: Call the approval workflow service
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(configEntity.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null);
 
-                if (approvalResult != "Approval workflow initiated.")
-                {
-                    throw new Exception(approvalResult);
-                }
-
+                //if (approvalResult != "Approval workflow initiated.")
+                //{
+                //    throw new Exception(approvalResult);
+                //}
 
                 await transaction.CommitAsync();
                 return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
@@ -202,6 +207,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("An error occurred while adding the configuration. Please try again later.");
             }
         }
+
 
 
         public async Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto, int IdEmployee)
