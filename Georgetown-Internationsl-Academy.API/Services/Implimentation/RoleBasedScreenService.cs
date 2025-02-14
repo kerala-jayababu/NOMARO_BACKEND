@@ -191,23 +191,41 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<List<RoleBasedPermissionDto>> GetRoleBasedPermissionsByDesignationId(int designationId)
         {
+            const string query = @"
+    SELECT 
+        rbp.IdRolePermission,
+        rbp.IdDesignation,
+        rbp.IdPayrollScreen,
+        rbp.Permission,
+        ps.ScreenName
+    FROM 
+        RoleBasedPermissions rbp
+    LEFT JOIN 
+        PayrollScreens ps ON rbp.IdPayrollScreen = ps.IdPayrollScreen
+    WHERE 
+        rbp.IdDesignation = @IdDesignation
+    ORDER BY 
+        ps.OrderNumber;
+    ";
+
             try
             {
-                var permissions = await _dbContext.RoleBasedPermissions
-                    .Where(x => x.IdDesignation == designationId)
-                    .ToListAsync();
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
 
-                // Map using AutoMapper
-                var mappedPermissions = _mapper.Map<List<RoleBasedPermissionDto>>(permissions);
-
-                return mappedPermissions;
+                    var permissions = await connection.QueryAsync<RoleBasedPermissionDto>(query, new { IdDesignation = designationId });
+                    return permissions.ToList();
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching role-based permissions for Designation ID: {DesignationId}", designationId);
-                throw;
+                throw new Exception($"An error occurred while retrieving role-based permissions for Designation ID: {designationId}. Please try again later.", ex);
             }
         }
+
 
 
         public async Task<bool> ManageRoleBasedPermissions(List<RoleBasedPermissionDto> rolePermissions)
