@@ -126,13 +126,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             try
             {
                 // Fetch EmployeeSalaryConfig by ID
-                var config = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == id);
+                var config = await _dbContext.EmployeeSalaryConfig
+                    .FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == id);
+
                 if (config == null)
                 {
-                    return null; // Return null if config is not found
+                    return null; // Return null if not found
                 }
 
-                // Map the EmployeeSalaryConfig to DTO
+                // Map to DTO
                 var configDto = _mapper.Map<EmployeeSalaryConfigDto>(config);
 
                 // Fetch associated EmployeeSalaryConfigDetails
@@ -140,8 +142,53 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Where(d => d.IdEmployeeSalaryConfig == config.IdEmployeeSalaryConfig)
                     .ToListAsync();
 
-                // Map the details to DTO and attach to config DTO
+                // Map details
                 configDto.EmployeeSalaryConfigDetails = _mapper.Map<List<EmployeeSalaryConfigDetailsDto>>(details);
+
+                // Fetch additional employee details using raw SQL query
+                var query = @"
+            SELECT 
+                e.EmployeeCode,
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                e.IdDesignation,
+                des.DesignationName,
+                e.IdDepartment,
+                d.DepartmentName,
+                e.JoiningDate,
+                e.Gender,
+                e.EmailID,
+                e.PhoneNumber1,
+                e.PhoneNumber2,
+                e.CurrentStatus
+            FROM EmployeeSalaryConfig esc
+            INNER JOIN Employees e ON esc.IdEmployee = e.IdEmployee
+            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE esc.IdEmployeeSalaryConfig = @ConfigId";
+
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var employeeInfo = await connection.QueryFirstOrDefaultAsync<EmployeeSalaryConfigDto>(query, new { ConfigId = id });
+
+                    if (employeeInfo != null)
+                    {
+                        configDto.EmployeeCode = employeeInfo.EmployeeCode;
+                        configDto.EmployeeName = employeeInfo.EmployeeName;
+                        configDto.IdDesignation = employeeInfo.IdDesignation;
+                        configDto.DesignationName = employeeInfo.DesignationName;
+                        configDto.IdDepartment = employeeInfo.IdDepartment;
+                        configDto.DepartmentName = employeeInfo.DepartmentName;
+                        configDto.JoiningDate = employeeInfo.JoiningDate;
+                        configDto.Gender = employeeInfo.Gender;
+                        configDto.EmailID = employeeInfo.EmailID;
+                        configDto.PhoneNumber1 = employeeInfo.PhoneNumber1;
+                        configDto.PhoneNumber2 = employeeInfo.PhoneNumber2;
+                        configDto.CurrentStatus = employeeInfo.CurrentStatus;
+                    }
+                }
 
                 return configDto;
             }
@@ -151,6 +198,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("An error occurred while fetching the configuration. Please try again later.");
             }
         }
+
 
 
         public async Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto, int IdEmployee)

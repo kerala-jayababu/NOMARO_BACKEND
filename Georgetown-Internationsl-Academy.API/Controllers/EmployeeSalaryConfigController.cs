@@ -81,8 +81,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var result = await _employeeSalaryConfigService.AddConfig(dto,int.Parse(IdEmployee));
                 if (result == null)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add configuration."));
+                return Ok(ApiResponseDto<string>.CreateSuccess("EmployeeSalaryConfig added successfully."));
 
-                return Ok(ApiResponseDto<EmployeeSalaryConfigDto>.CreateSuccess(result, "EmployeeSalaryConfig added successfully."));
             }
             catch (Exception ex)
             {
@@ -107,8 +107,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var result = await _employeeSalaryConfigService.UpdateConfig(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return NotFound(ApiResponseDto<string>.CreateFailure("Configuration not found."));
+                return Ok(ApiResponseDto<string>.CreateSuccess("EmployeeSalaryConfig updated successfully."));
 
-                return Ok(ApiResponseDto<EmployeeSalaryConfigDto>.CreateSuccess(result, "EmployeeSalaryConfig updated successfully."));
             }
             catch (Exception ex)
             {
