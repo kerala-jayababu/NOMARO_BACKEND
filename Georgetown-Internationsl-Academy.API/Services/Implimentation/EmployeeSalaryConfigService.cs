@@ -227,7 +227,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             CalculationMethod = detailDto.CalculationMethod,
                             FixedAmount = detailDto.FixedAmount,
                             PercentageValue = detailDto.PercentageValue,
-                            CustomFormula = detailDto.CustomFormula,                           
+                            CustomFormula = detailDto.CustomFormula,     
+                            SalaryAmount = detailDto.SalaryAmount,
                         };
 
                         _dbContext.EmployeeSalaryConfigDetails.Add(detailEntity);
@@ -310,7 +311,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             existingDetail.FixedAmount = detailDto.FixedAmount;
                             existingDetail.PercentageValue = detailDto.PercentageValue;
                             existingDetail.CustomFormula = detailDto.CustomFormula;
-
+                            existingDetail.SalaryAmount = detailDto.SalaryAmount;
                             _dbContext.EmployeeSalaryConfigDetails.Update(existingDetail);
                         }
                         else

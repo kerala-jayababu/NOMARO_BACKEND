@@ -9,5 +9,6 @@
         public decimal? FixedAmount { get; set; }
         public decimal? PercentageValue { get; set; }
         public string? CustomFormula { get; set; }
+        public decimal? SalaryAmount { get; set; }
     }
 }

@@ -12,5 +12,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public decimal? FixedAmount { get; set; }
         public decimal? PercentageValue { get; set; }
         public string? CustomFormula { get; set; }
+        public decimal? SalaryAmount {  get; set; } 
     }
 }
