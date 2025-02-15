@@ -13,6 +13,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int AllocatingSalaryMonth { get; set; }
         public decimal Amount { get; set; }
         public string? Remarks { get; set; }
+        public Boolean? IsTaxable {  get; set; }
 
         [NotMapped]
         public string?	AllcoatingSalaryHeadName { get; set; }
