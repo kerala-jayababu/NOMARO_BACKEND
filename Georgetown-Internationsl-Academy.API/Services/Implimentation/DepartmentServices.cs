@@ -25,7 +25,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var departments = await _dbContext.Departments.ToListAsync();          
+                var departments = await _dbContext.Departments.OrderBy(b => b.DepartmentCode).ToListAsync();          
                 return _mapper.Map<IEnumerable<DepartmentDto>>(departments);
             }
             catch (Exception ex)

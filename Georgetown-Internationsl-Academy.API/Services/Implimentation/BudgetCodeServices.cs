@@ -47,8 +47,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implementation
         public async Task<IEnumerable<BudgetCodeDto>> GetBudgetList()
         {
             try
-            {              
-                var budgetCodes = await _dbContext.BudgetCodes.ToListAsync();
+            {
+                var budgetCodes = await _dbContext.BudgetCodes
+         .OrderBy(b => b.BudgetCode)  // Sorting by BudgetCode in ascending order
+         .ToListAsync();
                 var budgetCodeDtos = _mapper.Map<IEnumerable<BudgetCodeDto>>(budgetCodes);
 
                 return budgetCodeDtos;

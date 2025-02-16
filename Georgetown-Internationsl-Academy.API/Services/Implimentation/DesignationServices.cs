@@ -46,7 +46,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var designations = await _dbContext.Designations.ToListAsync();
+                var designations = await _dbContext.Designations.OrderBy(b => b.DesignationCode).ToListAsync();
                 var designationDtos = _mapper.Map<IEnumerable<DesignationDto>>(designations);
 
                 return designationDtos;

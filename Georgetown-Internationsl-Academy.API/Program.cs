@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
+using YourNamespace.Services.Implementation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -151,6 +152,7 @@ builder.Services.AddScoped<IRentFreeQuarterService, RentFreeQuarterService>();
 builder.Services.AddScoped<IEmployeeSalaryConfigService, EmployeeSalaryConfigService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IApprovalWorkflowService, ApprovalWorkflowService>();
+builder.Services.AddScoped<ISalaryGenerationService, SalaryGenerationService>();
 
 var app = builder.Build();
 

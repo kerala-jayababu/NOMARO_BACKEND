@@ -25,7 +25,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var salaryHeads = await _dbContext.SalaryHeads.ToListAsync();
+                var salaryHeads = await _dbContext.SalaryHeads.OrderBy(b => b.SalaryHeadCode).ToListAsync();
                 return _mapper.Map<IEnumerable<SalaryHeadDto>>(salaryHeads);
             }
             catch (Exception ex)

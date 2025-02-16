@@ -123,28 +123,62 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-        
+
 
         public async Task<List<LatestEmployeeSalaryConfigDto>> GetEmployeeLatestSalaryStructure()
         {
             var query = @"
+    WITH LatestSalary AS (
+        SELECT 
+            lsc.IdEmployeeSalaryConfig,
+            lsc.IdEmployee,
+            lsc.FirstName,
+            lsc.MiddleName,
+            lsc.LastName,
+            lsc.ValidFrom,
+            lsc.ValidTo,
+            lsc.IdSalaryTemplate,
+            lsc.CreatedBy,
+            lsc.CreatedOn,
+            lsc.ApprovalStatus,
+            lsc.ActiveStatus,
+            lsc.TotalEarnings,
+            lsc.TotalDeductions,
+            lsc.NetSalary
+        FROM vw_LatestEmployeeSalaryConfig lsc
+    )
     SELECT 
-        IdEmployeeSalaryConfig,
-        IdEmployee,
-        FirstName,
-        MiddleName,
-        LastName,
-        ValidFrom,
-        ValidTo,
-        IdSalaryTemplate,
-        CreatedBy,
-        CreatedOn,
-        ApprovalStatus,
-        ActiveStatus,
-        TotalEarnings,
-        TotalDeductions,
-        NetSalary
-    FROM vw_LatestEmployeeSalaryConfig";
+        ls.IdEmployeeSalaryConfig,
+        ls.IdEmployee,
+        ls.FirstName,
+        ls.MiddleName,
+        ls.LastName,
+        ls.ValidFrom,
+        ls.ValidTo,
+        ls.IdSalaryTemplate,
+        ls.CreatedBy,
+        ls.CreatedOn,
+        ls.ApprovalStatus,
+        ls.ActiveStatus,
+        ls.TotalEarnings,
+        ls.TotalDeductions,
+        ls.NetSalary,
+        escd.IdSalaryHead,
+        sh.SalaryHeadCode,
+        sh.SalaryHeadName,
+        sh.HeadType,
+        sh.IsTaxable,
+        sh.IsActive,
+        sh.CalculationMethod,
+        sh.IdPercentageSalaryHead,
+        sh.PercentageValue,
+        sh.FixedValue,
+        sh.CustomFormula,
+        sh.OrderNumber
+    FROM LatestSalary ls
+    LEFT JOIN EmployeeSalaryConfigDetails escd ON ls.IdEmployeeSalaryConfig = escd.IdEmployeeSalaryConfig
+    LEFT JOIN SalaryHeads sh ON escd.IdSalaryHead = sh.IdSalaryHead
+    ORDER BY ls.IdEmployee, sh.OrderNumber;";
 
             try
             {
@@ -153,8 +187,31 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (connection.State == System.Data.ConnectionState.Closed)
                         await connection.OpenAsync();
 
-                    var result = await connection.QueryAsync<LatestEmployeeSalaryConfigDto>(query);
-                    return result.ToList();
+                    var result = await connection.QueryAsync<LatestEmployeeSalaryConfigDto, SalaryComponentDto, LatestEmployeeSalaryConfigDto>(
+                        query,
+                        (salary, component) =>
+                        {
+                            var salaryStructure = salary;
+                            if (salaryStructure.SalaryComponents == null)
+                            {
+                                salaryStructure.SalaryComponents = new List<SalaryComponentDto>();
+                            }
+                            if (component != null)
+                            {
+                                salaryStructure.SalaryComponents.Add(component);
+                            }
+                            return salaryStructure;
+                        },
+                        splitOn: "IdSalaryHead"
+                    );
+
+                    return result.GroupBy(s => s.IdEmployeeSalaryConfig)
+                                 .Select(g =>
+                                 {
+                                     var grouped = g.First();
+                                     grouped.SalaryComponents = g.SelectMany(s => s.SalaryComponents).ToList();
+                                     return grouped;
+                                 }).ToList();
                 }
             }
             catch (Exception ex)
@@ -163,6 +220,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("An error occurred while fetching the latest salary structure. Please try again later.", ex);
             }
         }
+
 
 
         public async Task<List<HolidayTypeDto>> GetHolidayTypes()
