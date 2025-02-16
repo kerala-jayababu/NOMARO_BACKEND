@@ -199,7 +199,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddOvertimeTransaction")]
-        public async Task<IActionResult> AddOvertimeTransaction(OvertimeTransactionDto dto)
+        public async Task<IActionResult> AddOvertimeTransaction([FromBody]OvertimeTransactionDto dto)
         {
             var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -226,7 +226,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateOvertimeTransaction")]
-        public async Task<IActionResult> UpdateOvertimeTransaction(OvertimeTransactionDto dto)
+        public async Task<IActionResult> UpdateOvertimeTransaction([FromBody] OvertimeTransactionDto dto)
         {
             var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)

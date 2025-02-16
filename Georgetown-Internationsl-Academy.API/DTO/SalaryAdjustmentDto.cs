@@ -11,6 +11,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int AllocatingSalaryHead { get; set; }
         public char EarningOrDeduction { get; set; }
         public int AllocatingSalaryMonth { get; set; }
+        public DateTime? AllocationSalaryMonthDate { get; set; }
         public decimal Amount { get; set; }
         public string? Remarks { get; set; }
         public Boolean? IsTaxable {  get; set; }
