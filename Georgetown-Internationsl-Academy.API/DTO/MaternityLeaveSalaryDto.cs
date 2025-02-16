@@ -13,7 +13,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public decimal NetSalary { get; set; }
         public decimal? TotalEarnings { get; set; }
         public decimal? TotalDeductions { get; set; }        
-        public decimal? MaternityLeaveSalary { get; set; }
+        public decimal? MaternityLeaveNetSalary { get; set; }
         public decimal? DefaultNetSalary { get; set; }        
         public string? FromSalaryMonthText { get; set; }
         public string? ToSalaryMonthText { get; set; }  

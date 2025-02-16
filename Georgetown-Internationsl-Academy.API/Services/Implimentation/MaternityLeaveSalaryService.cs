@@ -44,8 +44,8 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             smTo.SalaryMonthText AS ToSalaryMonthText,
             mls.MaternityLeaveFrom,
             mls.MaternityLeaveTo,
-            mls.TotalEarnings AS TotalEarningsMaternity,
-            mls.TotalDeductions AS TotalDeductionsMaternity,
+            mls.TotalEarnings ,
+            mls.TotalDeductions ,
             mls.MaternityLeaveNetSalary ,
             esc.NetSalary AS DefaultNetSalary
         FROM MaternityLeaveSalaries mls
@@ -123,8 +123,10 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                                                   IdSalaryMonthTo = (int)mls.IdSalaryMonthTo,
                                                   ToSalaryMonthText = smTo.SalaryMonthText,
                                                   MaternityLeaveFrom = mls.MaternityLeaveFrom,
+                                                  TotalEarnings =mls.TotalEarnings,
+                                                  TotalDeductions =mls.TotalDeductions,                                                  
                                                   MaternityLeaveTo = mls.MaternityLeaveTo,
-                                                  MaternityLeaveSalary = mls.MaternityLeaveNetSalary, // Corrected column name
+                                                  MaternityLeaveNetSalary = mls.MaternityLeaveNetSalary, // Corrected column name
                                                   MaternityLeaveSalaryDetailDto = new List<MaternityLeaveSalaryDetailDto>()
                                               }).FirstOrDefaultAsync();
 
@@ -335,7 +337,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                 IdSalaryMonthTo = (int)existingSalary.IdSalaryMonthTo,
                 TotalEarnings = existingSalary.TotalEarnings,
                 TotalDeductions = existingSalary.TotalDeductions,
-                MaternityLeaveSalary = existingSalary.MaternityLeaveNetSalary,
+                MaternityLeaveNetSalary = existingSalary.MaternityLeaveNetSalary,
                 MaternityLeaveSalaryDetailDto = dto.MaternityLeaveSalaryDetailDto
             };
         }
