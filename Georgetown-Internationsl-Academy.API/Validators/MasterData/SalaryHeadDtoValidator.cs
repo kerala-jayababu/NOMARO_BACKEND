@@ -22,11 +22,12 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
                 .NotEmpty().WithMessage("SalaryHeadName is required.")
                 .MaximumLength(60).WithMessage("SalaryHeadName must not exceed 60 characters.");
 
-            
+
             RuleFor(s => s.HeadType)
-              .NotEmpty().WithMessage("HeadType is required.")
-              .MaximumLength(50).WithMessage("HeadType must not exceed 50 characters.")
-              .Must(BeAValidHeadType).WithMessage("HeadType must be either 'Earning' or 'Deduction'.");
+     .NotEmpty().WithMessage("HeadType is required.")
+     .MaximumLength(50).WithMessage("HeadType must not exceed 50 characters.")
+     .Must(headType => headType == "EARNING" || headType == "DEDUCTION")
+     .WithMessage("HeadType must be either 'EARNING' or 'DEDUCTION' in uppercase.");
 
             RuleFor(s => s.IsTaxable)
                 .NotNull().WithMessage("IsTaxable is required.");

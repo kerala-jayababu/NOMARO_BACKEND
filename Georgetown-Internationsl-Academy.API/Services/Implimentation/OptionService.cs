@@ -174,7 +174,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         sh.PercentageValue,
         sh.FixedValue,
         sh.CustomFormula,
-        sh.OrderNumber
+        sh.OrderNumber,
+        escd.SalaryAmount  
     FROM LatestSalary ls
     LEFT JOIN EmployeeSalaryConfigDetails escd ON ls.IdEmployeeSalaryConfig = escd.IdEmployeeSalaryConfig
     LEFT JOIN SalaryHeads sh ON escd.IdSalaryHead = sh.IdSalaryHead

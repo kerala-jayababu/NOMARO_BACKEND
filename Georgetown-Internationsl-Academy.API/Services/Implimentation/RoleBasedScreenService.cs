@@ -23,7 +23,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var screens = await _dbContext.PayrollScreens.ToListAsync();
+                var screens = await _dbContext.PayrollScreens.OrderBy(s=>s.OrderNumber) .ToListAsync();
                 var payrollScreens = screens
                     .Select(screen => new PayrollScreenDto
                     {
@@ -35,7 +35,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 foreach (var screen in payrollScreens)
                 {
-                    screen.SubMenus = screens.Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen).ToList();
+                    screen.SubMenus = screens.Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen).OrderBy(x=>x.OrderNumber) .ToList();
                 }
 
                 return payrollScreens;
@@ -62,10 +62,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (existingScreen != null)
                     {
-                        // Update existing screen
-                        existingScreen.ScreenName = screenDto.ScreenName;
                         existingScreen.ValidPermissions = screenDto.ValidPermissions;
-                        existingScreen.IdParentPayrollScreen = screenDto.IdParentPayrollScreen;
+                        //existingScreen.IdParentPayrollScreen = screenDto.IdParentPayrollScreen;
                         _dbContext.PayrollScreens.Update(existingScreen);
                     }
                     else
@@ -96,43 +94,63 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-
-        public async Task<List<EmployeePermissionDto>> GetEmployeePermissionsById(int employeeId)
+        public async Task<List<PayrollScreenDto>> GetEmployeePermissionsById(int employeeId)
         {
-            const string query = @"
-        SELECT 
-            ep.IdEmployeePermission,
-            ep.IdEmployee,
-            ep.IdPayrollScreen,
-            ep.Permission,
-            ps.ScreenName
-        FROM 
-            EmployeePermissions ep
-        left JOIN 
-            PayrollScreens ps ON ep.IdPayrollScreen = ps.IdPayrollScreen
-        WHERE 
-            ep.IdEmployee = @IdEmployee
-        ORDER BY 
-            ps.OrderNumber;
-    ";
+            // Fetch payroll screens ordered by OrderNumber
+            var screens = await _dbContext.PayrollScreens
+                .OrderBy(s => s.OrderNumber) // 🔹 Order by OrderNumber
+                .ToListAsync();
 
-            try
-            {
-                using (var connection = _dbContext.Database.GetDbConnection())
+            // Fetch employee-specific permissions
+            var employeePermissions = await _dbContext.EmployeePermissions
+                .Where(ep => ep.IdEmployee == employeeId) // 🔹 Filter by Employee ID
+                .ToListAsync();
+
+            // Build the list with employee-specific permissions
+            var payrollScreens = screens
+                .Select(screen =>
                 {
-                    if (connection.State == System.Data.ConnectionState.Closed)
-                        await connection.OpenAsync();
+                    var permissionRecord = employeePermissions.FirstOrDefault(ep => ep.IdPayrollScreen == screen.IdPayrollScreen);
 
-                    var permissions = await connection.QueryAsync<EmployeePermissionDto>(query, new { IdEmployee = employeeId });
-                    return permissions.ToList(); 
-                }
-            }
-            catch (Exception ex)
+                    return new PayrollScreenDto
+                    {
+                        IdPayrollScreen = screen.IdPayrollScreen,
+                        ScreenName = screen.ScreenName,
+                        ValidPermissions = permissionRecord?.Permission, // Assign Permission or null
+                        IdEmployeePermission = permissionRecord?.IdEmployeePermission ?? 0, // Assign IdEmployeePermission or 0
+                        IdParentPayrollScreen = screen.IdParentPayrollScreen
+                    };
+                })
+                .Where(x => x.IdParentPayrollScreen == 0) // 🔹 Filter only parent screens
+                .OrderBy(x => x.IdPayrollScreen) // 🔹 Ensure parent menus are also ordered
+                .ToList();
+
+            // Build menu hierarchy with ordered submenus
+            foreach (var screen in payrollScreens)
             {
-                _logger.LogError(ex, $"Error fetching permissions for Employee ID: {employeeId} using Dapper.");
-                throw new Exception($"An error occurred while retrieving permissions for Employee ID: {employeeId}. Please try again later.", ex);
+                screen.SubMenus = screens
+                    .Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen)
+                    .OrderBy(x => x.OrderNumber) // 🔹 Order submenus
+                    .Select(subScreen =>
+                    {
+                        var subPermissionRecord = employeePermissions.FirstOrDefault(ep => ep.IdPayrollScreen == subScreen.IdPayrollScreen);
+
+                        return new PayrollScreens // 🔹 Convert to PayrollScreens while including IdEmployeePermission
+                        {
+                            IdPayrollScreen = subScreen.IdPayrollScreen,
+                            ScreenName = subScreen.ScreenName,
+                            ValidPermissions = subPermissionRecord?.Permission, // Assign Permission or null
+                            IdEmployeePermission = subPermissionRecord?.IdEmployeePermission ?? 0, // Assign IdEmployeePermission or 0
+                            IdParentPayrollScreen = subScreen.IdParentPayrollScreen
+                        };
+                    })
+                    .ToList();
             }
+
+            return payrollScreens;
         }
+
+
 
 
 
@@ -189,42 +207,62 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-        public async Task<List<RoleBasedPermissionDto>> GetRoleBasedPermissionsByDesignationId(int designationId)
+        public async Task<List<RoleBasedScreenDto>> GetRoleBasedPermissionsByDesignationId(int designationId)
         {
-            const string query = @"
-    SELECT 
-        rbp.IdRolePermission,
-        rbp.IdDesignation,
-        rbp.IdPayrollScreen,
-        rbp.Permission,
-        ps.ScreenName
-    FROM 
-        RoleBasedPermissions rbp
-    LEFT JOIN 
-        PayrollScreens ps ON rbp.IdPayrollScreen = ps.IdPayrollScreen
-    WHERE 
-        rbp.IdDesignation = @IdDesignation
-    ORDER BY 
-        ps.OrderNumber;
-    ";
+            // Fetch payroll screens ordered by OrderNumber
+            var screens = await _dbContext.PayrollScreens
+                .OrderBy(s => s.OrderNumber) // 🔹 Order main and submenu screens
+                .ToListAsync();
 
-            try
-            {
-                using (var connection = _dbContext.Database.GetDbConnection())
+            // Fetch role-based permissions for the given designation
+            var roleBasedPermissions = await _dbContext.RoleBasedPermissions
+                .Where(ep => ep.IdDesignation == designationId) // 🔹 Filter by Designation ID
+                .ToListAsync();
+
+            // Build parent menus (screens with no parent)
+            var payrollScreens = screens
+                .Where(x => x.IdParentPayrollScreen == 0) // 🔹 Get only parent screens
+                .Select(screen =>
                 {
-                    if (connection.State == System.Data.ConnectionState.Closed)
-                        await connection.OpenAsync();
+                    var permissionRecord = roleBasedPermissions.FirstOrDefault(ep => ep.IdPayrollScreen == screen.IdPayrollScreen);
 
-                    var permissions = await connection.QueryAsync<RoleBasedPermissionDto>(query, new { IdDesignation = designationId });
-                    return permissions.ToList();
-                }
-            }
-            catch (Exception ex)
+                    return new RoleBasedScreenDto
+                    {
+                        IdPayrollScreen = screen.IdPayrollScreen,
+                        ScreenName = screen.ScreenName,
+                        ValidPermissions = permissionRecord?.Permission, // Assign Permission or null
+                        IdRolePermission = permissionRecord?.IdRolePermission ?? 0, // Assign Role Permission or 0
+                        IdParentPayrollScreen = screen.IdParentPayrollScreen,
+                        SubMenus = new List<PayrollScreens>() // 🔹 Initialize SubMenus
+                    };
+                })
+                .ToList();
+
+            // Build submenu hierarchy with ordered submenus
+            foreach (var screen in payrollScreens)
             {
-                _logger.LogError(ex, "Error fetching role-based permissions for Designation ID: {DesignationId}", designationId);
-                throw new Exception($"An error occurred while retrieving role-based permissions for Designation ID: {designationId}. Please try again later.", ex);
+                screen.SubMenus = screens
+                    .Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen)
+                    .OrderBy(x => x.OrderNumber) // 🔹 Order submenus correctly
+                    .Select(subScreen =>
+                    {
+                        var subPermissionRecord = roleBasedPermissions.FirstOrDefault(ep => ep.IdPayrollScreen == subScreen.IdPayrollScreen);
+
+                        return new PayrollScreens // 🔹 Convert to PayrollScreens while including IdRolePermission
+                        {
+                            IdPayrollScreen = subScreen.IdPayrollScreen,
+                            ScreenName = subScreen.ScreenName,
+                            ValidPermissions = subPermissionRecord?.Permission, // Assign Permission or null
+                            IdRolePermission = subPermissionRecord?.IdRolePermission ?? 0, // Assign IdRolePermission or 0
+                            IdParentPayrollScreen = subScreen.IdParentPayrollScreen
+                        };
+                    })
+                    .ToList();
             }
+
+            return payrollScreens;
         }
+
 
 
 

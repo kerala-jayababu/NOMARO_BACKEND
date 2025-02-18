@@ -34,4 +34,5 @@ public class SalaryComponentDto
     public decimal? FixedValue { get; set; }
     public string? CustomFormula { get; set; }
     public int? OrderNumber { get; set; }
+    public int? SalaryAmount { get; set; }
 }

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Georgetown_Internationsl_Academy.API.Models
 {
@@ -9,5 +10,12 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string ScreenName { get; set; }
         public string? ValidPermissions { get; set; }
         public int? IdParentPayrollScreen { get; set; }
+        public int? OrderNumber { get; set; }
+
+        [NotMapped]
+        public int? IdEmployeePermission { get; set; }
+
+        [NotMapped]
+        public int? IdRolePermission { get; set; }  
     }
 }

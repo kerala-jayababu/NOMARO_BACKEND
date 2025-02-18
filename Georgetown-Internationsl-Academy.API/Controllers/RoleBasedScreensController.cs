@@ -83,7 +83,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return NotFound(ApiResponseDto<string>.CreateFailure("No employee permissions found."));
                 }
 
-                return Ok(ApiResponseDto<IEnumerable<EmployeePermissionDto>>.CreateSuccess(permissions, "Employee permissions retrieved successfully."));
+                return Ok(ApiResponseDto<IEnumerable<PayrollScreenDto>>.CreateSuccess(permissions, "Employee permissions retrieved successfully."));
             }
             catch (Exception ex)
             {
@@ -132,7 +132,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return NotFound(ApiResponseDto<string>.CreateFailure($"No permissions found for Designation ID: {designationId}."));
                 }
 
-                return Ok(ApiResponseDto<IEnumerable<RoleBasedPermissionDto>>.CreateSuccess(permissions, "Role-based permissions retrieved successfully."));
+                return Ok(ApiResponseDto<IEnumerable<RoleBasedScreenDto>>.CreateSuccess(permissions, "Role-based permissions retrieved successfully."));
             }
             catch (Exception ex)
             {
