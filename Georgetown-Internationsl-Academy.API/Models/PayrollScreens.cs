@@ -11,6 +11,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? ValidPermissions { get; set; }
         public int? IdParentPayrollScreen { get; set; }
         public int? OrderNumber { get; set; }
+        public bool? Enabled { get; set; }
 
         [NotMapped]
         public int? IdEmployeePermission { get; set; }

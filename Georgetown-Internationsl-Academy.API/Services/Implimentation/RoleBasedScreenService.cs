@@ -23,7 +23,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var screens = await _dbContext.PayrollScreens.OrderBy(s=>s.OrderNumber) .ToListAsync();
+                var screens = await _dbContext.PayrollScreens
+                 .Where(c => c.Enabled.HasValue && c.Enabled.Value)  
+                 .OrderBy(s => s.OrderNumber)
+                 .ToListAsync();
+
                 var payrollScreens = screens
                     .Select(screen => new PayrollScreenDto
                     {

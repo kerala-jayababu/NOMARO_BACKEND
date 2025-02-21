@@ -145,7 +145,7 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
-        public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(int[] employeeIds, int idSalaryMonth, int idEmployeeCreated)
+        public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(string employeeIds, int idSalaryMonth, int idEmployeeCreated)
         {
             if (employeeIds == null || !employeeIds.Any())
             {
@@ -159,20 +159,27 @@ namespace YourNamespace.Services.Implementation
                     if (connection.State == System.Data.ConnectionState.Closed)
                         await connection.OpenAsync();
 
-                    var idEmployeesString = string.Join(",", employeeIds);
+                    var idEmployeesString = employeeIds;
 
                     var parameters = new DynamicParameters();
                     parameters.Add("@IdEmployeesString", idEmployeesString);
                     parameters.Add("@idSalaryMonth", idSalaryMonth);
                     parameters.Add("@IdEmployeeCreated", idEmployeeCreated);
 
-                    var result = await connection.QueryAsync<SalaryGenerationStatusDto>(
-                        "GenerateSalary_MultipleEmployees",
-                        parameters,
-                        commandType: System.Data.CommandType.StoredProcedure
-                    );
+                    using (var multi = await connection.QueryMultipleAsync(
+                "GenerateSalary_MultipleEmployees",
+                parameters,
+                commandType: System.Data.CommandType.StoredProcedure))
+                    {
+                        // Skip first and second result sets (Employee IDs and Salary Details)
+                        await multi.ReadAsync<int>();  // First result set
+                        await multi.ReadAsync<dynamic>();  // Second result set
 
-                    return result;
+                        // Read the third result set (SalaryGenerationStatus)
+                        var result = await multi.ReadAsync<SalaryGenerationStatusDto>();
+
+                        return result.ToList();
+                    }
                 }
             }
             catch (Exception ex)
@@ -182,18 +189,23 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
-        public async Task<int> UndoGeneratedDraftSalary(int[] employeeIds, int idSalaryMonth)
+        public async Task<int> UndoGeneratedDraftSalary(string employeeIds, int idSalaryMonth)
         {
-            if (employeeIds == null || !employeeIds.Any())
+            if (string.IsNullOrWhiteSpace(employeeIds))
             {
                 throw new ArgumentException("Employee ID list cannot be empty.");
             }
 
             try
             {
+                // Convert comma-separated string to a list of integers
+                var employeeIdList = employeeIds.Split(',')
+                                                .Select(id => int.Parse(id.Trim()))
+                                                .ToList();
+
                 // Find records to delete
                 var recordsToDelete = await _dbContext.EmployeeSalaries
-                    .Where(es => employeeIds.Contains(es.IdEmployee) && es.IdSalaryMonth == idSalaryMonth)
+                    .Where(es => employeeIdList.Contains(es.IdEmployee) && es.IdSalaryMonth == idSalaryMonth)
                     .ToListAsync();
 
                 if (!recordsToDelete.Any())

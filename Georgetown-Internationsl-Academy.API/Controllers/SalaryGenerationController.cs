@@ -65,7 +65,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("GenerateSalaryDraft")]
-        public async Task<IActionResult> GenerateSalaryDraft([FromBody] int[] employeeIds, [FromQuery] int idSalaryMonth)
+        public async Task<IActionResult> GenerateSalaryDraft([FromQuery] string employeeIds, [FromQuery] int idSalaryMonth)
         {
             if (employeeIds == null || !employeeIds.Any())
             {
@@ -100,7 +100,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("UndoGeneratedDraftSalary")]
-        public async Task<IActionResult> UndoGeneratedDraftSalary([FromBody] int[] employeeIds, [FromQuery] int idSalaryMonth)
+        public async Task<IActionResult> UndoGeneratedDraftSalary([FromQuery]string  employeeIds, [FromQuery] int idSalaryMonth)
         {
             if (employeeIds == null || !employeeIds.Any())
             {
