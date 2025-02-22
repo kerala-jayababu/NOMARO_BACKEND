@@ -11,6 +11,8 @@ using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.Data.SqlClient;
+using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 
 namespace YourNamespace.Services.Implementation
 {
@@ -19,12 +21,16 @@ namespace YourNamespace.Services.Implementation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<SalaryGenerationService> _logger;
+        private readonly IConfiguration _configuration;
+        private readonly IApprovalWorkflowService _approvalWorkflowService;
 
-        public SalaryGenerationService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryGenerationService> logger)
+        public SalaryGenerationService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryGenerationService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _configuration = configuration;
+            _approvalWorkflowService = approvalWorkflowService;
         }
 
         public async Task<IEnumerable<SalaryGenerationDto>> GetSalaryConfigs(
@@ -147,11 +153,12 @@ namespace YourNamespace.Services.Implementation
 
         public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(string employeeIds, int idSalaryMonth, int idEmployeeCreated)
         {
-            if (employeeIds == null || !employeeIds.Any())
+            
+
+            if (string.IsNullOrWhiteSpace(employeeIds))
             {
                 throw new ArgumentException("Employee ID list cannot be empty.");
             }
-
             try
             {
                 using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
@@ -225,5 +232,70 @@ namespace YourNamespace.Services.Implementation
                 throw new Exception("An error occurred while undoing draft salaries. Please try again later.");
             }
         }
+
+        public async Task<bool> SubmitSalaryDetails(string employeeIds, int idSalaryMonth, int idEmployeeCreated)
+        {
+            if (string.IsNullOrWhiteSpace(employeeIds))
+            {
+                throw new ArgumentException("Employee ID list cannot be empty.");
+            }
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var employeeIdList = employeeIds.Split(',').Select(int.Parse).ToList();
+
+                var employeeSalaries = await _dbContext.EmployeeSalaries
+                    .Where(es => employeeIdList.Contains(es.IdEmployee) && es.IdSalaryMonth == idSalaryMonth)
+                    .ToListAsync();
+
+                if (!employeeSalaries.Any())
+                {
+                    throw new Exception("No salary records found for the provided employee IDs and salary month.");
+                }
+
+                var currentDate = DateTime.Now;
+                employeeSalaries.ForEach(salary =>
+                {
+                    salary.ApprovalStatus = "SUBMITTED";
+                    salary.CreatedDate = currentDate;
+                    salary.CreatedBy = idEmployeeCreated;
+                });
+
+                _dbContext.EmployeeSalaries.UpdateRange(employeeSalaries);
+
+                await _dbContext.SaveChangesAsync();
+
+                var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
+
+                // Step: Call the approval workflow service
+                foreach (var salary in employeeSalaries)
+                {
+                    var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                        salary.IdEmployeeSalary,
+                        entityCode,
+                        idEmployeeCreated,
+                        "SUBMITTED",
+                        null
+                    );
+
+                    if (!result.Contains("Approval workflow initiated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new Exception($"Failed to initiate approval workflow for Salary ID: {salary.IdEmployeeSalary}. Error: {result}");
+                    }
+                }
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error submitting on salary generation.");
+                throw new Exception("An error occurred while generating salary drafts. Please try again.");
+            }
+        }
+
     }
 }

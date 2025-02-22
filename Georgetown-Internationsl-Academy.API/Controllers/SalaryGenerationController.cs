@@ -99,6 +99,41 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
+        [HttpPost("SubmitSalaryDetails")]
+        public async Task<IActionResult> SubmitSalaryDetails([FromQuery] string employeeIds, [FromQuery] int idSalaryMonth)
+        {
+            if (employeeIds == null || !employeeIds.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID list cannot be empty."));
+            }
+            if (idSalaryMonth == null || idSalaryMonth <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for submitting salary."));
+            }
+            try
+            {
+                var idEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(idEmployee))
+                {
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("User not authenticated."));
+                }
+
+                var result = await _salaryService.SubmitSalaryDetails(employeeIds, idSalaryMonth, int.Parse(idEmployee));
+
+                if (!result)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to submit salary."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Salary Submitted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
         [HttpPost("UndoGeneratedDraftSalary")]
         public async Task<IActionResult> UndoGeneratedDraftSalary([FromQuery]string  employeeIds, [FromQuery] int idSalaryMonth)
         {
@@ -123,6 +158,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        
 
 
     }

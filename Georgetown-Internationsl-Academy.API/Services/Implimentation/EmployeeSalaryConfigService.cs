@@ -226,6 +226,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             IdSalaryHead = detailDto.IdSalaryHead,
                             CalculationMethod = detailDto.CalculationMethod,
                             FixedAmount = detailDto.FixedAmount,
+                            PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
                             PercentageValue = detailDto.PercentageValue,
                             CustomFormula = detailDto.CustomFormula,     
                             SalaryAmount = detailDto.SalaryAmount,
@@ -309,6 +310,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             existingDetail.IdSalaryHead = detailDto.IdSalaryHead;
                             existingDetail.CalculationMethod = detailDto.CalculationMethod;
                             existingDetail.FixedAmount = detailDto.FixedAmount;
+                            existingDetail.PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead;
                             existingDetail.PercentageValue = detailDto.PercentageValue;
                             existingDetail.CustomFormula = detailDto.CustomFormula;
                             existingDetail.SalaryAmount = detailDto.SalaryAmount;

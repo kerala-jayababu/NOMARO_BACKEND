@@ -151,28 +151,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 //await transaction.RollbackAsync();
                 return $"Error processing approval workflow: {ex.Message}";
             }
-        }
+        }      
+
 
 
 
         private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus,int cycleIndex)
         {
-          //bool allApproved = await _dbContext.ApprovalWorkFlowAllocations
-          //          .Where(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode && a.CycleIndex == cycleIndex && a.ActionStatus !=null)
-          //          .AllAsync(a => a.ActionStatus == "APPROVED");
-
-          //      bool anySubmitted = await _dbContext.ApprovalWorkFlowAllocations
-          //          .AnyAsync(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode && a.CycleIndex == cycleIndex && a.ActionStatus == "SUBMITTED");
-
-          //      if (allApproved)
-          //      {
-          //          finalStatus = "APPROVED";
-          //      }
-          //      else if (anySubmitted)
-          //      {
-          //          finalStatus = finalStatus == "REJECTED"? "REJECTED": "INTERIMAPPROVED";
-          //      }
-               
             
 
             if (entityCode == _configuration["WorkflowEntityCodes:SalaryTemplate"])
@@ -199,6 +184,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+            else if (entityCode == _configuration["WorkflowEntityCodes:EMPSALGEN"])
+            {
+                var entity = await _dbContext.EmployeeSalaries.FindAsync(entityTablePrimaryKeyID);
+                if (entity != null)
+                {
+                    entity.ApprovalStatus = finalStatus;                    
                     await _dbContext.SaveChangesAsync();
                 }
             }
