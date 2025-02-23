@@ -159,8 +159,33 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+
         
 
+               [HttpGet(template: "GetSalaryGeneratedDetails")]
+        public async Task<IActionResult> GetSalaryGeneratedDetails([FromQuery] int? idSalaryMonth = null,[FromQuery] string? dropdownFilter = null)
+        {
+            try
+            {
+                if (idSalaryMonth == null || idSalaryMonth <= 0)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting salaryGeneratedDetails list."));
+                }
+
+                IEnumerable<SalaryGenerationDetailsDto>? salaryList = await _salaryService.GetSalaryGeneratedDetails(idSalaryMonth, dropdownFilter);
+
+                if (!salaryList.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No salary records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<SalaryGenerationDetailsDto>>.CreateSuccess(salaryList, "salaryGeneratedDetails list retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
     }
 }

@@ -261,13 +261,15 @@ namespace YourNamespace.Services.Implementation
                     salary.ApprovalStatus = "SUBMITTED";
                     salary.CreatedDate = currentDate;
                     salary.CreatedBy = idEmployeeCreated;
+                    salary.ModifiedBy = idEmployeeCreated;
+                    salary.ModifiedDate = currentDate;
                 });
 
                 _dbContext.EmployeeSalaries.UpdateRange(employeeSalaries);
 
                 await _dbContext.SaveChangesAsync();
 
-                var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
+                var entityCode = _configuration["WorkflowEntityCodes:EMPSALGEN"];
 
                 // Step: Call the approval workflow service
                 foreach (var salary in employeeSalaries)
@@ -297,5 +299,104 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+        public async  Task<IEnumerable<SalaryGenerationDetailsDto>> GetSalaryGeneratedDetails(int? idSalaryMonth = null, string? dropdownFilter = null)
+        {
+            var query = new StringBuilder(@"
+        SELECT 
+            -- Employee Salary Information
+            es.IdEmployeeSalary,
+            es.IdEmployee,
+            es.TotalEarnings,
+            es.TotalDeductions,
+            es.TaxAmountAccounted,
+            es.ApprovalStatus,
+
+            -- Employee Information
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDesignation,
+            d.DesignationName,
+            e.IdDepartment,
+            dep.DepartmentName,
+            e.JoiningDate,
+            e.LastWorkingDay,	
+            e.Gender,
+            e.EmailID,
+            e.PhoneNumber1,
+            e.PhoneNumber2, 
+            
+            -- Salary Details
+            esd.IdEmployeeSalaryDetail,
+            esd.IdSalaryHead,
+            esd.SalaryHeadName,
+            esd.SalaryHeadType,
+            COALESCE(esd.Amount, 0) AS Amount,
+            COALESCE(esd.AmountInUSD, 0) AS AmountInUSD
+
+        FROM EmployeeSalaries es
+        LEFT JOIN Employees e ON es.IdEmployee = e.IdEmployee
+        LEFT JOIN Departments dep ON e.IdDepartment = dep.IdDepartment
+        LEFT JOIN Designations d ON e.IdDesignation = d.IdDesignation
+        LEFT JOIN EmployeeSalaryDetails esd ON es.IdEmployeeSalary = esd.IdEmployeeSalary
+        WHERE 1=1
+    ");
+
+            var parameters = new DynamicParameters();
+
+            // Apply Salary Month filter
+            if (idSalaryMonth.HasValue)
+            {
+                query.Append(" AND es.IdSalaryMonth = @IdSalaryMonth ");
+                parameters.Add("IdSalaryMonth", idSalaryMonth);
+            }
+
+            // Apply Dropdown Filter for Approval Status
+            if (!string.IsNullOrEmpty(dropdownFilter) && !dropdownFilter.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                query.Append(" AND es.ApprovalStatus = @ApprovalStatus ");
+                parameters.Add("ApprovalStatus", dropdownFilter);
+            }
+
+            query.Append(" ORDER BY e.FirstName, e.LastName;");
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var lookup = new Dictionary<int, SalaryGenerationDetailsDto>();
+
+                    await connection.QueryAsync<SalaryGenerationDetailsDto, SalaryDetailDto, SalaryGenerationDetailsDto>(
+                        query.ToString(),
+                        (salary, detail) =>
+                        {
+                            if (!lookup.TryGetValue(salary.IdEmployeeSalary, out var salaryDto))
+                            {
+                                salaryDto = salary;
+                                lookup.Add(salary.IdEmployeeSalary, salaryDto);
+                            }
+
+                            if (detail != null)
+                            {
+                                salaryDto.SalaryDetails.Add(detail);
+                            }
+
+                            return salaryDto;
+                        },
+                        parameters,
+                        splitOn: "IdEmployeeSalaryDetail"
+                    );
+
+                    return lookup.Values;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching salary configurations.");
+                throw new Exception("An error occurred while fetching configurations. Please try again later.");
+            }
+        }
     }
 }

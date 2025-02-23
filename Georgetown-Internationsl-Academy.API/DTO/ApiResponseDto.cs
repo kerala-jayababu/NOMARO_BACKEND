@@ -16,5 +16,16 @@
         {
             return new ApiResponseDto<T> { Success = false, Message = message, ErrorCode = errorCode };
         }
+        public static ApiResponseDto<List<string>> CreateFailure(List<string> messages, string? errorCode = null)
+        {
+            return new ApiResponseDto<List<string>>
+            {
+                Success = false,
+                Message = "Some approval workflows failed.",
+                Data = messages,
+                ErrorCode = errorCode
+            };
+        }
+
     }
 }

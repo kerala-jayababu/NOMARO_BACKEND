@@ -77,43 +77,67 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         /// Handles the approval workflow. Initiates, approves, or rejects a workflow.
         /// </summary>
         [HttpPost("HandleApprovalWorkflow")]
-        public async Task<IActionResult> HandleApprovalWorkflow([FromBody] ApprovalWorkflowRequestDto request)
+        public async Task<IActionResult> HandleApprovalWorkflow([FromBody] List<ApprovalWorkflowRequestDto> requests)
         {
             if (!ModelState.IsValid)
             {
                 var errors = string.Join("; ", ModelState.Values
-                                                 .SelectMany(v => v.Errors)
-                                                 .Select(e => e.ErrorMessage));
+                                              .SelectMany(v => v.Errors)
+                                              .Select(e => e.ErrorMessage));
 
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+            var results = new List<string>();
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            try
+            foreach (var request in requests)
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-
-                var result = await _approveWorkflowService.InitiateApprovalWorkflow(
-                    request.EntityTablePrimaryKeyID,
-                    request.EntityCode,
-                    int.Parse(IdEmployee),
-                    request.Status,
-                    request.RejectReason
-                );
-
-                if (result.Contains("Error"))
+                try
                 {
-                    return BadRequest(ApiResponseDto<string>.CreateFailure(result));
-                }
+                    var result = await _approveWorkflowService.InitiateApprovalWorkflow(
+                        request.EntityTablePrimaryKeyID,
+                        request.EntityCode,
+                        int.Parse(IdEmployee),
+                        request.Status,
+                        request.RejectReason
+                    );
 
-                return Ok(ApiResponseDto<string>.CreateSuccess(result, "Approval workflow processed successfully."));
+                    if (result.Contains("Error"))
+                    {
+                        results.Add($"Failed for ID {request.EntityTablePrimaryKeyID}: {result}");
+                        continue;
+                    }
+
+                    results.Add($"Success for ID {request.EntityTablePrimaryKeyID}: {result}");
+                }
+                catch (ArgumentNullException argEx)
+                {
+                    results.Add($"ArgumentNullException for ID {request.EntityTablePrimaryKeyID}: {argEx.Message}");
+                }
+                catch (InvalidOperationException invalidOpEx)
+                {
+                    results.Add($"InvalidOperationException for ID {request.EntityTablePrimaryKeyID}: {invalidOpEx.Message}");
+                }
+                catch (FormatException formatEx)
+                {
+                    results.Add($"FormatException for ID {request.EntityTablePrimaryKeyID}: {formatEx.Message}");
+                }
+                catch (Exception ex)
+                {
+                    results.Add($"Exception for ID {request.EntityTablePrimaryKeyID}: {ex.Message}");
+                }
             }
-            catch (Exception ex)
+
+            if (results.Any(r => r.StartsWith("Failed") || r.StartsWith("Exception")))
             {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+                // Return a list of results as a failure message
+                return BadRequest(ApiResponseDto<List<string>>.CreateFailure(results, "Some approval workflows failed."));
             }
+
+            return Ok(ApiResponseDto<List<string>>.CreateSuccess(results, "All approval workflows processed successfully."));
         }
+
 
 
 
