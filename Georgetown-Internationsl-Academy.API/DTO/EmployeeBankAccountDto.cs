@@ -1,4 +1,6 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
 {
   
     public class EmployeeBankAccountDto
@@ -11,6 +13,12 @@
         public string BranchCode { get; set; }
         public decimal SalaryPercentageDistributed { get; set; }
         public string CurrencyCode { get; set; }
+
+        [NotMapped]
+        public string? BankName { get; set; }
+        [NotMapped]
+        public string? BranchName { get; set; }
+
     }
 
 }

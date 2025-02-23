@@ -14,8 +14,7 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
 
             RuleFor(d => d.DesignationCode)
                 .NotEmpty().WithMessage("Designation code is required.")
-                .MaximumLength(10).WithMessage("Designation code must not exceed 10 characters.")
-                .Matches("^[a-zA-Z0-9]*$").WithMessage("Designation code must contain only alphanumeric characters.");
+                .MaximumLength(10).WithMessage("Designation code must not exceed 10 characters.");
 
             RuleFor(d => d.DesignationName)
                 .NotEmpty().WithMessage("Designation name is required.")

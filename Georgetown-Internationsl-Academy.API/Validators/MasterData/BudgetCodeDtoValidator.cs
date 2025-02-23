@@ -14,13 +14,11 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
 
             RuleFor(b => b.BudgetCode)
                 .NotEmpty().WithMessage("BudgetCode is required.")
-                .MaximumLength(10).WithMessage("BudgetCode must not exceed 10 characters.")
-                .Matches("^[a-zA-Z0-9]*$").WithMessage("BudgetCode must contain only alphanumeric characters.");
+                .MaximumLength(10).WithMessage("BudgetCode must not exceed 10 characters.");
 
             RuleFor(b => b.BudgetCodeName)
                 .NotEmpty().WithMessage("BudgetCodeName is required.")
-                .MaximumLength(50).WithMessage("BudgetCodeName must not exceed 50 characters.")
-                .Matches("^[a-zA-Z0-9]*$").WithMessage("BudgetCodeName must contain only alphanumeric characters.");
+                .MaximumLength(50).WithMessage("BudgetCodeName must not exceed 50 characters.");
         }
     }
 }

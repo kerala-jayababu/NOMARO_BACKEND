@@ -174,18 +174,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<IEnumerable<EmployeeBankAccountDto>> GetEmployeeBankAccountsByID(int Id)
         {
             const string query = @"
-        SELECT 
-            eba.IdEmployeeBankAccount,
-            eba.IdEmployee,
-            eba.IdBank,
-            eba.IdBankBranch,
-            eba.AccountNumber,            
-            eba.BranchCode,
-            eba.SalaryPercentageDistributed,
-            eba.CurrencyCode
-        FROM 
-            EmployeeBankAccounts eba
-        WHERE 
+                SELECT 
+             eba.IdEmployeeBankAccount,
+             eba.IdEmployee,
+             eba.IdBank,
+	         b.BankName,
+             eba.IdBankBranch,
+	         bb.BranchName,
+             eba.AccountNumber,            
+             eba.BranchCode,
+             eba.SalaryPercentageDistributed,
+             eba.CurrencyCode
+         FROM 
+             EmployeeBankAccounts eba
+	         left join BankBranches bb on eba.IdBankBranch = bb.IdBankBranches
+	         left join Banks b on eba.IdBank=eba.IdBank
+         WHERE 
             eba.IdEmployee = @IdEmployee;
     ";
 
