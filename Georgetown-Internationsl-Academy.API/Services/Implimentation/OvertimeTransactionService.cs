@@ -248,7 +248,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
             {
                 var transactionEntity = _mapper.Map<OvertimeTransactionEntity>(transactionDto);
                 string filePath = null;
-
+                string fileNameWithExtension = null;
                 if (transactionDto.File != null)
                 {
                     string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/OvertimeTransactions");
@@ -256,7 +256,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                     {
                         Directory.CreateDirectory(uploadFolderPath);
                     }
-
+                    fileNameWithExtension = transactionDto.File.FileName;
                     string uniqueFileName = $"{Guid.NewGuid()}_{transactionDto.IdEmployee}_{transactionDto.File.FileName}";
                     filePath = Path.Combine(uploadFolderPath, uniqueFileName);
 
@@ -281,6 +281,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                 transactionEntity.CreatedOn = DateTime.Now;
                 transactionEntity.Attachment = filePath;
                 transactionEntity.ApprovalStatus = "SUBMITTED";
+                transactionEntity.AttachmentDescription = fileNameWithExtension;
                 await _dbContext.OvertimeTransactions.AddAsync(transactionEntity);
                 await _dbContext.SaveChangesAsync();
                 int insertedId = transactionEntity.IdOvertimeTransaction;
