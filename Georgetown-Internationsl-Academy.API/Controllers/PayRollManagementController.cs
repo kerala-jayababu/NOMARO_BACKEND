@@ -173,7 +173,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     if (!string.IsNullOrEmpty(transaction.Attachment) && System.IO.File.Exists(transaction.Attachment))
                     {
-                        transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.Attachment);
+                        transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.Attachment);                       
                     }
                 }
 
