@@ -188,7 +188,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
          FROM 
              EmployeeBankAccounts eba
 	         left join BankBranches bb on eba.IdBankBranch = bb.IdBankBranches
-	         left join Banks b on eba.IdBank=eba.IdBank
+	         left join Banks b on eba.IdBank=b.IdBank
          WHERE 
             eba.IdEmployee = @IdEmployee;
     ";
