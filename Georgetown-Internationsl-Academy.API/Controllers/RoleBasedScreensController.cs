@@ -5,6 +5,7 @@ using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -32,7 +33,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             try
             {
-                var payrollScreens = await _roleBasedScreenService.GetAllPayrollScreens();
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                var payrollScreens = await _roleBasedScreenService.GetAllPayrollScreens(int.Parse(IdEmployee));
 
                 if (payrollScreens == null || !payrollScreens.Any())
                 {

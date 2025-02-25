@@ -19,14 +19,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _logger = logger;
             _mapper = mapper;
         }
-        public async Task<List<PayrollScreenDto>> GetAllPayrollScreens()
+        public async Task<List<PayrollScreenDto>> GetAllPayrollScreens(int idEmployee)
         {
             try
             {
-                var screens = await _dbContext.PayrollScreens
-                 .Where(c => c.Enabled.HasValue && c.Enabled.Value)  
-                 .OrderBy(s => s.OrderNumber)
-                 .ToListAsync();
+                var employeePermissions = await _dbContext.EmployeePermissions.Where(x => x.IdEmployee == idEmployee).ToListAsync();
+                var screens = await _dbContext.PayrollScreens.ToListAsync();
 
                 var payrollScreens = screens
                     .Select(screen => new PayrollScreenDto
@@ -39,7 +37,23 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 foreach (var screen in payrollScreens)
                 {
-                    screen.SubMenus = screens.Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen).OrderBy(x=>x.OrderNumber) .ToList();
+                    var permission = employeePermissions.FirstOrDefault(x => x.IdPayrollScreen == screen.IdPayrollScreen);
+                    if(permission != null)
+                    {
+                        screen.ValidPermissions = permission.Permission;
+                    }
+
+                    var SubMenus = screens.Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen).ToList();
+
+                    foreach (var subMenu in SubMenus)
+                    {
+                        var subMenuPermission = employeePermissions.FirstOrDefault(x => x.IdPayrollScreen == subMenu.IdPayrollScreen);
+                        if (subMenuPermission != null)
+                        {
+                            subMenu.ValidPermissions = subMenuPermission.Permission;
+                        }
+                    }
+                    screen.SubMenus = SubMenus;
                 }
 
                 return payrollScreens;
