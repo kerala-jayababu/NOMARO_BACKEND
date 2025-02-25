@@ -24,7 +24,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             try
             {
                 var employeePermissions = await _dbContext.EmployeePermissions.Where(x => x.IdEmployee == idEmployee).ToListAsync();
-                var screens = await _dbContext.PayrollScreens.ToListAsync();
+                var screens = await _dbContext.PayrollScreens.Where(x=>x.Enabled==true).ToListAsync();
 
                 var payrollScreens = screens
                     .Select(screen => new PayrollScreenDto
