@@ -319,10 +319,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         else
                         {
                             // Add new details
+                                                var trackedEntity = _dbContext.ChangeTracker.Entries<EmployeeSalaryConfigDetails>()
+                                .FirstOrDefault(e => e.Entity.IdEmployeeSalaryConfigDetail == detailDto.IdEmployeeSalaryConfigDetail);
+
+                            if (trackedEntity != null)
+                            {
+                                _dbContext.Entry(trackedEntity.Entity).State = EntityState.Detached;
+                            }
+
+                            // Add new details
                             var newDetailEntity = _mapper.Map<EmployeeSalaryConfigDetails>(detailDto);
                             newDetailEntity.IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig;
-
-                            _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
+                            newDetailEntity.IdEmployeeSalaryConfigDetail = null;
+                                                _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
                         }
                     }
 

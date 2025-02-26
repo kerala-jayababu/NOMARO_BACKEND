@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
+using System.Text.RegularExpressions;
 
 namespace Georgetown_Internationsl_Academy.API.Validators.EmployeeSalaryConfig
 {
@@ -18,8 +19,19 @@ namespace Georgetown_Internationsl_Academy.API.Validators.EmployeeSalaryConfig
        .WithMessage("CalculationMethod must be one of the following: FORMULA, PERCENTAGE, FIXEDAMOUNT.");        
             RuleFor(x => x.FixedAmount).GreaterThanOrEqualTo(0).When(x => x.FixedAmount.HasValue)
                                      .WithMessage("FixedAmount must be a positive number.");
-            RuleFor(x => x.PercentageValue).InclusiveBetween(0, 100).When(x => x.PercentageValue.HasValue)
-                                           .WithMessage("PercentageValue must be between 0 and 100.");
+            RuleFor(x => x.PercentageValue)
+                  .InclusiveBetween(0, 100)
+                  .When(x => x.PercentageValue.HasValue)
+                  .WithMessage("PercentageValue must be between 0 and 100.")
+                  .ScalePrecision(2, 5)
+                  .When(x => x.PercentageValue.HasValue)
+                  .WithMessage("PercentageValue must have up to 2 decimal places.");
+
+            RuleFor(x => x.SalaryAmount)
+            .Must(value => value == null || Regex.IsMatch(value.ToString(), @"^\d{1,12}(\.\d{1,2})?$"))
+            .WithMessage("SalaryAmount must have up to 12 digits before the decimal and up to 2 decimal places.")
+            .When(x => x.SalaryAmount.HasValue);
+
         }
         private bool BeAValidCalculationMethod(string calculationMethod)
         {

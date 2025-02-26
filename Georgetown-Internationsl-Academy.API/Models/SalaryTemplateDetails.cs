@@ -5,7 +5,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
     public class SalaryTemplateDetails
     {
         [Key]
-        public int IdSalaryTemplateDetail { get; set; }
+        public int? IdSalaryTemplateDetail { get; set; }
         public int IdSalaryTemplate { get; set; }
         public int IdSalaryHead { get; set; }
         public string CalculationMethod { get; set; }

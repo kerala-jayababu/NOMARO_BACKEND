@@ -226,10 +226,26 @@ public class SalaryTemplateService : ISalaryTemplateService
                     else
                     {
                         // Add new detail
+                        // Check if the entity is already being tracked and detach it
+                        var trackedEntity = _dbContext.ChangeTracker.Entries<SalaryTemplateDetails>()
+                            .FirstOrDefault(e => e.Entity.IdSalaryTemplateDetail == detailDto.IdSalaryTemplateDetail);
+
+                        if (trackedEntity != null)
+                        {
+                            _dbContext.Entry(trackedEntity.Entity).State = EntityState.Detached;
+                        }
+
+                        // Map the new detail entity
                         var newDetailEntity = _mapper.Map<SalaryTemplateDetails>(detailDto);
                         newDetailEntity.IdSalaryTemplate = templateEntity.IdSalaryTemplate;
+                        newDetailEntity.IdSalaryTemplateDetail = null; 
 
+                        // Add new details
                         await _dbContext.SalaryTemplateDetails.AddAsync(newDetailEntity);
+
+
+
+
                     }
                 }
 

@@ -99,6 +99,18 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+            if (dto.EmployeeSalaryConfigDetails != null)
+            {
+                foreach (var detail in dto.EmployeeSalaryConfigDetails)
+                {
+                    var detailValidationResult = await _detailsValidator.ValidateAsync(detail);
+                    if (!detailValidationResult.IsValid)
+                    {
+                        var detailErrors = string.Join(", ", detailValidationResult.Errors.Select(e => e.ErrorMessage));
+                        return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed for Salary Config Details: {detailErrors}"));
+                    }
+                }
+            }
 
             try
             {
