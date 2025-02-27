@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
+using System.Text.RegularExpressions;
 
 namespace Georgetown_Internationsl_Academy.API.Validators.PayrollManagement
 {
@@ -12,6 +13,13 @@ namespace Georgetown_Internationsl_Academy.API.Validators.PayrollManagement
 
             RuleFor(x => x.TotalAmount)
                 .GreaterThan(0).WithMessage("Total amount must be greater than 0.");
+            RuleFor(x => x.TotalAmount)
+              .GreaterThan(0) // Ensures the value is greater than zero (optional, based on your needs)
+              .ScalePrecision(2, 12) // Ensures up to 12 digits before decimal and 2 after
+              .WithMessage("TotalAmount must have up to 12 digits before the decimal and up to 2 decimal places.");
+
+
+
 
             RuleFor(x => x.DeductionFromSalaryMonth)
                           .GreaterThan(0).WithMessage("DeductionFromSalaryMonth  must be greater than 0.");
