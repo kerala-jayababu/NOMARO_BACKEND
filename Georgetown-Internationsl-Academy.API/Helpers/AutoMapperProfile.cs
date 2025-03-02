@@ -24,6 +24,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<ChildTaxThreshold, ChildTaxThresholdDto>().ReverseMap();
             CreateMap<SalaryTemplate, SalaryTemplateDto>().ReverseMap();
             CreateMap<SalaryTemplate, SalaryTemplateManageDto>().ReverseMap();
+            CreateMap<ScheduledDeductionDetailsDto, ScheduledDeductionDetails>().ReverseMap();
             CreateMap<OvertimeTransactionEntity, OvertimeTransactionDto>().ReverseMap();
             CreateMap<SalaryTemplateDetails, SalaryTemplateDetailDto>().ReverseMap();
             CreateMap<SalaryAdjustment, SalaryAdjustmentDto>().ReverseMap();

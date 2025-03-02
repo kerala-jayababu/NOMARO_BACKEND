@@ -393,7 +393,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdatescheduledSalaryDeductionservice")]
-        public async Task<IActionResult> UpdatescheduledSalaryDeductionservice([FromBody] ScheduledSalaryDeductionDto dto)
+        public async Task<IActionResult> UpdatescheduledSalaryDeductionservice(ScheduledSalaryDeductionDto dto)
         {
             var validationResult = await _scheduledSalaryDeductionscheduledSalaryDeductionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)

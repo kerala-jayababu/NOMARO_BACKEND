@@ -7,6 +7,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? IdScheduledSalaryDeduction { get; set; }
         public int IdEmployee { get; set; }
         public decimal TotalAmount { get; set; }
+        public string? ScheduledSalaryDeductionDetails { get; set; }
         public int DeductionFromSalaryMonth { get; set; }
         public int DeductionToSalaryMonth { get; set; }
         public DateTime DeductionFromSalaryMonthDate { get; set; }
@@ -14,6 +15,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int AllocatingSalaryHead { get; set; }
         public int MonthCount { get; set; }
         public decimal MonthlyDeductableAmount { get; set; }
+
+        public List<ScheduledDeductionDetailsDto>? ScheduledDeductionDetailsDto { get; set; }
+
         [NotMapped]
         public string? DeductionFromSalaryMonthText { get; set; }
         [NotMapped]
@@ -43,5 +47,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? PhoneNumber2 { get; set; }
         [NotMapped]
         public string? CurrentStatus { get; set; }
+
+
     }
 }

@@ -8,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int IdScheduledSalaryDeduction { get; set; }
         public int? IdEmployee { get; set; }
         public decimal TotalAmount { get; set; }
+        public string? ScheduledSalaryDeductionDetails { get; set; }
         public int DeductionFromSalaryMonth { get; set; }
         public int DeductionToSalaryMonth { get; set; }
         public DateTime DeductionFromSalaryMonthDate { get; set; }

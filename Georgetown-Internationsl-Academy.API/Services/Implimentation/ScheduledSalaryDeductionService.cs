@@ -3,6 +3,7 @@ using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -27,6 +28,7 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
         ssd.IdScheduledSalaryDeduction,
         ssd.IdEmployee,
         ssd.TotalAmount,
+        ssd.ScheduledSalaryDeductionDetails,
         ssd.DeductionFromSalaryMonth,
         ssd.DeductionToSalaryMonth,
         ssd.DeductionFromSalaryMonthDate,
@@ -82,6 +84,17 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
 
         // Order results
         query.Append(" ORDER BY e.FirstName, e.LastName;");
+        var detailQuery = @"
+SELECT 
+    sdd.IdScheduledSalaryDeductionDetail,
+    sdd.IdScheduledSalaryDeduction,
+    sdd.IdSalaryMonth,
+    sdd.AmountTobeDeducted,
+    sm.SalaryMonthText AS SalaryMonthText
+FROM ScheduledDeductionDetails sdd
+LEFT JOIN SalaryMonths sm ON sdd.IdSalaryMonth = sm.IdSalaryMonth
+WHERE sdd.IdScheduledSalaryDeduction IN (SELECT IdScheduledSalaryDeduction FROM ScheduledDeductions)
+";
 
         try
         {
@@ -90,8 +103,24 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
                 if (connection.State == System.Data.ConnectionState.Closed)
                     await connection.OpenAsync();
 
-                var deductions = await connection.QueryAsync<ScheduledSalaryDeductionDto>(query.ToString(), parameters);
-                return deductions;
+                using (var multi = await connection.QueryMultipleAsync(query.ToString() + detailQuery, parameters))
+                {
+                    var deductions = (await multi.ReadAsync<ScheduledSalaryDeductionDto>()).ToList();
+                    var deductionDetails = (await multi.ReadAsync<ScheduledDeductionDetailsDto>()).ToList();
+
+                    // Map details to the main deduction list
+                    var deductionDict = deductions.ToDictionary(d => d.IdScheduledSalaryDeduction);
+                    foreach (var detail in deductionDetails)
+                    {
+                        if (deductionDict.TryGetValue(detail.IdScheduledSalaryDeduction, out var deduction))
+                        {
+                            deduction.ScheduledDeductionDetailsDto ??= new List<ScheduledDeductionDetailsDto>();
+                            deduction.ScheduledDeductionDetailsDto.Add(detail);
+                        }
+                    }
+
+                    return deductions;
+                }
             }
         }
         catch (Exception ex)
@@ -109,6 +138,7 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
         ssd.IdScheduledSalaryDeduction,
         ssd.IdEmployee,
         ssd.TotalAmount,
+        ssd.ScheduledSalaryDeductionDetails,
         ssd.DeductionFromSalaryMonth,
         ssd.DeductionToSalaryMonth,
         ssd.DeductionFromSalaryMonthDate,
@@ -137,6 +167,16 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
     LEFT JOIN SalaryMonths smFrom ON ssd.DeductionFromSalaryMonth = smFrom.IdSalaryMonth
     LEFT JOIN SalaryMonths smTo ON ssd.DeductionToSalaryMonth = smTo.IdSalaryMonth
     WHERE ssd.IdScheduledSalaryDeduction = @Id
+
+SELECT 
+    sdd.IdScheduledSalaryDeductionDetail,
+    sdd.IdScheduledSalaryDeduction,
+    sdd.IdSalaryMonth,
+    sdd.AmountTobeDeducted,
+    sm.SalaryMonthText AS SalaryMonthText
+FROM ScheduledDeductionDetails sdd
+LEFT JOIN SalaryMonths sm ON sdd.IdSalaryMonth = sm.IdSalaryMonth
+WHERE sdd.IdScheduledSalaryDeduction = @Id;
     ";
 
         try
@@ -146,8 +186,15 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
                 if (connection.State == System.Data.ConnectionState.Closed)
                     await connection.OpenAsync();
 
-                var deduction = await connection.QueryFirstOrDefaultAsync<ScheduledSalaryDeductionDto>(query, new { Id = id });
-                return deduction;
+                using (var multi = await connection.QueryMultipleAsync(query, new { Id = id }))
+                {
+                    var deduction = await multi.ReadFirstOrDefaultAsync<ScheduledSalaryDeductionDto>();
+                    if (deduction != null)
+                    {
+                        deduction.ScheduledDeductionDetailsDto = (await multi.ReadAsync<ScheduledDeductionDetailsDto>()).ToList();
+                    }
+                    return deduction;
+                }
             }
         }
         catch (Exception ex)
@@ -160,39 +207,132 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
 
     public async Task<ScheduledSalaryDeductionDto?> AddScheduledDeduction(ScheduledSalaryDeductionDto dto, int EmployeeId)
     {
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
+            // Map and insert ScheduledSalaryDeduction
             var entity = _mapper.Map<ScheduledSalaryDeduction>(dto);
+            entity.IdEmployee = EmployeeId;
 
-            var addedEntity = await _dbContext.ScheduledDeductions.AddAsync(entity);
+            await _dbContext.ScheduledDeductions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
 
-            return _mapper.Map<ScheduledSalaryDeductionDto>(addedEntity.Entity);
+            // Insert related ScheduledDeductionDetails
+            if (dto.ScheduledDeductionDetailsDto != null && dto.ScheduledDeductionDetailsDto.Any())
+            {
+                foreach (var detailDto in dto.ScheduledDeductionDetailsDto)
+                {
+                    var detailEntity = new ScheduledDeductionDetails
+                    {
+                        IdScheduledSalaryDeduction = entity.IdScheduledSalaryDeduction,
+                        IdSalaryMonth = detailDto.IdSalaryMonth,
+                        AmountTobeDeducted = detailDto.AmountTobeDeducted,
+                        AmountDeducted = 0
+                    };
+
+                    _dbContext.ScheduledDeductionDetails.Add(detailEntity);
+                }
+                await _dbContext.SaveChangesAsync();
+            }
+
+            await transaction.CommitAsync();
+            return _mapper.Map<ScheduledSalaryDeductionDto>(entity);
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error adding scheduled salary deduction.");
             return null;
         }
     }
 
+
     public async Task<ScheduledSalaryDeductionDto?> UpdateScheduledDeduction(ScheduledSalaryDeductionDto dto, int EmployeeId)
     {
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
         try
         {
-            var entity = await _dbContext.ScheduledDeductions.FindAsync(dto.IdScheduledSalaryDeduction);
-            if (entity == null) return null;
+            // Step 1: Fetch Scheduled Deduction entity
+            var entity = await _dbContext.ScheduledDeductions
+                .FirstOrDefaultAsync(x => x.IdScheduledSalaryDeduction == dto.IdScheduledSalaryDeduction);
 
-            _mapper.Map(dto, entity);
+            if (entity == null)
+            {
+                _logger.LogWarning("Attempt to update a non-existent Scheduled Deduction with ID: {Id}.", dto.IdScheduledSalaryDeduction);
+                return null;
+            }
+
+            // Step 2: Update Scheduled Deduction main entity
+            entity.IdEmployee = dto.IdEmployee;
+            entity.TotalAmount = dto.TotalAmount;
+            entity.ScheduledSalaryDeductionDetails = dto.ScheduledSalaryDeductionDetails;
+            entity.DeductionFromSalaryMonth = dto.DeductionFromSalaryMonth;
+            entity.DeductionFromSalaryMonthDate = dto.DeductionFromSalaryMonthDate;
+            entity.DeductionToSalaryMonth = dto.DeductionToSalaryMonth;
+            entity.DeductionToSalaryMonthDate = dto.DeductionToSalaryMonthDate;
+            entity.AllocatingSalaryHead = dto.AllocatingSalaryHead;
+            entity.MonthCount = dto.MonthCount;
+            entity.MonthlyDeductableAmount = dto.MonthlyDeductableAmount;
+            
             _dbContext.ScheduledDeductions.Update(entity);
             await _dbContext.SaveChangesAsync();
 
+            // Step 3: Update Scheduled Salary Deduction Details
+            // Step 3: Update Scheduled Salary Deduction Details
+            if (dto.ScheduledDeductionDetailsDto != null)
+            {
+                var existingDetails = await _dbContext.ScheduledDeductionDetails
+                    .Where(d => d.IdScheduledSalaryDeduction == entity.IdScheduledSalaryDeduction)
+                    .ToListAsync();
+
+                // Delete details that are not in the DTO
+                var detailsToDelete = existingDetails
+                    .Where(d => !dto.ScheduledDeductionDetailsDto
+                    .Any(dtoDetail => dtoDetail.IdScheduledSalaryDeductionDetail == d.IdScheduledSalaryDeductionDetail))
+                    .ToList();
+                _dbContext.ScheduledDeductionDetails.RemoveRange(detailsToDelete);
+
+                foreach (var detailDto in dto.ScheduledDeductionDetailsDto)
+                {
+                    var existingDetail = existingDetails
+                        .FirstOrDefault(d => d.IdScheduledSalaryDeductionDetail == detailDto.IdScheduledSalaryDeductionDetail);
+
+                    if (existingDetail != null)
+                    {
+                        // Update existing detail
+                        existingDetail.IdSalaryMonth = detailDto.IdSalaryMonth;
+                        existingDetail.AmountTobeDeducted = detailDto.AmountTobeDeducted;
+                        _dbContext.ScheduledDeductionDetails.Update(existingDetail);
+                    }
+                    else
+                    {
+                        var newDetail = new ScheduledDeductionDetails
+                        {
+                            IdScheduledSalaryDeduction = entity.IdScheduledSalaryDeduction,
+
+                            IdSalaryMonth = detailDto.IdSalaryMonth,
+                            AmountTobeDeducted = detailDto.AmountTobeDeducted,
+                            AmountDeducted = 0                           
+                        };
+
+                        await _dbContext.ScheduledDeductionDetails.AddAsync(newDetail);
+
+                    }
+                }
+
+                 
+            }
+            await _dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
             return _mapper.Map<ScheduledSalaryDeductionDto>(entity);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating scheduled salary deduction.");
-            return null;
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error updating Scheduled Deduction and Details.");
+            throw new Exception("An error occurred while updating the scheduled deduction. Please try again later.");
         }
     }
+
 }

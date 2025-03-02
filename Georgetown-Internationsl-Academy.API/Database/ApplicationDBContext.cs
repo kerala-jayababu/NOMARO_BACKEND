@@ -35,6 +35,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<OvertimeTransactionEntity> OvertimeTransactions { get; set; }
         public DbSet<SalaryAdjustment> SalaryAdjustments { get; set; }
         public DbSet<ScheduledSalaryDeduction> ScheduledDeductions { get; set; }
+        public DbSet<ScheduledDeductionDetails> ScheduledDeductionDetails { get; set; }
         public DbSet<MaternityLeaveSalaryEntity> MaternityLeaveSalaries { get; set; }
         public DbSet<RentFreeQuarter> RentFreeQuarters { get; set; }
         public DbSet<OvertimeTypes> OvertimeTypes { get; set; }
