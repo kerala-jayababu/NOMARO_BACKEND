@@ -98,22 +98,24 @@ namespace YourNamespace.Services.Implementation
                 }
                 else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase))
                 {
-                    query.Append(@"
-                    AND es.ApprovalStatus = 'APPROVED'
-                    AND es.ValidFrom = (
-                        SELECT MAX(ValidFrom)
-                        FROM EmployeeSalaryConfig
-                        WHERE IdEmployee = es.IdEmployee
-                        AND ApprovalStatus = 'APPROVED'
-                    )");
+
+                    query.Append(" AND es.ApprovalStatus = 'APPROVED' ");
+                    //query.Append(@"
+                    //AND es.ApprovalStatus = 'APPROVED'
+                    //AND es.ValidFrom = (
+                    //    SELECT MAX(ValidFrom)
+                    //    FROM EmployeeSalaryConfig
+                    //    WHERE IdEmployee = es.IdEmployee
+                    //    AND ApprovalStatus = 'APPROVED'
+                    //)");
                 }
                 else if (dropdownFilter.Equals("DRAFT GENERATED", StringComparison.OrdinalIgnoreCase))
                 {
-                    query.Append(" AND es.ApprovalStatus = 'DRAFT GENERATED' ");
+                    query.Append(" AND es.ApprovalStatus = 'Draft' ");
                 }
                 else if (dropdownFilter.Equals("NOT GENERATED", StringComparison.OrdinalIgnoreCase))
                 {
-                    query.Append(" AND es.ApprovalStatus = 'NOT GENERATED' ");
+                    query.Append(" AND es.ApprovalStatus IS NULL ");
                 }
             }
 
