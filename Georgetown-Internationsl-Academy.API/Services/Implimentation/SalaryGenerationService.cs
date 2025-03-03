@@ -66,7 +66,7 @@ namespace YourNamespace.Services.Implementation
                     -- Use EmployeeSalaries data if available, else fallback to vw_LatestEmployeeSalaryConfig
                     COALESCE(es.TotalEarnings, lsc.TotalEarnings, 0) AS TotalEarnings,
                     COALESCE(es.TotalDeductions, lsc.TotalDeductions, 0) AS TotalDeductions,
-                    COALESCE(es.TaxAmountAccounted, lsc.NetSalary, 0) AS NetSalary,
+                      COALESCE(es.TotalEarnings, lsc.TotalEarnings, 0) - COALESCE(es.TotalDeductions, lsc.TotalDeductions, 0) AS NetSalary,
                     COALESCE(es.ApprovalStatus, 'Not Generated') AS ApprovalStatus
                 FROM Employees e
                 LEFT JOIN Departments dep ON e.IdDepartment = dep.IdDepartment
@@ -178,14 +178,15 @@ namespace YourNamespace.Services.Implementation
                 parameters,
                 commandType: System.Data.CommandType.StoredProcedure))
                     {
-                        // Skip first and second result sets (Employee IDs and Salary Details)
-                        await multi.ReadAsync<int>();  // First result set
-                        await multi.ReadAsync<dynamic>();  // Second result set
+                        // Read and discard the first result set (Employee IDs)
+                        await multi.ReadAsync<int>();
 
-                        // Read the third result set (SalaryGenerationStatus)
-                        var result = await multi.ReadAsync<SalaryGenerationStatusDto>();
+                        // Read the second result set (Salary Generation Status)
+                        var salaryStatusList = (await multi.ReadAsync<SalaryGenerationStatusDto>()).ToList();
 
-                        return result.ToList();
+                        _logger.LogInformation($"Salary Status Count: {salaryStatusList.Count()}");
+
+                        return salaryStatusList;
                     }
                 }
             }
