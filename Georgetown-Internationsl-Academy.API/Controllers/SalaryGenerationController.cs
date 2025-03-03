@@ -90,7 +90,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to generate draft salary."));
                 }
 
-                return Ok(ApiResponseDto<string>.CreateSuccess( "Draft Salary generated successfully."));
+                return Ok(ApiResponseDto<IEnumerable<dynamic>>.CreateSuccess(result, "Draft Salary generated successfully."));
             }
             catch (Exception ex)
             {
