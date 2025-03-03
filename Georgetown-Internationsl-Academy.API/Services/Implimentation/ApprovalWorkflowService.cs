@@ -1,10 +1,14 @@
-﻿using Georgetown_International_Academy.API.Database;
+﻿using Dapper;
+using Georgetown_International_Academy.API.Database;
+using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -26,9 +30,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             try
             {
                 var currentRecord = await _dbContext.ApprovalWorkFlowAllocations
-                    .Where(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode)
-                    .OrderByDescending(a => a.LevelNumber)
-                    .FirstOrDefaultAsync();
+                             .Where(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode)
+                             .OrderByDescending(a => a.LevelNumber)
+                             .ThenByDescending(a => a.CycleIndex)
+                             .FirstOrDefaultAsync();
 
                 if (currentRecord == null || status == "SUBMITTED")
                 {
@@ -221,7 +226,103 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return new List<int>();
         }
 
-      
+        public async Task<IEnumerable<ConfigApprovalsDto>> GetConfigApprovalsList(DateTime fromDate,string? actionStatus = null, string? entityCode = null, string? targetIdEmployee = null)
+        {
+            var query = new StringBuilder(@"
+           SELECT 
+    asb.IdApprovalWorkFlow,
+	wc.EntityName,
+    asb.EntityTablePrimaryKeyID, 
+    asb.EntityCode, 
+    asb.CycleIndex, 
+	CONCAT(FirstName, ' ', MiddleName, ' ', LastName) AS CreatedBy,
+    asb.SentDate, 
+	asb.TargetIdEmployee,
+    asb.ActionStatus,
 
+    CASE 
+        WHEN asb.EntityCode = 'SALTEM' 
+            THEN (SELECT SalaryTemplateName FROM SalaryTemplates WHERE IdSalaryTemplate = asb.EntityTablePrimaryKeyID)
+        WHEN asb.EntityCode = 'EMPSALCONFIG' 
+			THEN(select  CONCAT(e.FirstName, ' ', e.MiddleName, ' ', e.LastName)  from EmployeeSalaryConfig ec inner join Employees e on ec.IdEmployee=e.IdEmployee where ec.IdEmployeeSalaryConfig = asb.EntityTablePrimaryKeyID)
+
+        WHEN asb.EntityCode = 'OVERTIME' 
+           THEN(select  CONCAT(e.FirstName, ' ', e.MiddleName, ' ', e.LastName)  from OvertimeTransactions ot inner join Employees e on ot.IdEmployee=e.IdEmployee where ot.IdOvertimeTransaction = asb.EntityTablePrimaryKeyID)
+        ELSE NULL
+    END AS Details
+
+FROM ApprovalWorkFlowAllocations asb
+left join WorkFlowConfig wc on asb.IdWorkFlowConfig = wc.IdWorkFlowConfig
+left join Employees e on e.IdEmployee = asb.SourceIdEmployee
+            INNER JOIN (
+                SELECT 
+                    EntityTablePrimaryKeyID, 
+                    EntityCode, 
+                    MAX(CycleIndex) AS MaxCycleIndex
+                FROM ApprovalWorkFlowAllocations
+                GROUP BY EntityTablePrimaryKeyID, EntityCode
+            ) maxCycles 
+            ON asb.EntityTablePrimaryKeyID = maxCycles.EntityTablePrimaryKeyID 
+               AND asb.EntityCode = maxCycles.EntityCode 
+               AND asb.CycleIndex = maxCycles.MaxCycleIndex
+            WHERE 1=1 "); // Placeholder to append dynamic conditions
+
+            var parameters = new DynamicParameters();
+
+            // Fetch entity codes from appsettings.json
+            var allowedEntityCodes = _configuration.GetSection("ConfigApproval:EntityCodes").Get<List<string>>();
+
+            if (allowedEntityCodes?.Any() == true)
+            {
+                query.Append(" AND asb.EntityCode IN @EntityCodes ");
+                parameters.Add("EntityCodes", allowedEntityCodes);
+            }
+
+            if (!string.IsNullOrEmpty(actionStatus))
+            {
+                query.Append(" AND asb.ActionStatus = @ActionStatus ");
+                parameters.Add("ActionStatus", actionStatus);
+            }
+
+            if (!string.IsNullOrEmpty(entityCode))
+            {
+                query.Append(" AND asb.EntityCode = @EntityCode ");
+                parameters.Add("EntityCode", entityCode);
+            }
+
+            if (!string.IsNullOrEmpty(targetIdEmployee))
+            {
+                query.Append(@" AND (
+                asb.TargetIdEmployee = @TargetIdEmployee
+                OR asb.TargetIdEmployee LIKE @TargetIdEmployeePrefix
+                OR asb.TargetIdEmployee LIKE @TargetIdEmployeeSuffix
+                OR asb.TargetIdEmployee LIKE @TargetIdEmployeeMiddle
+            )");
+                parameters.Add("TargetIdEmployee", targetIdEmployee);
+                parameters.Add("TargetIdEmployeePrefix", $"{targetIdEmployee},%");
+                parameters.Add("TargetIdEmployeeSuffix", $"%,{targetIdEmployee}");
+                parameters.Add("TargetIdEmployeeMiddle", $"%,{targetIdEmployee},%");
+            }
+            query.Append(" AND asb.SentDate >= @FromDate ");
+            parameters.Add("FromDate", fromDate);
+
+            query.Append(" ORDER BY wc.EntityName ASC;");
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    return await connection.QueryAsync<ConfigApprovalsDto>(query.ToString(),parameters);
+                }
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, "Error fetching approval workflows.");
+                throw new Exception("An error occurred while fetching approval workflows. Please try again later.");
+            }
+        }
     }
 }

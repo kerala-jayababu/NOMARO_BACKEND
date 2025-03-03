@@ -11,6 +11,7 @@
         public string DesignationName { get; set; }
         public DateTime JoiningDate { get; set; }
         public DateTime? LastWorkingDay {  get; set; }
+        public int? IdEmployeeSalary { get; set; }
         public string Gender { get; set; }
         public string EmailID { get; set; }
         public string PhoneNumber1 { get; set; }

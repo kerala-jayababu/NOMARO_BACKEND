@@ -32,7 +32,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<MaternityLeaveSalaryDto> _maternityLeaveSalaryValidator;
         private readonly IRentFreeQuarterService _rentfreeservice;
         private readonly IValidator<RentFreeQuarterDto> _rentfreevalidator;
-
+        private readonly IApprovalWorkflowService _approvalWorkflowService;
         public PayRollManagementController(ICurrencyConversionService currencyConversionService, 
             IValidator<CurrencyConversionDto> currencyConversionValidator,
             IOvertimeTransactionService overtimeTransactionService, 
@@ -41,6 +41,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             IScheduledSalaryDeductionService ScheduledSalaryDeductionservice,
             IValidator<ScheduledSalaryDeductionDto> scheduledSalaryDeductionValidator,
             IMaternityLeaveSalaryService maternityLeaveSalaryService, IValidator<MaternityLeaveSalaryDto> maternityLeaveSalaryValidator,
+            IApprovalWorkflowService approvalWorkflowService,
             IRentFreeQuarterService rentfreeservice, IValidator<RentFreeQuarterDto> rentfreevalidator)
         {
             _currencyConversionService = currencyConversionService;
@@ -53,6 +54,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _scheduledSalaryDeductionscheduledSalaryDeductionValidator = scheduledSalaryDeductionValidator;
             _maternityLeaveSalaryService = maternityLeaveSalaryService;
             _maternityLeaveSalaryValidator = maternityLeaveSalaryValidator;
+            _approvalWorkflowService = approvalWorkflowService;
             _rentfreeservice = rentfreeservice;
             _rentfreevalidator = rentfreevalidator;
         }
@@ -602,7 +604,38 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-       
+
+        #endregion
+
+        #region ConfigApprovals
+        [HttpGet("GetConfigApprovalsList")]
+        public async Task<IActionResult> GetConfigApprovalsList([FromQuery] DateTime fromDate,[FromQuery] string? actionStatus = null, [FromQuery] string? entityCode = null )
+        {
+            try
+            {
+                if (fromDate == default(DateTime)) // Check if fromDate has an invalid default value
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("The 'fromDate' parameter is required and must be a valid date."));
+                }
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(IdEmployee))
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid employee ID."));
+                }
+
+                var workflows = await _approvalWorkflowService.GetConfigApprovalsList(fromDate,actionStatus, entityCode, IdEmployee);
+                if (!workflows.Any())
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No ConfigApprovalsList records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<ConfigApprovalsDto>>.CreateSuccess(workflows, "Salary list retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
         #endregion
     }
 }
