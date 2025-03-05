@@ -88,7 +88,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (currentRecord.TargetIdEmployee == null ||
                     !currentRecord.TargetIdEmployee.Split(',').Contains(loggedInEmployeeId.ToString()))
                 {
-                    return "You are not authorized to approve/reject this record.";
+                    return "Error:You are not authorized to approve/reject this record.";
                 }
 
 
@@ -239,7 +239,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
     asb.SentDate, 
 	asb.TargetIdEmployee,
     asb.ActionStatus,
-
+    asb.RejectionRemarks,
     CASE 
         WHEN asb.EntityCode = 'SALTEM' 
             THEN (SELECT SalaryTemplateName FROM SalaryTemplates WHERE IdSalaryTemplate = asb.EntityTablePrimaryKeyID)
