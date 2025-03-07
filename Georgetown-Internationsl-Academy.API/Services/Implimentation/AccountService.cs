@@ -68,7 +68,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var token = new JwtSecurityToken(
                 _configuration["JwtSettings:ValidIssuer"],
                 _configuration["JwtSettings:ValidAudience"],
-                expires: DateTime.Now.AddMinutes(400),
+                expires: DateTime.Now.AddHours(48),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             );

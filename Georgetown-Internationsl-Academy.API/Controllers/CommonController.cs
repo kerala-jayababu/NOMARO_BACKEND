@@ -17,11 +17,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     {
         private readonly IOptionService _optionService;
         private readonly IApprovalWorkflowService _approveWorkflowService;
+        private readonly IRoleBasedScreenService _roleBasedScreenService;
 
-        public CommonController(IOptionService optionService, IApprovalWorkflowService approveWorkflowService)
+        public CommonController(IOptionService optionService, IApprovalWorkflowService approveWorkflowService,IRoleBasedScreenService roleBasedScreenService)
         {
             _optionService = optionService;
             _approveWorkflowService = approveWorkflowService;
+            _roleBasedScreenService = roleBasedScreenService;
         }
 
         [HttpGet("GetAllOptions")]
@@ -88,13 +90,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+
             var results = new List<string>();
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            int targetScreenId = requests.FirstOrDefault()?.IdPayRollScreen ?? 0;
+            if (targetScreenId == 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid screen ID."));
+            }
+
+            var employeePayrollScreen = await _roleBasedScreenService.GetEmployeePermissionsById(int.Parse(IdEmployee));
+            if (employeePayrollScreen == null || !HasValidPermissions(employeePayrollScreen, (int)requests.FirstOrDefault().IdPayRollScreen, 'A'))
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee does not have valid permissions."));
+            }
+
 
             foreach (var request in requests)
             {
                 try
                 {
+
                     var result = await _approveWorkflowService.InitiateApprovalWorkflow(
                         request.EntityTablePrimaryKeyID,
                         request.EntityCode,
@@ -137,9 +153,44 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             return Ok(ApiResponseDto<List<string>>.CreateSuccess(results, "All approval workflows processed successfully."));
         }
+        private bool HasValidPermissions(List<PayrollScreenDto> screens, int targetScreenId, char requiredPermission)
+        {
+            foreach (var screen in screens)
+            {
+                // Check if the employee has valid permissions on this screen
+                if (screen.IdPayrollScreen == targetScreenId&& !string.IsNullOrEmpty(screen.ValidPermissions)&& screen.ValidPermissions.Contains(requiredPermission))
+                {
+                   
+                    return true;
+                }               
+
+                // Recursively check submenus
+                if (screen.SubMenus != null && HasValidPermissions1(screen.SubMenus, targetScreenId, requiredPermission))
+                {
+                    return true;
+                }
+            }
+
+            return false; // No valid permissions found
+        }
+
+        private bool HasValidPermissions1(List<PayrollScreens> screens, int targetScreenId, char requiredPermission)
+        {
+            foreach (var screen in screens)
+            {
+                
+                if (screen.IdPayrollScreen == targetScreenId && !string.IsNullOrEmpty(screen.ValidPermissions) && screen.ValidPermissions.Contains(requiredPermission))
+                {
+
+                    return true;
+                }
 
 
 
+            }
+
+            return false; 
+        }
 
 
     }

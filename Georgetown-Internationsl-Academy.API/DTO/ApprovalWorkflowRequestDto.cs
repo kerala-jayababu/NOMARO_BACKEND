@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Georgetown_Internationsl_Academy.API.DTO
 {
@@ -14,5 +15,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string Status { get; set; }
 
         public string? RejectReason { get; set; }
+
+        [NotMapped]
+        public int? IdPayRollScreen { get; set; }
     }
 }
