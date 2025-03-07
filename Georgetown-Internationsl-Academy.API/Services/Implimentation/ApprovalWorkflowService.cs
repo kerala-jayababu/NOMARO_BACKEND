@@ -139,13 +139,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     EntityTablePrimaryKeyID = currentRecord.EntityTablePrimaryKeyID,
                     CycleIndex = currentRecord.CycleIndex,
                     LevelNumber = nextLevelNumber,
+                    ActionStatus= "INTERIM APPROVED",
                     SourceIdEmployee = loggedInEmployeeId,
                     TargetIdEmployee = targetEmployeeIdsForNextLevel,                    
                     SentDate = DateTime.Now
                 };
 
                 await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "INTERIMAPPROVED", newNextLevelRecord.CycleIndex, loggedInEmployeeId);
+                await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "INTERIM APPROVED", newNextLevelRecord.CycleIndex, loggedInEmployeeId);
                 await _dbContext.SaveChangesAsync();
                 //await transaction.CommitAsync();
 
@@ -278,11 +279,25 @@ left join Employees e on e.IdEmployee = asb.SourceIdEmployee
                 parameters.Add("EntityCodes", allowedEntityCodes);
             }
 
+            
             if (!string.IsNullOrEmpty(actionStatus))
             {
-                query.Append(" AND asb.ActionStatus = @ActionStatus ");
-                parameters.Add("ActionStatus", actionStatus);
+                if (actionStatus.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Include SUBMITTED and Interim Approved statuses
+                    query.Append(@"
+            AND (
+                asb.ActionStatus = 'SUBMITTED'
+                OR asb.ActionStatus = 'INTERIM APPROVED'
+            )");
+                }
+                else
+                {
+                    query.Append(" AND asb.ActionStatus = @ActionStatus ");
+                    parameters.Add("ActionStatus", actionStatus);
+                }
             }
+
 
             if (!string.IsNullOrEmpty(entityCode))
             {
