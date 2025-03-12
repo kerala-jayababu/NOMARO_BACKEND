@@ -125,25 +125,57 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                // Fetch EmployeeSalaryConfig by ID
+                // Fetch EmployeeSalaryConfig with details in a single query
                 var config = await _dbContext.EmployeeSalaryConfig
-                    .FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == id);
+                    .Where(c => c.IdEmployeeSalaryConfig == id)
+                    .Select(c => new EmployeeSalaryConfigDto
+                    {
+                        IdEmployeeSalaryConfig = c.IdEmployeeSalaryConfig,
+                        CreatedBy = (int)c.CreatedBy,
+                        CreatedByValue = _dbContext.Employees
+                            .Where(e => e.IdEmployee == c.CreatedBy)
+                            .Select(e => e.FirstName + " " + e.MiddleName + " " + e.LastName)
+                            .FirstOrDefault(),
+                        IdEmployee = c.IdEmployee,
+                        ValidFrom =c.ValidFrom,
+                        ValidTo =c.ValidTo,
+                        IdSalaryTemplate =c.IdSalaryTemplate,
+                        ApprovalStatus =c.ApprovalStatus,
+                        ActiveStatus =c.ActiveStatus,
+                        TotalEarnings=c.TotalEarnings,
+                        CreatedOn = (DateTime)c.CreatedOn,
+                        TotalDeductions=c.TotalDeductions,
+                        NetSalary =c.NetSalary,
+
+                        EmployeeSalaryConfigDetails = _dbContext.EmployeeSalaryConfigDetails
+                            .Where(d => d.IdEmployeeSalaryConfig == c.IdEmployeeSalaryConfig)
+                            .Select(d => new EmployeeSalaryConfigDetailsDto
+                            {
+                                IdEmployeeSalaryConfig =d.IdEmployeeSalaryConfig,
+                                CustomFormula =d.CustomFormula,
+                                SalaryAmount =d.SalaryAmount,
+                                PercentageOfIdSalaryHead=d.PercentageOfIdSalaryHead,
+                                IdEmployeeSalaryConfigDetail = d.IdEmployeeSalaryConfigDetail,
+                                IdSalaryHead = d.IdSalaryHead,
+                                FixedAmount = d.FixedAmount,
+                                PercentageValue = d.PercentageValue,
+                                CalculationMethod = d.CalculationMethod,                               
+                                SalaryHeadName = _dbContext.SalaryHeads
+                                    .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
+                                    .Select(sh => sh.SalaryHeadName)
+                                    .FirstOrDefault(),
+                                SalaryHeadType = _dbContext.SalaryHeads
+                                    .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
+                                    .Select(sh => sh.HeadType)
+                                    .FirstOrDefault()
+                            }).ToList()
+                    })
+                    .FirstOrDefaultAsync();
 
                 if (config == null)
                 {
                     return null; // Return null if not found
                 }
-
-                // Map to DTO
-                var configDto = _mapper.Map<EmployeeSalaryConfigDto>(config);
-
-                // Fetch associated EmployeeSalaryConfigDetails
-                var details = await _dbContext.EmployeeSalaryConfigDetails
-                    .Where(d => d.IdEmployeeSalaryConfig == config.IdEmployeeSalaryConfig)
-                    .ToListAsync();
-
-                // Map details
-                configDto.EmployeeSalaryConfigDetails = _mapper.Map<List<EmployeeSalaryConfigDetailsDto>>(details);
 
                 // Fetch additional employee details using raw SQL query
                 var query = @"
@@ -166,38 +198,37 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
             WHERE esc.IdEmployeeSalaryConfig = @ConfigId";
 
-                using (var connection = _dbContext.Database.GetDbConnection())
+                using var connection = _dbContext.Database.GetDbConnection();
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var employeeInfo = await connection.QueryFirstOrDefaultAsync<EmployeeSalaryConfigDto>(query, new { ConfigId = id });
+
+                if (employeeInfo != null)
                 {
-                    if (connection.State == System.Data.ConnectionState.Closed)
-                        await connection.OpenAsync();
-
-                    var employeeInfo = await connection.QueryFirstOrDefaultAsync<EmployeeSalaryConfigDto>(query, new { ConfigId = id });
-
-                    if (employeeInfo != null)
-                    {
-                        configDto.EmployeeCode = employeeInfo.EmployeeCode;
-                        configDto.EmployeeName = employeeInfo.EmployeeName;
-                        configDto.IdDesignation = employeeInfo.IdDesignation;
-                        configDto.DesignationName = employeeInfo.DesignationName;
-                        configDto.IdDepartment = employeeInfo.IdDepartment;
-                        configDto.DepartmentName = employeeInfo.DepartmentName;
-                        configDto.JoiningDate = employeeInfo.JoiningDate;
-                        configDto.Gender = employeeInfo.Gender;
-                        configDto.EmailID = employeeInfo.EmailID;
-                        configDto.PhoneNumber1 = employeeInfo.PhoneNumber1;
-                        configDto.PhoneNumber2 = employeeInfo.PhoneNumber2;
-                        configDto.CurrentStatus = employeeInfo.CurrentStatus;
-                    }
+                    config.EmployeeCode = employeeInfo.EmployeeCode;
+                    config.EmployeeName = employeeInfo.EmployeeName;
+                    config.IdDesignation = employeeInfo.IdDesignation;
+                    config.DesignationName = employeeInfo.DesignationName;
+                    config.IdDepartment = employeeInfo.IdDepartment;
+                    config.DepartmentName = employeeInfo.DepartmentName;
+                    config.JoiningDate = employeeInfo.JoiningDate;
+                    config.Gender = employeeInfo.Gender;
+                    config.EmailID = employeeInfo.EmailID;
+                    config.PhoneNumber1 = employeeInfo.PhoneNumber1;
+                    config.PhoneNumber2 = employeeInfo.PhoneNumber2;
+                    config.CurrentStatus = employeeInfo.CurrentStatus;
                 }
 
-                return configDto;
+                return config;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error fetching Employee Salary Configuration with ID {id}.");
-                throw new Exception("An error occurred while fetching the configuration. Please try again later.");
+                _logger.LogError(ex, "Error fetching Employee Salary Configuration with ID {Id}.", id);
+                return null;
             }
         }
+
 
 
 

@@ -172,6 +172,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
+        public async Task<EmployeePermissions> GetEmployeePermission(int employeeId,int iDPayRollScreen)
+        {
+            try
+            {
+                // Fetch all existing screens to check for updates
+                var existingScreens = await _dbContext.EmployeePermissions.Where(c=>c.IdPayrollScreen == iDPayRollScreen).FirstOrDefaultAsync();  
+                return existingScreens;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error managing payroll screens.");
+                throw;
+            }
+        }
+
+
+
+
+
 
 
         public async Task<bool> ManageEmployeePermissions(List<EmployeePermissionDto> employeePermissions)

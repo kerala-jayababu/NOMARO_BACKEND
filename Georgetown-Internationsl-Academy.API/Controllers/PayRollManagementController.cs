@@ -198,6 +198,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("Overtime transaction not found."));
                 }
+              
+                    if (!string.IsNullOrEmpty(transaction.Attachment) && System.IO.File.Exists(transaction.Attachment))
+                    {
+                        transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.Attachment);
+                    }
+                
 
                 return Ok(ApiResponseDto<OvertimeTransactionDto>.CreateSuccess(transaction, "Overtime transaction retrieved successfully."));
             }

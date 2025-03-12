@@ -99,11 +99,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid screen ID."));
             }
 
-            var employeePayrollScreen = await _roleBasedScreenService.GetEmployeePermissionsById(int.Parse(IdEmployee));
-            if (employeePayrollScreen == null || !HasValidPermissions(employeePayrollScreen, (int)requests.FirstOrDefault().IdPayRollScreen, 'A'))
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee does not have valid permissions."));
-            }
+            //var employeePayrollScreen = await _roleBasedScreenService.GetEmployeePermission(int.Parse(IdEmployee),(int)requests.FirstOrDefault().IdPayRollScreen);
+            //if (employeePayrollScreen == null || !HasValidPermissions(employeePayrollScreen, (int)requests.FirstOrDefault().IdPayRollScreen, 'A'))
+            //{
+            //    return BadRequest(ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+            //}
 
 
             foreach (var request in requests)
@@ -153,45 +153,21 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             return Ok(ApiResponseDto<List<string>>.CreateSuccess(results, "All approval workflows processed successfully."));
         }
-        private bool HasValidPermissions(List<PayrollScreenDto> screens, int targetScreenId, char requiredPermission)
+        private bool HasValidPermissions(EmployeePermissions screens, int targetScreenId, char requiredPermission)
         {
-            foreach (var screen in screens)
-            {
-                // Check if the employee has valid permissions on this screen
-                if (screen.IdPayrollScreen == targetScreenId&& !string.IsNullOrEmpty(screen.ValidPermissions)&& screen.ValidPermissions.Contains(requiredPermission))
-                {
-                   
-                    return true;
-                }               
 
-                // Recursively check submenus
-                if (screen.SubMenus != null && HasValidPermissions1(screen.SubMenus, targetScreenId, requiredPermission))
-                {
-                    return true;
-                }
+
+            if (screens.IdPayrollScreen == targetScreenId && !string.IsNullOrEmpty(screens.Permission) && screens.Permission.Contains(requiredPermission))
+            {
+
+                return true;
             }
 
-            return false; // No valid permissions found
-        }
-
-        private bool HasValidPermissions1(List<PayrollScreens> screens, int targetScreenId, char requiredPermission)
-        {
-            foreach (var screen in screens)
-            {
-                
-                if (screen.IdPayrollScreen == targetScreenId && !string.IsNullOrEmpty(screen.ValidPermissions) && screen.ValidPermissions.Contains(requiredPermission))
-                {
-
-                    return true;
-                }
-
-
-
-            }
 
             return false; 
         }
 
+   
 
     }
 }

@@ -131,7 +131,7 @@ SELECT
     ot.Attachment,
     ot.AttachmentDescription,
     ot.ApprovalStatus,
-    e.EmployeeCode,
+    e.EmployeeCode,    
     CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
     e.IdDepartment,
     e.IdDesignation,
@@ -208,6 +208,9 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
         ot.AttachmentDescription,
         ot.ApprovalStatus,
         e.EmployeeCode,
+        ot.CreatedOn,
+        ot.DayType,
+       CONCAT(ec.FirstName, ' ', COALESCE(ec.MiddleName, ''), ' ', ec.LastName) AS CreatedBy,
         CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
         e.IdDepartment,
         e.IdDesignation,
@@ -217,6 +220,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
     INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
     INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
     INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    INNER JOIN Employees ec on ot.CreatedBy= ec.IdEmployee
     WHERE ot.IdOvertimeTransaction = @Id;
     ";
 

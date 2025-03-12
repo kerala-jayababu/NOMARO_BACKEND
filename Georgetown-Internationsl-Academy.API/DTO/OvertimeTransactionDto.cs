@@ -22,6 +22,10 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? ApprovalStatus { get; set; }
         public string? DayType { get; set; }
 
+        public string? CreatedBy { get; set; }
+
+        public string? CreatedOn { get; set; }
+
         [NotMapped]
         public byte[]? AttachmentBlob { get; set; }
         // Employee Related Details (Directly Mapped from Database)

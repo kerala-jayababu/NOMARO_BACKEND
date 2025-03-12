@@ -54,7 +54,73 @@ public class SalaryTemplateService : ISalaryTemplateService
             }
 
             var templates = await query.ToListAsync();
-            return _mapper.Map<IEnumerable<SalaryTemplateDto>>(templates);
+
+            //foreach (var template in templates)
+            //{
+
+            //var details = await (from std in _dbContext.SalaryTemplateDetails
+            //                     join sh in _dbContext.SalaryHeads
+            //                     on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
+            //                     from sh in shGroup.DefaultIfEmpty() // LEFT JOIN
+            //                     where std.IdSalaryTemplate == template.IdSalaryTemplate
+            //                     select new SalaryTemplateDetailDto
+            //                     {
+            //                         IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
+            //                         IdSalaryTemplate = std.IdSalaryTemplate,
+            //                         IdSalaryHead = std.IdSalaryHead,
+            //                         SalaryHeadName = sh != null ? sh.SalaryHeadName : string.Empty,
+            //                         HeadType = sh != null ? sh.HeadType : string.Empty,
+            //                         IsTaxable = sh != null && sh.IsTaxable, // Null for boolean
+            //                         OrderNumber = sh != null ? sh.OrderNumber : null, // Nullable int
+            //                         CalculationMethod = std.CalculationMethod,
+            //                         FixedAmount = std.FixedAmount,
+            //                         PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
+            //                         PercentageValue = std.PercentageValue,
+            //                         CustomFormula = std.CustomFormula,
+            //                         FinalSalaryAmount = std.FinalSalaryAmount,
+            //                         Remarks = std.Remarks
+            //                     }).ToListAsync();
+
+            //    // Map the SalaryTemplate to DTO
+            //    //var result = _mapper.Map<SalaryTemplateDto>(salaryTemplate);
+
+            //    // Attach the details to the DTO
+            //    result.SalaryTemplateDetails = details;
+            //}
+
+            var res= _mapper.Map<IEnumerable<SalaryTemplateDto>>(templates);
+
+
+            foreach (var template in res)
+            {
+
+                var details = await (from std in _dbContext.SalaryTemplateDetails
+                                     join sh in _dbContext.SalaryHeads
+                                     on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
+                                     from sh in shGroup.DefaultIfEmpty() // LEFT JOIN
+                                     where std.IdSalaryTemplate == template.IdSalaryTemplate
+                                     select new SalaryTemplateDetailDto
+                                     {
+                                         IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
+                                         IdSalaryTemplate = std.IdSalaryTemplate,
+                                         IdSalaryHead = std.IdSalaryHead,
+                                         SalaryHeadName = sh != null ? sh.SalaryHeadName : string.Empty,
+                                         HeadType = sh != null ? sh.HeadType : string.Empty,
+                                         IsTaxable = sh != null && sh.IsTaxable, // Null for boolean
+                                         OrderNumber = sh != null ? sh.OrderNumber : null, // Nullable int
+                                         CalculationMethod = std.CalculationMethod,
+                                         FixedAmount = std.FixedAmount,
+                                         PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
+                                         PercentageValue = std.PercentageValue,
+                                         CustomFormula = std.CustomFormula,
+                                         FinalSalaryAmount = std.FinalSalaryAmount,
+                                         Remarks = std.Remarks
+                                     }).ToListAsync();
+
+                template.SalaryTemplateDetails = details;
+            }
+            return res;
+
         }
         catch (Exception ex)
         {
@@ -68,8 +134,29 @@ public class SalaryTemplateService : ISalaryTemplateService
         try
         {
             // Fetch the SalaryTemplate
-            var salaryTemplate = await _dbContext.SalaryTemplates
-                .FirstOrDefaultAsync(t => t.IdSalaryTemplate == idSalaryTemplate);
+            var salaryTemplate = await (from st in _dbContext.SalaryTemplates
+                                        join emp in _dbContext.Employees
+                                        on st.CreatedBy equals emp.IdEmployee into empGroup
+                                        from emp in empGroup.DefaultIfEmpty() // LEFT JOIN
+                                        where st.IdSalaryTemplate == idSalaryTemplate
+                                        select new SalaryTemplateDto
+                                        {
+                                            IdSalaryTemplate = st.IdSalaryTemplate,
+                                            SalaryTemplateName = st.SalaryTemplateName,
+                                            Description = st.Description,
+                                            CreatedOn =st.CreatedOn,
+                                            ModifiedBy = st.ModifiedBy,
+                                            ModifiedOn = st.ModifiedOn, 
+                                            ApprovalStatus = st.ApprovalStatus,
+                                            ActiveStatus = st.ActiveStatus,
+                                            TotalDeductions = st.TotalDeductions,
+                                            TotalEarnings = st.TotalEarnings,
+                                            NetSalary = st.NetSalary,
+                                            CreatedBy = st.CreatedBy,
+                                            CreatedByValue = emp != null
+                                                ? (emp.FirstName + " " + (string.IsNullOrEmpty(emp.MiddleName) ? "" : emp.MiddleName + " ") + emp.LastName).Trim()
+                                                : string.Empty
+                                        }).FirstOrDefaultAsync();
             if (salaryTemplate == null)
             {
                 return null; // Return null if the SalaryTemplate does not exist
@@ -189,6 +276,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             templateEntity.ApprovalStatus = dto.ApprovalStatus;
             templateEntity.ActiveStatus = dto.ActiveStatus;
 
+
             _dbContext.SalaryTemplates.Update(templateEntity);
             await _dbContext.SaveChangesAsync();
 
@@ -225,22 +313,10 @@ public class SalaryTemplateService : ISalaryTemplateService
                     }
                     else
                     {
-                        // Add new detail
-                        // Check if the entity is already being tracked and detach it
-                        var trackedEntity = _dbContext.ChangeTracker.Entries<SalaryTemplateDetails>()
-                            .FirstOrDefault(e => e.Entity.IdSalaryTemplateDetail == detailDto.IdSalaryTemplateDetail);
-
-                        if (trackedEntity != null)
-                        {
-                            _dbContext.Entry(trackedEntity.Entity).State = EntityState.Detached;
-                        }
-
-                        // Map the new detail entity
                         var newDetailEntity = _mapper.Map<SalaryTemplateDetails>(detailDto);
                         newDetailEntity.IdSalaryTemplate = templateEntity.IdSalaryTemplate;
                         newDetailEntity.IdSalaryTemplateDetail = null; 
 
-                        // Add new details
                         await _dbContext.SalaryTemplateDetails.AddAsync(newDetailEntity);
 
 

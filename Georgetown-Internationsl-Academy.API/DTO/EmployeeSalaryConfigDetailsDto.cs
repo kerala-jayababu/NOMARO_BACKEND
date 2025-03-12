@@ -1,4 +1,6 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class EmployeeSalaryConfigDetailsDto
     {
@@ -11,5 +13,9 @@
         public decimal? PercentageValue { get; set; }
         public string? CustomFormula { get; set; }
         public decimal? SalaryAmount { get; set; }
+        [NotMapped]
+        public string? SalaryHeadName { get; set; }
+        [NotMapped]
+        public string? SalaryHeadType { get; set; }
     }
 }
