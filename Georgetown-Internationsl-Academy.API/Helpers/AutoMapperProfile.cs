@@ -37,6 +37,8 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<MaternityLeaveSalaryDetail, MaternityLeaveSalaryDetailDto>().ReverseMap();
             CreateMap<HolidayTypeEntity, HolidayTypeDto>().ReverseMap();
             CreateMap<FinancialYears, FinancialYearsDto>().ReverseMap();
+            CreateMap<Banks, BankDto>().ReverseMap();
+            CreateMap<BankBranches, BankBranchesDto>().ReverseMap();
         }
      }
 }

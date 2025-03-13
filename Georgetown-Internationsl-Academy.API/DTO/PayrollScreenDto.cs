@@ -12,6 +12,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         [NotMapped]
         public int ? IdEmployeePermission { get; set; }
+        [NotMapped]
+        public int? OrderNumber { get; set; }
         public List<PayrollScreens>? SubMenus { get; set; }
     }
 }

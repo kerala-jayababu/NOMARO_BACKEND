@@ -125,7 +125,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add salary template."));
                 }
 
-                return Ok(ApiResponseDto<object>.CreateSuccess(result, "Salary template added successfully."));
+                return Ok(ApiResponseDto<object>.CreateSuccess(true, "Salary template added successfully."));
             }
             catch (Exception ex)
             {
@@ -186,7 +186,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return NotFound(ApiResponseDto<string>.CreateFailure("Salary template not found for update."));
                 }
 
-                return Ok(ApiResponseDto<object>.CreateSuccess(result, "Salary template updated successfully."));
+                return Ok(ApiResponseDto<object>.CreateSuccess(true, "Salary template updated successfully."));
             }
             catch (Exception ex)
             {

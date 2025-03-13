@@ -17,5 +17,10 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? SalaryHeadName { get; set; }
         [NotMapped]
         public string? SalaryHeadType { get; set; }
+        [NotMapped]
+        public string? SalaryHeadCode { get; set; }
+
+        [NotMapped]
+        public string? PercentageOfIdSalaryHeadValue { get; set; }
     }
 }

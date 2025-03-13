@@ -46,8 +46,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                     select new SalaryTemplateDetailDto
                                     {
                                         IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
-                                        IdSalaryTemplate = std.IdSalaryTemplate,
-                                        IdSalaryHead = std.IdSalaryHead,
+                                        IdSalaryTemplate = (int)std.IdSalaryTemplate,
+                                        IdSalaryHead = (int)std.IdSalaryHead,
                                         SalaryHeadName = sh.SalaryHeadName ?? string.Empty, // Use null-coalescing
                                         HeadType = sh.HeadType ?? string.Empty, // Use null-coalescing
                                         IsTaxable = sh != null && sh.IsTaxable, // Handle null for boolean
@@ -57,7 +57,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                         PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
                                         PercentageValue = std.PercentageValue,
                                         CustomFormula = std.CustomFormula,
-                                        FinalSalaryAmount = std.FinalSalaryAmount,
+                                        FinalSalaryAmount = (decimal)std.FinalSalaryAmount,
                                         Remarks = std.Remarks
                                     }).ToListAsync();
 

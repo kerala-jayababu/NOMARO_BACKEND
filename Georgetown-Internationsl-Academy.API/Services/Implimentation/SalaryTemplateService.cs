@@ -102,8 +102,8 @@ public class SalaryTemplateService : ISalaryTemplateService
                                      select new SalaryTemplateDetailDto
                                      {
                                          IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
-                                         IdSalaryTemplate = std.IdSalaryTemplate,
-                                         IdSalaryHead = std.IdSalaryHead,
+                                         IdSalaryTemplate = (int)std.IdSalaryTemplate,
+                                         IdSalaryHead = (int)std.IdSalaryHead,
                                          SalaryHeadName = sh != null ? sh.SalaryHeadName : string.Empty,
                                          HeadType = sh != null ? sh.HeadType : string.Empty,
                                          IsTaxable = sh != null && sh.IsTaxable, // Null for boolean
@@ -113,7 +113,7 @@ public class SalaryTemplateService : ISalaryTemplateService
                                          PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
                                          PercentageValue = std.PercentageValue,
                                          CustomFormula = std.CustomFormula,
-                                         FinalSalaryAmount = std.FinalSalaryAmount,
+                                         FinalSalaryAmount = (decimal)std.FinalSalaryAmount,
                                          Remarks = std.Remarks
                                      }).ToListAsync();
 
@@ -166,23 +166,28 @@ public class SalaryTemplateService : ISalaryTemplateService
             var details = await (from std in _dbContext.SalaryTemplateDetails
                                  join sh in _dbContext.SalaryHeads
                                  on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
-                                 from sh in shGroup.DefaultIfEmpty() // LEFT JOIN
+                                 from sh in shGroup.DefaultIfEmpty()
+                                 join ph in _dbContext.SalaryHeads
+                                 on std.PercentageOfIdSalaryHead equals ph.IdSalaryHead into phGroup
+                                 from ph in phGroup.DefaultIfEmpty()
                                  where std.IdSalaryTemplate == idSalaryTemplate
                                  select new SalaryTemplateDetailDto
                                  {
                                      IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
-                                     IdSalaryTemplate = std.IdSalaryTemplate,
-                                     IdSalaryHead = std.IdSalaryHead,
+                                     IdSalaryTemplate = (int)std.IdSalaryTemplate,
+                                     IdSalaryHead = (int)std.IdSalaryHead,
                                      SalaryHeadName = sh != null ? sh.SalaryHeadName : string.Empty,
+                                     SalaryHeadCode = sh != null ? sh.SalaryHeadCode : string.Empty,
                                      HeadType = sh != null ? sh.HeadType : string.Empty,
                                      IsTaxable = sh != null && sh.IsTaxable, // Null for boolean
                                      OrderNumber = sh != null ? sh.OrderNumber : null, // Nullable int
                                      CalculationMethod = std.CalculationMethod,
                                      FixedAmount = std.FixedAmount,
                                      PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
+                                     PercentageOfIdSalaryHeadValue = ph != null ? ph.SalaryHeadName : string.Empty, 
                                      PercentageValue = std.PercentageValue,
                                      CustomFormula = std.CustomFormula,
-                                     FinalSalaryAmount = std.FinalSalaryAmount,
+                                     FinalSalaryAmount = (decimal)std.FinalSalaryAmount,
                                      Remarks = std.Remarks
                                  }).ToListAsync();
 
@@ -209,9 +214,15 @@ public class SalaryTemplateService : ISalaryTemplateService
         try
         {
             // Map and add the SalaryTemplate
-            var templateEntity = _mapper.Map<SalaryTemplate>(dto);
+          var templateEntity = new SalaryTemplate();
+            templateEntity.SalaryTemplateName = dto.SalaryTemplateName;
+            templateEntity.Description = dto.Description;
+            templateEntity.TotalDeductions = dto.TotalDeductions;
+            templateEntity.TotalEarnings = dto.TotalEarnings;
+            templateEntity.NetSalary = dto.NetSalary;
             templateEntity.CreatedBy = IdEmployee;
             templateEntity.CreatedOn = DateTime.UtcNow;
+            templateEntity.ActiveStatus = dto.ActiveStatus;
             templateEntity.ApprovalStatus = "SUBMITTED";
 
             await _dbContext.SalaryTemplates.AddAsync(templateEntity);
@@ -222,9 +233,18 @@ public class SalaryTemplateService : ISalaryTemplateService
             {
                 foreach (var detailDto in dto.SalaryTemplateDetails)
                 {
-                    var detailEntity = _mapper.Map<SalaryTemplateDetails>(detailDto);
-                    detailEntity.IdSalaryTemplate = templateEntity.IdSalaryTemplate;
-
+                    var detailEntity = new SalaryTemplateDetails
+                    {
+                        IdSalaryTemplate = templateEntity.IdSalaryTemplate,
+                        IdSalaryHead = detailDto.IdSalaryHead,
+                        CalculationMethod = detailDto.CalculationMethod,
+                        FixedAmount = detailDto.FixedAmount,
+                        PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
+                        PercentageValue = detailDto.PercentageValue,
+                        CustomFormula = detailDto.CustomFormula,
+                        FinalSalaryAmount = detailDto.FinalSalaryAmount,
+                        Remarks = detailDto.Remarks
+                    };
                     await _dbContext.SalaryTemplateDetails.AddAsync(detailEntity);
                 }
 
@@ -313,12 +333,21 @@ public class SalaryTemplateService : ISalaryTemplateService
                     }
                     else
                     {
-                        var newDetailEntity = _mapper.Map<SalaryTemplateDetails>(detailDto);
-                        newDetailEntity.IdSalaryTemplate = templateEntity.IdSalaryTemplate;
-                        newDetailEntity.IdSalaryTemplateDetail = null; 
+                        // Insert new detail manually
+                        var newDetailEntity = new SalaryTemplateDetails
+                        {
+                            IdSalaryTemplate = templateEntity.IdSalaryTemplate,
+                            IdSalaryHead = detailDto.IdSalaryHead,
+                            CalculationMethod = detailDto.CalculationMethod,
+                            FixedAmount = detailDto.FixedAmount,
+                            PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
+                            PercentageValue = detailDto.PercentageValue,
+                            CustomFormula = detailDto.CustomFormula,
+                            FinalSalaryAmount = detailDto.FinalSalaryAmount,
+                            Remarks = detailDto.Remarks
+                        };
 
                         await _dbContext.SalaryTemplateDetails.AddAsync(newDetailEntity);
-
 
 
 

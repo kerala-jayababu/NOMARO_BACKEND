@@ -22,6 +22,11 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         [NotMapped]
         public string? HeadType { get; set; }
         [NotMapped]
+        public string? SalaryHeadCode { get; set; }
+
+        [NotMapped]
+        public string? PercentageOfIdSalaryHeadValue { get; set; }
+        [NotMapped]
         public bool IsTaxable { get; set; }
         [NotMapped]
         public int? OrderNumber { get; set; }

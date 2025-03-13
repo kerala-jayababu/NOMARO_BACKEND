@@ -32,8 +32,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         IdPayrollScreen = screen.IdPayrollScreen,
                         ScreenName = screen.ScreenName,
                         ValidPermissions = screen.ValidPermissions,
-                        IdParentPayrollScreen = screen.IdParentPayrollScreen
-                    }).Where(x => x.IdParentPayrollScreen == 0).ToList();
+                        IdParentPayrollScreen = screen.IdParentPayrollScreen,
+                        OrderNumber =screen.OrderNumber
+
+                    }).OrderBy(x => x.OrderNumber).Where(x => x.IdParentPayrollScreen == 0).ToList();
 
                 foreach (var screen in payrollScreens)
                 {

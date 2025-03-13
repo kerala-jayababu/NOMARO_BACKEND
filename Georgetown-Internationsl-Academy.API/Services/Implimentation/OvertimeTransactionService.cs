@@ -120,8 +120,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 SELECT 
     ot.IdOvertimeTransaction,
     ot.IdEmployee,
-    ot.IdOvertimeType,
-    ot.OvertimeTypeName,
+    ot.IdOvertimeType,    
     ot.StartDate,
     ot.StartTime,
     ot.EndDate,
@@ -197,7 +196,6 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
         ot.IdOvertimeTransaction,
         ot.IdEmployee,
         ot.IdOvertimeType,
-  ot.OvertimeTypeName,
         ot.StartDate,
         ot.StartTime,
         ot.EndDate,
@@ -348,8 +346,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                 transaction.StartTime = transactionDto.StartTime;
                 transaction.EndTime = transactionDto.EndTime;
                 transaction.StartDate = transactionDto.StartDate;
-                transaction.IdOvertimeType= transactionDto.IdOvertimeType;
-                transaction.OvertimeTypeName = transactionDto.OvertimeTypeName;
+                transaction.IdOvertimeType= transactionDto.IdOvertimeType;               
                 transaction.EndDate = transactionDto.EndDate;
                 transaction.DurationInHours = transactionDto.DurationInHours;
                 transaction.ReasonForOverTime = transactionDto.ReasonForOvertime;

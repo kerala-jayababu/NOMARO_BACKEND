@@ -167,7 +167,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                 SalaryHeadType = _dbContext.SalaryHeads
                                     .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
                                     .Select(sh => sh.HeadType)
-                                    .FirstOrDefault()
+                                    .FirstOrDefault(),
+                                SalaryHeadCode = _dbContext.SalaryHeads
+                                    .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
+                                    .Select(sh => sh.SalaryHeadCode)
+                                    .FirstOrDefault(),
+                                PercentageOfIdSalaryHeadValue = _dbContext.SalaryHeads
+                    .Where(ph => ph.IdSalaryHead == d.PercentageOfIdSalaryHead)
+                    .Select(ph => ph.SalaryHeadName)
+                    .FirstOrDefault() ?? string.Empty
                             }).ToList()
                     })
                     .FirstOrDefaultAsync();

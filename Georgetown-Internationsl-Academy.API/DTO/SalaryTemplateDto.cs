@@ -15,9 +15,10 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public bool ActiveStatus { get; set; }
         public decimal? TotalEarnings { get; set; }
         public decimal? TotalDeductions { get; set; }
-        public decimal? NetSalary { get; set; }
+        public decimal? NetSalary { get; set; }    
+        public List<SalaryTemplateDetailDto>? SalaryTemplateDetails { get; set; }
+
         [NotMapped]
         public string? CreatedByValue { get; set; }
-        public List<SalaryTemplateDetailDto>? SalaryTemplateDetails { get; set; }
     }
 }
