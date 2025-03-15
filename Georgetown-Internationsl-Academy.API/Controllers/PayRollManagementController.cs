@@ -68,7 +68,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var conversions = await _currencyConversionService.GetAllCurrencyConversions();
 
-                if (!conversions.Any())
+                if (conversions == null || !conversions.Any())
                     return NotFound(ApiResponseDto<string>.CreateFailure("No currency conversions found."));
 
                 return Ok(ApiResponseDto<IEnumerable<CurrencyConversionDto>>.CreateSuccess(conversions, "Currency conversions retrieved successfully."));
@@ -84,6 +84,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             try
             {
+                if (id <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid currency conversion ID. Please provide a valid ID."));
+
                 var conversion = await _currencyConversionService.GetCurrencyConversionById(id);
 
                 if (conversion == null)

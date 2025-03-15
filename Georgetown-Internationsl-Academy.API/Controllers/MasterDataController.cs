@@ -85,27 +85,35 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+                ;
             }
         }
 
         [HttpGet("GetBudgetById")]
         public async Task<IActionResult> GetBudgetCodeByID(int Id)
         {
+            if (Id <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid budget code ID."));
+            }
+
             try
             {
                 var budget = await _budgetCodeServices.GetBudgetCodeByID(Id);
 
                 if (budget == null)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No budget codes found."));
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Budget code not found."));
                 }
 
-                return Ok(ApiResponseDto<BudgetCodeDto>.CreateSuccess(budget, "Budget  retrieved successfully."));
+                return Ok(ApiResponseDto<BudgetCodeDto>.CreateSuccess(budget, "Budget code retrieved successfully."));
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+       
             }
+
         }
 
 
@@ -113,14 +121,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         public async Task<IActionResult> AddBudgetCode([FromBody] BudgetCodeDto dto)
         {
             var validationResult = await _budgetvalidator.ValidateAsync(dto);
+
             if (!validationResult.IsValid)
             {
+                // Join multiple validation errors into a single comma-separated string
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
             var existingBudgetCode = (await _budgetCodeServices.GetBudgetList())
-                .FirstOrDefault(b => b.BudgetCode == dto.BudgetCode  && b.BudgetCodeName == dto.BudgetCodeName);
+                .FirstOrDefault(b => b.BudgetCode == dto.BudgetCode && b.BudgetCodeName == dto.BudgetCodeName);
 
             if (existingBudgetCode != null)
             {
@@ -129,24 +139,30 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-               var res= await _budgetCodeServices.AddBudgetCode(dto);
+                var res = await _budgetCodeServices.AddBudgetCode(dto);
                 if (res == null)
                 {
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create budget code."));
+                    return UnprocessableEntity(ApiResponseDto<string>.CreateFailure("Unable to process request. Budget code creation failed."));
                 }
                 return Ok(ApiResponseDto<string>.CreateSuccess("Budget code created successfully."));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An internal error occurred: {ex.Message}"));
             }
         }
+
 
 
         [HttpPost("UpdateBudgetCode")]
         public async Task<IActionResult> UpdateBudgetCode(BudgetCodeDto dto)
         {
-            // Validate the DTO
+            if (dto == null || dto.IdBudgetCode == null || dto.IdBudgetCode <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid budget code ID."));
+            }
+
             var validationResult = await _budgetvalidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
             {
@@ -154,31 +170,22 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
-            // Ensure Id is provided and greater than 0
-            if (dto.IdBudgetCode == null || dto.IdBudgetCode <= 0)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for updating a budget code."));
-            }
-
             try
             {
-                // Ensure the budget code exists
                 var existingBudgetCode = await _budgetCodeServices.GetBudgetCodeByID(dto.IdBudgetCode.Value);
                 if (existingBudgetCode == null)
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("Budget code not found."));
                 }
 
-                // Check for conflicts with other entries
                 var conflictBudgetCode = (await _budgetCodeServices.GetBudgetList())
-                    .FirstOrDefault(b => b.BudgetCode == dto.BudgetCode && b.BudgetCodeName == dto.BudgetCodeName);
+                    .FirstOrDefault(b => b.BudgetCode == dto.BudgetCode && b.BudgetCodeName == dto.BudgetCodeName && b.IdBudgetCode != dto.IdBudgetCode);
 
                 if (conflictBudgetCode != null)
                 {
-                    return Conflict(ApiResponseDto<string>.CreateFailure("Budget code name conflicts with an existing entry."));
+                    return Conflict(ApiResponseDto<string>.CreateFailure("Budget code conflicts with an existing entry."));
                 }
 
-                // Update the budget code in the repository
                 var res = await _budgetCodeServices.UpdateBudgetCode(dto);
                 if (res == null)
                 {
@@ -190,6 +197,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+              
             }
         }
 
@@ -214,6 +222,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+           
             }
         }
 
@@ -221,20 +230,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpGet("GetDesignationByID")]
         public async Task<IActionResult> GetDesignationByID(int Id)
         {
+            if (Id <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid designation ID."));
+            }
+
             try
             {
                 var designation = await _designationservices.GetDesignationByID(Id);
 
                 if (designation == null)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No designation  found."));
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Designation not found."));
                 }
 
-                return Ok(ApiResponseDto<DesignationDto>.CreateSuccess(designation, "designation  retrieved successfully."));
+                return Ok(ApiResponseDto<DesignationDto>.CreateSuccess(designation, "Designation retrieved successfully."));
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+              
             }
         }
 
@@ -261,7 +276,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var res = await _designationservices.AddDesignation(dto);
                 if (res == null)
                 {
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create designation."));
+                    return UnprocessableEntity(ApiResponseDto<string>.CreateFailure("Failed to create designation."));
                 }
 
                 return Ok(ApiResponseDto<string>.CreateSuccess("Designation created successfully."));
@@ -275,16 +290,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpPost("UpdateDesignation")]
         public async Task<IActionResult> UpdateDesignation([FromBody] DesignationDto dto)
         {
+            if (dto == null || dto.IdDesignation == null || dto.IdDesignation <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid designation ID."));
+            }
+
             var validationResult = await _designationvalidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-            }
-
-            if (dto.IdDesignation == null || dto.IdDesignation <= 0)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for updating a designation."));
             }
 
             try
@@ -296,14 +311,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var conflictDesignation = (await _designationservices.GetDesignationList())
-                    .FirstOrDefault(d => d.DesignationCode == dto.DesignationCode && d.DesignationName == dto.DesignationName && d.IdDesignation!=dto.IdDesignation);
+                    .FirstOrDefault(d => d.DesignationCode == dto.DesignationCode && d.DesignationName == dto.DesignationName && d.IdDesignation != dto.IdDesignation);
 
                 if (conflictDesignation != null)
                 {
                     return Conflict(ApiResponseDto<string>.CreateFailure("Designation name conflicts with an existing entry."));
                 }
 
-               var res= await _designationservices.UpdateDesignation(dto);
+                var res = await _designationservices.UpdateDesignation(dto);
                 if (res == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update designation."));
@@ -314,7 +329,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+                
             }
+
         }
 
         #endregion
@@ -384,16 +401,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-               var res= await _deparmentservices.AddDepartment(dto);
+                var res = await _deparmentservices.AddDepartment(dto);
                 if (res == null)
                 {
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create deparment."));
+                    return UnprocessableEntity(ApiResponseDto<string>.CreateFailure("Failed to create department."));
                 }
+
                 return Ok(ApiResponseDto<string>.CreateSuccess("Department created successfully."));
             }
             catch (Exception ex)
             {
-         
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
@@ -432,8 +449,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                var res= await _deparmentservices.UpdateDepartment(dto);
                 if (res == null)
                 {
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update deparment."));
+                    return UnprocessableEntity(ApiResponseDto<string>.CreateFailure("Failed to update department."));
                 }
+
                 return Ok(ApiResponseDto<string>.CreateSuccess("Department updated successfully."));
             }
             catch (Exception ex)

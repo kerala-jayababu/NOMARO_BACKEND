@@ -32,7 +32,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (!banksList.Any())
                 {
-                    return Ok(ApiResponseDto<IEnumerable<BankDto>>.CreateSuccess(new List<BankDto>(), "No banks available."));
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No banks available."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<BankDto>>.CreateSuccess(banksList, "Bank list retrieved successfully."));
@@ -52,11 +52,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid bank ID. Please provide a valid bank ID."));
                 }
+
                 var branchesList = await _bankservice.GetBranchesOfBank(idBank);
 
                 if (!branchesList.Any())
                 {
-                    return Ok(ApiResponseDto<IEnumerable<BankBranchesDto>>.CreateSuccess(new List<BankBranchesDto>(), "No branches available for the selected bank."));
+                    return NotFound(ApiResponseDto<string>.CreateFailure("No branches available for the selected bank."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<BankBranchesDto>>.CreateSuccess(branchesList, "Branch list retrieved successfully."));
@@ -84,7 +85,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add or update bank branches. Please try again."));
                 }
 
-                return Ok(ApiResponseDto<bool>.CreateSuccess(true, "Bank branches added/updated successfully."));
+                return Ok(ApiResponseDto<string>.CreateSuccess("Bank branches added/updated successfully."));
             }
             catch (Exception ex)
             {
