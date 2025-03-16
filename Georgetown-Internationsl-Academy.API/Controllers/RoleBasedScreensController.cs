@@ -18,12 +18,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IRoleBasedScreenService _roleBasedScreenService;
         private readonly IValidator<PayrollScreenDto> _payRollScreenValidator;
         private readonly IValidator<EmployeePermissionDto> _employeePermissionValidator;
+        private readonly IConfiguration _configuration;
+       
 
         public RoleBasedScreensController(IRoleBasedScreenService roleBasedScreenService,
             IValidator<PayrollScreenDto> payRollScreenValidator,
+            IConfiguration configuration,
             IValidator<EmployeePermissionDto> employeePermissionValidator)
         {
             _roleBasedScreenService = roleBasedScreenService;
+            _configuration = configuration;
             _payRollScreenValidator = payRollScreenValidator;
             _employeePermissionValidator = employeePermissionValidator;
         }
@@ -39,7 +43,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (payrollScreens == null || !payrollScreens.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No payroll screens found."));
+                    return Ok(ApiResponseDto<IEnumerable<PayrollScreenDto>>.CreateSuccess(Enumerable.Empty<PayrollScreenDto>(), "No payroll screens found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<PayrollScreenDto>>.CreateSuccess(payrollScreens, "Payroll screens retrieved successfully."));
@@ -56,6 +60,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             if (payrollScreens == null || !payrollScreens.Any())
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Payroll screens list cannot be null or empty."));
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:ScreenPermissions"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
 
             try
@@ -83,7 +104,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (permissions == null || !permissions.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No employee permissions found."));
+                    return Ok(ApiResponseDto<IEnumerable<PayrollScreenDto>>.CreateSuccess(Enumerable.Empty<PayrollScreenDto>(), "No employee permissions found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<PayrollScreenDto>>.CreateSuccess(permissions, "Employee permissions retrieved successfully."));
@@ -100,6 +121,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             if (employeePermissions == null || !employeePermissions.Any())
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee permissions list cannot be null or empty."));
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:ScreenPermissions"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
 
             try
@@ -132,8 +170,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (permissions == null || !permissions.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure($"No permissions found for Designation ID: {designationId}."));
+                    return Ok(ApiResponseDto<IEnumerable<RoleBasedScreenDto>>.CreateSuccess(Enumerable.Empty<RoleBasedScreenDto>(),
+                        $"No permissions found for Designation ID: {designationId}."));
                 }
+
 
                 return Ok(ApiResponseDto<IEnumerable<RoleBasedScreenDto>>.CreateSuccess(permissions, "Role-based permissions retrieved successfully."));
             }
@@ -149,6 +189,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             if (rolePermissions == null || !rolePermissions.Any())
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Role-based permissions list cannot be null or empty."));
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:ScreenPermissions"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
 
             try

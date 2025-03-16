@@ -17,12 +17,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     public class SalaryGenerationController : ControllerBase
     {
         private readonly ISalaryGenerationService _salaryService;
-       
+        private readonly IConfiguration _configuration;
+        private readonly IRoleBasedScreenService _roleBasedService;
 
-        public SalaryGenerationController(ISalaryGenerationService salaryService)
+
+        public SalaryGenerationController(ISalaryGenerationService salaryService, IConfiguration configuration, IRoleBasedScreenService roleBasedService)
         {
             _salaryService = salaryService;
-            
+            _configuration = configuration;
+            _roleBasedService = roleBasedService;
+
         }
 
         /// <summary>
@@ -50,9 +54,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 IEnumerable<SalaryGenerationDto>? salaryList = await _salaryService.GetSalaryConfigs(idSalaryMonth, dropdownFilter, idDepartment, idDesignation);
 
-                if (!salaryList.Any())
+                if (salaryList == null || !salaryList.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No salary records found."));
+                    return Ok(ApiResponseDto<IEnumerable<SalaryGenerationDto>>.CreateSuccess(Enumerable.Empty<SalaryGenerationDto>(), "No salary records found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<SalaryGenerationDto>>.CreateSuccess(salaryList, "Salary list retrieved successfully."));
@@ -74,6 +78,24 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             if (idSalaryMonth == null || idSalaryMonth <= 0)
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting salary genetation list."));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
             try
             {
@@ -102,6 +124,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpPost("SubmitSalaryDetails")]
         public async Task<IActionResult> SubmitSalaryDetails([FromQuery] string employeeIds, [FromQuery] int idSalaryMonth)
         {
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             if (employeeIds == null || !employeeIds.Any())
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID list cannot be empty."));
@@ -135,20 +174,37 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("UndoGeneratedDraftSalary")]
-        public async Task<IActionResult> UndoGeneratedDraftSalary([FromQuery]string  employeeIds, [FromQuery] int idSalaryMonth)
+        public async Task<IActionResult> UndoGeneratedDraftSalary([FromQuery] string employeeIds, [FromQuery] int idSalaryMonth)
         {
-            if (employeeIds == null || !employeeIds.Any())
+            if (string.IsNullOrWhiteSpace(employeeIds))
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID list cannot be empty."));
             }
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
+            var actionType = "D";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             try
             {
                 var deletedCount = await _salaryService.UndoGeneratedDraftSalary(employeeIds, idSalaryMonth);
 
                 if (deletedCount == 0)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No records found to delete."));
+                    return Ok(ApiResponseDto<string>.CreateSuccess("No records found to delete."));
                 }
 
                 return Ok(ApiResponseDto<string>.CreateSuccess($"Successfully deleted {deletedCount} draft salary records."));
@@ -160,32 +216,33 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
-        
 
-               [HttpGet(template: "GetSalaryGeneratedDetails")]
-        public async Task<IActionResult> GetSalaryGeneratedDetails([FromQuery] int? idSalaryMonth = null,[FromQuery] string? dropdownFilter = null)
+
+        [HttpGet("GetSalaryGeneratedDetails")]
+        public async Task<IActionResult> GetSalaryGeneratedDetails([FromQuery] int? idSalaryMonth = null, [FromQuery] string? dropdownFilter = null)
         {
+            if (!idSalaryMonth.HasValue || idSalaryMonth <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for retrieving the salary generation details list."));
+            }
+
             try
             {
-                if (idSalaryMonth == null || idSalaryMonth <= 0)
+                var salaryList = await _salaryService.GetSalaryGeneratedDetails(idSalaryMonth, dropdownFilter);
+
+                if (salaryList == null || !salaryList.Any())
                 {
-                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting salaryGeneratedDetails list."));
+                    return Ok(ApiResponseDto<IEnumerable<SalaryGenerationDetailsDto>>.CreateSuccess(Enumerable.Empty<SalaryGenerationDetailsDto>(), "No salary records found."));
                 }
 
-                IEnumerable<SalaryGenerationDetailsDto>? salaryList = await _salaryService.GetSalaryGeneratedDetails(idSalaryMonth, dropdownFilter);
-
-                if (!salaryList.Any())
-                {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No salary records found."));
-                }
-
-                return Ok(ApiResponseDto<IEnumerable<SalaryGenerationDetailsDto>>.CreateSuccess(salaryList, "salaryGeneratedDetails list retrieved successfully."));
+                return Ok(ApiResponseDto<IEnumerable<SalaryGenerationDetailsDto>>.CreateSuccess(salaryList, "Salary generation details list retrieved successfully."));
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
 
     }
 }

@@ -12,6 +12,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> ManageRoleBasedPermissions(List<RoleBasedPermissionDto> rolePermissions);
         Task<List<RoleBasedScreenDto>> GetRoleBasedPermissionsByDesignationId(int designationId);
         Task<EmployeePermissions> GetEmployeePermission(int EmployeeID,int PayrollScreen);
+        Task<bool>CheckEmployeePermission(int employeeId, string screenCode, string actionType);
     }
 }
 

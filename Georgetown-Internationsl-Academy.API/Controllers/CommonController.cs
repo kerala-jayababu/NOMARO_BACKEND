@@ -35,7 +35,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (options == null)
                 {
-                    return NotFound("No options found.");
+                    return Ok(Enumerable.Empty<AllOptionsDto>());
                 }
 
                 return Ok(options);
@@ -93,11 +93,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             var results = new List<string>();
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            int targetScreenId = requests.FirstOrDefault()?.IdPayRollScreen ?? 0;
-            if (targetScreenId == 0)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid screen ID."));
-            }
+            //int targetScreenId = requests.FirstOrDefault()?.IdPayRollScreen ?? 0;
+            //if (targetScreenId == 0)
+            //{
+            //    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid screen ID."));
+            //}
 
             //var employeePayrollScreen = await _roleBasedScreenService.GetEmployeePermission(int.Parse(IdEmployee),(int)requests.FirstOrDefault().IdPayRollScreen);
             //if (employeePayrollScreen == null || !HasValidPermissions(employeePayrollScreen, (int)requests.FirstOrDefault().IdPayRollScreen, 'A'))

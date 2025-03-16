@@ -17,15 +17,20 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<EmployeeSalaryConfigDto> _configValidator;
         private readonly IValidator<EmployeeSalaryConfigDetailsDto> _detailsValidator;
         private readonly ISalaryHeadServices _salaryservice;
+        private readonly IConfiguration _configuration;
+        private readonly IRoleBasedScreenService _roleBasedService;
         public EmployeeSalaryConfigController(
             IEmployeeSalaryConfigService employeeSalaryConfigService,
             IValidator<EmployeeSalaryConfigDto> configValidator,
             IValidator<EmployeeSalaryConfigDetailsDto> detailsValidator,
+              IConfiguration configuration, IRoleBasedScreenService roleBasedService,
             ISalaryHeadServices salaryservice)
         {
             _employeeSalaryConfigService = employeeSalaryConfigService;
             _configValidator = configValidator;
             _detailsValidator = detailsValidator;
+            _configuration = configuration;
+            _roleBasedService = roleBasedService;
             _salaryservice = salaryservice;
         }
 
@@ -37,8 +42,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
                 var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText, dropdownFilter);
-                if (!configs.Any())
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No configurations found."));
+                if (configs == null || !configs.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(Enumerable.Empty<EmployeeSalaryConfigDto>(), "No configurations found."));
+                }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(configs, "EmployeeSalaryConfig retrieved successfully."));
             }
@@ -55,7 +62,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var config = await _employeeSalaryConfigService.GetConfigById(id);
                 if (config == null)
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Configuration not found."));
+                {
+                    return Ok(ApiResponseDto<EmployeeSalaryConfigDto>.CreateSuccess(null, "Configuration not found."));
+                }
 
                 return Ok(ApiResponseDto<EmployeeSalaryConfigDto>.CreateSuccess(config, "EmployeeSalaryConfigById retrieved successfully."));
             }
@@ -74,10 +83,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:EmployeeSalaryConfig"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
 
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _employeeSalaryConfigService.AddConfig(dto,int.Parse(IdEmployee));
                 if (result == null)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add configuration."));
@@ -99,6 +125,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:EmployeeSalaryConfig"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             if (dto.EmployeeSalaryConfigDetails != null)
             {
                 foreach (var detail in dto.EmployeeSalaryConfigDetails)
@@ -115,7 +158,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
 
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _employeeSalaryConfigService.UpdateConfig(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return NotFound(ApiResponseDto<string>.CreateFailure("Configuration not found."));

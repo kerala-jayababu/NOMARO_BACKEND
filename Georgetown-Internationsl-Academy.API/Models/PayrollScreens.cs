@@ -8,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         [Key]
         public int IdPayrollScreen { get; set; }
         public string ScreenName { get; set; }
+        public string? ScreenCode { get; set; }
         public string? ValidPermissions { get; set; }
         public int? IdParentPayrollScreen { get; set; }
         public int? OrderNumber { get; set; }

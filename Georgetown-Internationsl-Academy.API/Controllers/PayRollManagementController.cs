@@ -32,6 +32,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<MaternityLeaveSalaryDto> _maternityLeaveSalaryValidator;
         private readonly IRentFreeQuarterService _rentfreeservice;
         private readonly IValidator<RentFreeQuarterDto> _rentfreevalidator;
+        private readonly IConfiguration _configuration;
+        private readonly IRoleBasedScreenService _roleBasedService;
+
         private readonly IApprovalWorkflowService _approvalWorkflowService;
         public PayRollManagementController(ICurrencyConversionService currencyConversionService, 
             IValidator<CurrencyConversionDto> currencyConversionValidator,
@@ -42,6 +45,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             IValidator<ScheduledSalaryDeductionDto> scheduledSalaryDeductionValidator,
             IMaternityLeaveSalaryService maternityLeaveSalaryService, IValidator<MaternityLeaveSalaryDto> maternityLeaveSalaryValidator,
             IApprovalWorkflowService approvalWorkflowService,
+              IConfiguration configuration, IRoleBasedScreenService roleBasedService,
             IRentFreeQuarterService rentfreeservice, IValidator<RentFreeQuarterDto> rentfreevalidator)
         {
             _currencyConversionService = currencyConversionService;
@@ -53,6 +57,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _ScheduledSalaryDeductionScheduledSalaryDeductionservice = ScheduledSalaryDeductionservice;
             _scheduledSalaryDeductionscheduledSalaryDeductionValidator = scheduledSalaryDeductionValidator;
             _maternityLeaveSalaryService = maternityLeaveSalaryService;
+            _configuration = configuration;
+            _roleBasedService = roleBasedService;
             _maternityLeaveSalaryValidator = maternityLeaveSalaryValidator;
             _approvalWorkflowService = approvalWorkflowService;
             _rentfreeservice = rentfreeservice;
@@ -69,7 +75,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var conversions = await _currencyConversionService.GetAllCurrencyConversions();
 
                 if (conversions == null || !conversions.Any())
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No currency conversions found."));
+                {
+                    return Ok(ApiResponseDto<IEnumerable<CurrencyConversionDto>>.CreateSuccess(Enumerable.Empty<CurrencyConversionDto>(), "No currency conversions found."));
+                }
 
                 return Ok(ApiResponseDto<IEnumerable<CurrencyConversionDto>>.CreateSuccess(conversions, "Currency conversions retrieved successfully."));
             }
@@ -90,7 +98,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var conversion = await _currencyConversionService.GetCurrencyConversionById(id);
 
                 if (conversion == null)
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Currency conversion not found."));
+                {
+                    return Ok(ApiResponseDto<CurrencyConversionDto>.CreateSuccess(null, "Currency conversion not found."));
+                }
 
                 return Ok(ApiResponseDto<CurrencyConversionDto>.CreateSuccess(conversion, "Currency conversion retrieved successfully."));
             }
@@ -109,6 +119,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:CurrencyConversion"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
 
             try
@@ -135,6 +162,24 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:CurrencyConversion"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
 
             if (dto.IdCurrencyConversion <= 0)
@@ -170,9 +215,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 var transactions = await _overtimeTransactionService.GetOvertimeTransactionList(EmployeeId,searchText, startDate, dropdownFilter);
 
-                if (!transactions.Any())
+                if (transactions == null || !transactions.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No overtime transactions found."));
+                    return Ok(ApiResponseDto<IEnumerable<OvertimeTransactionDto>>.CreateSuccess(Enumerable.Empty<OvertimeTransactionDto>(), "No overtime transactions found."));
                 }
                 foreach (var transaction in transactions)
                 {
@@ -199,10 +244,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (transaction == null)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Overtime transaction not found."));
+                    return Ok(ApiResponseDto<OvertimeTransactionDto>.CreateSuccess(null, "Overtime transaction not found."));
                 }
-              
-                    if (!string.IsNullOrEmpty(transaction.Attachment) && System.IO.File.Exists(transaction.Attachment))
+
+                if (!string.IsNullOrEmpty(transaction.Attachment) && System.IO.File.Exists(transaction.Attachment))
                     {
                         transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.Attachment);
                     }
@@ -226,9 +271,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:OvertimeTransactions"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
+
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _overtimeTransactionService.AddOvertimeTransaction(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {
@@ -253,9 +316,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:OvertimeTransactions"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _overtimeTransactionService.UpdateOvertimeTransaction(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {
@@ -278,9 +358,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
                 var adjustments = await _salaryAdjustmentService.GetAllSalaryAdjustments(searchText, fromDate);
-                if (!adjustments.Any())
+                if (adjustments == null || !adjustments.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No salary adjustments found."));
+                    return Ok(ApiResponseDto<IEnumerable<SalaryAdjustmentDto>>.CreateSuccess(Enumerable.Empty<SalaryAdjustmentDto>(), "No salary adjustments found."));
                 }
                 return Ok(ApiResponseDto<IEnumerable<SalaryAdjustmentDto>>.CreateSuccess(adjustments, "Salary adjustments retrieved successfully."));
             }
@@ -298,7 +378,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var adjustment = await _salaryAdjustmentService.GetSalaryAdjustmentById(id);
                 if (adjustment == null)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Salary adjustment not found."));
+                    return Ok(ApiResponseDto<SalaryAdjustmentDto>.CreateSuccess(null, "Salary adjustment not found."));
                 }
                 return Ok(ApiResponseDto<SalaryAdjustmentDto>.CreateSuccess(adjustment, "Salary adjustment retrieved successfully."));
             }
@@ -316,6 +396,24 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:SalaryAdjustments"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
 
             var result = await _salaryAdjustmentService.AddSalaryAdjustment(dto);
@@ -336,6 +434,24 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:SalaryAdjustments"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
+
             var result = await _salaryAdjustmentService.UpdateSalaryAdjustment(dto);
             if (result == null)
             {
@@ -353,6 +469,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
                 var deductions = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.GetScheduledDeductions(searchText,fromDate);
+                if (deductions == null || !deductions.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ScheduledSalaryDeductionDto>>.CreateSuccess(Enumerable.Empty<ScheduledSalaryDeductionDto>(), "No scheduled deductions found."));
+                }
                 return Ok(ApiResponseDto<IEnumerable<ScheduledSalaryDeductionDto>>.CreateSuccess(deductions, "Scheduled deductions retrieved successfully."));
             }
             catch (Exception ex)
@@ -364,11 +484,19 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpGet("GetScheduledSalaryDeductionserviceById")]
         public async Task<IActionResult> GetScheduledSalaryDeductionserviceById(int id)
         {
+            if (id <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid deduction ID. Please provide a valid ID."));
+            }
+
             try
             {
                 var deduction = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.GetScheduledDeductionById(id);
+
                 if (deduction == null)
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Scheduled deduction not found."));
+                {
+                    return Ok(ApiResponseDto<ScheduledSalaryDeductionDto>.CreateSuccess(null, "Scheduled deduction not found."));
+                }
 
                 return Ok(ApiResponseDto<ScheduledSalaryDeductionDto>.CreateSuccess(deduction, "Scheduled deduction retrieved successfully."));
             }
@@ -388,9 +516,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:ScheduledDeductions"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.AddScheduledDeduction(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create scheduled deduction."));
@@ -413,9 +559,28 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:ScheduledDeductions"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
+
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _ScheduledSalaryDeductionScheduledSalaryDeductionservice.UpdateScheduledDeduction(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return NotFound(ApiResponseDto<string>.CreateFailure("Scheduled deduction not found."));
@@ -438,9 +603,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var leaveSalaries = await _maternityLeaveSalaryService.GetAllMaternityLeaveSalaries(searchText,fromDate);
 
-                if (!leaveSalaries.Any())
+                if (leaveSalaries == null || !leaveSalaries.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No maternity leave salaries found."));
+                    return Ok(ApiResponseDto<IEnumerable<MaternityLeaveSalaryDto>>.CreateSuccess(Enumerable.Empty<MaternityLeaveSalaryDto>(), "No maternity leave salaries found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<MaternityLeaveSalaryDto>>.CreateSuccess(leaveSalaries, "Maternity leave salaries retrieved successfully."));
@@ -454,13 +619,17 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpGet("GetMaternityLeaveSalaryById")]
         public async Task<IActionResult> GetMaternityLeaveSalaryById(int id)
         {
+            if (id <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid maternity leave salary ID. Please provide a valid ID."));
+            }
             try
             {
                 var leaveSalary = await _maternityLeaveSalaryService.GetMaternityLeaveSalaryById(id);
 
                 if (leaveSalary == null)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Maternity leave salary not found."));
+                    return Ok(ApiResponseDto<MaternityLeaveSalaryDto>.CreateSuccess(null, "Maternity leave salary not found."));
                 }
 
                 return Ok(ApiResponseDto<MaternityLeaveSalaryDto>.CreateSuccess(leaveSalary, "Maternity leave salary retrieved successfully."));
@@ -482,9 +651,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:MaternityLeaveSalaries"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 //var result = await _employeeSalaryConfigService.AddConfig(dto, int.Parse(IdEmployee));
                 var result = await _maternityLeaveSalaryService.AddMaternityLeaveSalary(dto, int.Parse(IdEmployee));
 
@@ -511,6 +697,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:MaternityLeaveSalaries"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
 
             if (dto.IdMaternityLeaveSalary <= 0)
             {
@@ -519,7 +722,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _maternityLeaveSalaryService.UpdateMaternityLeaveSalary(dto, int.Parse(IdEmployee));
 
                 if (result == null)
@@ -544,8 +747,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
                 var list = await _rentfreeservice.GetRentFreeQuarters();
-                if (!list.Any())
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No Rent-Free Quarters found."));
+                if (list == null || !list.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterDto>>.CreateSuccess(Enumerable.Empty<RentFreeQuarterDto>(), "No Rent-Free Quarters found."));
+                }
 
                 return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterDto>>.CreateSuccess(list, "Rent-Free Quarters retrieved successfully."));
             }
@@ -558,11 +763,17 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpGet("GetRentFreeQuarterByID")]
         public async Task<IActionResult> GetRentFreeQuarterByID(int id)
         {
+            if (id <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Rent-Free Quarter ID. Please provide a valid ID."));
+            }
             try
             {
                 var rentFreeQuarter = await _rentfreeservice.GetRentFreeQuarterById(id);
                 if (rentFreeQuarter == null)
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No Rent-Free Quarter found."));
+                {
+                    return Ok(ApiResponseDto<RentFreeQuarterDto>.CreateSuccess(null, "No Rent-Free Quarter found."));
+                }
 
                 return Ok(ApiResponseDto<RentFreeQuarterDto>.CreateSuccess(rentFreeQuarter, "Rent-Free Quarter retrieved successfully."));
             }
@@ -579,6 +790,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             if (!validationResult.IsValid)
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage))}"));
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:RentFreeQuarters"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             try
             {
                 var result = await _rentfreeservice.AddRentFreeQuarter(dto);
@@ -600,6 +828,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             if (!validationResult.IsValid)
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage))}"));
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:RentFreeQuarters"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             try
             {
                 var result = await _rentfreeservice.UpdateRentFreeQuarter(dto);
@@ -633,9 +878,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var workflows = await _approvalWorkflowService.GetConfigApprovalsList(fromDate,actionStatus, entityCode, IdEmployee);
-                if (!workflows.Any())
+                if (workflows == null || !workflows.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No ConfigApprovalsList records found."));
+                    return Ok(ApiResponseDto<IEnumerable<ConfigApprovalsDto>>.CreateSuccess(Enumerable.Empty<ConfigApprovalsDto>(), "No ConfigApprovalsList records found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<ConfigApprovalsDto>>.CreateSuccess(workflows, "Salary list retrieved successfully."));

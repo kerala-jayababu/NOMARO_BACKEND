@@ -22,14 +22,19 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<SalaryTemplateDto> _salaryTemplateUpdateValidator;
         private readonly ISalaryTemplateDetailsService _salaryTemplateDetailsService;
         private readonly ISalaryHeadServices _salaryservice;
+        private readonly IConfiguration _configuration;
+        private readonly IRoleBasedScreenService _roleBasedService;
 
-        public SalaryTemplateController(ISalaryTemplateService salaryTemplateService, IValidator<SalaryTemplateDto> salaryTemplateValidator, 
+        public SalaryTemplateController(ISalaryTemplateService salaryTemplateService, IValidator<SalaryTemplateDto> salaryTemplateValidator,
+            IConfiguration configuration, IRoleBasedScreenService roleBasedService,
             IValidator<SalaryTemplateDto> salaryTemplateUpdateValidator, ISalaryTemplateDetailsService salaryTemplateDetailsService, ISalaryHeadServices salaryservice)
         {
             _salaryTemplateService = salaryTemplateService;
             _salaryTemplateValidator = salaryTemplateValidator;
             _salaryTemplateUpdateValidator = salaryTemplateUpdateValidator;
             _salaryTemplateDetailsService = salaryTemplateDetailsService;
+            _configuration = configuration;
+            _roleBasedService = roleBasedService;
             _salaryservice = salaryservice;
 
         }
@@ -42,9 +47,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
                 var templates = await _salaryTemplateService.GetAllSalaryTemplates(searchText,dropdownFilter);
-                if (!templates.Any())
+                if (templates == null || !templates.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No salary templates found."));
+                    return Ok(ApiResponseDto<IEnumerable<SalaryTemplateDto>>.CreateSuccess(Enumerable.Empty<SalaryTemplateDto>(), "No salary templates found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<SalaryTemplateDto>>.CreateSuccess(templates, "Salary templates retrieved successfully."));
@@ -63,7 +68,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var template = await _salaryTemplateService.GetSalaryTemplateById(id);
                 if (template == null)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Salary template not found."));
+                    return Ok(ApiResponseDto<SalaryTemplateDto>.CreateSuccess(null, "Salary template not found."));
                 }
 
                 return Ok(ApiResponseDto<SalaryTemplateDto>.CreateSuccess(template, "Salary template retrieved successfully."));
@@ -82,6 +87,24 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:SalaryTemplates"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
             // Step 2: Check custom formulas in SalaryTemplateDetails
             if (dto.SalaryTemplateDetails != null && dto.SalaryTemplateDetails.Any())
@@ -118,7 +141,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _salaryTemplateService.AddSalaryTemplate(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {
@@ -142,7 +165,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:SalaryTemplates"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             // Step 2: Check custom formulas in SalaryTemplateDetails
             if (dto.SalaryTemplateDetails != null && dto.SalaryTemplateDetails.Any())
             {
@@ -179,7 +218,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var result = await _salaryTemplateService.UpdateSalaryTemplate(dto, int.Parse(IdEmployee));
                 if (result == null)
                 {

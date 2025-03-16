@@ -17,14 +17,19 @@ public class TaxConfigsController : ControllerBase
     private readonly IValidator<TaxSlabDto> _taxSlabValidator;
     private readonly IChildTaxThresholdService _childTaxservice;
     private readonly IValidator<ChildTaxThresholdDto> _childTaxvalidator;
+    private readonly IConfiguration _configuration;
+    private readonly IRoleBasedScreenService _roleBasedService;
+
     public TaxConfigsController( ITaxSlabService taxSlabService,
-        IValidator<TaxSlabDto> taxSlabValidator, IChildTaxThresholdService childTaxservice, IValidator<ChildTaxThresholdDto> childTaxvalidator)
+        IValidator<TaxSlabDto> taxSlabValidator, IChildTaxThresholdService childTaxservice, IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<ChildTaxThresholdDto> childTaxvalidator)
     {
    
         _taxSlabService = taxSlabService;
         _taxSlabValidator = taxSlabValidator;
         _childTaxservice = childTaxservice;
         _childTaxvalidator = childTaxvalidator;
+        _configuration = configuration;
+        _roleBasedService = roleBasedService;
     }
 
 
@@ -35,8 +40,10 @@ public class TaxConfigsController : ControllerBase
         try
         {
             var taxSlabs = await _taxSlabService.GetAllTaxSlabs(idFinancialYear);
-            if (!taxSlabs.Any())
-                return NotFound(ApiResponseDto<string>.CreateFailure("No tax slabs found."));
+            if (taxSlabs == null || !taxSlabs.Any())
+            {
+                return Ok(ApiResponseDto<IEnumerable<TaxSlabDto>>.CreateSuccess(Enumerable.Empty<TaxSlabDto>(), "No tax slabs found."));
+            }
 
             return Ok(ApiResponseDto<IEnumerable<TaxSlabDto>>.CreateSuccess(taxSlabs, " taxSlabs retrieved successfully."));
           
@@ -56,7 +63,7 @@ public class TaxConfigsController : ControllerBase
             var taxSlab = await _taxSlabService.GetTaxSlabById(id);
             if (taxSlab == null)
             {
-                return NotFound(ApiResponseDto<string>.CreateFailure("taxSlabs not found."));
+                return Ok(ApiResponseDto<TaxSlabDto>.CreateSuccess(null, "Tax slab not found."));
             }
 
 
@@ -77,6 +84,24 @@ public class TaxConfigsController : ControllerBase
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+        }
+
+        var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(IdEmployee))
+        {
+            return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+        }
+        var screenCode = _configuration["ScreenCodes:IncomeTaxConfig"];
+        var actionType = "A";
+
+        // Check permission
+        var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+        if (!hasPermission)
+        {
+            return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
         }
 
         try
@@ -105,14 +130,31 @@ public class TaxConfigsController : ControllerBase
             
         }
 
+        var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(IdEmployee))
+        {
+            return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+        }
+        var screenCode = _configuration["ScreenCodes:IncomeTaxConfig"];
+        var actionType = "U";
+
+        // Check permission
+        var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+        if (!hasPermission)
+        {
+            return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+        }
+
         try
         {
             var result = await _taxSlabService.UpdateTaxSlab(dto);
             if (result == null)
                 return NotFound(ApiResponseDto<string>.CreateFailure($"No tax slab found with ID: {dto.IdTaxSlab}"));
 
-
-            return Ok(ApiResponseDto<TaxSlabDto>.CreateSuccess(result, "Tax slab updated successfully."));
+            return Ok(ApiResponseDto<string>.CreateSuccess( "Tax slab updated successfully."));
         }
         catch (Exception ex)
         {
@@ -129,9 +171,9 @@ public class TaxConfigsController : ControllerBase
         {
             var childTaxThresholdList = await _childTaxservice.GetAllChildTaxThresholds(idFinancialYear);
 
-            if (!childTaxThresholdList.Any())
+            if (childTaxThresholdList == null || !childTaxThresholdList.Any())
             {
-                return NotFound(ApiResponseDto<string>.CreateFailure("No child tax thresholds found."));
+                return Ok(ApiResponseDto<IEnumerable<ChildTaxThresholdDto>>.CreateSuccess(Enumerable.Empty<ChildTaxThresholdDto>(), "No child tax thresholds found."));
             }
 
             return Ok(ApiResponseDto<IEnumerable<ChildTaxThresholdDto>>.CreateSuccess(childTaxThresholdList, "Child tax thresholds retrieved successfully."));
@@ -151,9 +193,8 @@ public class TaxConfigsController : ControllerBase
 
             if (childTaxThreshold == null)
             {
-                return NotFound(ApiResponseDto<string>.CreateFailure("No child tax threshold found."));
+                return Ok(ApiResponseDto<ChildTaxThresholdDto>.CreateSuccess(null, "No child tax threshold found."));
             }
-
             return Ok(ApiResponseDto<ChildTaxThresholdDto>.CreateSuccess(childTaxThreshold, "Child tax threshold retrieved successfully."));
         }
         catch (Exception ex)
@@ -170,7 +211,25 @@ public class TaxConfigsController : ControllerBase
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-        }     
+        }
+
+        var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(IdEmployee))
+        {
+            return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+        }
+        var screenCode = _configuration["ScreenCodes:IncomeTaxConfig"];
+        var actionType = "A";
+
+        // Check permission
+        var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+        if (!hasPermission)
+        {
+            return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+        }
 
         try
         {
@@ -198,6 +257,24 @@ public class TaxConfigsController : ControllerBase
             return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
         }
 
+
+        var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(IdEmployee))
+        {
+            return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+        }
+        var screenCode = _configuration["ScreenCodes:IncomeTaxConfig"];
+        var actionType = "U";
+
+        // Check permission
+        var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+        if (!hasPermission)
+        {
+            return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+        }
         if (dto.IdChildTaxThreshold <= 0)
         {
             return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for updating a child tax threshold."));

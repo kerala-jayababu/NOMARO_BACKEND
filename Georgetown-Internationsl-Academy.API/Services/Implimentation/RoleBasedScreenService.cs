@@ -5,6 +5,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -355,10 +356,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<bool> CheckEmployeePermission(int employeeId, string screenCode, string actionType)
+        {
+            try
+            {
+                var permission = await (from ep in _dbContext.EmployeePermissions
+                                        join ps in _dbContext.PayrollScreens
+                                        on ep.IdPayrollScreen equals ps.IdPayrollScreen
+                                        where ep.IdEmployee == employeeId && ps.ScreenCode == screenCode
+                                        select ep.Permission)
+                                       .FirstOrDefaultAsync();
 
+                if (string.IsNullOrEmpty(permission))
+                {
+                    return false; // No permission found
+                }
 
-
-
+                return permission.Contains(actionType); // Check if permission contains the action type
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in CheckEmployeePermission");
+                return false;
+            }
+        }
 
     }
 

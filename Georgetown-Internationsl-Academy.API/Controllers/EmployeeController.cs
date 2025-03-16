@@ -7,6 +7,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -20,10 +21,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IEmployeeServices _employeeservice;
         private readonly IValidator<List<EmployeeBankAccountDtoList>> _employeeBankAccountvalidator;
         private readonly IValidator<List<EmployeeOvertimeConfigDtoList>> _employeeOverTimevalidator;
-        public EmployeeController(IEmployeeServices employeeservice, IValidator<List<EmployeeBankAccountDtoList>> employeeBankAccountvalidator, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator)
+        private readonly IConfiguration _configuration;
+        private readonly IRoleBasedScreenService _roleBasedService;
+        public EmployeeController(IEmployeeServices employeeservice, IValidator<List<EmployeeBankAccountDtoList>> employeeBankAccountvalidator,
+    IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator)
         {
             _employeeservice = employeeservice;
             _employeeBankAccountvalidator = employeeBankAccountvalidator;
+            _configuration = configuration;
+            _roleBasedService = roleBasedService;
             _employeeOverTimevalidator = employeeOverTimevalidator;
         }
 
@@ -35,9 +41,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var employeeList = await _employeeservice.GetEmployeeList(searchText, startDate);
 
-                if (!employeeList.Any())
+                if (employeeList == null || !employeeList.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No employees found."));
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDto>>.CreateSuccess(Enumerable.Empty<EmployeeProfileDto>(), "No employees found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDto>>.CreateSuccess(employeeList, "Employee list retrieved successfully."));
@@ -57,9 +63,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var employeeDetails = await _employeeservice.GetEmployeeDetailsByID(Id);
 
+              
                 if (employeeDetails == null)
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Employee Details not found."));
+                    return Ok(ApiResponseDto<EmployeeDetailsDto>.CreateSuccess(null, "No employee found with the provided ID."));
                 }
 
                 return Ok(ApiResponseDto<EmployeeDetailsDto>.CreateSuccess(employeeDetails, "Employee Details  retrieved successfully."));
@@ -80,7 +87,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (employeeProfile == null || !employeeProfile.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Employee bank account details not found."));
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDetailsDto>>.CreateSuccess(Enumerable.Empty<EmployeeProfileDetailsDto>(), "No employee bank account details found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDetailsDto>>.CreateSuccess(employeeProfile, "Employee profile details retrieved successfully."));
@@ -100,7 +107,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (employeeBankAccounts == null || !employeeBankAccounts.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("Employee bank account details not found."));
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeBankAccountDto>>.CreateSuccess(Enumerable.Empty<EmployeeBankAccountDto>(), "No employee bank account details found."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeBankAccountDto>>.CreateSuccess(employeeBankAccounts, "Employee bank account details retrieved successfully."));
@@ -120,7 +127,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (overtimeConfigs == null || !overtimeConfigs.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No overtime configurations found for the employee."));
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeOvertimeConfigDto>>.CreateSuccess(Enumerable.Empty<EmployeeOvertimeConfigDto>(), "No overtime configurations found for the employee."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeOvertimeConfigDto>>.CreateSuccess(overtimeConfigs, "Overtime configurations retrieved successfully."));
@@ -150,6 +157,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Child Count. Child Count cannot be negative."));
             }
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
+
+
+            
             try
             {                
                 var updateResult = await _employeeservice.UpdateEmployeeDetails(dto);
@@ -176,6 +203,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Bank account list cannot be empty."));
             }
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
+            var actionType = "A";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            }
             try
             {
                 var result = await _employeeservice.ManageEmployeeBankAccounts(bankAccounts);
@@ -198,6 +242,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             if (overtimeConfigs == null || !overtimeConfigs.Any())
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Overtime config list cannot be null or empty."));
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
+            var actionType = "U";
+
+            // Check permission
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
             }
 
             try
@@ -230,7 +291,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 if (result == null || !result.Any())
                 {
-                    return NotFound(ApiResponseDto<string>.CreateFailure("No employees found for the given hierarchy."));
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeHierarchyDto>>.CreateSuccess(Enumerable.Empty<EmployeeHierarchyDto>(), "No employees found for the given hierarchy."));
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeHierarchyDto>>.CreateSuccess(result));
