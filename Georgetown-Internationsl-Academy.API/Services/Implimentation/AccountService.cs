@@ -29,7 +29,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return null;
             }
 
-            if (login.Password != "Welcome@1")
+            if (login.Password != "Payroll@123")
             {
                 return null;
             }

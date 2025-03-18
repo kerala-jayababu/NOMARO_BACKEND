@@ -13,6 +13,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.Data.SqlClient;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
+using System.Data;
 
 namespace YourNamespace.Services.Implementation
 {
@@ -175,21 +176,15 @@ namespace YourNamespace.Services.Implementation
                     parameters.Add("@idSalaryMonth", idSalaryMonth);
                     parameters.Add("@IdEmployeeCreated", idEmployeeCreated);
 
-                    using (var multi = await connection.QueryMultipleAsync(
-                "GenerateSalary_MultipleEmployees",
-                parameters,
-                commandType: System.Data.CommandType.StoredProcedure))
-                    {
-                        // Read and discard the first result set (Employee IDs)
-                        await multi.ReadAsync<int>();
+                    var salaryStatusList = (await connection.QueryAsync<SalaryGenerationStatusDto>(
+                 "GenerateSalary_MultipleEmployees",
+                 parameters,
+                 commandType: System.Data.CommandType.StoredProcedure)).ToList();
 
-                        // Read the second result set (Salary Generation Status)
-                        var salaryStatusList = (await multi.ReadAsync<SalaryGenerationStatusDto>()).ToList();
+                    _logger.LogInformation($"Salary Status Count: {salaryStatusList.Count()}");
 
-                        _logger.LogInformation($"Salary Status Count: {salaryStatusList.Count()}");
-
-                        return salaryStatusList;
-                    }
+                    return salaryStatusList;
+                
                 }
             }
             catch (Exception ex)
@@ -401,5 +396,36 @@ namespace YourNamespace.Services.Implementation
                 throw new Exception("An error occurred while fetching configurations. Please try again later.");
             }
         }
+
+        public async Task<dynamic> ExportSalaryGenerationDetails(string employeeIds, int idSalaryMonth)
+        {
+            if (string.IsNullOrWhiteSpace(employeeIds))
+            {
+                throw new ArgumentException("Employee ID list cannot be empty.");
+            }
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)               
+                {
+                    var parameters = new DynamicParameters();
+                    parameters.Add("@IdSalaryMonth", idSalaryMonth, DbType.Int32);
+                    parameters.Add("@IdEmployeesString", employeeIds, DbType.String);
+
+                    var result = await connection.QueryAsync<dynamic>(
+                        "ExportSalaryGenerationDetails",
+                        parameters,
+                        commandType: CommandType.StoredProcedure);
+
+                    return result.ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting salary generation details.");
+                throw new Exception("An error occurred while exporting salary details. Please try again.");
+            }
+        }
+
     }
 }

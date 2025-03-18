@@ -15,11 +15,14 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int? IdPercentageSalaryHead { get; set; }
         public decimal? PercentageValue { get; set; }
         public decimal? FixedValue { get; set; }
-        public string CustomFormula { get; set; }
+        public string? CustomFormula { get; set; }
         public int CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }
         public int? ModifiedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
         public int? OrderNumber { get; set; }
+        public decimal? NonTaxableThreshold { get; set; }
+
+
     }
 }

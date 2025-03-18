@@ -8,12 +8,13 @@
         public string HeadType { get; set; }
         public bool IsTaxable { get; set; }
         public bool IsActive { get; set; }
-        public string CalculationMethod { get; set; }
+        public string? CalculationMethod { get; set; }
         public int? IdPercentageSalaryHead { get; set; }
         public decimal? PercentageValue { get; set; }
         public decimal? FixedValue { get; set; }
         public string CustomFormula { get; set; }        
         public int? OrderNumber { get; set; }
+        public decimal? NonTaxableThreshold { get; set; }
     }
 
 }
