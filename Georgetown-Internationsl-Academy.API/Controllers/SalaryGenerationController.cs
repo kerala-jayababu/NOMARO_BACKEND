@@ -503,5 +503,49 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-    }
+
+
+        [HttpPost("UploadSalaryGenerationDetails")]
+        public async Task<IActionResult> UploadSalaryGenerationDetails(UploadSalaryGenerationDetailsDto uploadSalaryGenerationDetails)
+        {
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+
+            var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
+            var actionType = "U";
+
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+            }
+
+            try
+            {
+
+                if (uploadSalaryGenerationDetails == null || uploadSalaryGenerationDetails.EmployeeSalaryJsonData.Count == 0)
+                {
+                    return BadRequest("Invalid input data");
+                }
+
+                List<SalaryUploadResponseDto> response = await _salaryService.UploadSalaryDetails(uploadSalaryGenerationDetails, int.Parse(IdEmployee));
+
+                if (response.Count > 0)
+                    return Ok(ApiResponseDto<List<SalaryUploadResponseDto>>.CreateSuccess(response, "Salary details uploaded successfully."));
+                else
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Error processing salary details."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+
+        }
 }

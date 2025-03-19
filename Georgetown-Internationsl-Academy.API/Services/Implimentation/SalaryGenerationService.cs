@@ -427,5 +427,50 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+        public async Task<List<SalaryUploadResponseDto>> UploadSalaryDetails(UploadSalaryGenerationDetailsDto uploadSalaryGenerationDetails,int EmployeeID)
+        {
+            try
+            {
+
+                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
+                {
+                    await connection.OpenAsync();
+
+                    var parameters = new DynamicParameters();
+                    parameters.Add("@IdSalaryMonth", uploadSalaryGenerationDetails.IdSalaryMonth, DbType.Int32);
+                    parameters.Add("@CreatedBy", EmployeeID, DbType.Int32); // Change this as per your authentication logic
+                    parameters.Add("@JsonData", Newtonsoft.Json.JsonConvert.SerializeObject(uploadSalaryGenerationDetails.EmployeeSalaryJsonData), DbType.String);
+
+                    var result = await connection.QueryAsync<SalaryUploadResponseDto>(
+                        "dbo.Upload_SalaryDetailsFromJSON",
+                        parameters,
+                        commandType: CommandType.StoredProcedure
+                    );
+
+                    var employeeList = await connection.QueryAsync<Employee>(
+                "SELECT IdEmployee, EmployeeCode FROM Employees"
+            );
+
+                    // Convert to dictionary for quick lookup
+                    var employeeDict = employeeList.ToDictionary(e => e.IdEmployee, e => e.EmployeeCode);
+
+                    // Append EmployeeCode to result
+                    foreach (var item in result)
+                    {
+                        if (employeeDict.ContainsKey(item.IdEmployee))
+                        {
+                            item.EmployeeCode = employeeDict[item.IdEmployee];
+                        }
+                    }
+
+                    return result.ToList();                   
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading  salary generation details.");
+                throw new Exception("An error occurred while uploading salary details. Please try again.");
+            }
+        }
     }
 }
