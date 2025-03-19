@@ -760,6 +760,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+
+        [HttpGet("GetRentFreeQuarterDurations")]
+        public async Task<IActionResult> GetRentFreeQuarterDurations()
+        {
+            try
+            {
+                var list = await _rentfreeservice.GetRentFreeQuarterDurations();
+                if (list == null || !list.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterDurationsDto>>.CreateSuccess(Enumerable.Empty<RentFreeQuarterDurationsDto>(), "No Rent-Free Quarters Duration found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterDurationsDto>>.CreateSuccess(list, "Rent-Free Quarters Duration retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpGet("GetRentFreeQuarterByID")]
         public async Task<IActionResult> GetRentFreeQuarterByID(int id)
         {
@@ -782,6 +802,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+
 
         [HttpPost("AddRentFreeQuarter")]
         public async Task<IActionResult> AddRentFreeQuarter([FromBody] RentFreeQuarterDto dto)

@@ -49,5 +49,6 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<WorkFlowConfigDetails> WorkFlowConfigDetails { get; set; }
         public DbSet<ApprovalWorkFlowAllocation> ApprovalWorkFlowAllocations { get; set; }
         public DbSet<EmployeeSalaries> EmployeeSalaries { get; set; }
+        public DbSet<RentFreeQuarterDurations> RentFreeQuarterDurations { get; set; }
     }
 }

@@ -35,6 +35,20 @@ public class RentFreeQuarterService : IRentFreeQuarterService
         }
     }
 
+    public async Task<IEnumerable<RentFreeQuarterDurationsDto>> GetRentFreeQuarterDurations()
+    {
+        try
+        {
+            var entities = await _dbContext.RentFreeQuarterDurations.ToListAsync();
+            return _mapper.Map<IEnumerable<RentFreeQuarterDurationsDto>>(entities);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching rent-free quarters.");
+            throw;
+        }
+    }
+
     public async Task<RentFreeQuarterDto?> GetRentFreeQuarterById(int id)
     {
         try
@@ -57,11 +71,39 @@ public class RentFreeQuarterService : IRentFreeQuarterService
     public async Task<RentFreeQuarterDto?> AddRentFreeQuarter(RentFreeQuarterDto dto)
     {
         try
-        {
-            var entity = _mapper.Map<RentFreeQuarter>(dto);
-            var addedEntity = await _dbContext.RentFreeQuarters.AddAsync(entity);
+        {           
+
+            var templateEntity = new RentFreeQuarter();
+            templateEntity.IdEmployee = dto.IdEmployee;
+            templateEntity.IdRentFreeQuater = null;
+            templateEntity.IdRentFreeQuarterEnum = dto.IdRentFreeQuarterEnum;
+            templateEntity.TotalAnnualRent = dto.TotalAnnualRent;
+            templateEntity.DurationInMonths = dto.DurationInMonths;
+            templateEntity.ValidFrom = dto.ValidFrom;
+            templateEntity.ValidTo = dto.ValidTo;
+            templateEntity.PeriodText = dto.PeriodText;
+            templateEntity.MonthlyRent = dto.MonthlyRent;
+            templateEntity.TaxRate = dto.TaxRate;
+            templateEntity.AnnualTaxAmount = dto.AnnualTaxAmount;
+            templateEntity.MonthlyTaxAmount = dto.MonthlyTaxAmount;
+
+            await _dbContext.RentFreeQuarters.AddAsync(templateEntity);
             await _dbContext.SaveChangesAsync();
-            return _mapper.Map<RentFreeQuarterDto>(addedEntity.Entity);
+            var resultDto = new RentFreeQuarterDto
+            {
+                IdRentFreeQuater = (int)templateEntity.IdRentFreeQuater,
+                IdEmployee = templateEntity.IdEmployee,
+                IdRentFreeQuarterEnum = templateEntity.IdRentFreeQuarterEnum,
+                TotalAnnualRent = templateEntity.TotalAnnualRent,
+                DurationInMonths = templateEntity.DurationInMonths,
+                ValidFrom = templateEntity.ValidFrom,
+                MonthlyRent = templateEntity.MonthlyRent,
+                TaxRate = templateEntity.TaxRate,
+                AnnualTaxAmount = templateEntity.AnnualTaxAmount,
+                MonthlyTaxAmount = templateEntity.MonthlyTaxAmount
+            };
+
+            return resultDto;
         }
         catch (Exception ex)
         {
@@ -81,10 +123,35 @@ public class RentFreeQuarterService : IRentFreeQuarterService
                 return null;
             }
 
-            _mapper.Map(dto, entity);
+            entity.IdEmployee = dto.IdEmployee;
+            entity.IdRentFreeQuarterEnum = dto.IdRentFreeQuarterEnum;
+            entity.TotalAnnualRent = dto.TotalAnnualRent;
+            entity.DurationInMonths = dto.DurationInMonths;
+            entity.ValidFrom = dto.ValidFrom;
+            entity.ValidTo = dto.ValidTo;
+            entity.PeriodText = dto.PeriodText;
+            entity.MonthlyRent = dto.MonthlyRent;
+            entity.TaxRate = dto.TaxRate;
+            entity.AnnualTaxAmount = dto.AnnualTaxAmount;
+            entity.MonthlyTaxAmount = dto.MonthlyTaxAmount;
+
             _dbContext.RentFreeQuarters.Update(entity);
-            await _dbContext.SaveChangesAsync();
-            return _mapper.Map<RentFreeQuarterDto>(entity);
+             await _dbContext.SaveChangesAsync();
+            // Manually mapping the updated entity back to DTO
+            var updatedDto = new RentFreeQuarterDto
+            {
+                IdRentFreeQuater = (int)entity.IdRentFreeQuater,
+                IdEmployee = entity.IdEmployee,
+                TotalAnnualRent = entity.TotalAnnualRent,
+                DurationInMonths = entity.DurationInMonths,
+                ValidFrom = entity.ValidFrom,
+                MonthlyRent = entity.MonthlyRent,
+                TaxRate = entity.TaxRate,
+                AnnualTaxAmount = entity.AnnualTaxAmount,
+                MonthlyTaxAmount = entity.MonthlyTaxAmount
+            };
+
+            return updatedDto;
         }
         catch (Exception ex)
         {
