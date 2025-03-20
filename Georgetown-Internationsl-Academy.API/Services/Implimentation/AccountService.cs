@@ -57,7 +57,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             var userResponse = new UserResponseDto
             {
-                Name = user.FirstName + " " + user.LastName,
+                Name = user.FirstName + " " + user.MiddleName + " "+  user.LastName,
                 UserId = user.IdEmployee,
                 Role = designation != null ? designation.DesignationName : string.Empty,
                 EmployeePhotoFilePath=user.EmployeePhotoFilePath,
