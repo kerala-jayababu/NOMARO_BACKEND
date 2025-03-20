@@ -742,11 +742,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #region rentFreeQuarter
         [HttpGet("GetRentFreeQuarterList")]
-        public async Task<IActionResult> GetRentFreeQuarterList()
+        public async Task<IActionResult> GetRentFreeQuarterList(string? searchText = null, DateTime? fromDate = null)
         {
             try
             {
-                var list = await _rentfreeservice.GetRentFreeQuarters();
+                var list = await _rentfreeservice.GetRentFreeQuarters(searchText,fromDate);
                 if (list == null || !list.Any())
                 {
                     return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterDto>>.CreateSuccess(Enumerable.Empty<RentFreeQuarterDto>(), "No Rent-Free Quarters found."));

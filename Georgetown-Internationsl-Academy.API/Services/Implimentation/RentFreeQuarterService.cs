@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
@@ -6,6 +7,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 
 public class RentFreeQuarterService : IRentFreeQuarterService
@@ -21,17 +23,76 @@ public class RentFreeQuarterService : IRentFreeQuarterService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<RentFreeQuarterDto>> GetRentFreeQuarters()
+    public async Task<IEnumerable<RentFreeQuarterDto>> GetRentFreeQuarters(string? searchText = null, DateTime? fromDate = null)
     {
+        var query = new StringBuilder(@"
+            SELECT 
+                rfq.IdRentFreeQuater,
+                rfq.IdEmployee,
+                rfq.PeriodText,
+                rfq.IdRentFreeQuarterEnum,
+                rfq.TotalAnnualRent,
+                rfq.DurationInMonths,
+                rfq.ValidFrom,
+                rfq.MonthlyRent,
+                rfq.ValidTo,
+                rfq.TaxRate,
+                rfq.AnnualTaxAmount,
+                rfq.MonthlyTaxAmount,
+                e.EmployeeCode,
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                e.IdDesignation,
+                des.DesignationName,
+                e.IdDepartment,
+                dept.DepartmentName,
+                e.JoiningDate,
+                e.Gender,
+                e.EmailID,
+                e.PhoneNumber1,
+                e.PhoneNumber2,
+                e.CurrentStatus
+            FROM RentFreeQuarters rfq
+            LEFT JOIN Employees e ON rfq.IdEmployee = e.IdEmployee
+            LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            LEFT JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+            WHERE 1=1");
+
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            query.Append(@" AND (
+                e.EmployeeCode LIKE @SearchText OR
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+                des.DesignationName LIKE @SearchText OR
+                dept.DepartmentName LIKE @SearchText
+            )");
+            parameters.Add("SearchText", $"%{searchText}%");
+        }
+
+        if (fromDate.HasValue)
+        {
+            query.Append(" AND rfq.ValidFrom >= @FromDate");
+            parameters.Add("FromDate", fromDate.Value);
+        }
+
+        query.Append(" ORDER BY e.FirstName, e.LastName;");
+
         try
         {
-            var entities = await _dbContext.RentFreeQuarters.ToListAsync();
-            return _mapper.Map<IEnumerable<RentFreeQuarterDto>>(entities);
+            using (var connection = _dbContext.Database.GetDbConnection())
+            {
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var rentFreeQuarters = await connection.QueryAsync<RentFreeQuarterDto>(query.ToString(), parameters);
+                return rentFreeQuarters;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching rent-free quarters.");
-            throw;
+            _logger.LogError(ex, "Error fetching Rent-Free Quarters.");
+            throw new Exception("An error occurred while fetching Rent-Free Quarters. Please try again later.");
         }
     }
 
