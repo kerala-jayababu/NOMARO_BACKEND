@@ -38,7 +38,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         e.IdBudgetCode,
         e.ChildrenCount,
         e.IdDepartment,
-        e.IdDesignation
+        e.IdDesignation,
+        e.EmployeePhotoFilePath
     FROM 
         Employees e
     INNER JOIN 
@@ -89,7 +90,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 e.PhoneNumber2,
                 e.CurrentStatus,
                 e.IdDepartment,
-                e.IdDesignation
+                e.IdDesignation,
+                e.EmployeePhotoFilePath   
             FROM Employees e
             INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
             INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
@@ -231,7 +233,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.TaxIdNumber,
             CONCAT(e.Address1, ', ', e.Address2, ',' , e.Address3, ',', e.City, ', ', e.State, ', ', e.ZipCode) AS Address,
             e.CurrentStatus,
-            e.JoiningDate,            
+            e.JoiningDate,         
+            e.EmployeePhotoFilePath,
             e.Gender       -- Include Gender
         FROM dbo.Employees e
         LEFT JOIN dbo.Departments d ON e.IdDepartment = d.IdDepartment

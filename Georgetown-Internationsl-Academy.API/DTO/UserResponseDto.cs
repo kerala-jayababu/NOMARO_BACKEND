@@ -8,5 +8,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int UserId { get; set; }
         public string Role { get; set; }
         public string Token { get; set; }
+
+        public string? EmployeePhotoFilePath {  get; set; }
+        public byte[]? AttachmentBlob { get; set; }
     }
 }

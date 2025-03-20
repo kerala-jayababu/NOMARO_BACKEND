@@ -1,5 +1,6 @@
 ﻿using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -46,15 +47,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             new(ClaimTypes.NameIdentifier, user.IdEmployee.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
-
             var token = GetToken(authClaims);
 
+
+            if (!string.IsNullOrEmpty(user.EmployeePhotoFilePath) && System.IO.File.Exists(user.EmployeePhotoFilePath))
+            {
+                user.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(user.EmployeePhotoFilePath);
+            }
 
             var userResponse = new UserResponseDto
             {
                 Name = user.FirstName + " " + user.LastName,
                 UserId = user.IdEmployee,
                 Role = designation != null ? designation.DesignationName : string.Empty,
+                EmployeePhotoFilePath=user.EmployeePhotoFilePath,
+                AttachmentBlob = user.AttachmentBlob,
                 Token = new JwtSecurityTokenHandler().WriteToken(token)
             };
 

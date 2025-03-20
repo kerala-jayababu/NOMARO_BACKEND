@@ -18,5 +18,7 @@
         public string CurrentStatus { get; set; }
         public DateTime JoiningDate { get; set; }       
         public string Gender { get; set; }
+        public string? EmployeePhotoFilePath { get; set; }
+        public byte[]? AttachmentBlob { get; set; }
     }
 }

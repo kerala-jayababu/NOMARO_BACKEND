@@ -11,6 +11,8 @@
         public int ChildrenCount { get; set; }
         public int IdDepartment { get; set; }
         public int IdDesignation { get; set; }
+        public string? EmployeePhotoFilePath { get; set; }
+        public byte[]? AttachmentBlob { get; set; }
 
 
     }
