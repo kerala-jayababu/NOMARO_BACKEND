@@ -48,10 +48,18 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 foreach (var employee in employeeList)
                 {
-                    if (!string.IsNullOrEmpty(employee.EmployeePhotoFilePath) && System.IO.File.Exists(employee.EmployeePhotoFilePath))
+                    string dbPath = employee.EmployeePhotoFilePath?.Trim(); 
+
+
+                    if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
                     {
-                        employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employee.EmployeePhotoFilePath);
+                        employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
                     }
+
+                    //if (!string.IsNullOrEmpty(employee.EmployeePhotoFilePath) && System.IO.File.Exists(employee.EmployeePhotoFilePath))
+                    //{
+                    //    employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employee.EmployeePhotoFilePath);
+                    //}
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDto>>.CreateSuccess(employeeList, "Employee list retrieved successfully."));
@@ -77,11 +85,18 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return Ok(ApiResponseDto<EmployeeDetailsDto>.CreateSuccess(null, "No employee found with the provided ID."));
                 }
 
-               
-                 if (!string.IsNullOrEmpty(employeeDetails.EmployeePhotoFilePath) && System.IO.File.Exists(employeeDetails.EmployeePhotoFilePath))
-                    {
-                    employeeDetails.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employeeDetails.EmployeePhotoFilePath);
-                   }
+                string dbPath = employeeDetails.EmployeePhotoFilePath?.Trim();
+
+
+                if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
+                {
+                    employeeDetails.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
+                }
+
+                //if (!string.IsNullOrEmpty(employeeDetails.EmployeePhotoFilePath) && System.IO.File.Exists(employeeDetails.EmployeePhotoFilePath))
+                //    {
+                //    employeeDetails.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employeeDetails.EmployeePhotoFilePath);
+                //   }
                
                 return Ok(ApiResponseDto<EmployeeDetailsDto>.CreateSuccess(employeeDetails, "Employee Details  retrieved successfully."));
             }
@@ -106,10 +121,18 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 foreach (var employee in employeeProfile)
                 {
-                    if (!string.IsNullOrEmpty(employee.EmployeePhotoFilePath) && System.IO.File.Exists(employee.EmployeePhotoFilePath))
+
+                    string dbPath = employee.EmployeePhotoFilePath?.Trim();
+
+
+                    if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
                     {
-                        employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employee.EmployeePhotoFilePath);
+                        employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
                     }
+                    //if (!string.IsNullOrEmpty(employee.EmployeePhotoFilePath) && System.IO.File.Exists(employee.EmployeePhotoFilePath))
+                    //{
+                    //    employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employee.EmployeePhotoFilePath);
+                    //}
                 }
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDetailsDto>>.CreateSuccess(employeeProfile, "Employee profile details retrieved successfully."));
             }

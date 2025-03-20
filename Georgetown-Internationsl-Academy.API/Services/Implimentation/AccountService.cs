@@ -49,10 +49,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             };
             var token = GetToken(authClaims);
 
+            string dbPath = user.EmployeePhotoFilePath?.Trim(); // Remove extra spaces if any
 
-            if (!string.IsNullOrEmpty(user.EmployeePhotoFilePath) && System.IO.File.Exists(user.EmployeePhotoFilePath))
+
+            if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
             {
-                user.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(user.EmployeePhotoFilePath);
+                user.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
             }
 
             var userResponse = new UserResponseDto
