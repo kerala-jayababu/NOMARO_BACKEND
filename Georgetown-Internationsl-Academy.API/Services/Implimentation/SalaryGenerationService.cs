@@ -472,5 +472,118 @@ namespace YourNamespace.Services.Implementation
                 throw new Exception("An error occurred while uploading salary details. Please try again.");
             }
         }
+
+        public async Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string employeeIds, int salaryMonth)
+        {
+            if (string.IsNullOrWhiteSpace(employeeIds))
+            {
+                throw new ArgumentException("Employee ID list cannot be empty.");
+            }
+
+            try
+            {
+                var employeeIdList = employeeIds.Split(',').Select(id => id.Trim()).ToList();
+
+                // Fetch Employee Details
+                var employees = await _dbContext.Employees
+       .Where(e => employeeIdList.Contains(e.IdEmployee.ToString()))
+       .Join(_dbContext.Designations,
+           emp => emp.IdDesignation,
+           des => des.IdDesignation,
+           (emp, des) => new { emp, des })
+       .Join(_dbContext.Departments,
+           combined => combined.emp.IdDepartment,
+           dept => dept.IdDepartment,
+           (combined, dept) => new
+           {
+               combined.emp.IdEmployee,
+               combined.emp.EmployeeCode,
+               FirstName = combined.emp.FirstName + " " + combined.emp.MiddleName+" " + combined.emp.LastName,
+               Position = combined.des.DesignationName, 
+               Department = dept.DepartmentName         
+           })
+       .ToListAsync();
+
+
+                if (!employees.Any())
+                {
+                    throw new Exception("No employees found for the given IDs.");
+                }
+
+                // Fetch Salary Details for Employees
+                var salaries = await _dbContext.EmployeeSalaries
+                    .Where(s => employeeIdList.Contains(s.IdEmployee.ToString()) && s.IdSalaryMonth == salaryMonth)
+                    .ToListAsync();
+
+                if (!salaries.Any())
+                {
+                    throw new Exception("No salary details found for the given employees and salary month.");
+                }
+
+                // Fetch Salary Breakdown (Earnings & Deductions) for Employees
+                var salaryIds = salaries.Select(s => s.IdEmployeeSalary).ToList();
+                var salaryDetails = await _dbContext.EmployeeSalaryDetails
+                    .Where(sd => salaryIds.Contains((int)sd.IdEmployeeSalary))
+                    .ToListAsync();
+
+                var payslips = new List<EmployeePayslipDto>();
+
+                foreach (var salary in salaries)
+                {
+                    var employee = employees.FirstOrDefault(e => e.IdEmployee == salary.IdEmployee);
+                    if (employee == null) continue;
+
+                    var employeeSalaryDetails = salaryDetails
+                        .Where(sd => sd.IdEmployeeSalary == salary.IdEmployeeSalary)
+                        .ToList();
+
+                    // Grouping Salary Details into Earnings and Deductions
+                    var earnings = employeeSalaryDetails
+                        .Where(sd => sd.SalaryHeadType == "EARNING")
+                        .Select(sd => new EmployeeSalaryDetailsDto
+                        {
+                            Description = sd.SalaryHeadName,
+                            AmountG = sd.Amount ?? 0,
+                            AmountUS = sd.AmountInUSD ?? 0,
+                            YTDAmountG = 0 // Set to 0 as per requirement
+                        })
+                        .ToList();
+
+                    var deductions = employeeSalaryDetails
+                        .Where(sd => sd.SalaryHeadType == "DEDUCTION")
+                        .Select(sd => new EmployeeSalaryDetailsDto
+                        {
+                            Description = sd.SalaryHeadName,
+                            AmountG = sd.Amount ?? 0,
+                            AmountUS = sd.AmountInUSD ?? 0,
+                            YTDAmountG = 0 // Set to 0 as per requirement
+                        })
+                        .ToList();
+
+                    // Construct Employee Payslip DTO
+                    var payslip = new EmployeePayslipDto
+                    {
+                        EmployeeCode = employee.EmployeeCode,
+                        EmployeeName = employee.FirstName,
+                        Position = employee.Position,
+                        Department = employee.Department,
+                        Period = salary.SalaryMonthText,
+                        PayslipGeneratedDate = salary.GeneratedDate.ToString("yyyy-MM-dd"),
+                        Earnings = earnings,
+                        Deductions = deductions
+                    };
+
+                    payslips.Add(payslip);
+                }
+
+                return payslips;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating payslips.");
+                throw new Exception("An error occurred while generating the payslips.");
+            }
+        }
+
     }
 }

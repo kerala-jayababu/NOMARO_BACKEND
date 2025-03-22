@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System.Drawing;
+using System.IO.Compression;
+using ZipCompressionLevel = System.IO.Compression.CompressionLevel;
 using System.Security.Claims;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -538,6 +540,89 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return Ok(ApiResponseDto<List<SalaryUploadResponseDto>>.CreateSuccess(response, "Salary details uploaded successfully."));
                 else
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Error processing salary details."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpPost("GeneratePayslipPdf")]
+        public async Task<IActionResult> GeneratePayslipPdf(string employeeID, int? idSalaryMonth = null)
+        {
+
+            if (string.IsNullOrWhiteSpace(employeeID))
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID cannot be empty."));
+            }
+            if (!idSalaryMonth.HasValue || idSalaryMonth <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for generating payslip."));
+            }
+            //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            //if (string.IsNullOrEmpty(IdEmployee))
+            //{
+            //    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            //}
+            //var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
+            //var actionType = "A";
+            //var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+            //if (!hasPermission)
+            //{
+            //    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+            //}
+            try
+            {
+                List<byte[]> pdfFiles = new List<byte[]>();
+                PaySlipGeneratorDto ps = new PaySlipGeneratorDto();
+
+                var employeeIDs = employeeID.Split(',').Select(e => e.Trim()).ToList();
+                var payslipData = await _salaryService.GeneratePayslipPdf(employeeID, idSalaryMonth.Value);
+
+                if (payslipData == null || !payslipData.Any())
+                {
+                    return Ok(ApiResponseDto<string>.CreateFailure("No data found for the given employees."));
+                }
+
+                foreach (var emp in payslipData)
+                {
+                    using (MemoryStream pdfStream = new MemoryStream()) // Use "using" to ensure disposal
+                    {
+                        ps.GeneratePayslipPdf(emp, pdfStream);
+                        //pdfStream.Position = 0; // Reset the stream position to the beginning
+
+                        pdfFiles.Add(pdfStream.ToArray()); // Convert to byte array before disposing
+                    }
+                }
+
+                if (pdfFiles.Count == 0)
+                {
+                    return Ok(ApiResponseDto<string>.CreateFailure("No data found for the given employees."));
+                }
+                else if (pdfFiles.Count == 1)
+                {
+                    return File(pdfFiles[0], "application/pdf", $"Payslip_{employeeID[0]}.pdf");
+                }
+                else
+                {
+                    using (MemoryStream zipStream = new MemoryStream())
+                    {
+                        using (ZipArchive zip = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+                        {
+                            for (int i = 0; i < pdfFiles.Count; i++)
+                            {
+
+                                var entry = zip.CreateEntry($"Payslip_{employeeIDs[i]}.pdf", ZipCompressionLevel.Optimal);
+                                using (var entryStream = entry.Open())
+                                {
+                                    entryStream.Write(pdfFiles[i], 0, pdfFiles[i].Length);
+                                }
+                            }
+                        }
+                        return File(zipStream.ToArray(), "application/zip", "Payslips.zip");
+                    }
+                }
             }
             catch (Exception ex)
             {
