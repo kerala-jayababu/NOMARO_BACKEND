@@ -164,7 +164,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                     .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
                                     .Select(sh => sh.SalaryHeadName)
                                     .FirstOrDefault(),
-                                SalaryHeadType = _dbContext.SalaryHeads
+                                HeadType = _dbContext.SalaryHeads
                                     .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
                                     .Select(sh => sh.HeadType)
                                     .FirstOrDefault(),

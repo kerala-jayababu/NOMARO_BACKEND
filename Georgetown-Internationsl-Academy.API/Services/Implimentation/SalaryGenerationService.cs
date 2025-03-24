@@ -479,6 +479,7 @@ namespace YourNamespace.Services.Implementation
             {
                 throw new ArgumentException("Employee ID list cannot be empty.");
             }
+            var  systemparamters = await _dbContext.SystemParameters.ToListAsync();
 
             try
             {
@@ -570,7 +571,11 @@ namespace YourNamespace.Services.Implementation
                         Period = salary.SalaryMonthText,
                         PayslipGeneratedDate = salary.GeneratedDate.ToString("yyyy-MM-dd"),
                         Earnings = earnings,
-                        Deductions = deductions
+                        Deductions = deductions,
+                        logo = systemparamters.Where(x=>x.ParameterName == "CompanyLogo").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                        logoType = systemparamters.Where(x=>x.ParameterName == "CompanyLogo").Select(x => x.DataType).FirstOrDefault(),
+                        stamp = systemparamters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                        stampType = systemparamters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.DataType).FirstOrDefault(),
                     };
 
                     payslips.Add(payslip);

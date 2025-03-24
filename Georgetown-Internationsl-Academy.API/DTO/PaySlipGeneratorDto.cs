@@ -17,6 +17,7 @@ using DinkToPdf.Contracts;
 using iText.IO.Font.Constants;
 using Document = iText.Layout.Document;
 using Table = iText.Layout.Element.Table;
+using Serilog;
 
 namespace Georgetown_Internationsl_Academy.API.DTO
 {
@@ -39,7 +40,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             using (PdfDocument pdf = new PdfDocument(writer))
             using (Document document = new Document(pdf))
             {
-                AddLogo(document);
+              
+                AddLogo(document,payslip.logo,payslip.logoType);
                 PdfFont boldFont1 = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
                 document.Add(new Paragraph("Payslip").SetFontSize(18).SetTextAlignment(alignLeft).SetFont(boldFont1));
                 document.Add(new Paragraph($"Payslip for the period: {payslip.Period}\n\n"));
@@ -65,7 +67,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                 decimal netPay = totalEarnings - totalDeductions;
                 PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
                 document.Add(new Paragraph($"\nNet Pay G$ {netPay.ToString("N2")}\n").SetFont(boldFont).SetTextAlignment(alignCenter));
-                AddStamp(document);
+                AddStamp(document,payslip.stamp,payslip.stampType);
                 document.Add(new Paragraph($"Payslip generated on: {payslip.PayslipGeneratedDate}"));
                 document.Close();
             }
@@ -83,9 +85,11 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             lineColor = new iText.Kernel.Colors.DeviceRgb(210, 210, 210);
         }
 
-        private void AddLogo(Document document)
+        private void AddLogo(Document document,byte[] logo,string logotype)
         {
-            iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(@"C:\Sandeep\Logo.png"));
+            //byte[] fileBytes = ConvertHexStringToByteArray(logo);
+            iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(logo));
+            //iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(@"C:\Sandeep\Logo.png"));
             iText.Kernel.Geom.Rectangle pageSize = document.GetPdfDocument().GetDefaultPageSize();
             float x = pageSize.GetWidth() - img.GetImageWidth() - 30; // 20 is the right margin
             float y = pageSize.GetHeight() - img.GetImageHeight() - 20; // 20 is the top margin
@@ -94,10 +98,23 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             document.Add(img);
         }
 
-        private void AddStamp(Document document)
+        static byte[] ConvertHexStringToByteArray(string hexString)
         {
-            iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(@"C:\Sandeep\GIASeal.png"));
+            int length = hexString.Length;
+            byte[] bytes = new byte[length / 2];
 
+            for (int i = 0; i < length; i += 2)
+            {
+                bytes[i / 2] = Convert.ToByte(hexString.Substring(i, 2), 16);
+            }
+
+            return bytes;
+        }
+
+        private void AddStamp(Document document, byte[] stamp, string stamptype)
+        {
+            //iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(@"C:\Sandeep\GIASeal.png"));
+            iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(stamp));
             float y = document.GetRenderer().GetCurrentArea().GetBBox().GetY();
             float x = document.GetPdfDocument().GetDefaultPageSize().GetWidth() - img.GetImageScaledWidth() - 30;
             img.SetFixedPosition(x, y);

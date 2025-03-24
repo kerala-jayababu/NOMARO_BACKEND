@@ -16,7 +16,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         [NotMapped]
         public string? SalaryHeadName { get; set; }
         [NotMapped]
-        public string? SalaryHeadType { get; set; }
+        public string? HeadType { get; set; }
         [NotMapped]
         public string? SalaryHeadCode { get; set; }
 

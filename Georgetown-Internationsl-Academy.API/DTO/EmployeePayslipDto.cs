@@ -1,4 +1,6 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class EmployeePayslipDto
     {
@@ -10,6 +12,17 @@
         public string PayslipGeneratedDate { get; set; }
         public List<EmployeeSalaryDetailsDto> Earnings { get; set; }
         public List<EmployeeSalaryDetailsDto> Deductions { get; set; }
+
+        [NotMapped]
+        public byte[]? logo { get; set; }
+
+        [NotMapped]
+        public string? logoType { get; set; }
+
+        [NotMapped]
+        public byte[]? stamp { get; set; }
+        [NotMapped]
+        public string? stampType { get; set; }
         //public List<EmployeeSalaryDetailsDto> TaxDetails { get; set; }
     }
 }
