@@ -165,12 +165,48 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                         parameters.Add("StartDate", startDate.Value);
                     }
 
-                    // Apply dropdown filter
                     if (!string.IsNullOrEmpty(dropdownFilter))
                     {
-                        query.Append(" AND ot.ApprovalStatus = @DropdownFilter ");
-                        parameters.Add("DropdownFilter", dropdownFilter);
+                        if (dropdownFilter.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
+                        {
+                            query.Append(@"
+                    AND (
+                        ot.ApprovalStatus = 'SUBMITTED'
+                        OR ot.ApprovalStatus = 'INTERIM APPROVED'
+                    )");
+                        }
+                        else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase))
+                        {
+                           
+
+                            query.Append(@"
+                    AND (
+                        ot.ApprovalStatus = 'APPROVED'
+                        OR ot.ApprovalStatus = 'FINAL APPROVED'
+                    )");
+                            //query.Append(@"
+                            //AND es.ApprovalStatus = 'APPROVED'
+                            //AND es.ValidFrom = (
+                            //    SELECT MAX(ValidFrom)
+                            //    FROM EmployeeSalaryConfig
+                            //    WHERE IdEmployee = es.IdEmployee
+                            //    AND ApprovalStatus = 'APPROVED'
+                            //)");
+                        }
+                        else
+                        {
+                            query.Append(" AND ot.ApprovalStatus = @DropdownFilter ");
+                            parameters.Add("DropdownFilter", dropdownFilter);
+
+                        }                       
                     }
+
+                    // Apply dropdown filter
+                    //if (!string.IsNullOrEmpty(dropdownFilter))
+                    //{
+                    //    query.Append(" AND ot.ApprovalStatus = @DropdownFilter ");
+                    //    parameters.Add("DropdownFilter", dropdownFilter);
+                    //}
 
                     query.Append(" ORDER BY ot.StartDate DESC; ");
 
@@ -273,10 +309,12 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                 if (holiday != null)
                 {
                     transactionEntity.DayType = holiday.HolidayType; // Use the HolidayType from Holidays table
+                    transactionEntity.IdOvertimeType =await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "HOLIDAY").Select(x=>x.IdOvertimeType).FirstOrDefaultAsync();
                 }
                 else
                 {
                     transactionEntity.DayType = "WORKINGDAY"; // Default value if no holiday exists
+                    transactionEntity.IdOvertimeType = await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "Working Day").Select(x => x.IdOvertimeType).FirstOrDefaultAsync();
                 }
 
                 transactionEntity.CreatedBy = IdEmployee;
@@ -289,7 +327,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                 int insertedId = transactionEntity.IdOvertimeTransaction;
                 var entityCode = _configuration["WorkflowEntityCodes:Overtime"];
                 // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(insertedId, entityCode, IdEmployee, "SUBMITTED", null);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(insertedId, entityCode, transactionEntity.IdEmployee, "SUBMITTED", null);
 
                 return _mapper.Map<OvertimeTransactionDto>(transactionEntity);
             }
@@ -338,15 +376,17 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                 if (holiday != null)
                 {
                     transaction.DayType = holiday.HolidayType; // Use the HolidayType from Holidays table
+                    transaction.IdOvertimeType = await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "HOLIDAY").Select(x => x.IdOvertimeType).FirstOrDefaultAsync();
                 }
                 else
                 {
                     transaction.DayType = "WORKINGDAY"; // Default value if no holiday exists
+                    transaction.IdOvertimeType = await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "Working Day").Select(x => x.IdOvertimeType).FirstOrDefaultAsync();
                 }
                 transaction.StartTime = transactionDto.StartTime;
                 transaction.EndTime = transactionDto.EndTime;
                 transaction.StartDate = transactionDto.StartDate;
-                transaction.IdOvertimeType= transactionDto.IdOvertimeType;               
+                //transaction.IdOvertimeType= transactionDto.IdOvertimeType;               
                 transaction.EndDate = transactionDto.EndDate;
                 transaction.DurationInHours = transactionDto.DurationInHours;
                 transaction.ReasonForOverTime = transactionDto.ReasonForOvertime;

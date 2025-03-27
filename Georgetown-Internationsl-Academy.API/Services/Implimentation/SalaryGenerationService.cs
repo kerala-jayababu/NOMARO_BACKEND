@@ -590,5 +590,74 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+        public async Task<IEnumerable<SalarySlipDto>> GetSalarySlips(int idSalaryMonthFrom, int idSalaryMonthTo, string? dropdownFilter = null)
+        {
+            var query = new StringBuilder(@"
+    SELECT 
+        es.IdEmployeeSalary,
+        es.IdSalaryMonth,
+        sm.SalaryMonthText,
+        e.EmployeeCode,
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        dept.DepartmentName,
+        e.JoiningDate,
+        e.LastWorkingDay,
+        e.Gender,
+        e.EmailID,
+        e.PhoneNumber1,
+        e.PhoneNumber2,
+        es.TotalEarnings,
+        es.TotalDeductions,
+        es.TaxableIncome,
+        es.TaxAmountAccounted,
+        es.TaxAmountDeducted,
+        es.ApprovalStatus
+    FROM EmployeeSalaries es
+    INNER JOIN Employees e ON es.IdEmployee = e.IdEmployee
+    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+    INNER JOIN SalaryMonths sm ON es.IdSalaryMonth = sm.IdSalaryMonth
+    WHERE es.IdSalaryMonth BETWEEN @IdSalaryMonthFrom AND @IdSalaryMonthTo and es.ApprovalStatus='APPROVED'
+    ");
+
+            var parameters = new DynamicParameters();
+            parameters.Add("IdSalaryMonthFrom", idSalaryMonthFrom);
+            parameters.Add("IdSalaryMonthTo", idSalaryMonthTo);
+
+            // Apply dropdown filter if provided
+            if (!string.IsNullOrEmpty(dropdownFilter))
+            {
+                query.Append(@" AND (
+            e.EmployeeCode LIKE @DropdownFilter OR
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @DropdownFilter OR
+            des.DesignationName LIKE @DropdownFilter OR
+            dept.DepartmentName LIKE @DropdownFilter
+        )");
+                parameters.Add("DropdownFilter", $"%{dropdownFilter}%");
+            }
+
+            query.Append(" ORDER BY e.FirstName, e.LastName;");
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var salarySlips = await connection.QueryAsync<SalarySlipDto>(query.ToString(), parameters);
+                    return salarySlips;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Salary Slips.");
+                throw new Exception("An error occurred while fetching salary slips. Please try again later.");
+            }
+        }
+
     }
 }

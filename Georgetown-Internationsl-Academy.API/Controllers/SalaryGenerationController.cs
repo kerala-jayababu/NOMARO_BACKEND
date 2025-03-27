@@ -685,6 +685,36 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
+        [HttpGet("GetSalarySlips")]
+        public async Task<IActionResult> GetSalarySlips(
+           [FromQuery] int idSalaryMonthFrom,
+             [FromQuery] int idSalaryMonthTo,
+           [FromQuery] string? dropdownFilter = null,
+         
+           [FromQuery] int? idDesignation = null)
+        {
+            try
+            {
+                if (idSalaryMonthFrom == null || idSalaryMonthTo == null)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting SalarySlips list."));
+                }
+
+                IEnumerable<SalarySlipDto>? salarySlip = await _salaryService.GetSalarySlips(idSalaryMonthFrom, idSalaryMonthTo, dropdownFilter);
+
+                if (salarySlip == null || !salarySlip.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<SalarySlipDto>>.CreateSuccess(Enumerable.Empty<SalarySlipDto>(), "No salary slip records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<SalarySlipDto>>.CreateSuccess(salarySlip, "Salary slip retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
 
 
     }

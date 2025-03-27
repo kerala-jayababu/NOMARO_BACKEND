@@ -22,7 +22,7 @@ public class CurrencyConversionService : ICurrencyConversionService
     {
         try
         {
-            var conversions = await _dbContext.CurrencyConversions.ToListAsync();
+            var conversions = await _dbContext.CurrencyConversions .OrderByDescending(x=>x.RateDate).ToListAsync();
             return _mapper.Map<IEnumerable<CurrencyConversionDto>>(conversions);
         }
         catch (Exception ex)

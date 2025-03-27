@@ -5,6 +5,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     public interface ISalaryGenerationService
     {
         Task<IEnumerable<SalaryGenerationDto>> GetSalaryConfigs(int? idSalaryMonth = null,string? dropdownFilter = null,int? idDepartment = null,int? idDesignation = null);
+        Task<IEnumerable<SalarySlipDto>> GetSalarySlips(int idSalaryMonthFrom, int idSalaryMonthTo, string? dropdownFilter = null);
         Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(string employeeIds, int idSalaryMonth, int idEmployeeCreated);
         Task<dynamic> ExportSalaryGenerationDetails(string employeeIds, int idSalaryMonth);
 
@@ -14,5 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<int> UndoGeneratedDraftSalary(string employeeIds, int idSalaryMonth);        
         Task<IEnumerable<SalaryGenerationDetailsDto>> GetSalaryGeneratedDetails(int? idSalaryMonth = null, string? dropdownFilter = null);
         Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string EmployeeId, int SalaryMonth);
+
+        
     }
 }

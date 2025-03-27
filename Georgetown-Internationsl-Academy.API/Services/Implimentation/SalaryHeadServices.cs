@@ -25,7 +25,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var salaryHeads = await _dbContext.SalaryHeads.OrderBy(b => b.SalaryHeadCode).ToListAsync();
+                var salaryHeads = await _dbContext.SalaryHeads
+             .OrderBy(b => b.HeadType == "EARNING" ? 0 : 1) // "EARNING" first, then "DEDUCTION"
+             .ThenBy(b => b.OrderNumber) // Sorting by OrderNumber inside each type
+             .ToListAsync();
                 return _mapper.Map<IEnumerable<SalaryHeadDto>>(salaryHeads);
             }
             catch (Exception ex)

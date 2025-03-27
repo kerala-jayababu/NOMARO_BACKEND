@@ -63,7 +63,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
 
                     var targetEmployeeIds = string.Join(",", targetEmployees);
-
+                    string actionStatussubmitted = (targetEmployeeIds == "0") ? "FINAL APPROVED" : "SUBMITTED";
                     var newRecord = new ApprovalWorkFlowAllocation
                     {
                         IdWorkFlowConfig = workflowConfig.IdWorkFlowConfig,
@@ -73,13 +73,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         LevelNumber = 1,
                         SourceIdEmployee = loggedInEmployeeId,
                         TargetIdEmployee = targetEmployeeIds,
-                        ActionStatus = "SUBMITTED",
+                        ActionStatus = actionStatussubmitted,
                         SentDate = DateTime.Now
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newRecord);
                     await _dbContext.SaveChangesAsync();
-                  
+                    if (actionStatussubmitted == "FINAL APPROVED")
+                    {
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1, null);                        
+                        return "Approval workflow initiated.";
+                    }
 
                     return "Approval workflow initiated.";
                 }
@@ -131,7 +135,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 var targetEmployeeIdsForNextLevel = string.Join(",", targetEmployeesForNextLevel);
-
+                string actionStatus = (targetEmployeeIdsForNextLevel == "0") ? "FINAL APPROVED" : "INTERIM APPROVED";
                 var newNextLevelRecord = new ApprovalWorkFlowAllocation
                 {
                     IdWorkFlowConfig = currentRecord.IdWorkFlowConfig,
@@ -139,14 +143,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     EntityTablePrimaryKeyID = currentRecord.EntityTablePrimaryKeyID,
                     CycleIndex = currentRecord.CycleIndex,
                     LevelNumber = nextLevelNumber,
-                    ActionStatus= "INTERIM APPROVED",
+                    ActionStatus= actionStatus,
                     SourceIdEmployee = loggedInEmployeeId,
                     TargetIdEmployee = targetEmployeeIdsForNextLevel,                    
                     SentDate = DateTime.Now
                 };
 
                 await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "INTERIM APPROVED", newNextLevelRecord.CycleIndex, loggedInEmployeeId);
+                await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, actionStatus, newNextLevelRecord.CycleIndex, loggedInEmployeeId);
                 await _dbContext.SaveChangesAsync();
                 //await transaction.CommitAsync();
 

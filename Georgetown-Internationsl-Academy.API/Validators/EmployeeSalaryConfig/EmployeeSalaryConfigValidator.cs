@@ -11,7 +11,7 @@ namespace Georgetown_Internationsl_Academy.API.Validators.EmployeeSalaryConfig
             RuleFor(x => x.ValidFrom).NotEmpty().WithMessage("ValidFrom is required.");
             RuleFor(x => x.ActiveStatus).NotEmpty().WithMessage("ActiveStatus is required.");
             RuleFor(x => x.TotalEarnings).GreaterThan(0).WithMessage("TotalEarnings is required.");
-            RuleFor(x => x.TotalDeductions).GreaterThan(0).WithMessage("TotalDeductions is required.");
+            //RuleFor(x => x.TotalDeductions).GreaterThan(0).WithMessage("TotalDeductions is required.");
             RuleFor(x => x.NetSalary).GreaterThan(0).WithMessage("NetSalary is required.");
             
 

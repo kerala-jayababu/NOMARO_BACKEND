@@ -8,7 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
     {
         public int IdOvertimeTransaction { get; set; }
         public int IdEmployee { get; set; }
-        public int IdOvertimeType { get; set; }  
+        public int? IdOvertimeType { get; set; }  
         public DateTime StartDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public DateTime EndDate { get; set; }
