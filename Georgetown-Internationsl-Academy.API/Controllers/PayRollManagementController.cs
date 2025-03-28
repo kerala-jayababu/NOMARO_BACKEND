@@ -678,8 +678,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create maternity leave salary."));
                 }
-
-                return Ok(result);
+                return Ok(ApiResponseDto<string>.CreateSuccess("MaternityLeaveSalary created successfully."));
+               
             }
             catch (Exception ex)
             {
@@ -730,7 +730,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return NotFound(ApiResponseDto<string>.CreateFailure("Maternity leave salary not found."));
                 }
 
-                return Ok(result);
+                return Ok(ApiResponseDto<string>.CreateSuccess("MaternityLeaveSalary Updated successfully."));
             }
             catch (Exception ex)
             {
