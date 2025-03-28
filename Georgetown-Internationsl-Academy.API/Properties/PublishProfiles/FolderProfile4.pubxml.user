@@ -1,0 +1,127 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121.
+-->
+<Project>
+  <PropertyGroup>
+    <_PublishTargetUrl>C:\Sandeep\sandeep Projects\Jayababu\DEployement\Backend\Payroll\20250319</_PublishTargetUrl>
+    <History>True|2025-03-19T10:07:52.0874311Z||;True|2025-03-19T08:57:04.4167090+05:30||;</History>
+    <LastFailureDetails />
+  </PropertyGroup>
+  <ItemGroup>
+    <File Include="Models/ApprovalWorkFlowAllocation.cs">
+      <publishTime>03/16/2025 22:23:56</publishTime>
+    </File>
+    <File Include="Models/BankBranches.cs">
+      <publishTime>01/17/2025 17:47:25</publishTime>
+    </File>
+    <File Include="Models/Banks.cs">
+      <publishTime>03/13/2025 18:10:47</publishTime>
+    </File>
+    <File Include="Models/BudgetCodeEntity.cs">
+      <publishTime>01/12/2025 10:21:11</publishTime>
+    </File>
+    <File Include="Models/ChildTaxThreshold.cs">
+      <publishTime>02/12/2025 15:09:07</publishTime>
+    </File>
+    <File Include="Models/CurrencyConversion.cs">
+      <publishTime>03/18/2025 12:18:41</publishTime>
+    </File>
+    <File Include="Models/DepartmentEntity.cs">
+      <publishTime>01/12/2025 16:37:55</publishTime>
+    </File>
+    <File Include="Models/DesignationEntity.cs">
+      <publishTime>01/12/2025 16:14:11</publishTime>
+    </File>
+    <File Include="Models/Employee.cs">
+      <publishTime>01/17/2025 06:20:48</publishTime>
+    </File>
+    <File Include="Models/EmployeeBankAccount.cs">
+      <publishTime>01/17/2025 16:40:51</publishTime>
+    </File>
+    <File Include="Models/EmployeeOvertimeConfig.cs">
+      <publishTime>01/16/2025 07:33:30</publishTime>
+    </File>
+    <File Include="Models/EmployeePermissions.cs">
+      <publishTime>01/17/2025 19:03:05</publishTime>
+    </File>
+    <File Include="Models/EmployeeSalaries.cs">
+      <publishTime>02/16/2025 21:31:26</publishTime>
+    </File>
+    <File Include="Models/EmployeeSalaryConfig.cs">
+      <publishTime>02/05/2025 00:11:14</publishTime>
+    </File>
+    <File Include="Models/EmployeeSalaryConfigDetails.cs">
+      <publishTime>02/22/2025 19:25:12</publishTime>
+    </File>
+    <File Include="Models/FinancialYears.cs">
+      <publishTime>02/12/2025 16:06:42</publishTime>
+    </File>
+    <File Include="Models/Holiday.cs">
+      <publishTime>02/09/2025 07:36:59</publishTime>
+    </File>
+    <File Include="Models/HolidayTypeEntity.cs">
+      <publishTime>02/09/2025 07:46:22</publishTime>
+    </File>
+    <File Include="Models/MaternityLeaveSalaryDetail.cs">
+      <publishTime>02/03/2025 18:15:25</publishTime>
+    </File>
+    <File Include="Models/MaternityLeaveSalaryEntity.cs">
+      <publishTime>02/06/2025 07:35:02</publishTime>
+    </File>
+    <File Include="Models/NotificationConfig.cs">
+      <publishTime>01/19/2025 16:50:21</publishTime>
+    </File>
+    <File Include="Models/OvertimeTransactionEntity.cs">
+      <publishTime>03/13/2025 10:34:45</publishTime>
+    </File>
+    <File Include="Models/OvertimeTypes.cs">
+      <publishTime>01/26/2025 18:46:43</publishTime>
+    </File>
+    <File Include="Models/PayrollScreens.cs">
+      <publishTime>03/16/2025 21:50:22</publishTime>
+    </File>
+    <File Include="Models/RentFreeQuarter.cs">
+      <publishTime>03/19/2025 15:24:20</publishTime>
+    </File>
+    <File Include="Models/RoleBasedPermission.cs">
+      <publishTime>01/19/2025 15:40:06</publishTime>
+    </File>
+    <File Include="Models/SalaryAdjustment.cs">
+      <publishTime>02/16/2025 12:14:20</publishTime>
+    </File>
+    <File Include="Models/SalaryHeads.cs">
+      <publishTime>03/18/2025 14:26:16</publishTime>
+    </File>
+    <File Include="Models/SalaryMonths.cs">
+      <publishTime>02/03/2025 18:15:25</publishTime>
+    </File>
+    <File Include="Models/SalaryTemplate.cs">
+      <publishTime>03/12/2025 23:15:01</publishTime>
+    </File>
+    <File Include="Models/SalaryTemplateDetails.cs">
+      <publishTime>03/13/2025 12:13:39</publishTime>
+    </File>
+    <File Include="Models/ScheduledDeductionDetails.cs">
+      <publishTime>03/02/2025 21:37:22</publishTime>
+    </File>
+    <File Include="Models/ScheduledSalaryDeduction.cs">
+      <publishTime>03/02/2025 21:03:25</publishTime>
+    </File>
+    <File Include="Models/SystemParameter.cs">
+      <publishTime>01/19/2025 16:09:42</publishTime>
+    </File>
+    <File Include="Models/TaxSlab.cs">
+      <publishTime>02/12/2025 15:08:52</publishTime>
+    </File>
+    <File Include="Models/VacationMode.cs">
+      <publishTime>02/04/2025 23:22:49</publishTime>
+    </File>
+    <File Include="Models/WorkFlowConfig.cs">
+      <publishTime>02/09/2025 21:11:26</publishTime>
+    </File>
+    <File Include="Models/WorkFlowConfigDetails.cs">
+      <publishTime>02/09/2025 21:12:13</publishTime>
+    </File>
+  </ItemGroup>
+</Project>

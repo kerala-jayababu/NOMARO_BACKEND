@@ -212,7 +212,7 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
         {
             // Map and insert ScheduledSalaryDeduction
             var entity = _mapper.Map<ScheduledSalaryDeduction>(dto);
-            entity.IdEmployee = EmployeeId;
+            //entity.IdEmployee = EmployeeId;
 
             await _dbContext.ScheduledDeductions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
