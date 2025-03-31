@@ -473,7 +473,7 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
-        public async Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string employeeIds, int salaryMonth)
+        public async Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string employeeIds, int idSalaryMonthFrom, int idSalaryMonthTo)
         {
             if (string.IsNullOrWhiteSpace(employeeIds))
             {
@@ -513,8 +513,10 @@ namespace YourNamespace.Services.Implementation
 
                 // Fetch Salary Details for Employees
                 var salaries = await _dbContext.EmployeeSalaries
-                    .Where(s => employeeIdList.Contains(s.IdEmployee.ToString()) && s.IdSalaryMonth == salaryMonth)
-                    .ToListAsync();
+                   .Where(s => employeeIdList.Contains(s.IdEmployee.ToString())
+                               && s.IdSalaryMonth >= idSalaryMonthFrom
+                               && s.IdSalaryMonth <= idSalaryMonthTo)
+                   .ToListAsync();
 
                 if (!salaries.Any())
                 {
@@ -596,6 +598,7 @@ namespace YourNamespace.Services.Implementation
     SELECT 
         es.IdEmployeeSalary,
         es.IdSalaryMonth,
+        es.IdEmployee,
         sm.SalaryMonthText,
         e.EmployeeCode,
         CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,

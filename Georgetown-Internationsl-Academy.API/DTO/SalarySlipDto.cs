@@ -5,6 +5,7 @@
         public int IdEmployeeSalary { get; set; }
         public string IdSalaryMonth { get; set; }
         public string SalaryMonthText { get; set; }
+        public int IdEmployee { get; set; }
         public string EmployeeCode { get; set; } = string.Empty;
         public string EmployeeName { get; set; } = string.Empty;
         public int IdDesignation { get; set; }

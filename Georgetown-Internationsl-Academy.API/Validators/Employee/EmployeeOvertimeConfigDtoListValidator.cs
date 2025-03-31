@@ -13,9 +13,9 @@ namespace Georgetown_Internationsl_Academy.API.Validators.Employee
 
                 config.RuleFor(c => c.DayType)
     .NotEmpty().WithMessage("DayType is required.")
-    .Must(type => new[] { "Workday", "Holiday", "Public Holiday" }
+    .Must(type => new[] { "WORKINGDAY", "HOLIDAY", "PUBLICHOLIDAY" }
         .Contains(type?.Trim(), StringComparer.OrdinalIgnoreCase))
-    .WithMessage("DayType must be one of the following: 'Workday', 'Holiday', 'Public Holiday'.");
+    .WithMessage("DayType must be one of the following: 'WORKINGDAY', 'HOLIDAY', 'PUBLICHOLIDAY'.");
 
 
                 config.RuleFor(c => c.StandardRate)

@@ -632,15 +632,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("GeneratePayslipPdf")]
-        public async Task<IActionResult> GeneratePayslipPdf(string employeeID, int? idSalaryMonth = null)
+        public async Task<IActionResult> GeneratePayslipPdf(string employeeID, int idSalaryMonthFrom , int idSalaryMonthTo)
         {
             if (string.IsNullOrWhiteSpace(employeeID))
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID cannot be empty."));
             }
-            if (!idSalaryMonth.HasValue || idSalaryMonth <= 0)
+            if (idSalaryMonthFrom == null || idSalaryMonthTo == null)
             {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for generating payslip."));
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting SalarySlips list."));
             }
 
             try
@@ -649,7 +649,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 PaySlipGeneratorDto ps = new PaySlipGeneratorDto();
 
                 var employeeIDs = employeeID.Split(',').Select(e => e.Trim()).ToList();
-                var payslipData = await _salaryService.GeneratePayslipPdf(employeeID, idSalaryMonth.Value);
+                var payslipData = await _salaryService.GeneratePayslipPdf(employeeID, idSalaryMonthFrom, idSalaryMonthTo);
 
                 if (payslipData == null || !payslipData.Any())
                 {
@@ -665,7 +665,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         // Convert to Base64 string and add to results
                         fileResults.Add(new
                         {
-                            FileName = $"Payslip_{emp.EmployeeCode}.pdf", // Adjust logic for file naming if needed
+                            FileName = $"Payslip_{emp.EmployeeCode}_{emp.Period}.pdf", // Adjust logic for file naming if needed
                             FileContent = Convert.ToBase64String(pdfStream.ToArray())
                         });
                     }
@@ -689,9 +689,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         public async Task<IActionResult> GetSalarySlips(
            [FromQuery] int idSalaryMonthFrom,
              [FromQuery] int idSalaryMonthTo,
-           [FromQuery] string? dropdownFilter = null,
-         
-           [FromQuery] int? idDesignation = null)
+           [FromQuery] string? searchText = null)
         {
             try
             {
@@ -700,7 +698,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting SalarySlips list."));
                 }
 
-                IEnumerable<SalarySlipDto>? salarySlip = await _salaryService.GetSalarySlips(idSalaryMonthFrom, idSalaryMonthTo, dropdownFilter);
+                IEnumerable<SalarySlipDto>? salarySlip = await _salaryService.GetSalarySlips(idSalaryMonthFrom, idSalaryMonthTo, searchText);
 
                 if (salarySlip == null || !salarySlip.Any())
                 {

@@ -40,6 +40,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<Banks, BankDto>().ReverseMap();
             CreateMap<BankBranches, BankBranchesDto>().ReverseMap();
             CreateMap<RentFreeQuarterDurations, RentFreeQuarterDurationsDto>().ReverseMap();
+            CreateMap<LeavePassage, LeavePassageDto>().ReverseMap();
         }
      }
 }

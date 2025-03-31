@@ -45,6 +45,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
             new(ClaimTypes.Name,  user.FirstName+" "+user.LastName),
             new(ClaimTypes.NameIdentifier, user.IdEmployee.ToString()),
+            new(ClaimTypes.Email, user.EmailID.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
             var token = GetToken(authClaims);
@@ -84,5 +85,71 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return token;
         }
+
+
+        public async Task<UserResponseDto> DecryptToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return null; // Handle invalid input properly
+            }
+            string[] parts = token.Split(',');
+            string pureToken = parts[0];
+            var handler = new JwtSecurityTokenHandler();
+            JwtSecurityToken jwtToken;
+
+            try
+            {
+                jwtToken = handler.ReadJwtToken(pureToken);
+            }
+            catch (Exception)
+            {
+                return null; // Handle invalid token
+            }
+
+
+            var claims = jwtToken.Claims.ToDictionary(c => c.Type, c => c.Value);
+
+            // Extract email claim safely
+            if (!claims.TryGetValue(ClaimTypes.Email, out var email))
+            {
+                return null; // Email claim not found
+            }
+
+            // Fetch user based on email
+            var userResponse = await checkUser(email, token);
+            return userResponse;
+        }
+
+
+        public async Task<UserResponseDto> checkUser(string EmailID, string token)
+        {
+            var user = await _dbContext.Employees
+                .FirstOrDefaultAsync(x => x.EmailID == EmailID);
+
+            if (user == null) return null;
+
+            var designation = await _dbContext.Designations
+                .FirstOrDefaultAsync(x => x.IdDesignation == user.IdDesignation);
+
+            string dbPath = user.EmployeePhotoFilePath?.Trim();
+
+            if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
+            {
+                user.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
+            }
+
+            return new UserResponseDto
+            {
+                Name = $"{user.FirstName} {user.MiddleName} {user.LastName}",
+                UserId = user.IdEmployee,
+                Role = designation?.DesignationName ?? string.Empty,
+                EmployeePhotoFilePath = user.EmployeePhotoFilePath,
+                AttachmentBlob = user.AttachmentBlob,
+                Token = token
+            };
+        }
+
+
     }
 }

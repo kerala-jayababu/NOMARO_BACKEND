@@ -402,7 +402,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (existingConfig != null)
                     {
                         // Update existing config
-                        existingConfig.DayType = configDto.DayType;
+                        existingConfig.DayType = configDto.DayType.ToUpper();
                         existingConfig.StandardRate = configDto.StandardRate;
                         existingConfig.DayRate = configDto.DayRate;
                         _dbContext.EmployeeOvertimeConfig.Update(existingConfig);
@@ -413,7 +413,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         var newConfig = new EmployeeOvertimeConfig
                         {
                             IdEmployee = employeeId,
-                            DayType = configDto.DayType,
+                            DayType = configDto.DayType.ToUpper(),
                             StandardRate = configDto.StandardRate,
                             DayRate = configDto.DayRate
                         };
