@@ -632,24 +632,20 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("GeneratePayslipPdf")]
-        public async Task<IActionResult> GeneratePayslipPdf(string employeeID, int idSalaryMonthFrom , int idSalaryMonthTo)
+        public async Task<IActionResult> GeneratePayslipPdf(string idEmployeeSalary)
         {
-            if (string.IsNullOrWhiteSpace(employeeID))
+            if (string.IsNullOrWhiteSpace(idEmployeeSalary))
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID cannot be empty."));
             }
-            if (idSalaryMonthFrom == null || idSalaryMonthTo == null)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting SalarySlips list."));
-            }
+            
 
             try
             {
                 List<object> fileResults = new List<object>();
                 PaySlipGeneratorDto ps = new PaySlipGeneratorDto();
-
-                var employeeIDs = employeeID.Split(',').Select(e => e.Trim()).ToList();
-                var payslipData = await _salaryService.GeneratePayslipPdf(employeeID, idSalaryMonthFrom, idSalaryMonthTo);
+                
+                var payslipData = await _salaryService.GeneratePayslipPdf(idEmployeeSalary);
 
                 if (payslipData == null || !payslipData.Any())
                 {

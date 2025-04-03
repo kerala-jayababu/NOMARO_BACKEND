@@ -473,9 +473,9 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
-        public async Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string employeeIds, int idSalaryMonthFrom, int idSalaryMonthTo)
+        public async Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string idEmployeeSalary)
         {
-            if (string.IsNullOrWhiteSpace(employeeIds))
+            if (string.IsNullOrWhiteSpace(idEmployeeSalary))
             {
                 throw new ArgumentException("Employee ID list cannot be empty.");
             }
@@ -483,11 +483,18 @@ namespace YourNamespace.Services.Implementation
 
             try
             {
-                var employeeIdList = employeeIds.Split(',').Select(id => id.Trim()).ToList();
+                var idEmployeeSalaryliST = idEmployeeSalary.Split(',').Select(id => id.Trim()).ToList();
+
+                // Fetch Salary Details for Employees
+                var salaries = await _dbContext.EmployeeSalaries
+                         .Where(s => idEmployeeSalaryliST.Contains(s.IdEmployeeSalary.ToString()))
+                         .ToListAsync();
+
+                var employeeIdList = salaries.Select(x => x.IdEmployee).ToList();
 
                 // Fetch Employee Details
                 var employees = await _dbContext.Employees
-       .Where(e => employeeIdList.Contains(e.IdEmployee.ToString()))
+       .Where(e => employeeIdList.Contains(e.IdEmployee))
        .Join(_dbContext.Designations,
            emp => emp.IdDesignation,
            des => des.IdDesignation,
@@ -511,12 +518,7 @@ namespace YourNamespace.Services.Implementation
                     throw new Exception("No employees found for the given IDs.");
                 }
 
-                // Fetch Salary Details for Employees
-                var salaries = await _dbContext.EmployeeSalaries
-                   .Where(s => employeeIdList.Contains(s.IdEmployee.ToString())
-                               && s.IdSalaryMonth >= idSalaryMonthFrom
-                               && s.IdSalaryMonth <= idSalaryMonthTo)
-                   .ToListAsync();
+               
 
                 if (!salaries.Any())
                 {

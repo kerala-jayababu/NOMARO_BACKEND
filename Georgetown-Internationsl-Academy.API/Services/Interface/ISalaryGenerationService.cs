@@ -14,7 +14,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> SubmitSalaryDetails(string employeeIds, int idSalaryMonth, int idEmployeeCreated);        
         Task<int> UndoGeneratedDraftSalary(string employeeIds, int idSalaryMonth);        
         Task<IEnumerable<SalaryGenerationDetailsDto>> GetSalaryGeneratedDetails(int? idSalaryMonth = null, string? dropdownFilter = null);
-        Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string EmployeeId,int idSalaryMonthFrom, int idSalaryMonthTo );
+        Task<List<EmployeePayslipDto>> GeneratePayslipPdf(string idEmployeeSalary);
 
         
     }

@@ -7,6 +7,8 @@
         public string SalaryHeadName { get; set; }
         public string HeadType { get; set; }
         public bool IsTaxable { get; set; }
+        public string? TaxExcemptionThresholdType { get; set; }
+        public decimal? TaxExcemptionThresholdValue { get; set; }
         public bool IsActive { get; set; }
         public string? CalculationMethod { get; set; }
         public int? IdPercentageSalaryHead { get; set; }

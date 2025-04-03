@@ -35,7 +35,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implementation
                     _logger.LogWarning("BudgetCode with ID: {Id} not found.", id);
                     return null;
                 }
-                return _mapper.Map<BudgetCodeDto>(budgetCode);
+                return _mapper.Map<BudgetCodeDto>(budgetCode); 
             }
             catch (Exception ex)
             {

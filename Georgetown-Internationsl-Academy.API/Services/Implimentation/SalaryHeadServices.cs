@@ -93,6 +93,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 salaryHead.CalculationMethod = dto.CalculationMethod;
                 salaryHead.IdPercentageSalaryHead = dto.IdPercentageSalaryHead;
                 salaryHead.PercentageValue = dto.PercentageValue;
+                salaryHead.TaxExcemptionThresholdType = dto.TaxExcemptionThresholdType;
+                salaryHead.TaxExcemptionThresholdValue = dto.TaxExcemptionThresholdValue;
                 salaryHead.FixedValue = dto.FixedValue;
                 salaryHead.CustomFormula = dto.CustomFormula;
                 salaryHead.ModifiedBy = IdEmployee;
