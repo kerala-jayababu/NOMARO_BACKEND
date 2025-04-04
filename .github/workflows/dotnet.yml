@@ -45,6 +45,11 @@ jobs:
 
     - name: Publish
       run: dotnet publish -c Release -o ./publish
+      
+    - name: Install Web Deploy
+      run: |
+        Invoke-WebRequest -Uri "https://download.microsoft.com/download/0/3/C/03CF1C6C-AC73-4EF0-96ED-90A2121E3DC2/WebDeploy_amd64_en-US.msi" -OutFile "WebDeploy.msi"
+        Start-Process msiexec.exe -Wait -ArgumentList '/i WebDeploy.msi /quiet'
 
     - name: Deploy to IIS via Web Deploy
       run: |
