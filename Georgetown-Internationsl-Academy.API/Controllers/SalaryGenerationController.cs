@@ -293,32 +293,21 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var earnings = salaryHeads.Where(h => h.HeadType == "EARNING").Select(h => h.SalaryHeadCode).ToList();
                 var deductions = salaryHeads.Where(h => h.HeadType == "DEDUCTION").Select(h => h.SalaryHeadCode).ToList();
 
-
-
                 HashSet<string> uniqueEarnings = new HashSet<string>();
                 HashSet<string> uniqueDeductions = new HashSet<string>();
 
-                foreach (var r in result.Where(r => r != null)) // Avoid null values
+                foreach (var r in result.Where(r => r != null))
                 {
                     var dict = (IDictionary<string, object>)r;
 
                     foreach (var e in earnings.Where(e => dict.ContainsKey(e)))
-                    {
-                        uniqueEarnings.Add(e); // Only add earnings present in data
-                    }
+                        uniqueEarnings.Add(e);
 
                     foreach (var d in deductions.Where(d => dict.ContainsKey(d)))
-                    {
-                        uniqueDeductions.Add(d); // Only add deductions present in data
-                    }
+                        uniqueDeductions.Add(d);
                 }
 
-
-
-
-
-                // Create Excel package
-                ExcelPackage.LicenseContext = LicenseContext.NonCommercial; // Required for EPPlus
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
                 using (var package = new ExcelPackage())
                 {
                     var worksheet = package.Workbook.Worksheets.Add("Salary Report");
@@ -329,58 +318,41 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     worksheet.Cells[1, col++].Value = "Designation";
                     worksheet.Cells[1, col++].Value = "Joining Date";
 
-
-                    // Apply header row color
                     using (var range = worksheet.Cells[1, 1, 1, col])
                     {
                         range.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        range.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+                        range.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                     }
-
 
                     foreach (var e in uniqueEarnings)
                     {
                         worksheet.Cells[1, col].Value = e;
-
-                        // Apply earning color
                         worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.LightGreen);
-
+                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                         col++;
                     }
 
-
                     worksheet.Cells[1, col].Value = "TotalEarnings";
-                    // Color for Total Earnings column
                     worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.LightGreen);
+                    worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                     col++;
 
                     foreach (var d in uniqueDeductions)
                     {
                         worksheet.Cells[1, col].Value = d;
-
-                        // Apply deduction color
                         worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.LightCoral);
-
+                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
                         col++;
                     }
 
                     worksheet.Cells[1, col].Value = "TotalDeductions";
-
-                    // Color for Total Deductions column
                     worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.LightCoral);
-
+                    worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
                     col++;
 
                     worksheet.Cells[1, col].Value = "NetSalary";
-
-                    // Color for Net Salary column
                     worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.LightBlue);
-
+                    worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
                     col++;
 
                     worksheet.Cells[1, col].Value = "Status";
@@ -400,73 +372,47 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         var dict = (IDictionary<string, object>)r;
                         foreach (var e in earnings.Where(e => dict.ContainsKey(e)))
                         {
-                            if (dict.ContainsKey(e) && dict[e] != null)
-                            {
-                                decimal value = Convert.ToDecimal(dict[e]);
-                                worksheet.Cells[row, col].Value = value; // Store as a numeric value
-                            }
-                            else
-                            {
-                                worksheet.Cells[row, col].Value = 0.00m; // Default to numeric 0.00
-                            }
-
-                            // Apply formatting for two decimal places
+                            decimal value = dict[e] != null ? Convert.ToDecimal(dict[e]) : 0.00m;
+                            worksheet.Cells[row, col].Value = value;
                             worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
-
-                            // Right align the cell content
-                            worksheet.Cells[row, col].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Right;
+                            worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                             worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.LightGreen);
-
-                            col++; // Move to the next column
+                            worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
+                            col++;
                         }
+
                         worksheet.Cells[row, col].Formula = $"SUM({ExcelCellAddress.GetColumnLetter(5)}{row}:{ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count - 1)}{row})";
                         worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
-                        worksheet.Cells[row, col].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Right;
+                        worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalEarningsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.LightGreen);
+                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                         col++;
-
-
-
 
                         foreach (var d in deductions.Where(d => dict.ContainsKey(d)))
                         {
-                            if (dict.ContainsKey(d) && dict[d] != null)
-                            {
-                                decimal value = Convert.ToDecimal(dict[d]);
-                                worksheet.Cells[row, col].Value = value; // Store as a numeric value
-                            }
-                            else
-                            {
-                                worksheet.Cells[row, col].Value = 0.00m; // Default to numeric 0.00
-                            }
-
-                            // Apply formatting for two decimal places
+                            decimal value = dict[d] != null ? Convert.ToDecimal(dict[d]) : 0.00m;
+                            worksheet.Cells[row, col].Value = value;
                             worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
-
-                            // Right align the cell content
-                            worksheet.Cells[row, col].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Right;
+                            worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                             worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.LightCoral);
-                            col++; // Move to the next column
+                            worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
+                            col++;
                         }
 
-                        worksheet.Cells[row, col].Formula = $"SUM({ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count+1)}{row}:{ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count + uniqueDeductions.Count )}{row})";
+                        worksheet.Cells[row, col].Formula = $"SUM({ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count + 1)}{row}:{ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count + uniqueDeductions.Count)}{row})";
                         worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
-                        worksheet.Cells[row, col].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Right;
+                        worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalDeductionsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.LightCoral);
+                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
                         col++;
-
 
                         worksheet.Cells[row, col].Formula = $"{totalEarningsColLetter}{row} - {totalDeductionsColLetter}{row}";
                         worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
-                        worksheet.Cells[row, col].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Right;
+                        worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.LightBlue);
+                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
                         col++;
 
                         worksheet.Cells[row, col++].Value = r.Status;
@@ -474,29 +420,55 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         row++;
                     }
 
-                    // Auto-fit columns
+                    // ➕ ADD TOTAL ROW BELOW HERE
+                    worksheet.Cells[row, 4].Value = "TOTAL";
+                    worksheet.Cells[row, 4].Style.Font.Bold = true;
+
+                    int dataStartRow = 2;
+                    int currentCol = 5;
+                    for (int i = 0; i < uniqueEarnings.Count; i++, currentCol++)
+                    {
+                        string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
+                        worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
+                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "0.00";
+                    }
+
+                    // Total Earnings
+                    string earningsCol = ExcelCellAddress.GetColumnLetter(currentCol);
+                    worksheet.Cells[row, currentCol].Formula = $"SUM({earningsCol}{dataStartRow}:{earningsCol}{row - 1})";
+                    currentCol++;
+
+                    for (int i = 0; i < uniqueDeductions.Count; i++, currentCol++)
+                    {
+                        string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
+                        worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
+                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "0.00";
+                    }
+
+                    // Total Deductions
+                    string deductionsCol = ExcelCellAddress.GetColumnLetter(currentCol);
+                    worksheet.Cells[row, currentCol].Formula = $"SUM({deductionsCol}{dataStartRow}:{deductionsCol}{row - 1})";
+                    currentCol++;
+
+                    // Net Salary
+                    string netSalaryCol = ExcelCellAddress.GetColumnLetter(currentCol);
+                    worksheet.Cells[row, currentCol].Formula = $"SUM({netSalaryCol}{dataStartRow}:{netSalaryCol}{row - 1})";
+
                     worksheet.Cells.AutoFitColumns();
 
                     var stream = new MemoryStream();
                     package.SaveAs(stream);
-                    stream.Position = 0; // Reset stream position for reading
+                    stream.Position = 0;
 
                     var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                     var fileName = "Salary_Report.xlsx";
 
-                    // Convert stream directly to byte array without using another MemoryStream
-                    var fileBytes = stream.ToArray();
-
                     return Ok(new
                     {
                         FileName = fileName,
-                        FileType = contentType, // Use the already defined contentType
-                        FileContent = Convert.ToBase64String(fileBytes) // Convert to Base64 string
+                        FileType = contentType,
+                        FileContent = Convert.ToBase64String(stream.ToArray())
                     });
-
-
-
-                    //return File(stream, contentType, fileName);
                 }
             }
             catch (Exception ex)
@@ -504,6 +476,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
 
 
 

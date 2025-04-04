@@ -213,15 +213,21 @@ namespace YourNamespace.Services.Implementation
                     .Where(es => employeeIdList.Contains(es.IdEmployee) && es.IdSalaryMonth == idSalaryMonth)
                     .ToListAsync();
 
+                var idemployeeSalaries= recordsToDelete.Select(x => x.IdEmployeeSalary).ToList();
                 if (!recordsToDelete.Any())
                 {
                     return 0; // No records found to delete
                 }
+                        var salaryDetailsToDelete = await _dbContext.EmployeeSalaryDetails
+                .Where(x => idemployeeSalaries.Contains((int)x.IdEmployeeSalary))
+                .ToListAsync();
 
-                // Remove records
+                _dbContext.EmployeeSalaryDetails.RemoveRange(salaryDetailsToDelete);
+
+                // Remove EmployeeSalaries records
                 _dbContext.EmployeeSalaries.RemoveRange(recordsToDelete);
-                int deletedCount = await _dbContext.SaveChangesAsync();
 
+                int deletedCount = await _dbContext.SaveChangesAsync();
                 return deletedCount;
             }
             catch (Exception ex)
