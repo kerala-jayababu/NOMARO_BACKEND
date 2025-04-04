@@ -1,24 +1,21 @@
-# This workflow will build a .NET project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
 name: .NET CI/CD Pipeline
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
   build:
     name: Build and Test
-    runs-on: Windows-Latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
       
-    - name: Setup .Net
+    - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
@@ -31,3 +28,24 @@ jobs:
       
     - name: Test
       run: dotnet test --no-build --verbosity normal
+
+  deploy:
+    name: Deploy to EC2 IIS
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Publish
+      run: dotnet publish -c Release -o ./publish
+
+    - name: Deploy to IIS via Web Deploy
+      run: |
+        msdeploy -verb:sync -source:contentPath=./publish -dest:auto,computerName="https://46.250.230.34:8172/msdeploy.axd?site=Payroll_Backend",userName='administrator',password='PromedisBabu11234',authType='Basic' -allowUntrusted
