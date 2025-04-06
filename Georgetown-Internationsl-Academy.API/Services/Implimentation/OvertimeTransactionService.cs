@@ -224,6 +224,63 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
 
 
 
+        public async Task<IEnumerable<OvertimeTransactionDto>> GetOvertimeTransactionsForSelfPortal(int employeeId, DateTime? startDate = null)
+        {
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var query = new StringBuilder(@"
+SELECT 
+    ot.IdOvertimeTransaction,
+    ot.IdEmployee,
+    ot.IdOvertimeType,    
+    ot.StartDate,
+    ot.StartTime,
+    ot.EndDate,
+    ot.EndTime,
+    ot.DurationInHours,
+    ot.ReasonForOvertime,
+    ot.Attachment,
+    ot.AttachmentDescription,
+    ot.ApprovalStatus,
+    e.EmployeeCode,    
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    e.IdDepartment,
+    e.IdDesignation,
+    d.DepartmentName AS Department,
+    des.DesignationName AS Designation
+FROM OvertimeTransactions ot
+INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
+INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+WHERE ot.IdEmployee = @EmployeeId ");
+
+                    var parameters = new DynamicParameters();
+                    parameters.Add("EmployeeId", employeeId);
+
+                    if (startDate.HasValue)
+                    {
+                        query.Append(" AND ot.StartDate >= @StartDate ");
+                        parameters.Add("StartDate", startDate.Value.Date);
+                    }
+
+                    query.Append(" ORDER BY ot.StartDate DESC; ");
+
+                    return await connection.QueryAsync<OvertimeTransactionDto>(query.ToString(), parameters);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Overtime Transactions for EmployeeId: {EmployeeId}", employeeId);
+                throw;
+            }
+        }
+
+
 
         public async Task<OvertimeTransactionDto?> GetOvertimeTransactionById(int id)
         {

@@ -86,11 +86,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         [HttpPost("UpdateEmployeeNotification")]
         public async Task<IActionResult> UpdateEmployeeNotification(int IdNotification)
-        {
-            
-           
-
-
+        {  
 
             try
             {

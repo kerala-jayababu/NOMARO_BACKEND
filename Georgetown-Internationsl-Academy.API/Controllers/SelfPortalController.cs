@@ -2,6 +2,7 @@
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -20,13 +21,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     {
 
         private readonly IEmployeeServices _employeeservice;       
+        private readonly IOvertimeTransactionService _overtimeTransactionService;       
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedService;
-        public SelfPortalController(IEmployeeServices employeeservice, IConfiguration configuration, IRoleBasedScreenService roleBasedService)
+        public SelfPortalController(IEmployeeServices employeeservice, IConfiguration configuration, IRoleBasedScreenService roleBasedService,IOvertimeTransactionService overtimeTransactionService)
         {
             _employeeservice = employeeservice;           
             _configuration = configuration;
             _roleBasedService = roleBasedService;
+            _overtimeTransactionService = overtimeTransactionService;
         }
 
         [HttpGet("GetPaySlipDetails")]
@@ -76,6 +79,39 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
 
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpGet("GetOvertimeTransactionsForSelfPortal")]
+        public async Task<IActionResult> GetOvertimeTransactionsForSelfPortal(int EmployeeId,  DateTime? date)
+        {
+            try
+            {
+                if (EmployeeId <= 0)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("EmployeeId must be greater than 0"));
+                }
+
+                var transactions = await _overtimeTransactionService.GetOvertimeTransactionsForSelfPortal(EmployeeId, date);
+
+                if (transactions == null || !transactions.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<OvertimeTransactionDto>>.CreateSuccess(Enumerable.Empty<OvertimeTransactionDto>(), "No overtime transactions found."));
+                }
+                foreach (var transaction in transactions)
+                {
+                    if (!string.IsNullOrEmpty(transaction.Attachment) && System.IO.File.Exists(transaction.Attachment))
+                    {
+                        transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.Attachment);
+                    }
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<OvertimeTransactionDto>>.CreateSuccess(transactions, "Overtime transactions retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
