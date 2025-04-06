@@ -316,7 +316,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         if (tokenDetails != null)
                         {
                             var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrl(tokenvalue);
+                            string actionUrl = GenerateActionUrlForEmployeeSalaryConfig(tokenvalue);
                             string emailBody = await GenerateEmailBodyForEmployeeSalryConfig(notificationConfig.EmailContent, empId, loggedInEmployeeId, employeename, actionUrl);
 
                             await EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, emailBody);
@@ -351,7 +351,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         if (tokenDetails != null)
                         {
                             var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrl(tokenvalue);
+                            string actionUrl = GenerateActionUrlForEmployeeSalaryConfigForAPPROVEDREjected(tokenvalue);
 
                             var entitys = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
 
@@ -394,6 +394,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.ApprovalStatus = finalStatus;
                     await _dbContext.SaveChangesAsync();
                 }
+
+
+
+
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:EMPSALGEN"])
             {
@@ -425,6 +429,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return $"{baseUrl}/#/auth/salary-templates?tk={token}";
         }
 
+
+        private string GenerateActionUrlForEmployeeSalaryConfig(string token)
+        {
+            var baseUrl = "http://localhost:5173";
+            return $"{baseUrl}/#/auth/config-approvals?tk={token}";
+        }
+
+        private string GenerateActionUrlForEmployeeSalaryConfigForAPPROVEDREjected(string token)
+        {
+            var baseUrl = "http://localhost:5173";
+            return $"{baseUrl}/#/auth/employee-salary-config?tk={token}";
+        }
         private async Task<string> GenerateEmailBody(string template, int approverId, int? creatorId, string salaryTemplateName, string actionUrl)
         {
             string approverName = await GetFullNameById(approverId);
