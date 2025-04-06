@@ -93,6 +93,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var token = new JwtSecurityToken(
                 issuer: _configuration["JwtSettings:ValidIssuer"],
                 audience: _configuration["JwtSettings:ValidAudience"],
+                expires: DateTime.Now.AddHours(365),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             // No 'expires' set — token will not expire
@@ -193,7 +194,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
 
             // Fetch user based on email
-            var userResponse = await checkUser(email, token);
+            var userResponse = await checkUser(email, pureToken);
             return userResponse;
         }
 

@@ -319,7 +319,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             string actionUrl = GenerateActionUrlForEmployeeSalaryConfig(tokenvalue);
                             string emailBody = await GenerateEmailBodyForEmployeeSalryConfig(notificationConfig.EmailContent, empId, loggedInEmployeeId, employeename, actionUrl);
 
-                            await EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, emailBody);
+                            await EmailService.SendMail("rajkumargaunder.rkg.rkg@gmail.com", notificationConfig.EmailSubject, emailBody);
                         }
                     }
                 }
@@ -378,7 +378,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                     .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
                             }
                             emailBody += $"<p><a href='{actionUrl}'>Click here to view the employee salry config</a></p>";
-                            await EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, emailBody);
+                            await EmailService.SendMail("rajkumargaunder.rkg.rkg@gmail.com", notificationConfig.EmailSubject, emailBody);
                         }
                     }
                 }

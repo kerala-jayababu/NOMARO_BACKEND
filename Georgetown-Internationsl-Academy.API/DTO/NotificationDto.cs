@@ -4,7 +4,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class NotificationDto
     {
-       
         public int IdNotification { get; set; }
 
         public int? IdNotificationConfig { get; set; }
@@ -32,5 +31,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? RelatedRecordID { get; set; }
 
         public string? RelatedRecordType { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

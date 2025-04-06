@@ -238,12 +238,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<List<NotificationConfigDto>> GetEmployeeNotification(int employeeID)
+        public async Task<List<NotificationDto>> GetEmployeeNotification(int employeeID)
         {
             try
             {
                 var notification = await _dbContext.Notifications.Where(x=>x.ReceivedByIdEmployee == employeeID && x.IsReadAppNotification == false) .ToListAsync();
-                return _mapper.Map<List<NotificationConfigDto>>(notification);
+                return _mapper.Map<List<NotificationDto>>(notification);
             }
             catch (Exception ex)
             {
@@ -252,7 +252,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<NotificationConfigDto> UpdateEmployeeNotification(int idNotification)
+        public async Task<NotificationDto> UpdateEmployeeNotification(int idNotification)
         {
             try
             {
@@ -266,7 +266,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
 
                     // Map and return the updated notification
-                    return _mapper.Map<NotificationConfigDto>(notification);
+                    return _mapper.Map<NotificationDto>(notification);
                 }
                 
                 return null;
