@@ -603,7 +603,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         //    }
         //}
 
-
         [HttpPost("GeneratePayslipPdf")]
         public async Task<IActionResult> GeneratePayslipPdf(string idEmployeeSalary)
         {
@@ -611,13 +610,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID cannot be empty."));
             }
-            
 
             try
             {
-                List<object> fileResults = new List<object>();
                 PaySlipGeneratorDto ps = new PaySlipGeneratorDto();
-                
+                List<byte[]> pdfFiles = new List<byte[]>();
+                List<string> fileNames = new List<string>();
+
                 var payslipData = await _salaryService.GeneratePayslipPdf(idEmployeeSalary);
 
                 if (payslipData == null || !payslipData.Any())
@@ -627,31 +626,52 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 foreach (var emp in payslipData)
                 {
-                    using (MemoryStream pdfStream = new MemoryStream()) // Use "using" to ensure disposal
+                    using (MemoryStream pdfStream = new MemoryStream())
                     {
                         ps.GeneratePayslipPdf(emp, pdfStream);
+                        pdfFiles.Add(pdfStream.ToArray());
 
-                        // Convert to Base64 string and add to results
-                        fileResults.Add(new
-                        {
-                            FileName = $"Payslip_{emp.EmployeeCode}_{emp.Period}.pdf", // Adjust logic for file naming if needed
-                            FileContent = Convert.ToBase64String(pdfStream.ToArray())
-                        });
+                        // Construct file name for each payslip
+                        string fileName = $"Payslip_{emp.EmployeeCode}_{emp.Period}.pdf";
+                        fileNames.Add(fileName);
                     }
                 }
 
-                if (fileResults.Count == 0)
+                if (pdfFiles.Count == 0)
                 {
                     return Ok(ApiResponseDto<string>.CreateFailure("No data found for the given employees."));
                 }
+                else if (pdfFiles.Count == 1)
+                {
+                    // Return a single PDF file with detailed filename
+                    return File(pdfFiles[0], "application/pdf", fileNames[0]);
+                }
+                else
+                {
+                    using (MemoryStream zipStream = new MemoryStream())
+                    {
+                        using (ZipArchive zip = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+                        {
+                            for (int i = 0; i < pdfFiles.Count; i++)
+                            {
+                                var entry = zip.CreateEntry(fileNames[i], System.IO.Compression.CompressionLevel.Optimal);
+                                using (var entryStream = entry.Open())
+                                {
+                                    entryStream.Write(pdfFiles[i], 0, pdfFiles[i].Length);
+                                }
+                            }
+                        }
 
-                return Ok(fileResults); // Return all PDFs as separate files in JSON format
+                        return File(zipStream.ToArray(), "application/zip", "Payslips.zip");
+                    }
+                }
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
 
 
         [HttpGet("GetSalarySlips")]

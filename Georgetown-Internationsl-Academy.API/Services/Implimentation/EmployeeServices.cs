@@ -527,7 +527,148 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<IEnumerable<PayslipDetailsDto>> GetPayslipDetails(int idEmployee, int idSalaryMonth)
+        {
+            var query = new StringBuilder(@"
+        SELECT 
+            s.IdEmployeeSalary,
+            s.IdEmployee,
+            s.TotalEarnings,
+            s.TotalDeductions,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDesignation,
+            des.DesignationName,
+            e.IdDepartment,
+            d.DepartmentName,
+            e.JoiningDate,
+            e.Gender,
+            e.EmailID,
+            e.PhoneNumber1,
+            e.PhoneNumber2,
+            e.CurrentStatus
+        FROM EmployeeSalaries s
+        INNER JOIN Employees e ON s.IdEmployee = e.IdEmployee
+        INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        WHERE s.IdEmployee = @IdEmployee AND s.IdSalaryMonth = @IdSalaryMonth AND   s.ApprovalStatus = 'APPROVED';
+    ");
 
+            var detailQuery = @"
+        SELECT 
+            d.IdEmployeeSalaryDetail,
+            d.SalaryHeadName,
+            d.SalaryHeadType AS HeadType,
+            d.Amount AS AmountGYD,
+            d.AmountInUSD AS AmountUSD,
+            d.YTDAmount
+        FROM EmployeeSalaryDetails d
+        INNER JOIN EmployeeSalaries s ON s.IdEmployeeSalary = d.IdEmployeeSalary
+        WHERE s.IdEmployee = @IdEmployee AND s.IdSalaryMonth = @IdSalaryMonth;
+    ";
+
+            var parameters = new DynamicParameters();
+            parameters.Add("IdEmployee", idEmployee);
+            parameters.Add("IdSalaryMonth", idSalaryMonth);
+
+            try
+            {
+                using var connection = _dbContext.Database.GetDbConnection();
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var payslip = await connection.QueryAsync<PayslipDetailsDto>(query.ToString(), parameters);
+                var details = await connection.QueryAsync<SelfPortalEmployeeSalaryDetailsDto>(detailQuery, parameters);
+
+                var payslipList = payslip.ToList();
+                foreach (var p in payslipList)
+                {
+                    p.EmployeeSalaryDetails = details.ToList();
+                }
+
+                return payslipList;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Payslip details.");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<SalaryDetailsEmployeeDto>> GetSalaryDetailsEmployee(int idEmployee, int idSalaryMonthFrom, int idSalaryMonthTo)
+        {
+            var query = new StringBuilder(@"
+        SELECT 
+            e.IdEmployee,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDesignation,
+            des.DesignationName,
+            e.IdDepartment,
+            d.DepartmentName,
+            e.JoiningDate,
+            e.Gender,
+            e.EmailID,
+            e.PhoneNumber1,
+            e.PhoneNumber2,
+            e.CurrentStatus,
+            s.IdEmployeeSalary,
+            s.SalaryMonthText AS SalaryMonthName,
+            s.TotalEarnings,
+            s.TotalDeductions
+        FROM EmployeeSalaries s
+        INNER JOIN Employees e ON s.IdEmployee = e.IdEmployee
+        INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        WHERE s.IdEmployee = @IdEmployee 
+          AND s.IdSalaryMonth BETWEEN @IdSalaryMonthFrom AND @IdSalaryMonthTo
+          AND s.ApprovalStatus = 'Approved'
+        ORDER BY s.IdSalaryMonth;
+    ");
+
+            var parameters = new DynamicParameters();
+            parameters.Add("IdEmployee", idEmployee);
+            parameters.Add("IdSalaryMonthFrom", idSalaryMonthFrom);
+            parameters.Add("IdSalaryMonthTo", idSalaryMonthTo);
+
+            try
+            {
+                using var connection = _dbContext.Database.GetDbConnection();
+                if (connection.State == ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var data = await connection.QueryAsync<SalaryDetailsEmployeeDto, EmployeeSalariesDto, SalaryDetailsEmployeeDto>(
+                    query.ToString(),
+                    (employee, salary) =>
+                    {
+                        if (employee.EmployeeSalaries == null)
+                            employee.EmployeeSalaries = new List<EmployeeSalariesDto>();
+
+                        employee.EmployeeSalaries.Add(salary);
+                        return employee;
+                    },
+                    splitOn: "IdEmployeeSalary",
+                    param: parameters
+                );
+
+                // Group by employee to avoid duplicates
+                var grouped = data
+                    .GroupBy(e => e.EmployeeCode)
+                    .Select(g =>
+                    {
+                        var emp = g.First();
+                        emp.EmployeeSalaries = g.SelectMany(e => e.EmployeeSalaries!).ToList();
+                        return emp;
+                    });
+
+                return grouped;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching salary details for employee.");
+                throw;
+            }
+        }
 
     }
 }
