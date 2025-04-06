@@ -1,0 +1,56 @@
+name: .NET CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+
+  deploy:
+    name: Deploy to EC2 IIS
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Publish
+      run: dotnet publish -c Release -o C:/inetpub/wwwroot/20250316
+      
+    - name: Install Web Deploy
+      run: |
+        Invoke-WebRequest -Uri "https://download.microsoft.com/download/b/d/8/bd882ec4-12e0-481a-9b32-0fae8e3c0b78/webdeploy_amd64_en-US.msi" -OutFile "WebDeploy.msi"
+        Start-Process msiexec.exe -Wait -ArgumentList '/i WebDeploy.msi /quiet'
+
+    - name: Deploy to IIS via Web Deploy
+      run: |
+        msdeploy -verb:sync -source:contentPath=./publish -dest:auto,computerName="https://46.250.230.34:8172/msdeploy.axd?site=Payroll_Backend",userName='administrator',password='PromedisBabu11234',authType='Basic' -allowUntrusted
