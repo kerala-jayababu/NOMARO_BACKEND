@@ -389,10 +389,111 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             else if (entityCode == _configuration["WorkflowEntityCodes:OVERTIME"])
             {
                 var entity = await _dbContext.OvertimeTransactions.FindAsync(entityTablePrimaryKeyID);
+                var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
+                var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
                     await _dbContext.SaveChangesAsync();
+                }
+
+
+                if (finalStatus == "SUBMITTED")
+                {
+                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+
+
+                    foreach (var empId in employeeIdList)
+                    {
+
+                        string approverName = await GetFullNameById(empId);
+                        string creatorName = await GetFullNameById(loggedInEmployeeId);
+                        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+                        var notificationConfig = await _dbContext.NotificationsConfig
+                            .FirstOrDefaultAsync(x => x.EntityCode == "OVERTIME" && x.NotificationType == "Overtime Transaction Submitted for Approval");
+
+                        var notification = await CreateNotificationforOvertimeConfig(approverName, employeename, creatorName, createdDateTime, notificationConfig, (int)loggedInEmployeeId, empId, entityTablePrimaryKeyID, "SUBMITTED", null);
+                        await _dbContext.Notifications.AddAsync(notification);
+                        await _dbContext.SaveChangesAsync();
+
+                        var tokenDetails = await _accountService.LoginForMail(empId);
+                        if (tokenDetails != null)
+                        {
+                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
+                            string actionUrl = GenerateActionUrlForEmployeeSalaryConfig(tokenvalue);
+                            string emailBody = await GenerateEmailBodyForOvertimeConfig(notificationConfig.EmailContent, empId, loggedInEmployeeId, employeename, actionUrl);
+
+                            await EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, emailBody);
+                        }
+                    }
+                }
+                else if (finalStatus == "APPROVED" || finalStatus == "REJECTED" || finalStatus == "INTERIM APPROVED")
+                {
+                    string notifType = string.Empty;
+
+                    if (finalStatus == "INTERIM APPROVED")
+                        notifType = "Overtime Transaction Interim Approved";
+                    else if (finalStatus == "APPROVED")
+                        notifType = "Overtime Transaction Approved";
+                    else
+                        notifType = "Overtime Transaction Rejected";
+
+
+                    var notificationConfig = await _dbContext.NotificationsConfig
+                        .FirstOrDefaultAsync(x => x.EntityCode == "OVERTIME" && x.NotificationType == notifType);
+
+                    var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
+                        .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
+                                                  x.EntityCode == "OVERTIME" &&
+                                                  x.CycleIndex == cycleIndex);
+                    string approverName = await GetFullNameById(loggedInEmployeeId);
+                    string creatorName = await GetFullNameById(approvalworkflow.SourceIdEmployee);
+                    string approvedDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+                    if (approvalworkflow != null)
+                    {
+                        var notification = await CreateNotificationforOvertimeConfig(approverName, employeename, creatorName, approvedDateTime, notificationConfig, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee, entityTablePrimaryKeyID, finalStatus, approvalworkflow.RejectionRemarks);
+
+                        await _dbContext.Notifications.AddAsync(notification);
+                        await _dbContext.SaveChangesAsync();
+
+                        var tokenDetails = await _accountService.LoginForMail(approvalworkflow.SourceIdEmployee);
+                        if (tokenDetails != null)
+                        {
+                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
+                            string actionUrl = GenerateActionUrlForOvertimeConfigForAPPROVEDREjected(tokenvalue);
+
+                            var entitys = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
+
+                            string salaryTemplateName = entitys?.SalaryTemplateName ?? "N/A";
+
+
+                            string emailBody = "";
+                            if (finalStatus == "INTERIM APPROVED")
+                            {
+                                emailBody = notificationConfig.EmailContent
+                                    .Replace("#CREATORNAME#", creatorName)
+                                    .Replace("#APPROVERNAME#", approverName)
+                                    .Replace("#APPROVEDEDDATETIME#", approvedDateTime);
+                            }else
+                            if (finalStatus == "APPROVED")
+                            {
+                                emailBody = notificationConfig.EmailContent
+                                    .Replace("#CREATORNAME#", creatorName)                                
+                                    .Replace("#APPROVEDEDDATETIME#", approvedDateTime);
+                            }
+                            else 
+                            {
+                                emailBody = notificationConfig.EmailContent
+                                    .Replace("#RECEIVEDEMPLOYEENAME#", creatorName)
+                                    .Replace("#REJECTEDEMPLOYEENAME#", approverName)                                    
+                                    .Replace("#REJECTEDEDDATETIME#", approvedDateTime)
+                                    .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
+                            }
+                            emailBody += $"<p><a href='{actionUrl}'>Click here to view the Overtime Tranasaction</a></p>";
+                            await EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, emailBody);
+                        }
+                    }
                 }
 
 
@@ -441,6 +542,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var baseUrl = "http://localhost:5173";
             return $"{baseUrl}/#/auth/employee-salary-config?tk={token}";
         }
+
+        private string GenerateActionUrlForOvertimeConfigForAPPROVEDREjected(string token)
+        {
+            var baseUrl = "http://localhost:5173";
+            return $"{baseUrl}/#/auth/overtime-transactions?tk={token}";
+        }
         private async Task<string> GenerateEmailBody(string template, int approverId, int? creatorId, string salaryTemplateName, string actionUrl)
         {
             string approverName = await GetFullNameById(approverId);
@@ -473,7 +580,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return content;
         }
 
-        
+        private async Task<string> GenerateEmailBodyForOvertimeConfig(string template, int approverId, int? creatorId, string EnmployeeName, string actionUrl)
+        {
+            string approverName = await GetFullNameById(approverId);
+            string creatorName = await GetFullNameById(creatorId);
+            string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+            string content = template
+                .Replace("#APPROVERNAME#", approverName)             
+                .Replace("#CREATORNAME#", creatorName)
+                .Replace("#CREATEDDATETIME#", createdDateTime);
+
+            content += $"<p><a href='{actionUrl}'>Click here to open the config Approval</a></p>";
+            return content;
+        }
+
+
         private async Task<string> GetFullNameById(int? employeeId)
         {
             if (!employeeId.HasValue) return "";
@@ -550,6 +672,81 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         }
 
+
+
+
+        private async Task<Notification> CreateNotificationforOvertimeConfig(string approverName, string employeename, string creatorName, string createdDateTime, NotificationConfig notificationConfig, int loggedInEmployeeId, int empId, int entityTablePrimaryKeyID, string templateType, string? rejectRemarks)
+        {
+
+            string appNotificationText = templateType switch
+            {
+                "SUBMITTED" => $"An overtime transaction submitted by {creatorName} requires your action.",
+                "INTERIM APPROVED" => $"Your Overtime Transaction has been APPROVED by {employeename}. Please wait for HR Approval..",
+                "APPROVED" => $"Your Overtime Transaction has been APPROVED by your Manager and HR Manager",
+                "REJECTED" => $"Your Overtime Transaction has been REJECTED by {creatorName}.",
+                _ => "You have a new notification."
+            };
+
+
+            string emailContent = notificationConfig.EmailContent;
+
+            if (templateType == "SUBMITTED")
+            {
+                emailContent = emailContent
+                 .Replace("#APPROVERNAME#", approverName)                 
+                 .Replace("#CREATORNAME#", creatorName)
+                 .Replace("#CREATEDDATETIME#", createdDateTime);
+            }
+            else
+            if (templateType == "INTERIM APPROVED")
+            {
+                emailContent = emailContent
+                    .Replace("#CREATORNAME#", creatorName)                    
+                    .Replace("#APPROVERNAME#", approverName)
+                    .Replace("#APPROVEDEDDATETIME#", createdDateTime);
+            }
+            else
+            if (templateType == "APPROVED")
+            { 
+                emailContent = emailContent
+                    .Replace("#CREATORNAME#", creatorName)                  
+                    .Replace("#APPROVEDEDDATETIME#", createdDateTime);
+            }
+            else if (templateType == "REJECTED")
+            {
+                emailContent = emailContent
+                    .Replace("#RECEIVEDEMPLOYEENAME#", creatorName)
+                    .Replace("#REJECTEDEMPLOYEENAME#", approverName)
+                    .Replace("#REJECTEDEDDATETIME#", createdDateTime)
+                    .Replace("#REJECTIONREASON#", rejectRemarks);
+
+            }
+
+
+
+            string notificationLink = templateType == "SUBMITTED"
+      ? "config-approvals"
+      : "overtime-transactions";
+
+            return new Notification
+            {
+                IdNotificationConfig = notificationConfig?.IdNotificationConfig,
+                NotificationType = notificationConfig?.NotificationType,
+                SentByIdEmployee = loggedInEmployeeId,
+                ReceivedByIdEmployee = empId,
+                EmailSubject = notificationConfig?.EmailSubject,
+                EmailContent = emailContent, // now replaced
+                EmailSentStatus = "SENT",
+                AppNotificationText = appNotificationText, // now generated
+                NotificationLink = notificationLink,
+                IsReadAppNotification = false,
+                Status = "SENT",
+                RelatedRecordID = entityTablePrimaryKeyID,
+                RelatedRecordType = "OVERTIME",
+                CreatedAt = DateTime.Now
+            };
+
+        }
 
 
 
