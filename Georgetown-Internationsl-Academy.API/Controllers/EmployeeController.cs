@@ -129,10 +129,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     {
                         employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
                     }
+
                     //if (!string.IsNullOrEmpty(employee.EmployeePhotoFilePath) && System.IO.File.Exists(employee.EmployeePhotoFilePath))
                     //{
                     //    employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employee.EmployeePhotoFilePath);
                     //}
+
                 }
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDetailsDto>>.CreateSuccess(employeeProfile, "Employee profile details retrieved successfully."));
             }

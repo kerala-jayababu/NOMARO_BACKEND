@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -72,6 +73,41 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             var result = await _optionService.GetEmployeeLatestSalaryStructure();
             return Ok(result);
+        }
+
+        [HttpGet("GetEmployeeNotification")]
+        public async Task<IActionResult> GetEmployeeNotification()
+        {
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var result = await _optionService.GetEmployeeNotification(int.Parse(IdEmployee));
+            return Ok(result);
+        }
+
+
+        [HttpPost("UpdateEmployeeNotification")]
+        public async Task<IActionResult> UpdateEmployeeNotification(int IdNotification)
+        {
+            
+           
+
+
+
+            try
+            {
+                var result = await _optionService.UpdateEmployeeNotification(IdNotification);
+               
+                if (result == null)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update Notification."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Nitification Updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+
+            }
         }
 
 

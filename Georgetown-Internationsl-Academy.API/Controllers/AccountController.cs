@@ -37,15 +37,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             var result = await _accountService.DecryptToken(token);
 
-            string message = @$"<p>Hi ,</p>
-                                 <h3>Your OTP for Infomed Conference Registration</h3>
-                                 <h1>{result}</h1>
-                                 <p>This OTP will be valid for 5 Minutes</p>
-                                 <p>If you didn't request this code, you can safely ignore this email. 
-                                 Someone else might have typed your email address by mistake</p>
-                                 <p>Thanks</p>
-                                 <h3>Infomed Team</h3>
-                               ";
+
+
+       
             //bool IsEmailSent = await EmailService.SendMail("sandeep241798@gmail.com", message, "Verification Code");
 
             if (result != null)

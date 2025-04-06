@@ -5,7 +5,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 {
     public static class EmailService
     {
-        public static async Task<bool> SendMail(string email, string message, string subject)
+        public static async Task<bool> SendMail(string toEmail, string subject, string htmlBody)
         {
             try
             {
@@ -18,11 +18,11 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
                     {
                         From = new MailAddress("georgetowninternational123@gmail.com", "George Town International Academy"),
                         Subject = subject,
-                        Body = message,
-                        IsBodyHtml = true,
+                        Body = htmlBody, 
+                        IsBodyHtml = true 
                     };
 
-                    mailMessage.To.Add(email);
+                    mailMessage.To.Add(toEmail);
                     await client.SendMailAsync(mailMessage);
                 }
                 return true;

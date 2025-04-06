@@ -91,11 +91,13 @@ namespace YourNamespace.Services.Implementation
             {
                 if (dropdownFilter.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
                 {
-                    query.Append(@"
-                    AND (
-                        es.ApprovalStatus = 'SUBMITTED'
-                        OR es.ApprovalStatus = 'INTERIM APPROVED'
-                    )");
+
+                    query.Append(" AND es.ApprovalStatus = 'SUBMITTED' ");
+                 
+                }
+                else if (dropdownFilter.Equals("INTERIM APPROVED", StringComparison.OrdinalIgnoreCase))
+                {
+                    query.Append(" AND es.ApprovalStatus = 'INTERIM APPROVED' ");
                 }
                 else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase))
                 {
@@ -113,6 +115,10 @@ namespace YourNamespace.Services.Implementation
                 else if (dropdownFilter.Equals("DRAFT GENERATED", StringComparison.OrdinalIgnoreCase))
                 {
                     query.Append(" AND es.ApprovalStatus = 'Draft' ");
+                }
+                else if (dropdownFilter.Equals("REJECTED", StringComparison.OrdinalIgnoreCase))
+                {
+                    query.Append(" AND es.ApprovalStatus = 'REJECTED' ");
                 }
                 else if (dropdownFilter.Equals("NOT GENERATED", StringComparison.OrdinalIgnoreCase))
                 {

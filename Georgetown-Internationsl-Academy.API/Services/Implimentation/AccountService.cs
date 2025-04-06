@@ -65,6 +65,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 Role = designation != null ? designation.DesignationName : string.Empty,
                 EmployeePhotoFilePath=user.EmployeePhotoFilePath,
                 AttachmentBlob = user.AttachmentBlob,
+                Email = user.EmailID,
                 Token = new JwtSecurityTokenHandler().WriteToken(token)
             };
 
@@ -85,6 +86,74 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return token;
         }
+        private JwtSecurityToken GetTokenForEmail(List<Claim> authClaims)
+        {
+            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:Secret"]));
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["JwtSettings:ValidIssuer"],
+                audience: _configuration["JwtSettings:ValidAudience"],
+                claims: authClaims,
+                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+            // No 'expires' set — token will not expire
+            );
+
+            return token;
+        }
+
+
+
+
+        public async Task<UserResponseDto> LoginForMail(int EmployeeId)
+        {
+            var user = _dbContext.Employees.FirstOrDefault(x => x.IdEmployee == EmployeeId);
+            if (user == null)
+            {
+                return null;
+            }
+
+           
+
+            var designation = await _dbContext.Designations.FirstOrDefaultAsync(x => x.IdDesignation == user.IdDesignation);
+
+            var identity = new ClaimsIdentity(IdentityConstants.ApplicationScheme);
+            identity.AddClaim(new Claim(ClaimTypes.Name, user.FirstName + " " + user.LastName));
+            identity.AddClaim(new Claim(ClaimTypes.Role, designation.DesignationName));
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.IdEmployee.ToString()));
+            var authClaims = new List<Claim>
+            {
+            new(ClaimTypes.Name,  user.FirstName+" "+user.LastName),
+            new(ClaimTypes.NameIdentifier, user.IdEmployee.ToString()),
+            new(ClaimTypes.Email, user.EmailID.ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+            var token = GetTokenForEmail(authClaims);
+
+            string dbPath = user.EmployeePhotoFilePath?.Trim(); // Remove extra spaces if any
+
+
+            if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
+            {
+                user.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
+            }
+
+            var userResponse = new UserResponseDto
+            {
+                Name = user.FirstName + " " + user.MiddleName + " " + user.LastName,
+                UserId = user.IdEmployee,
+                Email = user.EmailID,
+                Role = designation != null ? designation.DesignationName : string.Empty,
+                EmployeePhotoFilePath = user.EmployeePhotoFilePath,
+                AttachmentBlob = user.AttachmentBlob,
+                Token = new JwtSecurityTokenHandler().WriteToken(token)
+            };
+
+            return userResponse;
+        }
+
+
+
+
 
 
         public async Task<UserResponseDto> DecryptToken(string token)
@@ -95,6 +164,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
             string[] parts = token.Split(',');
             string pureToken = parts[0];
+            string notificationIdStr = parts[1];
             var handler = new JwtSecurityTokenHandler();
             JwtSecurityToken jwtToken;
 
@@ -106,7 +176,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 return null; // Handle invalid token
             }
-
+            var notification = await _dbContext.Notifications.Where(x=>x.IdNotification == Convert.ToInt32(notificationIdStr)).FirstOrDefaultAsync();
+            if (notification != null)
+            {
+                notification.IsReadAppNotification = true;
+                notification.ReadAt = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+            }
 
             var claims = jwtToken.Claims.ToDictionary(c => c.Type, c => c.Value);
 

@@ -237,5 +237,46 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
+        public async Task<List<NotificationConfigDto>> GetEmployeeNotification(int employeeID)
+        {
+            try
+            {
+                var notification = await _dbContext.Notifications.Where(x=>x.ReceivedByIdEmployee == employeeID && x.IsReadAppNotification == false) .ToListAsync();
+                return _mapper.Map<List<NotificationConfigDto>>(notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all EmployeeNotification by Id.");
+                throw;
+            }
+        }
+
+        public async Task<NotificationConfigDto> UpdateEmployeeNotification(int idNotification)
+        {
+            try
+            {
+                var notification = await _dbContext.Notifications
+                    .FirstOrDefaultAsync(x => x.IdNotification == idNotification);
+
+                if (notification != null)
+                {
+                    notification.IsReadAppNotification = true;
+                    notification.ReadAt = DateTime.Now;
+                    await _dbContext.SaveChangesAsync();
+
+                    // Map and return the updated notification
+                    return _mapper.Map<NotificationConfigDto>(notification);
+                }
+                
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating notification with ID {idNotification}.");
+                return null;
+            }
+        }
+
     }
 }
