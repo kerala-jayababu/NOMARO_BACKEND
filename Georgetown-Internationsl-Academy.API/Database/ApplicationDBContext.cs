@@ -52,8 +52,10 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<RentFreeQuarterDurations> RentFreeQuarterDurations { get; set; }
         public DbSet<EmployeeSalaryDetails> EmployeeSalaryDetails { get; set; }
         public DbSet<LeavePassage> LeavePassages { get; set; }
+        public DbSet<ReportsMaster> ReportsMaster { get; set; }
+        public DbSet<ReportConditions> ReportConditions { get; set; }
         public DbSet<Notification> Notifications { get; set; }
 
-        
+
     }
 }

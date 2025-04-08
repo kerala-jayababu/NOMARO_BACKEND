@@ -157,6 +157,7 @@ builder.Services.AddScoped<IApprovalWorkflowService, ApprovalWorkflowService>();
 builder.Services.AddScoped<ISalaryGenerationService, SalaryGenerationService>();
 builder.Services.AddScoped<IBankServices, BankServices>();
 builder.Services.AddScoped<ILeavePassageService, LeavePassageService>();
+builder.Services.AddScoped<IReportServices, ReportServices>();
 
 var app = builder.Build();
 
