@@ -33,13 +33,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpGet("GetAllPayrollScreens")]
-        public async Task<IActionResult> GetAllPayrollScreens()
+        public async Task<IActionResult> GetAllPayrollScreens(string? appType = "")
         {
             try
             {
                 var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                var payrollScreens = await _roleBasedScreenService.GetAllPayrollScreens(int.Parse(IdEmployee));
+                var payrollScreens = await _roleBasedScreenService.GetAllPayrollScreens(appType,int.Parse(IdEmployee));
 
                 if (payrollScreens == null || !payrollScreens.Any())
                 {

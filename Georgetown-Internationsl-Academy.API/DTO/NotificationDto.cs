@@ -27,6 +27,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public bool? IsReadAppNotification { get; set; }    
 
         public string? Status { get; set; }
+        public string? LogoText { get; set; }
 
         public int? RelatedRecordID { get; set; }
 

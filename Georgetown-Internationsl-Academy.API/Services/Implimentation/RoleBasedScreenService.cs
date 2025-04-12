@@ -20,12 +20,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _logger = logger;
             _mapper = mapper;
         }
-        public async Task<List<PayrollScreenDto>> GetAllPayrollScreens(int idEmployee)
+        public async Task<List<PayrollScreenDto>> GetAllPayrollScreens(string? appType,int idEmployee)
         {
             try
             {
                 var employeePermissions = await _dbContext.EmployeePermissions.Where(x => x.IdEmployee == idEmployee).ToListAsync();
-                var screens = await _dbContext.PayrollScreens.Where(x=>x.Enabled==true).ToListAsync();
+                var screens = await _dbContext.PayrollScreens.Where(x=>x.Enabled==true  && x.APPTYPE == appType).ToListAsync();
 
                 var payrollScreens = screens
                     .Select(screen => new PayrollScreenDto

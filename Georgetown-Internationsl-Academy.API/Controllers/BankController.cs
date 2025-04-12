@@ -15,7 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
-    [Authorize]
+    //[Authorize]
     public class BankController : ControllerBase
     {
         private readonly IBankServices _bankservice;

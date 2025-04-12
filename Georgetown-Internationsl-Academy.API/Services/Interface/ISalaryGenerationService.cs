@@ -8,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<SalarySlipDto>> GetSalarySlips(int idSalaryMonthFrom, int idSalaryMonthTo, string? dropdownFilter = null);
         Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(string employeeIds, int idSalaryMonth, int idEmployeeCreated);
         Task<dynamic> ExportSalaryGenerationDetails(string employeeIds, int idSalaryMonth);
+        Task<dynamic> ExportSalaryGenerationDetailsForApproved(string employeeIds, int idSalaryMonth);
         Task<List<SalaryUploadResponseDto>> UploadSalaryDetails(UploadSalaryGenerationDetailsDto uploadSalaryGenerationDetails,int employeeID);
         Task<bool> SubmitSalaryDetails(string employeeIds, int idSalaryMonth, int idEmployeeCreated);        
         Task<int> UndoGeneratedDraftSalary(string employeeIds, int idSalaryMonth);        

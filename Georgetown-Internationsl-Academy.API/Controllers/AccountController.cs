@@ -32,16 +32,33 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             return NotFound("User Not Found");
         }
+        [HttpPost("ValidateLogin")]
+        public async Task<IActionResult> ValidateLogin(string emailId)
+        {
+            try
+            {
+                var result = await _accountService.ValidateLogin(emailId);
+
+                if (result != null)
+                {
+                    return Ok(ApiResponseDto<string>.CreateSuccess(result, "Login validated successfully."));
+                }
+
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("User not found or invalid permissions."));
+            }
+            catch (Exception ex)
+            {
+               
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+
         [HttpPost("DecryptToken")]
         public async Task<IActionResult> DecryptToken(string token)
         {
             var result = await _accountService.DecryptToken(token);
-
-
-
-       
-            //bool IsEmailSent = await EmailService.SendMail("sandeep241798@gmail.com", message, "Verification Code");
-
             if (result != null)
             {
                 return Ok(result);

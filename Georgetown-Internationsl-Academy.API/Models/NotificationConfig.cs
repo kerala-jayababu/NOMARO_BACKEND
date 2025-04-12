@@ -13,6 +13,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? EmailContent { get; set; }
         public string? AppNotificationText { get; set; }
         public string? WebLink { get; set; }
+        public string? LogoText { get; set; }
         public bool? EmailNotificationEnabled { get; set; }
         public bool? AppNotificationEnabled { get; set; }
     }

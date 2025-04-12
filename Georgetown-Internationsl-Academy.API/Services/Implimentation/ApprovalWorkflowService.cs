@@ -526,26 +526,26 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         private string GenerateActionUrl(string token)
         {
-            var baseUrl = "http://localhost:5173";
+            var baseUrl = _configuration["BaseURL"];          
             return $"{baseUrl}/#/auth/salary-templates?tk={token}";
         }
 
 
         private string GenerateActionUrlForEmployeeSalaryConfig(string token)
         {
-            var baseUrl = "http://localhost:5173";
+            var baseUrl = _configuration["BaseURL"];
             return $"{baseUrl}/#/auth/config-approvals?tk={token}";
         }
 
         private string GenerateActionUrlForEmployeeSalaryConfigForAPPROVEDREjected(string token)
         {
-            var baseUrl = "http://localhost:5173";
+            var baseUrl = _configuration["BaseURL"];
             return $"{baseUrl}/#/auth/employee-salary-config?tk={token}";
         }
 
         private string GenerateActionUrlForOvertimeConfigForAPPROVEDREjected(string token)
         {
-            var baseUrl = "http://localhost:5173";
+            var baseUrl = _configuration["BaseURL"];
             return $"{baseUrl}/#/auth/overtime-transactions?tk={token}";
         }
         private async Task<string> GenerateEmailBody(string template, int approverId, int? creatorId, string salaryTemplateName, string actionUrl)
@@ -676,6 +676,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 AppNotificationText = appNotificationText, // now generated
                 NotificationLink = notificationLink,
                 IsReadAppNotification = false,
+                LogoText=notificationConfig.LogoText,
                 Status = "SENT",
                 RelatedRecordID = entityTablePrimaryKeyID,
                 RelatedRecordType = "EMPSALCONFIG",
@@ -695,7 +696,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 "SUBMITTED" => $"An overtime transaction submitted by {creatorName} requires your action.",
                 "INTERIM APPROVED" => $"Your Overtime Transaction has been APPROVED by {employeename}. Please wait for HR Approval..",
                 "APPROVED" => $"Your Overtime Transaction has been APPROVED by your Manager and HR Manager",
-                "REJECTED" => $"Your Overtime Transaction has been REJECTED by {creatorName}.",
+                "REJECTED" => $"Your Overtime Transaction has been REJECTED by {employeename}.",
                 _ => "You have a new notification."
             };
 
@@ -749,6 +750,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 EmailSubject = notificationConfig?.EmailSubject,
                 EmailContent = emailContent, // now replaced
                 EmailSentStatus = "SENT",
+                LogoText=notificationConfig.LogoText,
                 AppNotificationText = appNotificationText, // now generated
                 NotificationLink = notificationLink,
                 IsReadAppNotification = false,
@@ -817,6 +819,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 ReceivedByIdEmployee = toId,
                 EmailSubject = config?.EmailSubject,
                 EmailContent = emailContent, // now replaced
+                LogoText=config.LogoText,
                 EmailSentStatus = "SENT",
                 AppNotificationText = appNotificationText, // now generated
                 NotificationLink = notificationLink,

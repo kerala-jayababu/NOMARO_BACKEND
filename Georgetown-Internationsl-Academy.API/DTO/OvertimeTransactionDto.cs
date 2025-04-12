@@ -24,6 +24,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? CreatedBy { get; set; }
 
         public string? CreatedOn { get; set; }
+        [NotMapped]
+        public string? Apptype { get; set; }
 
         [NotMapped]
         public byte[]? AttachmentBlob { get; set; }

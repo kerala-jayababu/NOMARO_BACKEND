@@ -439,6 +439,38 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+
+        public async Task<dynamic> ExportSalaryGenerationDetailsForApproved(string employeeIds, int idSalaryMonth)
+        {
+            if (string.IsNullOrWhiteSpace(employeeIds))
+            {
+                throw new ArgumentException("Employee ID list cannot be empty.");
+            }
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
+                {
+                    var parameters = new DynamicParameters();
+                    parameters.Add("@IdSalaryMonth", idSalaryMonth, DbType.Int32);
+                    parameters.Add("@IdEmployeesString", employeeIds, DbType.String);
+
+                    var result = await connection.QueryAsync<dynamic>(
+                        "ExportSalaryGenerationDetails_ForApproval",
+                        parameters,
+                        commandType: CommandType.StoredProcedure);
+
+                    return result.ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting salary generation details.");
+                throw new Exception("An error occurred while exporting salary details. Please try again.");
+            }
+        }
+
+        
         public async Task<List<SalaryUploadResponseDto>> UploadSalaryDetails(UploadSalaryGenerationDetailsDto uploadSalaryGenerationDetails,int EmployeeID)
         {
             try

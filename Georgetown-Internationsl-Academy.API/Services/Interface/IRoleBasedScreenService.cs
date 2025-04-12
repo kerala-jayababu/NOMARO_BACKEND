@@ -6,7 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     public interface IRoleBasedScreenService
     {
         Task<bool> ManagePayrollScreens(List<PayrollScreenDto> payrollScreens);
-        Task<List<PayrollScreenDto>> GetAllPayrollScreens(int IdEmployee);
+        Task<List<PayrollScreenDto>> GetAllPayrollScreens(string? appType,int IdEmployee);
         Task<List<PayrollScreenDto>> GetEmployeePermissionsById(int EmployeeID);
         Task<bool> ManageEmployeePermissions(List<EmployeePermissionDto> employeePermissions);
         Task<bool> ManageRoleBasedPermissions(List<RoleBasedPermissionDto> rolePermissions);

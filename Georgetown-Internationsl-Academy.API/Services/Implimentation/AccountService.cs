@@ -15,11 +15,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
     {
         private readonly IConfiguration _configuration;
         private readonly ApplicationDBContext _dbContext;
-
-        public AccountService(IConfiguration configuration, ApplicationDBContext dbContext)
+        private readonly ILogger<NotificationConfigService> _logger;
+        public AccountService(IConfiguration configuration, ApplicationDBContext dbContext, ILogger<NotificationConfigService> logger)
         {
             _configuration = configuration;
             _dbContext = dbContext;
+            _logger = logger;
         }
 
         public async Task<UserResponseDto> Login(LoginDto login)
@@ -227,6 +228,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             };
         }
 
+        public async Task<string> ValidateLogin(string emailId)
+        {
+            try
+            {
+                var user = await _dbContext.Employees
+                    .FirstOrDefaultAsync(x => x.EmailID == emailId);
+
+                if (user == null) return null;
+
+                var employeePermissions = await _dbContext.EmployeePermissions
+                    .Where(x => x.IdEmployee == user.IdEmployee && x.Permission.Length > 0)
+                    .ToListAsync();
+
+                if (employeePermissions == null || !employeePermissions.Any())
+                    return "SelfPortal";
+
+                return "Payroll,SelfPortal";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating login for email: {EmailId}", emailId);
+                throw; // Let the controller handle the error and return proper status code
+            }
+        }
 
     }
 }

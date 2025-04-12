@@ -36,5 +36,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int? RelatedRecordID { get; set; }
 
         public string? RelatedRecordType { get; set; }
+        public string? LogoText { get; set; }
     }
 }

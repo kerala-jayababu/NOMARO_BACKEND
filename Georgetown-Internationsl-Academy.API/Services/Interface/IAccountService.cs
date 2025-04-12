@@ -8,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<UserResponseDto> LoginForMail(int EmployeeID);
         Task<UserResponseDto> Login(LoginDto login);
         Task<UserResponseDto> DecryptToken(string token);
+        Task<string> ValidateLogin(string emailId);
 
     }
 }
