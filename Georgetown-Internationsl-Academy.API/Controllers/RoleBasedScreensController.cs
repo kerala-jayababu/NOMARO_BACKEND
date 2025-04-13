@@ -33,7 +33,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpGet("GetAllPayrollScreens")]
-        public async Task<IActionResult> GetAllPayrollScreens(string? appType = "")
+        public async Task<IActionResult> GetAllPayrollScreens(string? appType)
         {
             try
             {

@@ -25,6 +25,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             try
             {
                 var employeePermissions = await _dbContext.EmployeePermissions.Where(x => x.IdEmployee == idEmployee).ToListAsync();
+                if (appType == null || appType == "")
+                {
+                    appType = "PAYROLL";
+                }
                 var screens = await _dbContext.PayrollScreens.Where(x=>x.Enabled==true  && x.APPTYPE == appType).ToListAsync();
 
                 var payrollScreens = screens
