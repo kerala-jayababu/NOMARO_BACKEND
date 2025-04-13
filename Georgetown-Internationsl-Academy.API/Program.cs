@@ -158,6 +158,7 @@ builder.Services.AddScoped<ISalaryGenerationService, SalaryGenerationService>();
 builder.Services.AddScoped<IBankServices, BankServices>();
 builder.Services.AddScoped<ILeavePassageService, LeavePassageService>();
 builder.Services.AddScoped<IReportServices, ReportServices>();
+builder.Services.AddScoped<IBambooServices, BambooServices>();
 
 var app = builder.Build();
 
@@ -173,7 +174,7 @@ else
     app.UseSwaggerUI();
 
 }
-
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors("AllowSpecificOrigins");
 app.UseAuthentication();

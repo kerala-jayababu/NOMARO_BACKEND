@@ -328,16 +328,19 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
             }
-            var screenCode = _configuration["ScreenCodes:OvertimeTransactions"];
-            var actionType = "U";
-
-            // Check permission
-            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
-
-            if (!hasPermission)
+            if (dto.Apptype == null && dto.Apptype != "PAYROLL")
             {
-                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+                var screenCode = _configuration["ScreenCodes:OvertimeTransactions"];
+                var actionType = "U";
 
+                // Check permission
+                var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+                }
             }
             try
             {

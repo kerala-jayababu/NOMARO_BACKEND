@@ -18,102 +18,40 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
-    [Authorize]
+ 
 
     public class BambooController : ControllerBase
-    {
-        private readonly HttpClient _httpClient;
+    {             
 
-        public BambooController(IHttpClientFactory httpClientFactory)
+
+        private readonly IBambooServices _bambooservice;        
+        private readonly IConfiguration _configuration;
+        public BambooController(IBambooServices bambooservice,  IConfiguration configuration)
         {
-            _httpClient = httpClientFactory.CreateClient();
+            _bambooservice = bambooservice;;
+            _configuration = configuration;
         }
+
+
+        [HttpGet("SyncEmployeesFromBambooHR")]
         public async Task<IActionResult> SyncEmployeesFromBambooHR()
         {
-            var bambooUrl = "https://api.bamboohr.com/api/gateway.php/giagy/v1/employees/directory";
-            var apiKey = "57173c7724147db4c9c2951f7027c142f68210c6";
-            var basicAuth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{apiKey}:x"));
 
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-
-            var response = await _httpClient.GetAsync(bambooUrl);
-
-            if (!response.IsSuccessStatusCode)
-                return StatusCode((int)response.StatusCode, await response.Content.ReadAsStringAsync());
-
-            var xml = await response.Content.ReadAsStringAsync();
-
-            var employees = ParseEmployeeXml(xml);
-
-            using var scope = HttpContext.RequestServices.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<YourDbContext>();
-
-            foreach (var emp in employees)
+            try
             {
-                var existing = await db.Employees.FindAsync(emp.Id);
-                if (existing == null)
-                {
-                    db.Employees.Add(new Employee
-                    {
-                        Id = emp.Id,
-                        DisplayName = emp.DisplayName,
-                        FirstName = emp.FirstName,
-                        LastName = emp.LastName,
-                        PreferredName = emp.PreferredName,
-                        JobTitle = emp.JobTitle,
-                        Pronouns = emp.Pronouns,
-                        PhotoUploaded = emp.PhotoUploaded,
-                        PhotoUrl = emp.PhotoUrl,
-                        CanUploadPhoto = emp.CanUploadPhoto
-                    });
-                }
-                else
-                {
-                    existing.DisplayName = emp.DisplayName;
-                    existing.FirstName = emp.FirstName;
-                    existing.LastName = emp.LastName;
-                    existing.PreferredName = emp.PreferredName;
-                    existing.JobTitle = emp.JobTitle;
-                    existing.Pronouns = emp.Pronouns;
-                    existing.PhotoUploaded = emp.PhotoUploaded;
-                    existing.PhotoUrl = emp.PhotoUrl;
-                    existing.CanUploadPhoto = emp.CanUploadPhoto;
-                }
+
+            var result = await _bambooservice.SyncEmployeesFromBambooHR();
+                return Ok(result);
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
             }
 
-            await db.SaveChangesAsync();
-
-            return Ok(new { Count = employees.Count });
         }
 
-        private List<EmployeeDto> ParseEmployeeXml(string xmlContent)
-        {
-            var doc = XDocument.Parse(xmlContent);
-            var employees = new List<EmployeeDto>();
-
-            var employeeNodes = doc.Descendants("employee");
-
-            foreach (var node in employeeNodes)
-            {
-                var emp = new EmployeeDto
-                {
-                    Id = node.Attribute("id")?.Value,
-                    DisplayName = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "displayName")?.Value,
-                    FirstName = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "firstName")?.Value,
-                    LastName = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "lastName")?.Value,
-                    PreferredName = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "preferredName")?.Value,
-                    JobTitle = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "jobTitle")?.Value,
-                    Pronouns = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "pronouns")?.Value,
-                    PhotoUploaded = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "photoUploaded")?.Value == "true",
-                    PhotoUrl = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "photoUrl")?.Value,
-                    CanUploadPhoto = node.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == "canUploadPhoto")?.Value,
-                };
-
-                employees.Add(emp);
-            }
-
-            return employees;
-        }
+      
 
     }
 
