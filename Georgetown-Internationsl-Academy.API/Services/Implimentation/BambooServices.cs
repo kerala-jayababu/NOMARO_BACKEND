@@ -1,7 +1,10 @@
-﻿using Georgetown_Internationsl_Academy.API.DTO;
+﻿using Georgetown_International_Academy.API.Database;
+using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Helpers;
+using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using iText.Kernel.Pdf.Canvas.Wmf;
+using Microsoft.EntityFrameworkCore;
 using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Crmf;
 using RestSharp;
@@ -13,11 +16,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<BambooServices> _logger;
-     
-        public BambooServices(IConfiguration configuration, ILogger<BambooServices> logger)
+        private readonly ApplicationDBContext _dbContext;
+
+        public BambooServices(IConfiguration configuration, ILogger<BambooServices> logger, ApplicationDBContext dbContext)
         {
             _configuration = configuration;
             _logger = logger;
+            _dbContext = dbContext;
         }
 
         public async Task<List<BambooHRDetailsDto>> SyncEmployeesFromBambooHR()
@@ -58,7 +63,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 using var reader = new StringReader(response.Content);
                 var directory = (EmployeeDirectoryDto)serializer.Deserialize(reader);
 
-                var rawEmployees = directory?.Employees ?? new List<EmployeeRawDto>();
+                var rawEmployees = directory?.Employees.Take(2) ?? new List<EmployeeRawDto>();
 
                 foreach (var emp in rawEmployees)
                 {
@@ -81,6 +86,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         var detailedRaw = (BambooHREmployeeXmlDto)detailSerializer.Deserialize(detailReader);
 
                         var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
+                        await AddUpdateEmployeeDetailsFromBambooHR(mapped);
                         result.Add(mapped);
                     }
                     catch (Exception ex)
@@ -88,6 +94,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         _logger.LogError(ex, "Error while processing employee ID {Id}", emp.Id);
                     }
                 }
+
 
                 return result;
 
@@ -102,7 +109,91 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<bool> AddUpdateEmployeeDetailsFromBambooHR(BambooHRDetailsDto bambooEmp)
+        {
 
+            var empDetails = await _dbContext.Employees.Where(em => em.EmployeeCode == bambooEmp.Id).FirstOrDefaultAsync();
+            if (empDetails == null)
+                empDetails = new Models.Employee();
+            else
+                empDetails.IdEmployee = empDetails.IdEmployee;
+
+            empDetails.EmployeeCode = bambooEmp.Id;
+            empDetails.FirstName = bambooEmp.FirstName;
+            empDetails.MiddleName = bambooEmp.MiddleName;
+            empDetails.LastName = bambooEmp.LastName;
+            empDetails.Gender = bambooEmp.Gender;
+
+            var idDesignation = GetIdDesignation(bambooEmp.JobTitle);
+            if (await idDesignation > 0)
+                empDetails.IdDesignation = await idDesignation;
+
+            var idDepartment = GetIdDepartment(bambooEmp.Department);
+            if (await idDepartment > 0)
+                empDetails.IdDepartment = await idDepartment;
+
+            empDetails.EmailID = bambooEmp.WorkEmail;
+            empDetails.PhoneNumber1 = bambooEmp.WorkPhone;
+            empDetails.PhoneNumber2 = bambooEmp.MobilePhone;
+            empDetails.Address1 = bambooEmp.Address1;
+            empDetails.Address2 = bambooEmp.Address2;
+            empDetails.City = bambooEmp.City;
+            empDetails.State = bambooEmp.State;
+            empDetails.ZipCode = bambooEmp.ZipCode;
+
+            var reportingTo = GetIdEmployee(bambooEmp.Supervisor);
+            if (await reportingTo > 0)
+                empDetails.ReportingTo = await reportingTo;
+            empDetails.CurrentStatus = bambooEmp.Status == "Active" ? "Working" : "NotWorking";
+            if(bambooEmp.TerminationDate != null)
+                empDetails.LastWorkingDay = bambooEmp.TerminationDate;
+
+            if (empDetails.IdEmployee > 0)
+                _dbContext.Employees.Update(empDetails);
+            else
+                _dbContext.Employees.Add(empDetails);
+
+             await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<int> GetIdDesignation(string DesignationName)
+        {
+            var desigDetails = await _dbContext.Designations.Where(dd => dd.DesignationName.ToUpper() == DesignationName.ToUpper()).FirstOrDefaultAsync();
+            if (desigDetails != null)
+                return desigDetails.IdDesignation;
+                
+            return -1;
+        }
+
+        public async Task<int> GetIdDepartment(string DepartmentName)
+        {
+            var deptDetails = await _dbContext.Departments.Where(dd => dd.DepartmentName.ToUpper() == DepartmentName.ToUpper()).FirstOrDefaultAsync();
+            if (deptDetails != null)
+                return deptDetails.IdDepartment;
+
+            return -1;
+        }
+
+        public async Task<int> GetIdEmployee(string EmployeeName)
+        {
+            string[] splitEName = EmployeeName.Split(',');
+            if (splitEName.Length == 1)
+            {
+                var empDetails = await _dbContext.Employees.Where(em => (em.LastName ?? "").ToUpper() == splitEName[0].Trim().ToUpper()).FirstOrDefaultAsync();
+                if (empDetails != null)
+                    return empDetails.IdEmployee;
+            }
+            if (splitEName.Length == 2)
+            {
+                var empDetails = await _dbContext.Employees.Where(em => (em.LastName ?? "").ToUpper() == splitEName[0].Trim().ToUpper() && 
+                em.FirstName == splitEName[1].ToUpper()).FirstOrDefaultAsync();
+                if (empDetails != null)
+                    return empDetails.IdEmployee;
+            }
+            return -1;
+        }
 
     }
 
