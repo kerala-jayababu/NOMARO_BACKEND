@@ -32,7 +32,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var baseURL = _configuration["BambooHR:BaseUrl"];
                 var apikey = _configuration["BambooHR:ApiKey"];
-                var photoSavePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "photos");
 
                 if (string.IsNullOrWhiteSpace(baseURL) || string.IsNullOrWhiteSpace(apikey))
                 {
@@ -40,8 +39,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     return new List<BambooHRDetailsDto>();
                 }
 
-                if (!Directory.Exists(photoSavePath))
-                    Directory.CreateDirectory(photoSavePath);
+            
 
                 var fullUrl = $"{baseURL}/employees/directory";
                 var client = new RestClient();
@@ -86,6 +84,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         var detailedRaw = (BambooHREmployeeXmlDto)detailSerializer.Deserialize(detailReader);
 
                         var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
+                        mapped.EmployeePhotoPath = emp.Fields.FirstOrDefault(f => f.Id == "photoUrl")?.Value;
+
                         await AddUpdateEmployeeDetailsFromBambooHR(mapped);
                         result.Add(mapped);
                     }
@@ -111,12 +111,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<bool> AddUpdateEmployeeDetailsFromBambooHR(BambooHRDetailsDto bambooEmp)
         {
+            var empDetails = await _dbContext.Employees
+                .Where(em => em.IdEmployee ==  Convert.ToInt32(bambooEmp.Id))
+                .FirstOrDefaultAsync();
 
-            var empDetails = await _dbContext.Employees.Where(em => em.EmployeeCode == bambooEmp.Id).FirstOrDefaultAsync();
-            if (empDetails == null)
+            bool isNewEmployee = empDetails == null;
+
+            if (isNewEmployee)
                 empDetails = new Models.Employee();
-            else
-                empDetails.IdEmployee = empDetails.IdEmployee;
 
             empDetails.EmployeeCode = bambooEmp.Id;
             empDetails.FirstName = bambooEmp.FirstName;
@@ -124,13 +126,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             empDetails.LastName = bambooEmp.LastName;
             empDetails.Gender = bambooEmp.Gender;
 
-            var idDesignation = GetIdDesignation(bambooEmp.JobTitle);
-            if (await idDesignation > 0)
-                empDetails.IdDesignation = await idDesignation;
+            var idDesignation = await GetIdDesignation(bambooEmp.JobTitle);
+            if (idDesignation > 0)
+                empDetails.IdDesignation = idDesignation;
 
-            var idDepartment = GetIdDepartment(bambooEmp.Department);
-            if (await idDepartment > 0)
-                empDetails.IdDepartment = await idDepartment;
+            var idDepartment = await GetIdDepartment(bambooEmp.Department);
+            if (idDepartment > 0)
+                empDetails.IdDepartment = idDepartment;
 
             empDetails.EmailID = bambooEmp.WorkEmail;
             empDetails.PhoneNumber1 = bambooEmp.WorkPhone;
@@ -141,22 +143,59 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             empDetails.State = bambooEmp.State;
             empDetails.ZipCode = bambooEmp.ZipCode;
 
-            var reportingTo = GetIdEmployee(bambooEmp.Supervisor);
-            if (await reportingTo > 0)
-                empDetails.ReportingTo = await reportingTo;
+            var reportingTo = await GetIdEmployee(bambooEmp.Supervisor);
+            if (reportingTo > 0)
+                empDetails.ReportingTo = reportingTo;
+
             empDetails.CurrentStatus = bambooEmp.Status == "Active" ? "Working" : "NotWorking";
-            if(bambooEmp.TerminationDate != null)
+
+            if (bambooEmp.TerminationDate != null)
                 empDetails.LastWorkingDay = bambooEmp.TerminationDate;
 
-            if (empDetails.IdEmployee > 0)
+            // ⬇⬇ PHOTO UPLOAD AND REPLACEMENT ⬇⬇
+            if (!string.IsNullOrEmpty(bambooEmp.EmployeePhotoPath))
+            {
+                string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profileimages");
+                if (!Directory.Exists(folderPath))
+                    Directory.CreateDirectory(folderPath);
+
+                // Delete old image if exists
+                if (!isNewEmployee && !string.IsNullOrEmpty(empDetails.EmployeePhotoFilePath))
+                {
+                    try
+                    {
+                        if (File.Exists(empDetails.EmployeePhotoFilePath))
+                            File.Delete(empDetails.EmployeePhotoFilePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log but don't block the update
+                        Console.WriteLine($"Failed to delete old image: {ex.Message}");
+                    }
+                }
+
+                // Download and save new photo
+                string fileName = $"{bambooEmp.Id}_{DateTime.Now.Ticks}.jpg";
+                string filePath = Path.Combine(folderPath, fileName);
+
+                using var httpClient = new HttpClient();
+                var imageBytes = await httpClient.GetByteArrayAsync(bambooEmp.EmployeePhotoPath);
+                await File.WriteAllBytesAsync(filePath, imageBytes);
+
+                empDetails.EmployeePhotoFilePath = filePath;
+            }
+
+            // ⬇⬇ SAVE TO DB ⬇⬇
+            if (!isNewEmployee)
                 _dbContext.Employees.Update(empDetails);
             else
                 _dbContext.Employees.Add(empDetails);
 
-             await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
 
             return true;
         }
+
 
         public async Task<int> GetIdDesignation(string DesignationName)
         {

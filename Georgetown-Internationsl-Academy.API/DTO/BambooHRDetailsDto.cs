@@ -23,5 +23,7 @@
         public string Department { get; set; }
         public string JobTitle { get; set; }
         public string WorkEmail { get; set; }
+
+        public string? EmployeePhotoPath { get; set; }
     }
 }
