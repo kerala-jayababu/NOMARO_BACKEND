@@ -75,13 +75,25 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             return Ok(result);
         }
 
-                /*
-                 * {
-                      "StoredProcedureName": "sp_GetPayrollSummary",
-                      "Parameters": {
-                        "@Month": "March",
-                        "@Year": 2025
-                      }
-                    }*/
+
+        [HttpPost("GetReportsTableValue")]
+        public async Task<IActionResult> GetReportsTableValue(string tableName)
+        {
+            var result = await _reportService.GetReportsTableValue(tableName);
+            return Ok(result);
+        }
+
+
+
+
+
+        /*
+         * {
+              "StoredProcedureName": "sp_GetPayrollSummary",
+              "Parameters": {
+                "@Month": "March",
+                "@Year": 2025
+              }
+            }*/
     }
 }

@@ -4,6 +4,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using iText.StyledXmlParser.Jsoup.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -149,6 +150,39 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 default:
                     return element.GetRawText(); // Fallback for object/array
             }
+        }
+
+        public async Task<List<dynamic>> GetReportsTableValue(string tableName)
+        {
+
+            switch (tableName)
+            {
+                case "Designation":
+                    return await _dbContext.Designations
+                        .OrderBy(d => d.DesignationCode)
+                        .Select(d => new
+                        {
+                            d.IdDesignation,
+                            d.DesignationName
+                        })
+                        .Cast<dynamic>()
+                        .ToListAsync();
+
+                case "Department":
+                    return await _dbContext.Departments
+                        .OrderBy(dep => dep.DepartmentCode)
+                        .Select(dep => new
+                        {
+                            dep.IdDepartment,
+                            dep.DepartmentName
+                        })
+                        .Cast<dynamic>()
+                        .ToListAsync();
+
+                default:
+                    return null;
+            }
+
         }
     }
 }
