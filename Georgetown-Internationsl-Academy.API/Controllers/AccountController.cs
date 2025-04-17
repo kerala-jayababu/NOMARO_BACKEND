@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Helpers;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -14,10 +15,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
     public class AccountController : ControllerBase
     {
         private readonly IAccountService _accountService;
-
-        public AccountController(IAccountService accountService)
+        private readonly IEmployeeServices _employeeservice;
+        public AccountController(IAccountService accountService, IEmployeeServices employeeservice)
         {
             _accountService = accountService;
+            _employeeservice = employeeservice;
         }
 
         [HttpPost("login")]
@@ -49,6 +51,41 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpGet("SetOTP")]
+        public async Task<IActionResult> SetOTP(string emailID)
+        {
+            try
+            {
+                var otp = await _employeeservice.SetOTP(emailID);
+                return Ok(ApiResponseDto<OTPDto>.CreateSuccess(otp, "OTP processed."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("ValidateOTP")]
+        public async Task<IActionResult> ValidateOTP(string emailID, string otp)
+        {
+            try
+            {
+                var otpStatus = await _employeeservice.ValidateOTP(emailID, otp);
+
+                if (otpStatus == null || otpStatus.IdEmployee == 0)
+                {
+                    return Ok(ApiResponseDto<OTPStatusDto>.CreateSuccess(null, "Cannot validate OTP. It may be invalid or expired."));
+                }
+
+                return Ok(ApiResponseDto<OTPStatusDto>.CreateSuccess(otpStatus, "OTP validated successfully."));
+            }
+            catch (Exception ex)
+            {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }

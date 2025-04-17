@@ -16,8 +16,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<EmployeeHierarchyDto>> GetEmployeesByHierarchy(int employeeId);
         Task<IEnumerable<PayslipDetailsDto>> GetPayslipDetails(int IdEmployee, int IdSalaryMonth);
         Task<IEnumerable<SalaryDetailsEmployeeDto>> GetSalaryDetailsEmployee(int IdEmployee, int IdSalaryMonthFrom, int IdSalaryMonthTo);
-        Task<IEnumerable<OTPDto>> SetOTP(string EmailID);
-        Task<IEnumerable<OTPStatusDto>>  ValidateOTP(string EmailID, string OTP);
+        Task<OTPDto> SetOTP(string EmailID);
+        Task<OTPStatusDto>  ValidateOTP(string EmailID, string OTP);
 
     }
 }

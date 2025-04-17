@@ -6,8 +6,13 @@ using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using System.Data;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -671,99 +676,169 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<IEnumerable<OTPDto>> SetOTP(string EmailID)
+        public async Task<OTPDto> SetOTP(string emailID)
         {
             try
             {
-                var otpList = new List<OTPDto>();
-                OTPDto otp = new OTPDto();
-                var emp = await _dbContext.Employees.Where(e => e.EmailID == EmailID).FirstOrDefaultAsync();
-                if (emp != null)
+                var otpDto = new OTPDto();
+
+                var emp = await _dbContext.Employees.FirstOrDefaultAsync(e => e.EmailID == emailID);
+                if (emp == null)
                 {
-                    if (emp.EmailID != EmailID)
-                    {
-                        otp.IdEmployee = 0;
-                        otp.OTP = "Not an Authorized Email ID";
-                    }
+                    otpDto.IdEmployee = 0;
+                    otpDto.OTP = "Not an Authorized Email ID";
+                    return otpDto;
                 }
 
                 var recentOTP = await _dbContext.LoginOTP
-                            .Where(o => o.EmailID == EmailID && o.OTPSentDate >= DateTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
-                            .FirstOrDefaultAsync();
+                    .Where(o => o.EmailID == emailID && o.OTPSentDate >= DateTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
+                    .FirstOrDefaultAsync();
 
                 if (recentOTP != null)
                 {
-                    otp.IdEmployee = 0;
-                    otp.OTP = "An OTP is already valid and was recently sent to your Email or Try after 1 to 2 Minutes";
-                    otpList.Add(otp);
-                    return otpList;
+                    otpDto.IdEmployee = 0;
+                    otpDto.OTP = "An OTP is already valid and was recently sent. Try again in 1 to 2 minutes.";
+                    return otpDto;
                 }
 
-                var otpnum = new Random().Next(100000, 999999).ToString();
+                var generatedOtp = new Random().Next(100000, 999999).ToString();
 
                 var otpEntry = new LoginOTP
                 {
-                    EmailID = EmailID,
+                    EmailID = emailID,
                     IdEmployee = emp.IdEmployee,
-                    OTP = otpnum.ToString(),
+                    OTP = generatedOtp,
                     OTPSentDate = DateTime.Now,
                     OTPLoginStatus = "PENDING"
                 };
 
-                _dbContext.LoginOTP.Add(otpEntry);
+                await _dbContext.LoginOTP.AddAsync(otpEntry);
                 await _dbContext.SaveChangesAsync();
 
-                var OTPNotificationConfig = await _dbContext.NotificationsConfig
-                            .Where(n => n.NotificationType == "OTP Email").FirstOrDefaultAsync();
-                string EmailContent = OTPNotificationConfig.EmailContent;
-                EmailContent = EmailContent.Replace("#EMPLOYEENAME#", (emp.FirstName + " " + emp.LastName).Trim());
-                EmailContent = EmailContent.Replace("#OTP#", otpnum.ToString());
-                await EmailService.SendMail(EmailID, OTPNotificationConfig.EmailSubject, EmailContent);
-                otp.IdEmployee = emp.IdEmployee;
-                otp.OTP = otpnum.ToString();
-                otpList.Add(otp);
-                return otpList;
+                var otpNotification = await _dbContext.NotificationsConfig
+                    .FirstOrDefaultAsync(n => n.NotificationType == "OTP Email");
+
+                if (otpNotification != null)
+                {
+                    string emailContent = otpNotification.EmailContent
+                        .Replace("#EMPLOYEENAME#", $"{emp.FirstName} {emp.LastName}".Trim())
+                        .Replace("#OTP#", generatedOtp);
+
+                    await EmailService.SendMail(emailID, otpNotification.EmailSubject, emailContent);
+                }
+
+                otpDto.IdEmployee = emp.IdEmployee;
+                otpDto.OTP = string.Empty;
+
+                return otpDto;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error Insertinto to LoginOTP: {EmailID}");
+                _logger.LogError(ex, $"Error generating OTP for: {emailID}");
                 throw;
             }
         }
 
-        public async Task<IEnumerable<OTPStatusDto>> ValidateOTP(string EmailID, string OTP)
+        public async Task<OTPStatusDto> ValidateOTP(string emailID, string otp)
         {
             try
             {
-                var otpStatList = new List<OTPStatusDto>();
-                OTPStatusDto otpStat = new OTPStatusDto();
+                var otpStatusDto = new OTPStatusDto();
 
-                var loginotp = await _dbContext.LoginOTP.Where(lo => lo.EmailID == EmailID && lo.OTP == OTP && lo.OTPLoginStatus == "PENDING").FirstOrDefaultAsync();
-                if (loginotp == null)
+                var loginOtp = await _dbContext.LoginOTP
+                    .FirstOrDefaultAsync(lo => lo.EmailID == emailID && lo.OTP == otp && lo.OTPLoginStatus == "PENDING");
+
+                if (loginOtp == null)
                 {
-                    otpStat.IdEmployee = 0;
-                    otpStat.OTPStatus = "Invalid Email ID or OTP";
+                    return new OTPStatusDto
+                    {
+                        IdEmployee = 0,
+                        OTPStatus = "Invalid Email ID or OTP"
+                    };
                 }
-                otpStat.IdEmployee = loginotp.IdEmployee;
-                otpStat.OTPStatus = "SUCCESS";
-                var payrollPermission = await _dbContext.EmployeePermissions.Where(ep => ep.IdEmployee == loginotp.IdEmployee).FirstOrDefaultAsync();
-                if (payrollPermission != null)
-                    otpStat.AuthorizedModules = "PAYROLL,SELFPORTAL";
-                else
-                    otpStat.AuthorizedModules = "SELFPORTAL";
 
-                loginotp.OTPLoginStatus = "USED";
-                _dbContext.LoginOTP.Update(loginotp);
+                // Mark OTP as used
+                loginOtp.OTPLoginStatus = "USED";
+                _dbContext.LoginOTP.Update(loginOtp);
                 await _dbContext.SaveChangesAsync();
-                otpStatList.Add(otpStat);
-                return otpStatList;
+
+                // Set basic OTP status
+                otpStatusDto.IdEmployee = loginOtp.IdEmployee;
+                otpStatusDto.OTPStatus = "SUCCESS";
+
+                // Set module access
+                otpStatusDto.AuthorizedModules = await _dbContext.EmployeePermissions
+                    .AnyAsync(ep => ep.IdEmployee == loginOtp.IdEmployee)
+                    ? "PAYROLL,SELFPORTAL"
+                    : "SELFPORTAL";
+
+                // Get user details
+                var user = await _dbContext.Employees.FirstOrDefaultAsync(x => x.EmailID == emailID);
+                if (user == null)
+                    throw new Exception("User not found.");
+
+                // Get designation
+                var designation = await _dbContext.Designations
+                    .FirstOrDefaultAsync(x => x.IdDesignation == user.IdDesignation);
+
+                // Generate token
+                var token = GenerateToken(user, designation);
+                otpStatusDto.Token = new JwtSecurityTokenHandler().WriteToken(token);
+
+                // Load photo blob if exists
+                await LoadEmployeePhotoAsync(user);
+
+                // Populate remaining fields
+                otpStatusDto.Name = $"{user.FirstName} {user.MiddleName} {user.LastName}".Trim();
+                otpStatusDto.Role = designation?.DesignationName ?? string.Empty;
+                otpStatusDto.EmployeePhotoFilePath = user.EmployeePhotoFilePath;
+                otpStatusDto.AttachmentBlob = user.AttachmentBlob;
+                otpStatusDto.Email = user.EmailID;
+
+                return otpStatusDto;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error Insertinto to LoginOTP: {EmailID}");
+                _logger.LogError(ex, $"Error validating OTP for {emailID}");
                 throw;
             }
         }
+        private async Task LoadEmployeePhotoAsync(Employee user)
+        {
+            var dbPath = user.EmployeePhotoFilePath?.Trim();
+            if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
+            {
+                user.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
+            }
+        }
 
+        private JwtSecurityToken GenerateToken(Employee user, DesignationEntity designation)
+        {
+            var claims = new List<Claim>
+    {
+        new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
+        new Claim(ClaimTypes.Role, designation?.DesignationName ?? string.Empty),
+        new Claim(ClaimTypes.NameIdentifier, user.IdEmployee.ToString()),
+        new Claim(ClaimTypes.Email, user.EmailID),
+        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+    };
+
+            return GetToken(claims); // Uses your improved token generator
+        }
+
+        private JwtSecurityToken GetToken(List<Claim> authClaims)
+        {
+            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:Secret"]));
+
+            var token = new JwtSecurityToken(
+                _configuration["JwtSettings:ValidIssuer"],
+                _configuration["JwtSettings:ValidAudience"],
+                expires: DateTime.Now.AddDays(15),
+                claims: authClaims,
+                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+            );
+
+            return token;
+        }
     }
 }

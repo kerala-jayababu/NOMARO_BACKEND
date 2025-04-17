@@ -348,45 +348,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpGet("SetOTP")]
-        public async Task<IActionResult> SetOTP(string EmailID)
-        {
-            try
-            {
-                var sendOTP = await _employeeservice.SetOTP(EmailID);
+ 
 
-                if (sendOTP != null)
-                {
-                    return Ok(ApiResponseDto<IEnumerable<OTPDto>>.CreateSuccess(sendOTP, "SET OTP successfully."));
-
-                }
-                return Ok(ApiResponseDto<IEnumerable<OTPDto>>.CreateSuccess(Enumerable.Empty<OTPDto>(), "OTP Cant Set"));
-
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
-
-        [HttpGet("ValidateOTP")]
-        public async Task<IActionResult> ValidateOTP(string EmailID, string OTP)
-        {
-            try
-            {
-                var sendOTP = await _employeeservice.ValidateOTP(EmailID, OTP);
-
-                if (!sendOTP.Any())
-                {
-                    return Ok(ApiResponseDto<IEnumerable<OTPStatusDto>>.CreateSuccess(Enumerable.Empty<OTPStatusDto>(), "Cannot Validate OTP"));
-                }
-
-                return Ok(ApiResponseDto<IEnumerable<OTPStatusDto>>.CreateSuccess(sendOTP, "OTP Validated successfully."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
+      
     }
 }
