@@ -55,7 +55,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<ReportsMaster> ReportsMaster { get; set; }
         public DbSet<ReportConditions> ReportConditions { get; set; }
         public DbSet<Notification> Notifications { get; set; }
-
+        public DbSet<LoginOTP> LoginOTP { get; set; }
 
     }
 }

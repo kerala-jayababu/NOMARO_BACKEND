@@ -2,6 +2,7 @@
 using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
@@ -666,6 +667,100 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching salary details for employee.");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<OTPDto>> SetOTP(string EmailID)
+        {
+            try
+            {
+                var otpList = new List<OTPDto>();
+                OTPDto otp = new OTPDto();
+                var emp = await _dbContext.Employees.Where(e => e.EmailID == EmailID).FirstOrDefaultAsync();
+                if (emp != null)
+                {
+                    if (emp.EmailID != EmailID)
+                    {
+                        otp.IdEmployee = 0;
+                        otp.OTP = "Not an Authorized Email ID";
+                    }
+                }
+
+                var recentOTP = await _dbContext.LoginOTP
+                            .Where(o => o.EmailID == EmailID && o.OTPSentDate >= DateTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
+                            .FirstOrDefaultAsync();
+
+                if (recentOTP != null)
+                {
+                    otp.IdEmployee = 0;
+                    otp.OTP = "An OTP is already valid and was recently sent to your Email or Try after 1 to 2 Minutes";
+                    otpList.Add(otp);
+                    return otpList;
+                }
+
+                var otpnum = new Random().Next(100000, 999999).ToString();
+
+                var otpEntry = new LoginOTP
+                {
+                    EmailID = EmailID,
+                    IdEmployee = emp.IdEmployee,
+                    OTP = otpnum.ToString(),
+                    OTPSentDate = DateTime.Now,
+                    OTPLoginStatus = "PENDING"
+                };
+
+                _dbContext.LoginOTP.Add(otpEntry);
+                await _dbContext.SaveChangesAsync();
+
+                var OTPNotificationConfig = await _dbContext.NotificationsConfig
+                            .Where(n => n.NotificationType == "OTP Email").FirstOrDefaultAsync();
+                string EmailContent = OTPNotificationConfig.EmailContent;
+                EmailContent = EmailContent.Replace("#EMPLOYEENAME#", (emp.FirstName + " " + emp.LastName).Trim());
+                EmailContent = EmailContent.Replace("#OTP#", otpnum.ToString());
+                await EmailService.SendMail(EmailID, OTPNotificationConfig.EmailSubject, EmailContent);
+                otp.IdEmployee = emp.IdEmployee;
+                otp.OTP = otpnum.ToString();
+                otpList.Add(otp);
+                return otpList;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error Insertinto to LoginOTP: {EmailID}");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<OTPStatusDto>> ValidateOTP(string EmailID, string OTP)
+        {
+            try
+            {
+                var otpStatList = new List<OTPStatusDto>();
+                OTPStatusDto otpStat = new OTPStatusDto();
+
+                var loginotp = await _dbContext.LoginOTP.Where(lo => lo.EmailID == EmailID && lo.OTP == OTP && lo.OTPLoginStatus == "PENDING").FirstOrDefaultAsync();
+                if (loginotp == null)
+                {
+                    otpStat.IdEmployee = 0;
+                    otpStat.OTPStatus = "Invalid Email ID or OTP";
+                }
+                otpStat.IdEmployee = loginotp.IdEmployee;
+                otpStat.OTPStatus = "SUCCESS";
+                var payrollPermission = await _dbContext.EmployeePermissions.Where(ep => ep.IdEmployee == loginotp.IdEmployee).FirstOrDefaultAsync();
+                if (payrollPermission != null)
+                    otpStat.AuthorizedModules = "PAYROLL,SELFPORTAL";
+                else
+                    otpStat.AuthorizedModules = "SELFPORTAL";
+
+                loginotp.OTPLoginStatus = "USED";
+                _dbContext.LoginOTP.Update(loginotp);
+                await _dbContext.SaveChangesAsync();
+                otpStatList.Add(otpStat);
+                return otpStatList;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error Insertinto to LoginOTP: {EmailID}");
                 throw;
             }
         }

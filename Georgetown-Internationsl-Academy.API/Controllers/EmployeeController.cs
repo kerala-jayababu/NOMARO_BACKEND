@@ -48,7 +48,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 foreach (var employee in employeeList)
                 {
-                    string dbPath = employee.EmployeePhotoFilePath?.Trim(); 
+                    string dbPath = employee.EmployeePhotoFilePath?.Trim();
 
 
                     if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
@@ -66,7 +66,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
             catch (Exception ex)
             {
-              
+
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
@@ -79,7 +79,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var employeeDetails = await _employeeservice.GetEmployeeDetailsByID(Id);
 
-              
+
                 if (employeeDetails == null)
                 {
                     return Ok(ApiResponseDto<EmployeeDetailsDto>.CreateSuccess(null, "No employee found with the provided ID."));
@@ -97,7 +97,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 //    {
                 //    employeeDetails.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employeeDetails.EmployeePhotoFilePath);
                 //   }
-               
+
                 return Ok(ApiResponseDto<EmployeeDetailsDto>.CreateSuccess(employeeDetails, "Employee Details  retrieved successfully."));
             }
             catch (Exception ex)
@@ -183,12 +183,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-     
+
 
 
         [HttpPost("UpdateEmployeeDetails")]
 
-        public async Task<IActionResult> UpdateEmployeeDetails([FromBody]  UpdateEmployeeDto dto)
+        public async Task<IActionResult> UpdateEmployeeDetails([FromBody] UpdateEmployeeDto dto)
         {
             if (dto.EmployeeId <= 0)
             {
@@ -222,9 +222,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
 
 
-            
+
             try
-            {                
+            {
                 var updateResult = await _employeeservice.UpdateEmployeeDetails(dto);
                 if (!updateResult)
                 {
@@ -237,7 +237,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
-            
+
         }
 
 
@@ -341,6 +341,47 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeHierarchyDto>>.CreateSuccess(result));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("SetOTP")]
+        public async Task<IActionResult> SetOTP(string EmailID)
+        {
+            try
+            {
+                var sendOTP = await _employeeservice.SetOTP(EmailID);
+
+                if (sendOTP != null)
+                {
+                    return Ok(ApiResponseDto<IEnumerable<OTPDto>>.CreateSuccess(sendOTP, "SET OTP successfully."));
+
+                }
+                return Ok(ApiResponseDto<IEnumerable<OTPDto>>.CreateSuccess(Enumerable.Empty<OTPDto>(), "OTP Cant Set"));
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("ValidateOTP")]
+        public async Task<IActionResult> ValidateOTP(string EmailID, string OTP)
+        {
+            try
+            {
+                var sendOTP = await _employeeservice.ValidateOTP(EmailID, OTP);
+
+                if (!sendOTP.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<OTPStatusDto>>.CreateSuccess(Enumerable.Empty<OTPStatusDto>(), "Cannot Validate OTP"));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<OTPStatusDto>>.CreateSuccess(sendOTP, "OTP Validated successfully."));
             }
             catch (Exception ex)
             {
