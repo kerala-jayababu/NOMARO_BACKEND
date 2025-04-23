@@ -843,7 +843,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         pdfFiles.Add(pdfStream.ToArray());
 
                         // Construct file name for each payslip
-                        string fileName = $"Payslip_{emp.EmployeeCode}_{emp.Period}.pdf";
+                        string fileName = $"{emp.EmployeeCode}_{emp.EmployeeName}_{emp.Period}.pdf";
                         fileNames.Add(fileName);
                     }
                 }
@@ -872,8 +872,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                                 }
                             }
                         }
-
-                        return File(zipStream.ToArray(), "application/zip", "Payslips.zip");
+                        string timestamp = DateTime.Now.ToString("MMddyyyyHHmmss");
+                        string zipFileName = $"Payslips_{timestamp}.zip";
+                        return File(zipStream.ToArray(), "application/zip", zipFileName);
+                        
                     }
                 }
             }
