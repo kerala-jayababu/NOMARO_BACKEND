@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
@@ -152,37 +153,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<List<dynamic>> GetReportsTableValue(string tableName)
+        public async Task<List<dynamic>> GetReportsTableValue(string tableName, string valueColumn, string displayColumn)
         {
-
-            switch (tableName)
+            try
             {
-                case "Designation":
-                    return await _dbContext.Designations
-                        .OrderBy(d => d.DesignationCode)
-                        .Select(d => new
-                        {
-                            d.IdDesignation,
-                            d.DesignationName
-                        })
-                        .Cast<dynamic>()
-                        .ToListAsync();
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    var query = $@"
+                SELECT [{valueColumn}] AS valueColumn, [{displayColumn}] AS displayColumn 
+                FROM [{tableName}]
+                ORDER BY [{valueColumn}]
+            ";
 
-                case "Department":
-                    return await _dbContext.Departments
-                        .OrderBy(dep => dep.DepartmentCode)
-                        .Select(dep => new
-                        {
-                            dep.IdDepartment,
-                            dep.DepartmentName
-                        })
-                        .Cast<dynamic>()
-                        .ToListAsync();
+                    if (connection.State != System.Data.ConnectionState.Open)
+                        await connection.OpenAsync();
 
-                default:
-                    return null;
+                    var result = await connection.QueryAsync(query);
+                    return result.ToList();
+                }
             }
-
+            catch
+            {
+                return new List<dynamic>(); // return empty list on error
+            }
         }
+
     }
 }

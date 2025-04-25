@@ -77,9 +77,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("GetReportsTableValue")]
-        public async Task<IActionResult> GetReportsTableValue(string tableName)
+        public async Task<IActionResult> GetReportsTableValue(string tableName,string valueColumn,string displayColumn)
         {
-            var result = await _reportService.GetReportsTableValue(tableName);
+            var result = await _reportService.GetReportsTableValue(tableName,valueColumn,displayColumn);
             return Ok(result);
         }
 

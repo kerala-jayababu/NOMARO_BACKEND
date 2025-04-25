@@ -29,7 +29,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     appType = "PAYROLL";
                 }
-                var screens = await _dbContext.PayrollScreens.Where(x=>x.Enabled==true  && x.APPTYPE == appType).ToListAsync();
+                var permittedScreenIds = employeePermissions.Select(p => p.IdPayrollScreen).ToHashSet();
+
+                var screens = await _dbContext.PayrollScreens
+                .Where(x => x.Enabled == true && x.APPTYPE == appType && permittedScreenIds.Contains(x.IdPayrollScreen))
+                .ToListAsync();
 
                 var payrollScreens = screens
                     .Select(screen => new PayrollScreenDto
