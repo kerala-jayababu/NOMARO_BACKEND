@@ -112,7 +112,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<bool> AddUpdateEmployeeDetailsFromBambooHR(BambooHRDetailsDto bambooEmp)
         {
             var empDetails = await _dbContext.Employees
-                .Where(em => em.IdEmployee ==  Convert.ToInt32(bambooEmp.Id))
+                .Where(em => em.EmployeeCode == bambooEmp.Id)
                 .FirstOrDefaultAsync();
 
             bool isNewEmployee = empDetails == null;
