@@ -26,6 +26,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? State { get; set; }
         public string? ZipCode { get; set; }
         public DateTime? JoiningDate { get; set; }
+        public DateTime? DateOfBirth { get; set; }
         public int? ReportingTo { get; set; }
         public string? CurrentStatus { get; set; }
         public DateTime? LastWorkingDay { get; set; }

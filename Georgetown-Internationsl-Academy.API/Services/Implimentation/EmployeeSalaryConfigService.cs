@@ -298,7 +298,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-
         public async Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto, int IdEmployee)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();

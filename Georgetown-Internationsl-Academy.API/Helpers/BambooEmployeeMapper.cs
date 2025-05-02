@@ -32,8 +32,11 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
                 TerminationDate = ParseDate(Get("terminationDate")),
                 Department = Get("department"),
                 JobTitle = Get("jobTitle"),
-                WorkEmail = Get("workEmail")
-            };
+                WorkEmail = Get("workEmail"),
+                HireDate = ParseDate(Get("hiredate")),
+                EmployeeNumber = Get("employeenumber")
+
+        };
         }
     }
 }

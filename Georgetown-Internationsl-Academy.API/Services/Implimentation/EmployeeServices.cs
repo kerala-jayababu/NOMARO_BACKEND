@@ -689,6 +689,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     otpDto.OTP = "Not an Authorized Email ID";
                     return otpDto;
                 }
+                if (emp.CurrentStatus !="Working")
+                {
+                    otpDto.IdEmployee = 0;
+                    otpDto.OTP = "Not an Authorized Email ID";
+                    return otpDto;
+                }
 
                 var recentOTP = await _dbContext.LoginOTP
                     .Where(o => o.EmailID == emailID && o.OTPSentDate >= DateTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")

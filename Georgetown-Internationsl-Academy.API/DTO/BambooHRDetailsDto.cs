@@ -3,6 +3,8 @@
     public class BambooHRDetailsDto
     {
         public string Id { get; set; }
+
+        public string EmployeeNumber { get; set; }
         public string DisplayName { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
@@ -23,7 +25,7 @@
         public string Department { get; set; }
         public string JobTitle { get; set; }
         public string WorkEmail { get; set; }
-
+        public DateTime? HireDate { get; set; }
         public string? EmployeePhotoPath { get; set; }
     }
 }

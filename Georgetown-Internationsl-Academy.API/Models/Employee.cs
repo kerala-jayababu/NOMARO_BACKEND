@@ -26,6 +26,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? City { get; set; }
         public string? State { get; set; }
         public string? ZipCode { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+
         public DateTime? JoiningDate { get; set; }
         public int? ReportingTo { get; set; }
         public string? CurrentStatus { get; set; }

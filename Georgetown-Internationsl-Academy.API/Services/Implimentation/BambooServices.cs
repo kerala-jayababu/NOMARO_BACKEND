@@ -61,13 +61,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 using var reader = new StringReader(response.Content);
                 var directory = (EmployeeDirectoryDto)serializer.Deserialize(reader);
 
-                var rawEmployees = directory?.Employees.Take(2) ?? new List<EmployeeRawDto>();
+                var rawEmployees = directory?.Employees ?? new List<EmployeeRawDto>();
 
                 foreach (var emp in rawEmployees)
                 {
                     try
                     {
-                        var detailUrl = $"{baseURL}/employees/{emp.Id}?fields=displayName,firstName,LastName,gender,dateofBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail";
+                        var detailUrl = $"{baseURL}/employees/{emp.Id}?fields=displayName,firstName,LastName,gender,dateofBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber";
 
                         var detailRequest = new RestRequest(detailUrl, Method.Get);
                         detailRequest.AddHeader("Authorization", $"Basic {token}");
@@ -98,9 +98,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 return result;
 
-               
-
-
             }
             catch (Exception ex)
             {
@@ -112,7 +109,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<bool> AddUpdateEmployeeDetailsFromBambooHR(BambooHRDetailsDto bambooEmp)
         {
             var empDetails = await _dbContext.Employees
-                .Where(em => em.EmployeeCode == bambooEmp.Id)
+                .Where(em => em.EmployeeCode == bambooEmp.EmployeeNumber)
                 .FirstOrDefaultAsync();
 
             bool isNewEmployee = empDetails == null;
@@ -120,7 +117,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (isNewEmployee)
                 empDetails = new Models.Employee();
 
-            empDetails.EmployeeCode = bambooEmp.Id;
+            //Check whether employee status changed
+            if(bambooEmp.Status != "Active")
+            {
+                //Disable the token
+
+            }
+
+            empDetails.EmployeeCode = bambooEmp.EmployeeNumber;
             empDetails.FirstName = bambooEmp.FirstName;
             empDetails.MiddleName = bambooEmp.MiddleName;
             empDetails.LastName = bambooEmp.LastName;
@@ -142,6 +146,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             empDetails.City = bambooEmp.City;
             empDetails.State = bambooEmp.State;
             empDetails.ZipCode = bambooEmp.ZipCode;
+            empDetails.JoiningDate = bambooEmp.HireDate;
+            empDetails.DateOfBirth = bambooEmp.DateOfBirth;
+            
 
             var reportingTo = await GetIdEmployee(bambooEmp.Supervisor);
             if (reportingTo > 0)
