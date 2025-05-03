@@ -3,6 +3,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -22,6 +23,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _employeeservice = employeeservice;
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto login)
         {

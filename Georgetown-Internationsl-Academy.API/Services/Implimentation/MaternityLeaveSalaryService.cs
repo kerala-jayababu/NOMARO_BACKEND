@@ -4,6 +4,7 @@ using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -13,12 +14,14 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<MaternityLeaveSalaryService> _logger;
+    private readonly IWebHostEnvironment _webHostEnvironment;
 
-    public MaternityLeaveSalaryService(ApplicationDBContext dbContext, IMapper mapper, ILogger<MaternityLeaveSalaryService> logger)
+    public MaternityLeaveSalaryService(ApplicationDBContext dbContext,  IMapper mapper, ILogger<MaternityLeaveSalaryService> logger, IWebHostEnvironment webHostEnvironment)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _webHostEnvironment = webHostEnvironment;
     }
 
     public async Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries(string? searchText = null, DateTime? fromDate = null)
@@ -45,6 +48,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             mls.MaternityLeaveFrom,
             mls.MaternityLeaveTo,
             mls.TotalEarnings ,
+            mls.DocumentFilePath,
             mls.TotalDeductions ,
             mls.MaternityLeaveNetSalary ,
             esc.NetSalary AS DefaultNetSalary
@@ -123,6 +127,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                                                   IdSalaryMonthTo = (int)mls.IdSalaryMonthTo,
                                                   ToSalaryMonthText = smTo.SalaryMonthText,
                                                   MaternityLeaveFrom = mls.MaternityLeaveFrom,
+                                                  DocumentFilePath = mls.DocumentFilePath,
                                                   TotalEarnings =mls.TotalEarnings,
                                                   TotalDeductions =mls.TotalDeductions,                                                  
                                                   MaternityLeaveTo = mls.MaternityLeaveTo,
@@ -196,6 +201,33 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             await _dbContext.MaternityLeaveSalaries.AddAsync(maternityLeaveSalary);
             await _dbContext.SaveChangesAsync();
 
+            if (dto.File != null)
+            {
+                string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
+                if (!Directory.Exists(uploadFolderPath))
+                {
+                    Directory.CreateDirectory(uploadFolderPath);
+                }
+
+                string fileExtension = Path.GetExtension(dto.File.FileName);
+                string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
+
+                string uniqueFileName = $"ML_{maternityLeaveSalary.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}{fileExtension}";
+                string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                // Update the document file path in the database
+                maternityLeaveSalary.DocumentFilePath = filePath;
+
+                _dbContext.MaternityLeaveSalaries.Update(maternityLeaveSalary);
+                await _dbContext.SaveChangesAsync();
+            }
+
+
             // Insert into MaternityLeaveSalaryDetails
             foreach (var detail in dto.MaternityLeaveSalaryDetailDto)
             {
@@ -266,6 +298,32 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             
             _dbContext.MaternityLeaveSalaries.Update(existingSalary);
             await _dbContext.SaveChangesAsync();
+
+            if (dto.File != null)
+            {
+                string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
+                if (!Directory.Exists(uploadFolderPath))
+                {
+                    Directory.CreateDirectory(uploadFolderPath);
+                }
+
+                string fileExtension = Path.GetExtension(dto.File.FileName);
+                string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
+
+                string uniqueFileName = $"ML_{dto.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}{fileExtension}";
+                string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                // Update the document file path in the database
+                existingSalary.DocumentFilePath = filePath;
+
+                _dbContext.MaternityLeaveSalaries.Update(existingSalary);
+                await _dbContext.SaveChangesAsync();
+            }
 
             // Fetch existing details
             var existingDetails = await _dbContext.MaternityLeaveSalaryDetail

@@ -616,6 +616,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Ok(ApiResponseDto<IEnumerable<MaternityLeaveSalaryDto>>.CreateSuccess(Enumerable.Empty<MaternityLeaveSalaryDto>(), "No maternity leave salaries found."));
                 }
+                foreach (var transaction in leaveSalaries)
+                {
+                    if (!string.IsNullOrEmpty(transaction.DocumentFilePath) && System.IO.File.Exists(transaction.DocumentFilePath))
+                    {
+                        transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.DocumentFilePath);
+                    }
+                }
 
                 return Ok(ApiResponseDto<IEnumerable<MaternityLeaveSalaryDto>>.CreateSuccess(leaveSalaries, "Maternity leave salaries retrieved successfully."));
             }
@@ -640,6 +647,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Ok(ApiResponseDto<MaternityLeaveSalaryDto>.CreateSuccess(null, "Maternity leave salary not found."));
                 }
+                if (!string.IsNullOrEmpty(leaveSalary.DocumentFilePath) && System.IO.File.Exists(leaveSalary.DocumentFilePath))
+                {
+                    leaveSalary.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(leaveSalary.DocumentFilePath);
+                }
+
 
                 return Ok(ApiResponseDto<MaternityLeaveSalaryDto>.CreateSuccess(leaveSalary, "Maternity leave salary retrieved successfully."));
             }
@@ -650,7 +662,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddMaternityLeaveSalary")]
-        public async Task<IActionResult> AddMaternityLeaveSalary([FromBody] MaternityLeaveSalaryDto dto)
+        public async Task<IActionResult> AddMaternityLeaveSalary([FromForm] MaternityLeaveSalaryDto dto)
         {
             var validationResult = await _maternityLeaveSalaryValidator.ValidateAsync(dto);
 

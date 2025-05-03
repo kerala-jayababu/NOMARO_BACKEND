@@ -440,6 +440,65 @@ namespace YourNamespace.Services.Implementation
         }
 
 
+        public async Task<dynamic> GetSalaryapprovalValue(int employeeId)
+        {
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
+                {
+                    await connection.OpenAsync();
+
+                    string sql = @"
+                WITH ThreeMonths AS (
+                    SELECT idSalaryMonth
+                    FROM SalaryMonths
+                    WHERE SalaryMonthDate IN (
+                        EOMONTH(GETDATE(), -1), -- previous month
+                        EOMONTH(GETDATE(), 0),  -- current month
+                        EOMONTH(GETDATE(), 1)   -- next month
+                    )
+                ),
+                ValidEmployeeSalary AS (
+                    SELECT TOP 1 idSalaryMonth
+                    FROM EmployeeSalaries
+                    WHERE idSalaryMonth IN (SELECT idSalaryMonth FROM ThreeMonths)
+                    ORDER BY idSalaryMonth DESC
+                )
+                SELECT 
+                    COALESCE(
+                        (SELECT idSalaryMonth FROM ValidEmployeeSalary),
+                        (SELECT idSalaryMonth 
+                         FROM SalaryMonths 
+                         WHERE DATENAME(month, GETDATE()) + ', ' + CAST(YEAR(GETDATE()) AS VARCHAR) = SalaryMonthText)
+                    ) AS MaxSalaryMonth,
+                    CASE 
+                        WHEN COUNT(*) > 1 THEN 'INTERIM APPROVED'
+                        ELSE 'ALL'
+                    END AS ApprovalStatus
+                FROM ApprovalWorkFlowAllocations 
+                WHERE EntityCode = 'EMPSALGEN' 
+                  AND ',' + CAST(TargetIdEmployee AS VARCHAR) + ',' LIKE '%,' + CAST(@EmployeeId AS VARCHAR) + ',%'
+                  AND actionStatus = 'INTERIM APPROVED';";
+
+                    var parameters = new { EmployeeId = employeeId };
+
+                    var result = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, parameters);
+
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving salary approval value.");
+                throw new Exception("An error occurred while retrieving salary approval. Please try again.");
+            }
+        }
+
+
+
+
+
+
         public async Task<dynamic> ExportSalaryGenerationDetailsForApproved(string employeeIds, int idSalaryMonth)
         {
             if (string.IsNullOrWhiteSpace(employeeIds))
@@ -469,8 +528,39 @@ namespace YourNamespace.Services.Implementation
                 throw new Exception("An error occurred while exporting salary details. Please try again.");
             }
         }
+        public async Task<bool> CheckcurrencyConversions()
+        {
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
+                {
+                    var query = @"
+                SELECT CASE 
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM [UAT_GIAGY].[dbo].[CurrencyConversions]
+                        WHERE FromCurrency = 'USD'
+                          AND ToCurrency = 'GYD'
+                          AND RateDate >= DATEADD(DAY, -5, GETDATE())
+                    )
+                    THEN CAST(1 AS BIT)
+                    ELSE CAST(0 AS BIT)
+                END";
 
-        
+                    var result = await connection.ExecuteScalarAsync<bool>(query);
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking currency conversion rates.");
+                return false;
+            }
+        }
+
+
+
+
         public async Task<List<SalaryUploadResponseDto>> UploadSalaryDetails(UploadSalaryGenerationDetailsDto uploadSalaryGenerationDetails,int EmployeeID)
         {
             try
@@ -594,7 +684,7 @@ namespace YourNamespace.Services.Implementation
                             Description = sd.SalaryHeadName,
                             AmountG = sd.Amount ?? 0,
                             AmountUS = sd.AmountInUSD ?? 0,
-                            YTDAmountG = 0 // Set to 0 as per requirement
+                            YTDAmountG = sd.YTDAmount ?? 0 // Set to 0 as per requirement
                         })
                         .ToList();
 
@@ -605,7 +695,7 @@ namespace YourNamespace.Services.Implementation
                             Description = sd.SalaryHeadName,
                             AmountG = sd.Amount ?? 0,
                             AmountUS = sd.AmountInUSD ?? 0,
-                            YTDAmountG = 0 // Set to 0 as per requirement
+                            YTDAmountG = sd.YTDAmount ?? 0 
                         })
                         .ToList();
 
@@ -708,5 +798,7 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+
+        
     }
 }

@@ -15,6 +15,12 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public decimal Amount { get; set; }
         public string? Remarks { get; set; }
         public Boolean? IsTaxable {  get; set; }
+        public string? TANumber { get; set; } = string.Empty;
+        public IFormFile? File { get; set; }
+        public string? DocumentFilePath { get; set; }
+
+        [NotMapped]
+        public byte[]? AttachmentBlob { get; set; }
 
         [NotMapped]
         public string?	AllcoatingSalaryHeadName { get; set; }

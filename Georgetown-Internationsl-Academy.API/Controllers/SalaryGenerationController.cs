@@ -95,6 +95,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
             }
+            var currencyConversions = await _salaryService.CheckcurrencyConversions();
+            if (!currencyConversions)
+            {
+                return StatusCode(
+                    403,
+                    ApiResponseDto<string>.CreateFailure(
+                        "Latest currency conversion details from USD to GYD are not available. Please configure them before proceeding with salary generation."
+                    )
+                );
+            }
             var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
             var actionType = "A";
 
@@ -130,6 +140,34 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
+        [HttpPost("GetSalaryapprovalValue")]
+        public async Task<IActionResult> GetSalaryapprovalValue()
+        {
+            try
+            {
+                var idEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(idEmployee) || !int.TryParse(idEmployee, out int employeeId))
+                {
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found or invalid."));
+                }
+
+                var result = await _salaryService.GetSalaryapprovalValue(employeeId);
+
+                if (result == null)
+                {
+                    return Ok(ApiResponseDto<object>.CreateSuccess(null, "No approval status found."));
+                }
+
+                return Ok(ApiResponseDto<object>.CreateSuccess(result, "Salary approval value retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
         [HttpPost("SubmitSalaryDetails")]
         public async Task<IActionResult> SubmitSalaryDetails([FromQuery] string employeeIds, [FromQuery] int idSalaryMonth)
         {
@@ -144,7 +182,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             // Check permission
             var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
-
+            var currencyConversions = await _salaryService.CheckcurrencyConversions();
+            if (!currencyConversions)
+            {
+                return StatusCode(
+                    403,
+                    ApiResponseDto<string>.CreateFailure(
+                        "Latest currency conversion details from USD to GYD are not available. Please configure them before proceeding with salary generation."
+                    )
+                );
+            }
             if (!hasPermission)
             {
                 return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
@@ -158,6 +205,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for submitting salary."));
             }
+
+
+
             try
             {
                 var idEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;

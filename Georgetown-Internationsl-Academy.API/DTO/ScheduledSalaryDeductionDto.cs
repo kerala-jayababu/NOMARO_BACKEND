@@ -15,6 +15,11 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int AllocatingSalaryHead { get; set; }
         public int MonthCount { get; set; }
         public decimal MonthlyDeductableAmount { get; set; }
+        public IFormFile? File { get; set; }
+        public string? DocumentFilePath { get; set; }
+
+        [NotMapped]
+        public byte[]? AttachmentBlob { get; set; }
 
         public List<ScheduledDeductionDetailsDto>? ScheduledDeductionDetailsDto { get; set; }
 

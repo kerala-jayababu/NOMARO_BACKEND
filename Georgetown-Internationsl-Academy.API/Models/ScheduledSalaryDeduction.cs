@@ -16,5 +16,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int AllocatingSalaryHead { get; set; }
         public int MonthCount { get; set; }
         public decimal MonthlyDeductableAmount { get; set; }
+        public string? DocumentFilePath { get; set; }
     }
 }

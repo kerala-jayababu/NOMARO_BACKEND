@@ -2,27 +2,28 @@ using Asp.Versioning;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Georgetown_International_Academy.API.Database;
-using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Validators.MasterData;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using System.Security.Claims;
 using System.Text;
 using YourNamespace.Services.Implementation;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()   
+    .Enrich.FromLogContext()
     .CreateLogger();
 builder.Logging.ClearProviders();
 builder.Logging.AddSerilog();
@@ -30,12 +31,13 @@ builder.Logging.AddSerilog();
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.
-    AddFluentValidation(options => options.RegisterValidatorsFromAssemblyContaining<Program>());
 
+builder.Services.AddFluentValidation(fv =>
+{
+    fv.RegisterValidatorsFromAssemblyContaining<Program>();
+});
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -47,7 +49,6 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddAutoMapper(typeof(Program));
-
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -63,12 +64,12 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
+// Add EF Core
 builder.Services.AddDbContext<ApplicationDBContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbContext")));
-// Read CORS configuration from appsettings.json
-var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();
 
-// Add CORS policy
+// CORS setup
+var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
@@ -99,9 +100,34 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+
+    // Block inactive users
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var dbContext = context.HttpContext.RequestServices.GetRequiredService<ApplicationDBContext>();
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+
+            var userEmail = context.Principal.FindFirst(ClaimTypes.Email)?.Value;
+
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                context.Fail("Token missing user email.");
+                return;
+            }
+
+            var user = await dbContext.Employees.FirstOrDefaultAsync(e => e.EmailID == userEmail);
+            if (user == null || user.CurrentStatus != "Working")
+            {
+                logger.LogWarning($"Access denied. User '{userEmail}' is inactive.");
+                context.Fail("User is inactive.");
+            }
+        }
+    };
 });
 
-
+// Swagger with JWT support
 builder.Services.AddSwaggerGen(swagger =>
 {
     swagger.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -112,7 +138,7 @@ builder.Services.AddSwaggerGen(swagger =>
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description =
-            "JWT Authorization header using the Bearer scheme.\r\n\r\nEnter 'Bearer' [space] and then your token in the text input below.\r\n\r\nExample: \"Bearer 12345abcdef\""
+            "JWT Authorization header using the Bearer scheme.\r\n\r\nEnter 'Bearer' [space] and then your token.\r\n\r\nExample: \"Bearer 12345abcdef\""
     });
 
     swagger.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -126,11 +152,12 @@ builder.Services.AddSwaggerGen(swagger =>
                     Id = "Bearer"
                 }
             },
-            new string[] { }
+            new string[] {}
         }
     });
 });
 
+// Add your services here (same as before)
 builder.Services.AddScoped<IBudgetCodeServices, BudgetCodeServices>();
 builder.Services.AddScoped<IDesignationServices, DesignationServices>();
 builder.Services.AddScoped<IDepartmentServices, DepartmentServices>();
@@ -138,7 +165,7 @@ builder.Services.AddScoped<ISalaryHeadServices, SalaryHeadServices>();
 builder.Services.AddScoped<IOptionService, OptionService>();
 builder.Services.AddScoped<IEmployeeServices, EmployeeServices>();
 builder.Services.AddScoped<IRoleBasedScreenService, RoleBasedScreenService>();
-builder.Services.AddScoped<ISystemParameterService,SystemParameterService>();
+builder.Services.AddScoped<ISystemParameterService, SystemParameterService>();
 builder.Services.AddScoped<INotificationConfigService, NotificationConfigService>();
 builder.Services.AddScoped<IVacationModeService, VacationModeService>();
 builder.Services.AddScoped<ITaxSlabService, TaxSlabService>();
@@ -162,7 +189,7 @@ builder.Services.AddScoped<IBambooServices, BambooServices>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -172,14 +199,15 @@ else
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-
 }
+
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors("AllowSpecificOrigins");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+
 app.MapControllers();
 
 app.Run();

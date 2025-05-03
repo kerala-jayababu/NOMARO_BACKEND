@@ -14,6 +14,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int? IdSalaryMonthTo { get; set; }      
         public decimal? TotalEarnings { get; set; }
         public decimal? TotalDeductions { get; set; }
-  
+        public string? DocumentFilePath { get; set; }
+
     }
 }

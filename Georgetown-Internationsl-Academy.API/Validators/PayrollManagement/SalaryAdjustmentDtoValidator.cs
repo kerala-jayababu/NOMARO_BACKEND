@@ -17,10 +17,7 @@ namespace Georgetown_Internationsl_Academy.API.Validators.PayrollManagement
             RuleFor(x => x.EarningOrDeduction)
                 .Must(x => x == 'E' || x == 'D')
                 .WithMessage("Earning or Deduction must be 'E' or 'D'.");
-            RuleFor(x => x.AllocatingSalaryMonth)
-      .InclusiveBetween(1, 12)
-      .WithMessage("Allocating salary month must be a valid month (1 = January, 2 = February, ..., 12 = December).");
-            RuleFor(x => x.Amount).GreaterThan(0).WithMessage("Amount must be greater than 0.");
+            RuleFor(x => x.Amount).NotNull().WithMessage("Amount is required.");
             RuleFor(x => x.Remarks).MaximumLength(100).WithMessage("Remarks must not exceed 10 characters.");
         }
     }

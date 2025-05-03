@@ -6,6 +6,7 @@ using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -22,12 +23,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<EmployeeServices> _logger;
+        private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly IConfiguration _configuration;
 
-        public EmployeeServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeServices> logger, IConfiguration configuration)
+        public EmployeeServices(ApplicationDBContext dbContext, IWebHostEnvironment webHostEnvironment, IMapper mapper, ILogger<EmployeeServices> logger, IConfiguration configuration)
         {
             _dbContext = dbContext;
             _mapper = mapper;
+            _webHostEnvironment = webHostEnvironment;
             _logger = logger;
             _configuration = configuration;
         }
@@ -164,7 +167,26 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Update the employee fields
                 employee.IdBudgetCode = dto.BudgetCodeId;
                 employee.ChildrenCount = dto.ChildCount;
+                if (dto.File != null)
+                {
+                    string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
+                    if (!Directory.Exists(uploadFolderPath))
+                    {
+                        Directory.CreateDirectory(uploadFolderPath);
+                    }
 
+                    string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
+                    string fileExtension = Path.GetExtension(dto.File.FileName);
+                    string uniqueFileName = $"CC_{employee.IdEmployee}_{employee.EmployeeCode}_{currentDate}{fileExtension}";
+                    string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
+
+                    employee.ChildCountDocumentFilePath = filePath;
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await dto.File.CopyToAsync(stream);
+                    }
+                }
                 // Save the changes
                 _dbContext.Employees.Update(employee);
                 await _dbContext.SaveChangesAsync();

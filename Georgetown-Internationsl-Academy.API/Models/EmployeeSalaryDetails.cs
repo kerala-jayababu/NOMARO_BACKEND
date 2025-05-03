@@ -19,7 +19,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public decimal? Amount { get; set; }
 
         public decimal? AmountInUSD { get; set; }
-
+        public decimal? YTDAmount { get; set; }
+        
         public string? Remarks { get; set; }
 
         public int? OrderNumber { get; set; }

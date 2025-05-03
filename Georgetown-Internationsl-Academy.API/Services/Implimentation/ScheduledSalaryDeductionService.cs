@@ -5,6 +5,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 
@@ -13,12 +14,14 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<ScheduledSalaryDeductionService> _logger;
+    private readonly IWebHostEnvironment _webHostEnvironment;
 
-    public ScheduledSalaryDeductionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ScheduledSalaryDeductionService> logger)
+    public ScheduledSalaryDeductionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ScheduledSalaryDeductionService> logger, IWebHostEnvironment webHostEnvironment)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _webHostEnvironment = webHostEnvironment;
     }
 
     public async Task<IEnumerable<ScheduledSalaryDeductionDto>> GetScheduledDeductions(string? searchText = null, DateTime? fromDate = null)
@@ -216,7 +219,26 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
 
             await _dbContext.ScheduledDeductions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
+            if (dto.File != null)
+            {
+                string uploadFolder = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
 
+                if (!Directory.Exists(uploadFolder))
+                    Directory.CreateDirectory(uploadFolder);
+
+                string extension = Path.GetExtension(dto.File.FileName);
+                string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
+                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}{extension}";
+                string filePath = Path.Combine(uploadFolder, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                entity.DocumentFilePath = filePath;
+                await _dbContext.SaveChangesAsync(); // Save file path
+            }
             // Insert related ScheduledDeductionDetails
             if (dto.ScheduledDeductionDetailsDto != null && dto.ScheduledDeductionDetailsDto.Any())
             {
@@ -274,7 +296,33 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
             entity.AllocatingSalaryHead = dto.AllocatingSalaryHead;
             entity.MonthCount = dto.MonthCount;
             entity.MonthlyDeductableAmount = dto.MonthlyDeductableAmount;
-            
+
+
+            if (dto.File != null)
+            {
+                string uploadFolder = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
+                if (!Directory.Exists(uploadFolder))
+                    Directory.CreateDirectory(uploadFolder);
+
+                // Delete old file if it exists
+                if (!string.IsNullOrEmpty(entity.DocumentFilePath) && File.Exists(entity.DocumentFilePath))
+                {
+                    File.Delete(entity.DocumentFilePath);
+                }
+
+                string extension = Path.GetExtension(dto.File.FileName);
+                string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
+                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}{extension}";
+                string filePath = Path.Combine(uploadFolder, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                entity.DocumentFilePath = filePath;
+            }
+
             _dbContext.ScheduledDeductions.Update(entity);
             await _dbContext.SaveChangesAsync();
 

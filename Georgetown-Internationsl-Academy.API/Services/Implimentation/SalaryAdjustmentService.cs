@@ -5,6 +5,7 @@ using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -15,12 +16,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<SalaryAdjustmentService> _logger;
-
-        public SalaryAdjustmentService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryAdjustmentService> logger)
+        private readonly IWebHostEnvironment _webHostEnvironment;
+        public SalaryAdjustmentService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryAdjustmentService> logger, IWebHostEnvironment webHostEnvironment)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _webHostEnvironment = webHostEnvironment;
         }
 
         public async Task<IEnumerable<SalaryAdjustmentDto>> GetAllSalaryAdjustments(string? searchText = null, DateTime? fromDate = null)
@@ -36,6 +38,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         dept.DepartmentName,
         e.JoiningDate,
         e.Gender,
+        sa.TANumber,
         sa.IsTaxable,
         e.EmailID,
         e.PhoneNumber1 AS PhoneNumber1,
@@ -122,6 +125,7 @@ e.CurrentStatus ,
         e.PhoneNumber2 AS PhoneNumber2,
         e.CurrentStatus,
         sa.IdSalaryAdjustment,
+         sa.TANumber,
         sa.AllocationSalaryMonthDate,
         sa.PayAdjustmentDate,
         sa.PayAdjustmentDetails,
@@ -162,39 +166,110 @@ e.CurrentStatus ,
 
         public async Task<SalaryAdjustmentDto?> AddSalaryAdjustment(SalaryAdjustmentDto salaryAdjustment)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
             try
             {
                 var entity = _mapper.Map<SalaryAdjustment>(salaryAdjustment);
+
+                // Save the entity first to generate IdSalaryAdjustment
                 var addedEntity = await _dbContext.SalaryAdjustments.AddAsync(entity);
                 await _dbContext.SaveChangesAsync();
+
+                // Handle file upload
+                if (salaryAdjustment.File != null)
+                {
+                    string uploadFolder = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
+
+                    if (!Directory.Exists(uploadFolder))
+                        Directory.CreateDirectory(uploadFolder);
+
+                    string fileExtension = Path.GetExtension(salaryAdjustment.File.FileName);
+                    string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
+                    string fileName = $"SA_{addedEntity.Entity.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}{fileExtension}";
+                    string filePath = Path.Combine(uploadFolder, fileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await salaryAdjustment.File.CopyToAsync(stream);
+                    }
+
+                    // Update the file path in the entity
+                    addedEntity.Entity.DocumentFilePath = filePath;
+                    _dbContext.SalaryAdjustments.Update(addedEntity.Entity);
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+
                 return _mapper.Map<SalaryAdjustmentDto>(addedEntity.Entity);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error adding salary adjustment.");
                 return null;
             }
         }
 
+
         public async Task<SalaryAdjustmentDto?> UpdateSalaryAdjustment(SalaryAdjustmentDto salaryAdjustment)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
             try
             {
-                var existingAdjustment = await _dbContext.SalaryAdjustments.FirstOrDefaultAsync(x => x.IdSalaryAdjustment == salaryAdjustment.IdSalaryAdjustment);
-                if (existingAdjustment == null) return null;
+                var existingAdjustment = await _dbContext.SalaryAdjustments
+                    .FirstOrDefaultAsync(x => x.IdSalaryAdjustment == salaryAdjustment.IdSalaryAdjustment);
 
+                if (existingAdjustment == null)
+                    return null;
+
+                // Save old file path before mapping
+                var oldFilePath = existingAdjustment.DocumentFilePath;
+
+                // Map updated fields
                 _mapper.Map(salaryAdjustment, existingAdjustment);
+
+                // Handle file upload (if new file provided)
+                if (salaryAdjustment.File != null)
+                {
+                    string uploadFolder = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
+
+                    if (!Directory.Exists(uploadFolder))
+                        Directory.CreateDirectory(uploadFolder);
+
+                    // Delete old file if exists
+                    if (!string.IsNullOrWhiteSpace(oldFilePath) && File.Exists(oldFilePath))
+                        File.Delete(oldFilePath);
+
+                    string fileExtension = Path.GetExtension(salaryAdjustment.File.FileName);
+                    string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
+                    string fileName = $"SA_{existingAdjustment.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}{fileExtension}";
+                    string filePath = Path.Combine(uploadFolder, fileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await salaryAdjustment.File.CopyToAsync(stream);
+                    }
+
+                    existingAdjustment.DocumentFilePath = filePath;
+                }
+
                 _dbContext.SalaryAdjustments.Update(existingAdjustment);
                 await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return _mapper.Map<SalaryAdjustmentDto>(existingAdjustment);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error updating salary adjustment.");
                 return null;
             }
         }
+
     }
 
 }
