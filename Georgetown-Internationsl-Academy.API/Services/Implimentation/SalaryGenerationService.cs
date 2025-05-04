@@ -532,24 +532,42 @@ namespace YourNamespace.Services.Implementation
         {
             try
             {
-                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
+                var connStr = _configuration.GetConnectionString("DbContext");
+                using (var connection = new SqlConnection(connStr))
                 {
-                    var query = @"
-                SELECT CASE 
-                    WHEN EXISTS (
-                        SELECT 1 
-                        FROM [UAT_GIAGY].[dbo].[CurrencyConversions]
-                        WHERE FromCurrency = 'USD'
-                          AND ToCurrency = 'GYD'
-                          AND RateDate >= DATEADD(DAY, -5, GETDATE())
-                    )
-                    THEN CAST(1 AS BIT)
-                    ELSE CAST(0 AS BIT)
-                END";
+                    var query = @"SELECT CASE WHEN EXISTS (
+                            SELECT 1 
+                            FROM [UAT_GIAGY].[dbo].[CurrencyConversions]
+                            WHERE FromCurrency = 'USD'
+                            AND ToCurrency = 'GYD'
+                            AND RateDate >= DATEADD(DAY, -5, GETDATE())
+                          ) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END";
 
+                    await connection.OpenAsync();
                     var result = await connection.ExecuteScalarAsync<bool>(query);
                     return result;
                 }
+
+                //using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
+                //{
+                //    var query = @"
+                //SELECT CASE 
+                //    WHEN EXISTS (
+                //        SELECT 1 
+                //        FROM [UAT_GIAGY].[dbo].[CurrencyConversions]
+                //        WHERE FromCurrency = 'USD'
+                //          AND ToCurrency = 'GYD'
+                //          AND RateDate >= DATEADD(DAY, -5, GETDATE())
+                //    )
+                //    THEN CAST(1 AS BIT)
+                //    ELSE CAST(0 AS BIT)
+                //END";
+
+                //    var result = await connection.ExecuteScalarAsync<bool>(query);
+                //    await connection.CloseAsync(); // ✅ Explicit close
+                //    return result;
+                  
+                //}
             }
             catch (Exception ex)
             {

@@ -47,6 +47,7 @@ e.CurrentStatus ,
         sa.IdSalaryAdjustment,
         sa.PayAdjustmentDate,
         sa.PayAdjustmentDetails,
+        sa.DocumentFilePath,
         sa.AllocatingSalaryHead,
         sh.SalaryHeadName AS AllcoatingSalaryHeadName,
         sa.EarningOrDeduction,
@@ -125,6 +126,7 @@ e.CurrentStatus ,
         e.PhoneNumber2 AS PhoneNumber2,
         e.CurrentStatus,
         sa.IdSalaryAdjustment,
+        sa.DocumentFilePath,
          sa.TANumber,
         sa.AllocationSalaryMonthDate,
         sa.PayAdjustmentDate,
@@ -186,7 +188,8 @@ e.CurrentStatus ,
 
                     string fileExtension = Path.GetExtension(salaryAdjustment.File.FileName);
                     string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
-                    string fileName = $"SA_{addedEntity.Entity.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}{fileExtension}";
+                    string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(salaryAdjustment.File.FileName);
+                    string fileName = $"SA_{addedEntity.Entity.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}_{originalFileNameWithoutExt}{fileExtension}";
                     string filePath = Path.Combine(uploadFolder, fileName);
 
                     using (var stream = new FileStream(filePath, FileMode.Create))
@@ -245,7 +248,8 @@ e.CurrentStatus ,
 
                     string fileExtension = Path.GetExtension(salaryAdjustment.File.FileName);
                     string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
-                    string fileName = $"SA_{existingAdjustment.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}{fileExtension}";
+                    string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(salaryAdjustment.File.FileName);
+                    string fileName = $"SA_{existingAdjustment.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}_{originalFileNameWithoutExt}{fileExtension}";
                     string filePath = Path.Combine(uploadFolder, fileName);
 
                     using (var stream = new FileStream(filePath, FileMode.Create))

@@ -368,6 +368,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
+
+                var existingPermissions = await _dbContext.EmployeePermissions
+                  .Where(x => x.IdEmployee == employeeId)
+                  .ToListAsync();
+
                 var permission = await (from ep in _dbContext.EmployeePermissions
                                         join ps in _dbContext.PayrollScreens
                                         on ep.IdPayrollScreen equals ps.IdPayrollScreen

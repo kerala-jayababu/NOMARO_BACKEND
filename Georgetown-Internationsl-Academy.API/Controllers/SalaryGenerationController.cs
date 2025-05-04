@@ -95,16 +95,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
             }
-            var currencyConversions = await _salaryService.CheckcurrencyConversions();
-            if (!currencyConversions)
-            {
-                return StatusCode(
-                    403,
-                    ApiResponseDto<string>.CreateFailure(
-                        "Latest currency conversion details from USD to GYD are not available. Please configure them before proceeding with salary generation."
-                    )
-                );
-            }
+
             var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
             var actionType = "A";
 
@@ -116,6 +107,17 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
 
             }
+            var currencyConversions = await _salaryService.CheckcurrencyConversions();
+            if (!currencyConversions)
+            {
+                return StatusCode(
+                    403,
+                    ApiResponseDto<string>.CreateFailure(
+                        "Latest currency conversion details from USD to GYD are not available. Please configure them before proceeding with salary generation."
+                    )
+                );
+            }
+
             try
             {
                 var idEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -405,8 +407,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
                     col++;
 
-                    worksheet.Cells[1, col].Value = "Status";
+                    worksheet.Cells[1, col++].Value = "Status";
 
+                    worksheet.Cells[1, col++].Value = "ChildTaxCredit";
+                    worksheet.Cells[1, col++].Value = "FinalTaxableIncome";
+                    worksheet.Cells[1, col++].Value = "FinalTaxAmount";
+                    worksheet.Cells[1, col++].Value = "TaxReturn";
                     int row = 2;
 
                     foreach (var r in result)
@@ -466,8 +472,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         col++;
 
                         worksheet.Cells[row, col++].Value = r.Status;
+                        // Add tax fields
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "ChildTaxCredit");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxableIncome");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxAmount");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "TaxReturn");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+
 
                         row++;
+                       
                     }
 
                     // ➕ ADD TOTAL ROW BELOW HERE
@@ -527,7 +552,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-
+        decimal GetDecimal(IDictionary<string, object> dict, string key)
+        {
+            if (dict.ContainsKey(key) && dict[key] != null && decimal.TryParse(dict[key].ToString(), out var result))
+                return result;
+            return 0.00m;
+        }
 
         [HttpGet("ExportSalaryGenerationDetailsForApproved")]
         public async Task<IActionResult> ExportSalaryGenerationDetailsForApproved([FromQuery] string employeeIds, [FromQuery] int idSalaryMonth)
@@ -618,6 +648,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     col++;
 
                     //worksheet.Cells[1, col].Value = "Status";
+                    worksheet.Cells[1, col++].Value = "ChildTaxCredit";
+                    worksheet.Cells[1, col++].Value = "FinalTaxableIncome";
+                    worksheet.Cells[1, col++].Value = "FinalTaxAmount";
+                    worksheet.Cells[1, col++].Value = "TaxReturn";
 
                     int row = 2;
 
@@ -677,7 +711,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
                         col++;
 
-                        worksheet.Cells[row, col++].Value = r.Status;
+                        //worksheet.Cells[row, col++].Value = r.Status;
+
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "ChildTaxCredit");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxableIncome");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxAmount");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                        worksheet.Cells[row, col].Value = GetDecimal(dict, "TaxReturn");
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
 
                         row++;
                     }

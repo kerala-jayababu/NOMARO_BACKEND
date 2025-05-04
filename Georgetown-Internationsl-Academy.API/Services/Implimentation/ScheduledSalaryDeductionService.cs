@@ -52,6 +52,7 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
         e.EmailID,
         e.PhoneNumber1,
         e.PhoneNumber2,
+        ssd.DocumentFilePath,
         e.CurrentStatus
     FROM ScheduledDeductions ssd
     INNER JOIN Employees e ON ssd.IdEmployee = e.IdEmployee
@@ -147,6 +148,7 @@ WHERE sdd.IdScheduledSalaryDeduction IN (SELECT IdScheduledSalaryDeduction FROM 
         ssd.DeductionFromSalaryMonthDate,
         ssd.DeductionToSalaryMonthDate,
         ssd.AllocatingSalaryHead,
+        ssd.DocumentFilePath,
         ssd.MonthCount,
         ssd.MonthlyDeductableAmount,
         smFrom.SalaryMonthText AS DeductionFromSalaryMonthText,
@@ -228,7 +230,8 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
 
                 string extension = Path.GetExtension(dto.File.FileName);
                 string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
-                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}{extension}";
+                string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
+                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}_{originalFileNameWithoutExt}{extension}";
                 string filePath = Path.Combine(uploadFolder, fileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
@@ -312,7 +315,8 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
 
                 string extension = Path.GetExtension(dto.File.FileName);
                 string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
-                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}{extension}";
+                string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
+                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}_{originalFileNameWithoutExt}{extension}";
                 string filePath = Path.Combine(uploadFolder, fileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))

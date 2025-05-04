@@ -103,6 +103,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 e.CurrentStatus,
                 e.IdDepartment,
                 e.IdDesignation,
+                e.ChildCountDocumentFilePath,
                 e.EmployeePhotoFilePath   
             FROM Employees e
             INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
@@ -177,7 +178,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
                     string fileExtension = Path.GetExtension(dto.File.FileName);
-                    string uniqueFileName = $"CC_{employee.IdEmployee}_{employee.EmployeeCode}_{currentDate}{fileExtension}";
+                    string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
+                    string uniqueFileName = $"CC_{employee.IdEmployee}_{employee.EmployeeCode}_{currentDate}_{originalFileNameWithoutExt}{fileExtension}";
                     string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
 
                     employee.ChildCountDocumentFilePath = filePath;
@@ -200,7 +202,48 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        
 
+       public async Task<bool> DeleteEmployeeAttachment(int EmployeeId)
+        {
+            try
+            {
+                // Fetch the employee from the database
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.IdEmployee == EmployeeId);
+                if (employee == null)
+                {
+                    _logger.LogWarning($"No details found for Employee ID: {EmployeeId}");
+                    return false; // Employee not found
+                }
+                if (!string.IsNullOrEmpty(employee.ChildCountDocumentFilePath))
+                {
+                    var filePath = employee.ChildCountDocumentFilePath;
+
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                        _logger.LogInformation($"Deleted file: {filePath}");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"File not found at path: {filePath}");
+                    }
+                }
+
+                employee.ChildCountDocumentFilePath = null;
+             
+                // Save the changes
+                _dbContext.Employees.Update(employee);
+                await _dbContext.SaveChangesAsync();
+
+                return true; // Successfully updated
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating Employee ID: {EmployeeId}");
+                throw;
+            }
+        }
 
 
 
@@ -216,6 +259,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 	         bb.BranchName,
              eba.AccountNumber,            
              eba.BranchCode,
+             bb.ABARoutingNumber,
              eba.SalaryPercentageDistributed,
              eba.CurrencyCode
          FROM 

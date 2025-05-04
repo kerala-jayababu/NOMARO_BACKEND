@@ -16,6 +16,8 @@
         public string PhoneNumber1 { get; set; }
         public string PhoneNumber2 { get; set; }
         public string? EmployeePhotoFilePath { get; set; }
+        public string? ChildCountDocumentFilePath { get; set; }
         public byte[]? AttachmentBlob { get; set; }
+        public byte[]? AttachmentBlobForchildcount { get; set; }
     }
 }

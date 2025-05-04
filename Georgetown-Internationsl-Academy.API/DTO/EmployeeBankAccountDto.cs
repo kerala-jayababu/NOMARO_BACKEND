@@ -13,6 +13,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string BranchCode { get; set; }
         public decimal SalaryPercentageDistributed { get; set; }
         public string CurrencyCode { get; set; }
+        public string? ABARoutingNumber { get; set; }
 
         [NotMapped]
         public string? BankName { get; set; }

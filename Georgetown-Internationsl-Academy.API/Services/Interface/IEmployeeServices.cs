@@ -10,7 +10,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<EmployeeBankAccountDto>> GetEmployeeBankAccountsByID(int Id);
         Task<IEnumerable<EmployeeProfileDetailsDto>> GetEmployeeProfileByID(int Id);        
         Task<IEnumerable<EmployeeOvertimeConfigDto>> GetEmployeeOvertimeConfigsByID(int Id);
-        Task<bool> UpdateEmployeeDetails(UpdateEmployeeDto updateEmployee);        
+        Task<bool> UpdateEmployeeDetails(UpdateEmployeeDto updateEmployee);
+        Task<bool> DeleteEmployeeAttachment(int  employeeID);        
         Task<bool> ManageEmployeeBankAccounts(List<EmployeeBankAccountDtoList> bankAccounts);
         Task<bool> ManageEmployeeOvertimeConfigs(List<EmployeeOvertimeConfigDtoList> overtimeConfigs);
         Task<IEnumerable<EmployeeHierarchyDto>> GetEmployeesByHierarchy(int employeeId);

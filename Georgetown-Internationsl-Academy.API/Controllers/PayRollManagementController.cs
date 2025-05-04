@@ -371,6 +371,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Ok(ApiResponseDto<IEnumerable<SalaryAdjustmentDto>>.CreateSuccess(Enumerable.Empty<SalaryAdjustmentDto>(), "No salary adjustments found."));
                 }
+                foreach (var transaction in adjustments)
+                {
+                    if (!string.IsNullOrEmpty(transaction.DocumentFilePath) && System.IO.File.Exists(transaction.DocumentFilePath))
+                    {
+                        transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.DocumentFilePath);
+                    }
+                }
                 return Ok(ApiResponseDto<IEnumerable<SalaryAdjustmentDto>>.CreateSuccess(adjustments, "Salary adjustments retrieved successfully."));
             }
             catch (Exception ex)
@@ -389,6 +396,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Ok(ApiResponseDto<SalaryAdjustmentDto>.CreateSuccess(null, "Salary adjustment not found."));
                 }
+                if (!string.IsNullOrEmpty(adjustment.DocumentFilePath) && System.IO.File.Exists(adjustment.DocumentFilePath))
+                {
+                    adjustment.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(adjustment.DocumentFilePath);
+                }
                 return Ok(ApiResponseDto<SalaryAdjustmentDto>.CreateSuccess(adjustment, "Salary adjustment retrieved successfully."));
             }
             catch (Exception ex)
@@ -398,7 +409,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddSalaryAdjustment")]
-        public async Task<IActionResult> AddSalaryAdjustment([FromBody] SalaryAdjustmentDto dto)
+        public async Task<IActionResult> AddSalaryAdjustment(SalaryAdjustmentDto dto)
         {
             var validationResult = await _salaryAdjustmentvalidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -434,7 +445,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateSalaryAdjustment")]
-        public async Task<IActionResult> UpdateSalaryAdjustment([FromBody] SalaryAdjustmentDto dto)
+        public async Task<IActionResult> UpdateSalaryAdjustment( SalaryAdjustmentDto dto)
         {
             var validationResult = await _salaryAdjustmentvalidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -482,6 +493,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Ok(ApiResponseDto<IEnumerable<ScheduledSalaryDeductionDto>>.CreateSuccess(Enumerable.Empty<ScheduledSalaryDeductionDto>(), "No scheduled deductions found."));
                 }
+                foreach (var transaction in deductions)
+                {
+                    if (!string.IsNullOrEmpty(transaction.DocumentFilePath) && System.IO.File.Exists(transaction.DocumentFilePath))
+                    {
+                        transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.DocumentFilePath);
+                    }
+                }
                 return Ok(ApiResponseDto<IEnumerable<ScheduledSalaryDeductionDto>>.CreateSuccess(deductions, "Scheduled deductions retrieved successfully."));
             }
             catch (Exception ex)
@@ -506,6 +524,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Ok(ApiResponseDto<ScheduledSalaryDeductionDto>.CreateSuccess(null, "Scheduled deduction not found."));
                 }
+                if (!string.IsNullOrEmpty(deduction.DocumentFilePath) && System.IO.File.Exists(deduction.DocumentFilePath))
+                {
+                    deduction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(deduction.DocumentFilePath);
+                }
 
                 return Ok(ApiResponseDto<ScheduledSalaryDeductionDto>.CreateSuccess(deduction, "Scheduled deduction retrieved successfully."));
             }
@@ -516,7 +538,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddscheduledSalaryDeductionservice")]
-        public async Task<IActionResult> AddscheduledSalaryDeductionservice([FromBody] ScheduledSalaryDeductionDto dto)
+        public async Task<IActionResult> AddscheduledSalaryDeductionservice( ScheduledSalaryDeductionDto dto)
         {
             var validationResult = await _scheduledSalaryDeductionscheduledSalaryDeductionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -662,7 +684,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddMaternityLeaveSalary")]
-        public async Task<IActionResult> AddMaternityLeaveSalary([FromForm] MaternityLeaveSalaryDto dto)
+        public async Task<IActionResult> AddMaternityLeaveSalary(MaternityLeaveSalaryDto dto)
         {
             var validationResult = await _maternityLeaveSalaryValidator.ValidateAsync(dto);
 
@@ -709,7 +731,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateMaternityLeaveSalary")]
-        public async Task<IActionResult> UpdateMaternityLeaveSalary([FromBody] MaternityLeaveSalaryDto dto)
+        public async Task<IActionResult> UpdateMaternityLeaveSalary( MaternityLeaveSalaryDto dto)
         {
             var validationResult = await _maternityLeaveSalaryValidator.ValidateAsync(dto);
 

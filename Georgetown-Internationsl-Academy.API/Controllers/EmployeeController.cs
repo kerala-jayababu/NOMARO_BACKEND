@@ -56,10 +56,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
                     }
 
-                    //if (!string.IsNullOrEmpty(employee.EmployeePhotoFilePath) && System.IO.File.Exists(employee.EmployeePhotoFilePath))
-                    //{
-                    //    employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(employee.EmployeePhotoFilePath);
-                    //}
+                    if (!string.IsNullOrEmpty(employee.ChildCountDocumentFilePath) && System.IO.File.Exists(employee.ChildCountDocumentFilePath))
+                    {
+                        employee.AttachmentBlobForchildcount = await System.IO.File.ReadAllBytesAsync(employee.ChildCountDocumentFilePath);
+                    }
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDto>>.CreateSuccess(employeeList, "Employee list retrieved successfully."));
@@ -187,8 +187,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("UpdateEmployeeDetails")]
-
-        public async Task<IActionResult> UpdateEmployeeDetails([FromBody] UpdateEmployeeDto dto)
+        public async Task<IActionResult> UpdateEmployeeDetails([FromForm] UpdateEmployeeDto dto)
         {
             if (dto.EmployeeId <= 0)
             {
@@ -240,8 +239,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         }
 
+        [HttpPost("DeleteEmployeeAttachment")]
+        public async Task<IActionResult> DeleteEmployeeAttachment(int idEmployee)
+        {
+            try
+            {
+                var updateResult = await _employeeservice.DeleteEmployeeAttachment(idEmployee);
+                if (!updateResult)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to delte attachement."));
+                }
 
-        [HttpPost("ManageEmployeeBankAccounts")]
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee attachment deleted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+
+        }
+
+            [HttpPost("ManageEmployeeBankAccounts")]
         public async Task<IActionResult> ManageEmployeeBankAccounts([FromBody] List<EmployeeBankAccountDtoList> bankAccounts)
         {
             if (bankAccounts == null || !bankAccounts.Any())
