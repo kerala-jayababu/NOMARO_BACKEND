@@ -186,6 +186,7 @@ builder.Services.AddScoped<IBankServices, BankServices>();
 builder.Services.AddScoped<ILeavePassageService, LeavePassageService>();
 builder.Services.AddScoped<IReportServices, ReportServices>();
 builder.Services.AddScoped<IBambooServices, BambooServices>();
+builder.Services.AddScoped<IHolidayServices, HolidayServices>();
 
 var app = builder.Build();
 

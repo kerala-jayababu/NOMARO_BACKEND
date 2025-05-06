@@ -89,6 +89,26 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return reportConditions;
         }
 
+        public async Task<IEnumerable<ReportColumnsDto>> GetReportColumnsById(int IdReport)
+        {
+
+            var reportColumns = await (from report in _dbContext.ReportColumns
+                                          where report.IdReport == IdReport
+                                            orderby report.IdReportCondition
+                                          select new ReportColumnsDto
+                                          {
+                                              IdReportCondition = report.IdReportCondition,
+                                              IdReport =  report.IdReport,
+                                              ColumnName = report.ColumnName,
+                                              DataType=report.DataType,
+                                              Alignment = report.Alignment,
+                                              WidthInPixels = report.WidthInPixels,
+                                              TotalRequired=    report.TotalRequired                                              
+                                          }).ToListAsync();
+
+            return reportColumns;
+        }
+
         public async Task<List<Dictionary<string, object>>> ExecuteStoredProcedureAsync(StoredProcedureDto request)
         {
             var result = new List<Dictionary<string, object>>();

@@ -2,7 +2,7 @@
 using Georgetown_Internationsl_Academy.API.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using YourNamespace.Models;
+
 namespace Georgetown_International_Academy.API.Database
 {
     public class ApplicationDBContext : DbContext
@@ -54,6 +54,8 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<LeavePassage> LeavePassages { get; set; }
         public DbSet<ReportsMaster> ReportsMaster { get; set; }
         public DbSet<ReportConditions> ReportConditions { get; set; }
+        public DbSet<ReportColumns> ReportColumns { get; set; }
+
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<LoginOTP> LoginOTP { get; set; }
 

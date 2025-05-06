@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace YourNamespace.Models
+namespace Georgetown_Internationsl_Academy.API.Models
 {
     public class Holiday
     {

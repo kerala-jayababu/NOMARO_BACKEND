@@ -84,6 +84,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
+        [HttpPost("GetReportColumnsById")]
+        public async Task<IActionResult> GetReportColumnsById(int IdReport)
+        {
+            var result = await _reportService.GetReportColumnsById(IdReport);
+            return Ok(result);
+        }
 
 
 

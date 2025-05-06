@@ -37,7 +37,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<VacationModeDto> _vacationModevalidator;
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedService;
-        public MasterDataController(IBudgetCodeServices budgetCodeServices, 
+        private readonly IHolidayServices _iholidayService;
+        public MasterDataController(IBudgetCodeServices budgetCodeServices,
             IDesignationServices designationServices,
             IDepartmentServices deparmentservices,
             ISystemParameterService systemParameterService,
@@ -45,13 +46,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             IValidator<DesignationDto> designationvalidator,
             IValidator<DepartmentDto> departmentValidator,
             IValidator<SystemParameterDto> systsemValidator,
-            INotificationConfigService notificationConfigService, 
+            INotificationConfigService notificationConfigService,
             IValidator<NotificationConfigDto> notificationvalidator,
-            IVacationModeService vacationModeService, 
+            IVacationModeService vacationModeService,
             IValidator<VacationModeDto> vacationModevalidator,
             IValidator<SalaryHeadDto> salaryvalidator,
             IConfiguration configuration, IRoleBasedScreenService roleBasedService,
-            ISalaryHeadServices salaryservice)
+            ISalaryHeadServices salaryservice,
+            IHolidayServices holidayService)
+          
         {
             _budgetCodeServices = budgetCodeServices;
             _designationservices = designationServices;
@@ -60,7 +63,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _designationvalidator = designationvalidator;
             _deparmentvalidator = departmentValidator;
             _systsemValidator = systsemValidator;
-            _salaryvalidator = salaryvalidator;            
+            _salaryvalidator = salaryvalidator;
             _salaryservice = salaryservice;
             _systemParameterService = systemParameterService;
             _notificationConfigService = notificationConfigService;
@@ -69,6 +72,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _configuration = configuration;
             _roleBasedService = roleBasedService;
             _vacationModevalidator = vacationModevalidator;
+            _iholidayService = holidayService;
         }
 
         #region BudgetCodes
@@ -116,7 +120,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-       
+
             }
 
         }
@@ -237,7 +241,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-              
+
             }
         }
 
@@ -262,7 +266,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-           
+
             }
         }
 
@@ -289,7 +293,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-              
+
             }
         }
 
@@ -407,7 +411,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-                
+
             }
 
         }
@@ -433,7 +437,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
             catch (Exception ex)
             {
-                
+
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
@@ -553,14 +557,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var conflictDepartment = (await _deparmentservices.GetDepartmentList())
-                    .FirstOrDefault(d => d.DepartmentCode == dto.DepartmentCode && d.DepartmentName == dto.DepartmentName && d.IdDepartment!= dto.IdDepartment);
+                    .FirstOrDefault(d => d.DepartmentCode == dto.DepartmentCode && d.DepartmentName == dto.DepartmentName && d.IdDepartment != dto.IdDepartment);
 
                 if (conflictDepartment != null)
                 {
                     return Conflict(ApiResponseDto<string>.CreateFailure("Department conflicts with an existing entry."));
                 }
 
-               var res= await _deparmentservices.UpdateDepartment(dto);
+                var res = await _deparmentservices.UpdateDepartment(dto);
                 if (res == null)
                 {
                     return UnprocessableEntity(ApiResponseDto<string>.CreateFailure("Failed to update department."));
@@ -668,12 +672,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return Conflict(ApiResponseDto<string>.CreateFailure("Salary head already exists."));
                 }
 
-            }            
+            }
 
             try
             {
                 //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var res= await _salaryservice.AddSalaryHead(dto, int.Parse(IdEmployee));
+                var res = await _salaryservice.AddSalaryHead(dto, int.Parse(IdEmployee));
                 if (res == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to create salary head."));
@@ -739,7 +743,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var res=    await _salaryservice.UpdateSalaryHead(dto, int.Parse(IdEmployee));
+                var res = await _salaryservice.UpdateSalaryHead(dto, int.Parse(IdEmployee));
                 if (res == null)
                 {
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update salary head."));
@@ -802,7 +806,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpPost("UpdateSystemParameter")]
         public async Task<IActionResult> UpdateSystemParameter([FromBody] SystemParameterDto dto)
         {
-          
+
 
             // Ensure ID is valid
             if (dto.IdSystemParameter <= 0)
@@ -1004,7 +1008,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             try
             {
-                var vacationModes = await _vacationModeService.GetAllVacationModes(searchText,dateFilter);
+                var vacationModes = await _vacationModeService.GetAllVacationModes(searchText, dateFilter);
 
                 if (vacationModes == null || !vacationModes.Any())
                 {
@@ -1127,11 +1131,44 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
         #endregion
 
+        #region Holidays
 
-      
+        [HttpGet("GetHolidaysInAnYear")]
+        public async Task<IActionResult> GetHolidaysInAnYear(int Year)
+        {
+            try
+            {
+                var holidayList = await _iholidayService.GetHolidaysInAnYear(Year);
+
+                if (!holidayList.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<HolidaysDto>>.CreateSuccess(Enumerable.Empty<HolidaysDto>(), "Holidays are not configured."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<HolidaysDto>>.CreateSuccess(holidayList, "Holiday list retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
 
+        [HttpPost("AddOrUpdateHoliday")]
+        public async Task<IActionResult> AddOrUpdateHoliday(HolidaysDto holidayDetail)
+        {
+            try
+            {
+                var banksList = await _iholidayService.AddOrUpdateHoliday(holidayDetail);
 
+                return Ok(ApiResponseDto<IEnumerable<HolidaysDto>>.CreateSuccess(Enumerable.Empty<HolidaysDto>(), "Holidays are not configured."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        #endregion
 
     }
 }
