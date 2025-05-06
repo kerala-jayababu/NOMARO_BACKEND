@@ -15,6 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string TargetIdEmployee { get; set; } 
         public string? ActionStatus { get; set; }
         public DateTime? ActionDate { get; set; }
+        public int? ActionedBy { get; set; }
         public string? RejectionRemarks { get; set; }
         public DateTime SentDate { get; set; }
     }

@@ -108,11 +108,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
 
-             
+
 
 
 
                 // Step 4: Update current level's status
+                currentRecord.ActionedBy = loggedInEmployeeId;
                 currentRecord.ActionStatus = status;
                 currentRecord.ActionDate = DateTime.Now;
                 currentRecord.RejectionRemarks = status == "REJECTED" ? rejectReason : null;
