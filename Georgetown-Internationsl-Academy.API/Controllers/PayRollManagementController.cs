@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 
@@ -427,7 +428,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddSalaryAdjustment")]
-        public async Task<IActionResult> AddSalaryAdjustment(SalaryAdjustmentDto dto)
+        public async Task<IActionResult> AddSalaryAdjustment([FromForm]  SalaryAdjustmentDto dto)
         {
             var validationResult = await _salaryAdjustmentvalidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -435,6 +436,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -463,7 +465,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateSalaryAdjustment")]
-        public async Task<IActionResult> UpdateSalaryAdjustment( SalaryAdjustmentDto dto)
+        public async Task<IActionResult> UpdateSalaryAdjustment([FromForm] SalaryAdjustmentDto dto)
         {
             var validationResult = await _salaryAdjustmentvalidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -558,7 +560,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddscheduledSalaryDeductionservice")]
-        public async Task<IActionResult> AddscheduledSalaryDeductionservice( ScheduledSalaryDeductionDto dto)
+        public async Task<IActionResult> AddscheduledSalaryDeductionservice([FromForm]  ScheduledSalaryDeductionDto dto)
         {
             var validationResult = await _scheduledSalaryDeductionscheduledSalaryDeductionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -566,7 +568,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
-
+            if (dto.scheduledDeductionDetailsJson != null)
+            {
+                dto.ScheduledDeductionDetailsDto = JsonConvert.DeserializeObject<List<ScheduledDeductionDetailsDto>>(dto.scheduledDeductionDetailsJson);
+            }
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -601,7 +606,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdatescheduledSalaryDeductionservice")]
-        public async Task<IActionResult> UpdatescheduledSalaryDeductionservice(ScheduledSalaryDeductionDto dto)
+        public async Task<IActionResult> UpdatescheduledSalaryDeductionservice([FromForm]ScheduledSalaryDeductionDto dto)
         {
             var validationResult = await _scheduledSalaryDeductionscheduledSalaryDeductionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -610,7 +615,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
 
-
+            if(dto.scheduledDeductionDetailsJson != null)
+            {
+                dto.ScheduledDeductionDetailsDto = JsonConvert.DeserializeObject<List<ScheduledDeductionDetailsDto>>(dto.scheduledDeductionDetailsJson);
+            }
+        
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(IdEmployee))
@@ -706,7 +715,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddMaternityLeaveSalary")]
-        public async Task<IActionResult> AddMaternityLeaveSalary(MaternityLeaveSalaryDto dto)
+        public async Task<IActionResult> AddMaternityLeaveSalary([FromForm] MaternityLeaveSalaryDto dto)
         {
             var validationResult = await _maternityLeaveSalaryValidator.ValidateAsync(dto);
 
@@ -715,6 +724,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
             }
+
+            if (dto.MaternityLeaveSalaryDetailDtoJson != null)
+            {
+                dto.MaternityLeaveSalaryDetailDto = JsonConvert.DeserializeObject<List<MaternityLeaveSalaryDetailDto>>(dto.MaternityLeaveSalaryDetailDtoJson);
+            }
+
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -753,7 +768,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateMaternityLeaveSalary")]
-        public async Task<IActionResult> UpdateMaternityLeaveSalary( MaternityLeaveSalaryDto dto)
+        public async Task<IActionResult> UpdateMaternityLeaveSalary([FromForm] MaternityLeaveSalaryDto dto)
         {
             var validationResult = await _maternityLeaveSalaryValidator.ValidateAsync(dto);
 
@@ -761,6 +776,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+            if (dto.MaternityLeaveSalaryDetailDtoJson != null)
+            {
+                dto.MaternityLeaveSalaryDetailDto = JsonConvert.DeserializeObject<List<MaternityLeaveSalaryDetailDto>>(dto.MaternityLeaveSalaryDetailDtoJson);
             }
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 

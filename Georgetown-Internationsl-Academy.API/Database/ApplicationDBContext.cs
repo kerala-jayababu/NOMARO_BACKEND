@@ -58,6 +58,7 @@ namespace Georgetown_International_Academy.API.Database
 
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<LoginOTP> LoginOTP { get; set; }
+        public DbSet<BankRemittance> BankRemittance { get; set; }
 
     }
 }

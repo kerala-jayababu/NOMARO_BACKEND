@@ -515,6 +515,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.IdApprovedBy = loggedInEmployeeId;
                     await _dbContext.SaveChangesAsync();
                 }
+
+                var bankremittance = await _dbContext.BankRemittance.Where(x => x.IdEmployeeSalary == entityTablePrimaryKeyID).ToListAsync();
+                if (bankremittance != null)
+                {
+                    _dbContext.BankRemittance.RemoveRange(bankremittance);
+                    await _dbContext.SaveChangesAsync();
+                }
+          
             }
         }
 

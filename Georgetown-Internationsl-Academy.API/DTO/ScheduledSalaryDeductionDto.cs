@@ -22,6 +22,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public byte[]? AttachmentBlob { get; set; }
 
         public List<ScheduledDeductionDetailsDto>? ScheduledDeductionDetailsDto { get; set; }
+        public  string? scheduledDeductionDetailsJson { get; set; }
 
         [NotMapped]
         public string? DeductionFromSalaryMonthText { get; set; }

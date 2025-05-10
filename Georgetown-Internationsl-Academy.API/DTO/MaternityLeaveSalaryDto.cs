@@ -47,8 +47,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         [NotMapped]
         public string? PhoneNumber2 { get; set; }
         [NotMapped]
-        public string? CurrentStatus { get; set; }  
-
+        public string? CurrentStatus { get; set; }
+        public string? MaternityLeaveSalaryDetailDtoJson { get; set; }
         public List<MaternityLeaveSalaryDetailDto>? MaternityLeaveSalaryDetailDto { get; set; }
 
     }

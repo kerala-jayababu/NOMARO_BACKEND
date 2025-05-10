@@ -228,11 +228,18 @@ namespace YourNamespace.Services.Implementation
                 .Where(x => idemployeeSalaries.Contains((int)x.IdEmployeeSalary))
                 .ToListAsync();
 
+                var bankRemittanceToDelete = await _dbContext.BankRemittance
+              .Where(x => idemployeeSalaries.Contains((int)x.IdEmployeeSalary))
+              .ToListAsync();
+
+
                 _dbContext.EmployeeSalaryDetails.RemoveRange(salaryDetailsToDelete);
 
                 // Remove EmployeeSalaries records
                 _dbContext.EmployeeSalaries.RemoveRange(recordsToDelete);
 
+
+                _dbContext.BankRemittance.RemoveRange(bankRemittanceToDelete);
                 int deletedCount = await _dbContext.SaveChangesAsync();
                 return deletedCount;
             }
