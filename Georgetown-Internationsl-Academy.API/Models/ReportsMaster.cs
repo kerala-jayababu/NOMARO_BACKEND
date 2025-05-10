@@ -34,5 +34,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
 
         [MaxLength(1000)]
         public string? MergeColumnDetails { get; set; }
+
+        public bool HeaderRequired { get; set; }
     }
 }

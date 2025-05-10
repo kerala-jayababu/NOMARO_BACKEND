@@ -20,5 +20,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? RowsInaPage { get; set; }
         public int? RowHeight { get; set; }
         public char Enabled { get; set; }
+        public bool HeaderRequired { get; set; }
     }
 }
