@@ -10,5 +10,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int LevelNumber { get; set; }
         public string ApprovalAuthorityType { get; set; }
         public int? ApprovalAuthorityID { get; set; }
+        public string? ApprovalStatusName {  get; set; }
     }
 }

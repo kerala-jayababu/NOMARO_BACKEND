@@ -179,7 +179,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
                     string fileExtension = Path.GetExtension(dto.File.FileName);
                     string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
-                    string uniqueFileName = $"CC_{employee.IdEmployee}_{employee.EmployeeCode}_{currentDate}_{originalFileNameWithoutExt}{fileExtension}";
+                    string uniqueFileName = $"CC_{employee.IdEmployee}_{employee.EmployeeCode}_{currentDate}{fileExtension}";
                     string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
 
                     employee.ChildCountDocumentFilePath = filePath;

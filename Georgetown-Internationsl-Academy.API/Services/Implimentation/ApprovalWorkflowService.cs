@@ -122,7 +122,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Step 5: Handle rejection
                 if (status == "REJECTED")
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex, loggedInEmployeeId, null);
+                   
+                    var workflowConfigDetailsFinal = await _dbContext.WorkFlowConfigDetails
+                        .FirstOrDefaultAsync(w => w.IdWorkFlowConfig == currentRecord.IdWorkFlowConfig && w.LevelNumber == currentRecord.LevelNumber);
+
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null);
                     //await transaction.CommitAsync();
                     return "Record rejected successfully. Workflow terminated.";
                 }
@@ -135,7 +139,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (workflowConfigDetails == null)
                 {
                     //await transaction.CommitAsync();
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "APPROVED", currentRecord.CycleIndex, loggedInEmployeeId,null);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetails.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId,null);
                     return "Record approved successfully. Workflow completed.";
                 }
 
@@ -148,7 +152,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 var targetEmployeeIdsForNextLevel = string.Join(",", targetEmployeesForNextLevel);
-                string actionStatus = (targetEmployeeIdsForNextLevel == "0") ? "FINAL APPROVED" : "INTERIM APPROVED";
+                string actionStatus = (targetEmployeeIdsForNextLevel == "0") ? "FINAL APPROVED" : workflowConfigDetails.ApprovalStatusName;
                 var newNextLevelRecord = new ApprovalWorkFlowAllocation
                 {
                     IdWorkFlowConfig = currentRecord.IdWorkFlowConfig,

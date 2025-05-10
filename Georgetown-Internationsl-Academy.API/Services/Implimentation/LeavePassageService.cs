@@ -120,6 +120,65 @@ WHERE 1 = 1
             }
         }
 
+        
+
+
+
+         public async Task<IEnumerable<LeavePassageDto>> GetLeavePassagesListByemployeeId(int EmployeeId)
+        {
+            var query = new StringBuilder(@"
+        SELECT 
+    lp.IdLeavePassage,
+    lp.IdEmployee,
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    e.EmployeeCode,
+    e.IdDesignation,
+    des.DesignationName,
+    e.IdDepartment,
+    dept.DepartmentName,
+    e.JoiningDate,
+    e.Gender,
+    e.EmailID,
+    e.PhoneNumber1,
+    e.PhoneNumber2,
+    lp.IdFinancialYear,
+	fy.FinancialYearFrom,
+	fy.FinancialYearTo,
+  lp.IdSalaryMonth,
+  smFrom.SalaryMonthText,
+  lp.Remarks,
+  lp.ApprovalStatus
+FROM LeavePassages lp
+INNER JOIN Employees e ON lp.IdEmployee = e.IdEmployee
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
+LEFT JOIN FinancialYears fy ON lp.IdSalaryMonth = fy.IdFinancialYear
+WHERE lp.IdEmployee = @IdEmployee
+        ORDER BY e.FirstName, e.LastName;
+    ");
+
+            var parameters = new DynamicParameters();
+            parameters.Add("@IdEmployee", EmployeeId);
+
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var leavePassageDtos = await connection.QueryAsync<LeavePassageDto>(query.ToString(), parameters);
+                    return leavePassageDtos;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching  Leave passage.");
+                throw new Exception("An error occurred while fetching maternity leave passage. Please try again later.");
+            }
+        }
         public async Task<LeavePassageDto?> GetLeavePassagesById(int id)
         {
             var query = new StringBuilder(@"

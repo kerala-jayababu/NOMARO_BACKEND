@@ -212,7 +212,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                 string fileExtension = Path.GetExtension(dto.File.FileName);
                 string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
                 string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
-                string uniqueFileName = $"ML_{maternityLeaveSalary.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}_{originalFileNameWithoutExt}{fileExtension}";
+                string uniqueFileName = $"ML_{maternityLeaveSalary.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}{fileExtension}";
                 string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
               
                 using (var stream = new FileStream(filePath, FileMode.Create))
@@ -310,7 +310,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                 string fileExtension = Path.GetExtension(dto.File.FileName);
                 string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
                 string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
-                string uniqueFileName = $"ML_{dto.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}_{originalFileNameWithoutExt}{fileExtension}";
+                string uniqueFileName = $"ML_{dto.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}{fileExtension}";
                 string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))

@@ -231,7 +231,7 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
                 string extension = Path.GetExtension(dto.File.FileName);
                 string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
                 string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
-                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}_{originalFileNameWithoutExt}{extension}";
+                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}{extension}";
                 string filePath = Path.Combine(uploadFolder, fileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
@@ -316,7 +316,7 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
                 string extension = Path.GetExtension(dto.File.FileName);
                 string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
                 string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
-                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}_{originalFileNameWithoutExt}{extension}";
+                string fileName = $"SD_{entity.IdScheduledSalaryDeduction}_{EmployeeId}_{dto.EmployeeCode}_{timestamp}{extension}";
                 string filePath = Path.Combine(uploadFolder, fileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))

@@ -53,6 +53,31 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetLeavePassagesByemployeeId")]
+        public async Task<IActionResult> GetLeavePassagesListByemployeeId(int EmployeeId)
+        {
+            try
+            {
+
+
+                var leavePassageList = await _leavePassageServices.GetLeavePassagesListByemployeeId(EmployeeId);
+
+                if (leavePassageList == null || !leavePassageList.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<LeavePassageDto>>.CreateSuccess(Enumerable.Empty<LeavePassageDto>(), "No LeavePassage found."));
+                }
+
+
+                return Ok(ApiResponseDto<IEnumerable<LeavePassageDto>>.CreateSuccess(leavePassageList, "LeavePassage retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+
 
         [HttpGet("GetLeavePassageById")]
         public async Task<IActionResult> GetLeavePassageById(int id)
