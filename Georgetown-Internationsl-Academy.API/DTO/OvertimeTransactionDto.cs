@@ -42,5 +42,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int IdDepartment { get; set; }
         [NotMapped]
         public int IdDesignation { get; set; }
+
+        [NotMapped]
+        public decimal? OTAmount { get; set; } 
     }
 }

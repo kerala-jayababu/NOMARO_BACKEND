@@ -325,7 +325,8 @@ WHERE ot.IdEmployee = @EmployeeId ");
                         await connection.OpenAsync();
 
                     var transaction = await connection.QueryFirstOrDefaultAsync<OvertimeTransactionDto>(query, new { Id = id });
-
+                    var res = await GetOverTimeAmount(transaction.IdEmployee, transaction.StartDate, transaction.DurationInHours);
+                    transaction.OTAmount = res;
                     return transaction;
                 }
             }

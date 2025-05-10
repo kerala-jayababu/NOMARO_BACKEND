@@ -50,7 +50,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                           idPermissionEmployeesList = report.idPermissionEmployeesList,
                                           Enabled = report.Enabled,
                                           MergeColumnDetails = report.MergeColumnDetails,
-                                          HeaderRequired = report.HeaderRequired
+                                          HeaderRequired = report.HeaderRequired,
+                                          PDFViewable = report.PDFViewable
                                       }).ToListAsync();
 
                 return reports;
