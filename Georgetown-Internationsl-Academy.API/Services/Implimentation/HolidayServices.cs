@@ -80,5 +80,33 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
+        public async Task<bool> DeleteHoliday(int IdHoliday)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                if (IdHoliday > 0)
+                {
+                    var holidayDet = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.IdHoliday == IdHoliday);
+                    if (holidayDet != null)
+                    {
+                        _dbContext.Holidays.Remove(holidayDet);
+                        await _dbContext.SaveChangesAsync();
+                    }
+                }
+          
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding, Deleteting the record");
+                throw new Exception("An error occurred while Deleteting Holiday. Please try again.");
+            }
+        }
+
     }
 }

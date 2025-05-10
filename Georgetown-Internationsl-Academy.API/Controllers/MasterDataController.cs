@@ -1161,13 +1161,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 var banksList = await _iholidayService.AddOrUpdateHoliday(holidayDetail);
 
-                return Ok(ApiResponseDto<IEnumerable<HolidaysDto>>.CreateSuccess(Enumerable.Empty<HolidaysDto>(), "Holidays are not configured."));
+                return Ok(ApiResponseDto<IEnumerable<HolidaysDto>>.CreateSuccess(Enumerable.Empty<HolidaysDto>(), "Holidays are configured."));
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        [HttpPost("DeleteHoliday")]
+        public async Task<IActionResult> DeleteHoliday(int IdHoliday)
+        {
+            try
+            {
+                var delStatus = await _iholidayService.DeleteHoliday(IdHoliday);
+
+                return Ok(ApiResponseDto<IEnumerable<HolidaysDto>>.CreateSuccess(Enumerable.Empty<HolidaysDto>(), "Holiday is deleted."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
 
     }

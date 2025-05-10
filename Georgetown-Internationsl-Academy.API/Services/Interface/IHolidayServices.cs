@@ -6,6 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
         Task<IEnumerable<HolidaysDto>> GetHolidaysInAnYear(int Year);
         Task<bool> AddOrUpdateHoliday(HolidaysDto holidayDetail);
+        Task<bool> DeleteHoliday(int IdHoliday);
 
 
     }
