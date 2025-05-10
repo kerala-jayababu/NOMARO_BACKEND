@@ -376,6 +376,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     if (!string.IsNullOrEmpty(transaction.DocumentFilePath) && System.IO.File.Exists(transaction.DocumentFilePath))
                     {
                         transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.DocumentFilePath);
+                        transaction.DocumentFilePath = Path.GetFileName(transaction.DocumentFilePath);
                     }
                 }
                 return Ok(ApiResponseDto<IEnumerable<SalaryAdjustmentDto>>.CreateSuccess(adjustments, "Salary adjustments retrieved successfully."));
@@ -399,6 +400,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!string.IsNullOrEmpty(adjustment.DocumentFilePath) && System.IO.File.Exists(adjustment.DocumentFilePath))
                 {
                     adjustment.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(adjustment.DocumentFilePath);
+                    adjustment.DocumentFilePath = Path.GetFileName(adjustment.DocumentFilePath);
                 }
                 return Ok(ApiResponseDto<SalaryAdjustmentDto>.CreateSuccess(adjustment, "Salary adjustment retrieved successfully."));
             }
@@ -498,6 +500,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     if (!string.IsNullOrEmpty(transaction.DocumentFilePath) && System.IO.File.Exists(transaction.DocumentFilePath))
                     {
                         transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.DocumentFilePath);
+                        transaction.DocumentFilePath = Path.GetFileName(transaction.DocumentFilePath);
                     }
                 }
                 return Ok(ApiResponseDto<IEnumerable<ScheduledSalaryDeductionDto>>.CreateSuccess(deductions, "Scheduled deductions retrieved successfully."));
@@ -527,6 +530,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!string.IsNullOrEmpty(deduction.DocumentFilePath) && System.IO.File.Exists(deduction.DocumentFilePath))
                 {
                     deduction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(deduction.DocumentFilePath);
+                    deduction.DocumentFilePath = Path.GetFileName(deduction.DocumentFilePath);
                 }
 
                 return Ok(ApiResponseDto<ScheduledSalaryDeductionDto>.CreateSuccess(deduction, "Scheduled deduction retrieved successfully."));
@@ -643,6 +647,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     if (!string.IsNullOrEmpty(transaction.DocumentFilePath) && System.IO.File.Exists(transaction.DocumentFilePath))
                     {
                         transaction.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(transaction.DocumentFilePath);
+                        transaction.DocumentFilePath = Path.GetFileName(transaction.DocumentFilePath);
                     }
                 }
 
@@ -672,6 +677,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!string.IsNullOrEmpty(leaveSalary.DocumentFilePath) && System.IO.File.Exists(leaveSalary.DocumentFilePath))
                 {
                     leaveSalary.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(leaveSalary.DocumentFilePath);
+                    leaveSalary.DocumentFilePath = Path.GetFileName(leaveSalary.DocumentFilePath);
                 }
 
 

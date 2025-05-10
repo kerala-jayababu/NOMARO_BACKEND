@@ -59,7 +59,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     if (!string.IsNullOrEmpty(employee.ChildCountDocumentFilePath) && System.IO.File.Exists(employee.ChildCountDocumentFilePath))
                     {
                         employee.AttachmentBlobForchildcount = await System.IO.File.ReadAllBytesAsync(employee.ChildCountDocumentFilePath);
-
+                        employee.ChildCountDocumentFilePath = Path.GetFileName(employee.ChildCountDocumentFilePath); 
                     }
                 }
 
