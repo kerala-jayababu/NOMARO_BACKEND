@@ -358,6 +358,22 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+
+        [HttpPost("GetOverTimeAmount")]
+        public async Task<IActionResult> GetOverTimeAmount(int IdEmployee, DateTime OvertimeDate, decimal DurationInHours)
+        {
+            try
+            {
+                var overtimeAmount = await _overtimeTransactionService.GetOverTimeAmount(IdEmployee, OvertimeDate, DurationInHours);
+
+                return Ok(ApiResponseDto<IEnumerable<decimal>>.CreateSuccess(Enumerable.Empty<decimal>(), "Overtime amount calculated."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
         #endregion
 
         #region salaryAdjustments

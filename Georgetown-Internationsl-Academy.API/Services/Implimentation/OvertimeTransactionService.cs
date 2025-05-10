@@ -465,5 +465,42 @@ WHERE ot.IdEmployee = @EmployeeId ");
                 return null;
             }
         }
+
+        public async Task<decimal> GetOverTimeAmount(int IdEmployee, DateTime OvertimeDate, decimal DurationInHours )
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                string dayType = await _dbContext.Holidays
+                    .Where(h => h.HolidayDate.Date.Year == OvertimeDate.Year && 
+                        h.HolidayDate.Month == OvertimeDate.Month && h.HolidayDate.Day == OvertimeDate.Day)
+                    .Select(h => h.HolidayType)
+                    .FirstOrDefaultAsync();
+
+                if (string.IsNullOrEmpty(dayType))
+                {
+                    dayType = "WORKINGDAY";
+                }
+
+                var config = await _dbContext.EmployeeOvertimeConfig
+                    .Where(e => e.IdEmployee ==  IdEmployee && e.DayType == dayType)
+                    .Select(e => new { e.StandardRate, e.DayRate })
+                    .FirstOrDefaultAsync();
+
+                decimal standardRate = config?.StandardRate ?? 0;
+                decimal dayRate = config?.DayRate ?? 0;
+
+                decimal overtimeAmount = standardRate * dayRate * DurationInHours;
+
+                return Math.Round(overtimeAmount, 2);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching  Leave passage.");
+                throw new Exception("An error occurred while fetching maternity leave passage. Please try again later.");
+
+            }
+        }
     }
 }

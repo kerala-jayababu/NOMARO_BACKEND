@@ -1,4 +1,5 @@
 ﻿using Georgetown_Internationsl_Academy.API.DTO;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Interface
 {
@@ -10,5 +11,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
          Task<OvertimeTransactionDto?> GetOvertimeTransactionById(int id);
         Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transaction,int IdEmployee);
         Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transaction, int IdEmployee);
+        Task<decimal> GetOverTimeAmount(int IdEmployee, DateTime OvertimeDate, decimal DurationInHours);
+
     }
 }
