@@ -367,8 +367,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
                 var overtimeAmount = await _overtimeTransactionService.GetOverTimeAmount(IdEmployee, OvertimeDate, DurationInHours);
+                return Ok(ApiResponseDto<decimal>.CreateSuccess(overtimeAmount, "Overtime amount calculated."));
 
-                return Ok(ApiResponseDto<IEnumerable<decimal>>.CreateSuccess(Enumerable.Empty<decimal>(), "Overtime amount calculated."));
             }
             catch (Exception ex)
             {
