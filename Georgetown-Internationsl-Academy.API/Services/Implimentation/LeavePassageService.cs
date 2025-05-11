@@ -239,8 +239,9 @@ WHERE lp.IdEmployee = @IdEmployee
             {
                 var leavePassageEntity = _mapper.Map<LeavePassage>(leavePassage);
 
-                leavePassage.IdLeavePassage=null;
+                leavePassageEntity.IdLeavePassage=null;
                 leavePassageEntity.ApprovalStatus = "SUBMITTED";
+                leavePassageEntity.CreatedDate = DateTime.Now;
 
                 // Add record to database
                 await _dbContext.LeavePassages.AddAsync(leavePassageEntity);
