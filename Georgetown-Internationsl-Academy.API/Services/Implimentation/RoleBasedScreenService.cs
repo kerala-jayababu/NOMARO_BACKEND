@@ -54,7 +54,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         screen.ValidPermissions = permission.Permission;
                     }
 
-                    var SubMenus = screens.Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen).ToList();
+                    var SubMenus = screens.Where(x => x.IdParentPayrollScreen == screen.IdPayrollScreen).OrderBy(x=>x.OrderNumber) .ToList();
 
                     foreach (var subMenu in SubMenus)
                     {
