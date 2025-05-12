@@ -112,6 +112,57 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
+        public async Task<dynamic> GetSalaryOptions()
+        {
+            try
+            {
+                var workFlowConfigId = await _dbContext.WorkFlowConfig
+        .Where(c => c.EntityCode == "EMPSALGEN")
+        .Select(c => c.IdWorkFlowConfig)
+        .FirstOrDefaultAsync();
+
+
+
+                if (workFlowConfigId == 0)
+                    return new List<dynamic>();
+
+                var approvalStatuses = await _dbContext.WorkFlowConfigDetails
+         .Where(d => d.IdWorkFlowConfig == workFlowConfigId)
+         .Select(d => d.ApprovalStatusName)
+         .Distinct()
+         .ToListAsync();
+
+
+                var options = approvalStatuses
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => new { value = name?.ToUpper(), label = name })
+            .Cast<dynamic>()
+            .ToList();
+                var staticStatuses = new List<dynamic>
+        {
+            new { value = "SUBMITTED", label = "Submitted" },
+            new { value = "REJECTED", label = "Rejected" },
+            new { value = "DRAFT GENERATED", label = "Draft Generated" },
+            new { value = "NOT GENERATED", label = "Not Generated" }
+        };
+
+                options.AddRange(staticStatuses);
+                options = options
+    .GroupBy(o => o.value)
+    .Select(g => g.First())
+    .OrderBy(o => o.label) 
+    .ToList();
+                return options;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all GetAllSalaryMonths.");
+                throw;
+            }
+        }
+
+        
         public async Task<List<FinancialYearsDto>> GetAllFiancialyear()
         {
             try

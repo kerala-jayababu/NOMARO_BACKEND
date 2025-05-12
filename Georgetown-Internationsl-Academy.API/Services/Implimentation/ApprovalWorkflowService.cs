@@ -62,7 +62,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
 
                     // Step 2: Determine TargetIdEmployee
-                    var targetEmployees = await GetTargetEmployees(firstLevel);
+                    var targetEmployees = await GetTargetEmployees(firstLevel, loggedInEmployeeId);
 
                     if (!targetEmployees.Any())
                     {
@@ -81,7 +81,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         LevelNumber = 1,
                         SourceIdEmployee = loggedInEmployeeId,
                         TargetIdEmployee = targetEmployeeIds,
-                        ActionStatus = actionStatussubmitted,
+                        //ActionStatus = actionStatussubmitted,
                         SentDate = DateTime.Now
                     };
 
@@ -100,33 +100,29 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     return "Approval workflow initiated.";
                 }
 
+
+
+
                 // Step 3: Validate logged-in employee
                 if (currentRecord.TargetIdEmployee == null ||
                     !currentRecord.TargetIdEmployee.Split(',').Contains(loggedInEmployeeId.ToString()))
                 {
                     return "Error:You are not authorized to approve/reject this record.";
                 }
-
-
-
-
-
-
+                var workflowConfigDetailsFinal = await _dbContext.WorkFlowConfigDetails
+                      .FirstOrDefaultAsync(w => w.IdWorkFlowConfig == currentRecord.IdWorkFlowConfig && w.LevelNumber == currentRecord.LevelNumber);
                 // Step 4: Update current level's status
                 currentRecord.ActionedBy = loggedInEmployeeId;
-                currentRecord.ActionStatus = status;
+                currentRecord.ActionStatus = status == "REJECTED" ? "REJECTED" : workflowConfigDetailsFinal.ApprovalStatusName;
                 currentRecord.ActionDate = DateTime.Now;
                 currentRecord.RejectionRemarks = status == "REJECTED" ? rejectReason : null;
                 await _dbContext.SaveChangesAsync();
 
                 // Step 5: Handle rejection
                 if (status == "REJECTED")
-                {
-                   
-                    var workflowConfigDetailsFinal = await _dbContext.WorkFlowConfigDetails
-                        .FirstOrDefaultAsync(w => w.IdWorkFlowConfig == currentRecord.IdWorkFlowConfig && w.LevelNumber == currentRecord.LevelNumber);
+                { 
 
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED",currentRecord.CycleIndex, loggedInEmployeeId, null);
                     //await transaction.CommitAsync();
                     return "Record rejected successfully. Workflow terminated.";
                 }
@@ -136,39 +132,44 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var workflowConfigDetails = await _dbContext.WorkFlowConfigDetails
                     .FirstOrDefaultAsync(w => w.IdWorkFlowConfig == currentRecord.IdWorkFlowConfig && w.LevelNumber == nextLevelNumber);
 
-                if (workflowConfigDetails == null)
+                if (workflowConfigDetails != null)
                 {
-                    //await transaction.CommitAsync();
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetails.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId,null);
-                    return "Record approved successfully. Workflow completed.";
+                    var targetEmployeesForNextLevel = await GetTargetEmployees(workflowConfigDetails, loggedInEmployeeId);
+
+                    if (!targetEmployeesForNextLevel.Any())
+                    {
+                        return "No target employees found for the next level.";
+                    }
+
+
+                    var targetEmployeeIdsForNextLevel = string.Join(",", targetEmployeesForNextLevel);
+                    string actionStatus = (targetEmployeeIdsForNextLevel == "0") ? "FINAL APPROVED" : workflowConfigDetails.ApprovalStatusName;
+                    var newNextLevelRecord = new ApprovalWorkFlowAllocation
+                    {
+                        IdWorkFlowConfig = currentRecord.IdWorkFlowConfig,
+                        EntityCode = currentRecord.EntityCode,
+                        EntityTablePrimaryKeyID = currentRecord.EntityTablePrimaryKeyID,
+                        CycleIndex = currentRecord.CycleIndex,
+                        LevelNumber = nextLevelNumber,
+                        //ActionStatus = actionStatus,
+                        SourceIdEmployee = loggedInEmployeeId,
+                        TargetIdEmployee = targetEmployeeIdsForNextLevel,
+                        SentDate = DateTime.Now
+                    };
+
+                    await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, loggedInEmployeeId, targetEmployeeIdsForNextLevel);
+                    await _dbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, 0, loggedInEmployeeId, null);
+                    await _dbContext.SaveChangesAsync();
                 }
 
                 // Step 7: Insert the next level record
-                var targetEmployeesForNextLevel = await GetTargetEmployees(workflowConfigDetails);
-
-                if (!targetEmployeesForNextLevel.Any())
-                {
-                    return "No target employees found for the next level.";
-                }
-
-                var targetEmployeeIdsForNextLevel = string.Join(",", targetEmployeesForNextLevel);
-                string actionStatus = (targetEmployeeIdsForNextLevel == "0") ? "FINAL APPROVED" : workflowConfigDetails.ApprovalStatusName;
-                var newNextLevelRecord = new ApprovalWorkFlowAllocation
-                {
-                    IdWorkFlowConfig = currentRecord.IdWorkFlowConfig,
-                    EntityCode = currentRecord.EntityCode,
-                    EntityTablePrimaryKeyID = currentRecord.EntityTablePrimaryKeyID,
-                    CycleIndex = currentRecord.CycleIndex,
-                    LevelNumber = nextLevelNumber,
-                    ActionStatus= actionStatus,
-                    SourceIdEmployee = loggedInEmployeeId,
-                    TargetIdEmployee = targetEmployeeIdsForNextLevel,                    
-                    SentDate = DateTime.Now
-                };
-
-                await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, actionStatus, newNextLevelRecord.CycleIndex, loggedInEmployeeId,targetEmployeeIdsForNextLevel);
-                await _dbContext.SaveChangesAsync();
+              
+            
                 //await transaction.CommitAsync();
 
                 return "Record approved and moved to the next level.";
@@ -516,13 +517,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                 }
 
-                var bankremittance = await _dbContext.BankRemittance.Where(x => x.IdEmployeeSalary == entityTablePrimaryKeyID).ToListAsync();
-                if (bankremittance != null)
+                if(finalStatus == "REJECTED")
                 {
-                    _dbContext.BankRemittance.RemoveRange(bankremittance);
-                    await _dbContext.SaveChangesAsync();
+                    var bankremittance = await _dbContext.BankRemittance.Where(x => x.IdEmployeeSalary == entityTablePrimaryKeyID).ToListAsync();
+                    if (bankremittance != null)
+                    {
+                        _dbContext.BankRemittance.RemoveRange(bankremittance);
+                        await _dbContext.SaveChangesAsync();
+                    }
+
+
                 }
-          
+
             }
         }
 
@@ -850,7 +856,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         /// <summary>
         /// Fetches target employees based on the approval authority type.
         /// </summary>
-        private async Task<List<int>> GetTargetEmployees(WorkFlowConfigDetails workflowConfigDetails)
+        private async Task<List<int>> GetTargetEmployees(WorkFlowConfigDetails workflowConfigDetails,int loggedInEmployeeId)
         {
             if (workflowConfigDetails.ApprovalAuthorityType == "ROLE")
             {
@@ -862,7 +868,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
             else if (workflowConfigDetails.ApprovalAuthorityType == "REPOFFICER" && workflowConfigDetails.ApprovalAuthorityID.HasValue)
             {
-                return new List<int> { workflowConfigDetails.ApprovalAuthorityID.Value }; 
+                return await _dbContext.Employees
+                    .Where(e => e.IdEmployee == loggedInEmployeeId)
+                    .Select(e => (int)e.ReportingTo)
+                    .ToListAsync();
             }
 
             return new List<int>();

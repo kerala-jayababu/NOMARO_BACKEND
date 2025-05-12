@@ -21,5 +21,6 @@
         public decimal TotalDeductions { get; set; }
         public decimal NetSalary { get; set; }
         public string ApprovalStatus { get; set; }
+        public bool? ApprovalEnabled { get; set; }
     }
 }

@@ -47,6 +47,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetSalaryOptions")]
+        public async Task<IActionResult> GetSalaryOptions()
+        {
+            try
+            {
+                var options = await _optionService.GetSalaryOptions();
+
+                if (options == null)
+                {
+                    return Ok(Enumerable.Empty<AllOptionsDto>());
+                }
+
+                return Ok(options);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
         [HttpGet("GetAllSalaryMonths")]
         public async Task<IActionResult> GetAllSalaryMonths()
         {

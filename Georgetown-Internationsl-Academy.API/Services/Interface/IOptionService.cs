@@ -8,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     public interface IOptionService
     {
         Task<AllOptionsDto> GetAllOptions();
+        Task<dynamic> GetSalaryOptions();        
         Task<List<SalaryMonthsDto>> GetAllSalaryMonths();
         Task<List<NotificationDto>> GetEmployeeNotification(int employeeID);
         Task<NotificationDto> UpdateEmployeeNotification(int idNotification);        

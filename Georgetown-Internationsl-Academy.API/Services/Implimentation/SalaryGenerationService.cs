@@ -35,130 +35,67 @@ namespace YourNamespace.Services.Implementation
         }
 
         public async Task<IEnumerable<SalaryGenerationDto>> GetSalaryConfigs(
-           int? idSalaryMonth = null,
-           string? dropdownFilter = null,
-           int? idDepartment = null,
-           int? idDesignation = null)
+        int employeeId,
+        int? idSalaryMonth = null,
+        string? dropdownFilter = null,
+        int? idDepartment = null,
+        int? idDesignation = null)
         {
-            var query = new StringBuilder(@"
-                WITH LatestSalaryConfig AS (
-                    SELECT 
-                        IdEmployee,
-                        MAX(IdEmployeeSalaryConfig) AS LatestSalaryConfigId
-                    FROM vw_LatestEmployeeSalaryConfig
-                    GROUP BY IdEmployee
-                )
-                SELECT 
-                    e.IdEmployee,
-                    e.EmployeeCode,
-                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-                    e.IdDesignation,
-                    d.DesignationName,
-                    e.IdDepartment,
-                    dep.DepartmentName,
-                    e.JoiningDate,
-                    e.LastWorkingDay,	
-                    e.Gender,
-                    e.EmailID,
-                    e.PhoneNumber1, 
-                    e.PhoneNumber2,
-                    e.CurrentStatus,
-                    es.IdEmployeeSalary,
-                    -- Use EmployeeSalaries data if available, else fallback to vw_LatestEmployeeSalaryConfig
-                    COALESCE(es.TotalEarnings, lsc.TotalEarnings, 0) AS TotalEarnings,
-                    COALESCE(es.TotalDeductions, lsc.TotalDeductions, 0) AS TotalDeductions,
-                      COALESCE(es.TotalEarnings, lsc.TotalEarnings, 0) - COALESCE(es.TotalDeductions, lsc.TotalDeductions, 0) AS NetSalary,
-                    COALESCE(es.ApprovalStatus, 'Not Generated') AS ApprovalStatus
-                FROM Employees e
-                LEFT JOIN Departments dep ON e.IdDepartment = dep.IdDepartment
-                LEFT JOIN Designations d ON e.IdDesignation = d.IdDesignation
-                LEFT JOIN EmployeeSalaries es ON e.IdEmployee = es.IdEmployee 
-                    AND (@IdSalaryMonth IS NULL OR es.IdSalaryMonth = @IdSalaryMonth)
-                LEFT JOIN LatestSalaryConfig lsc_max ON e.IdEmployee = lsc_max.IdEmployee
-                LEFT JOIN vw_LatestEmployeeSalaryConfig lsc ON lsc.IdEmployeeSalaryConfig = lsc_max.LatestSalaryConfigId
-                WHERE e.CurrentStatus = 'Working' ");
-
-            var parameters = new DynamicParameters();
-
-            // Apply Salary Month filter
-            if (idSalaryMonth.HasValue)
-            {
-                parameters.Add("IdSalaryMonth", idSalaryMonth);
-            }
-
-            // Apply dropdown filter logic
-            if (!string.IsNullOrEmpty(dropdownFilter) && !dropdownFilter.Equals("All", StringComparison.OrdinalIgnoreCase))
-            {
-                if (dropdownFilter.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
-                {
-
-                    query.Append(" AND es.ApprovalStatus = 'SUBMITTED' ");
-                 
-                }
-                else if (dropdownFilter.Equals("INTERIM APPROVED", StringComparison.OrdinalIgnoreCase))
-                {
-                    query.Append(" AND es.ApprovalStatus = 'INTERIM APPROVED' ");
-                }
-                else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase))
-                {
-
-                    query.Append(" AND es.ApprovalStatus = 'APPROVED' ");
-                    //query.Append(@"
-                    //AND es.ApprovalStatus = 'APPROVED'
-                    //AND es.ValidFrom = (
-                    //    SELECT MAX(ValidFrom)
-                    //    FROM EmployeeSalaryConfig
-                    //    WHERE IdEmployee = es.IdEmployee
-                    //    AND ApprovalStatus = 'APPROVED'
-                    //)");
-                }
-                else if (dropdownFilter.Equals("DRAFT GENERATED", StringComparison.OrdinalIgnoreCase))
-                {
-                    query.Append(" AND es.ApprovalStatus = 'Draft' ");
-                }
-                else if (dropdownFilter.Equals("REJECTED", StringComparison.OrdinalIgnoreCase))
-                {
-                    query.Append(" AND es.ApprovalStatus = 'REJECTED' ");
-                }
-                else if (dropdownFilter.Equals("NOT GENERATED", StringComparison.OrdinalIgnoreCase))
-                {
-                    query.Append(" AND es.ApprovalStatus IS NULL ");
-                }
-            }
-
-            // Apply Department filter
-            if (idDepartment.HasValue)
-            {
-                query.Append(" AND e.IdDepartment = @IdDepartment ");
-                parameters.Add("IdDepartment", idDepartment);
-            }
-
-            // Apply Designation filter
-            if (idDesignation.HasValue)
-            {
-                query.Append(" AND e.IdDesignation = @IdDesignation ");
-                parameters.Add("IdDesignation", idDesignation);
-            }
-
-            query.Append(" ORDER BY e.FirstName, e.LastName;");
-
             try
             {
-                using (var connection = _dbContext.Database.GetDbConnection())
+                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
                 {
-                    if (connection.State == System.Data.ConnectionState.Closed)
-                        await connection.OpenAsync();
+                    var parameters = new DynamicParameters();
+                    parameters.Add("@IdSalaryMonth", idSalaryMonth, DbType.Int32);
+                    parameters.Add("@IdApprover", employeeId, DbType.Int32); // assuming employeeId is the approver
 
-                    var configs = await connection.QueryAsync<SalaryGenerationDto>(query.ToString(), parameters);
-                    return configs;
+                    var result = await connection.QueryAsync<SalaryGenerationDto>(
+                        "GetDataForSalaryApproval",
+                        parameters,
+                        commandType: CommandType.StoredProcedure);
+
+                    var filteredResult = result.AsQueryable();
+
+                    // Apply dropdown filter
+                    if (!string.IsNullOrEmpty(dropdownFilter) && !dropdownFilter.Equals("All", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var status = dropdownFilter.ToUpperInvariant();
+
+                        filteredResult = status switch
+                        {
+                            "SUBMITTED" => filteredResult.Where(r => r.ApprovalStatus == "SUBMITTED"),
+                            "HR APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "HR APPROVED"),
+                            "FM APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "FM APPROVED"),
+                            "APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "APPROVED"),
+                            "DRAFT GENERATED" => filteredResult.Where(r => r.ApprovalStatus == "DRAFT"),
+                            "REJECTED" => filteredResult.Where(r => r.ApprovalStatus == "REJECTED"),
+                            "NOT GENERATED" => filteredResult.Where(r => r.ApprovalStatus == "Not Generated"),
+                            _ => filteredResult
+                        };
+                    }
+
+                    // Apply Department filter
+                    if (idDepartment.HasValue)
+                    {
+                        filteredResult = filteredResult.Where(r => r.IdDepartment == idDepartment.Value);
+                    }
+
+                    // Apply Designation filter
+                    if (idDesignation.HasValue)
+                    {
+                        filteredResult = filteredResult.Where(r => r.IdDesignation == idDesignation.Value);
+                    }
+
+                    return filteredResult.OrderBy(r => r.EmployeeName).ToList();
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching salary configurations.");
+                _logger.LogError(ex, "Error fetching salary configurations via stored procedure.");
                 throw new Exception("An error occurred while fetching configurations. Please try again later.");
             }
         }
+
 
         public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(string employeeIds, int idSalaryMonth, int idEmployeeCreated)
         {
@@ -455,43 +392,55 @@ namespace YourNamespace.Services.Implementation
                 {
                     await connection.OpenAsync();
 
-                    string sql = @"
-                WITH ThreeMonths AS (
-                    SELECT idSalaryMonth
-                    FROM SalaryMonths
-                    WHERE SalaryMonthDate IN (
-                        EOMONTH(GETDATE(), -1), -- previous month
-                        EOMONTH(GETDATE(), 0),  -- current month
-                        EOMONTH(GETDATE(), 1)   -- next month
-                    )
-                ),
-                ValidEmployeeSalary AS (
-                    SELECT TOP 1 idSalaryMonth
-                    FROM EmployeeSalaries
-                    WHERE idSalaryMonth IN (SELECT idSalaryMonth FROM ThreeMonths)
-                    ORDER BY idSalaryMonth DESC
-                )
-                SELECT 
-                    COALESCE(
-                        (SELECT idSalaryMonth FROM ValidEmployeeSalary),
-                        (SELECT idSalaryMonth 
-                         FROM SalaryMonths 
-                         WHERE DATENAME(month, GETDATE()) + ', ' + CAST(YEAR(GETDATE()) AS VARCHAR) = SalaryMonthText)
-                    ) AS MaxSalaryMonth,
-                    CASE 
-                        WHEN COUNT(*) > 1 THEN 'INTERIM APPROVED'
-                        ELSE 'ALL'
-                    END AS ApprovalStatus
-                FROM ApprovalWorkFlowAllocations 
-                WHERE EntityCode = 'EMPSALGEN' 
-                  AND ',' + CAST(TargetIdEmployee AS VARCHAR) + ',' LIKE '%,' + CAST(@EmployeeId AS VARCHAR) + ',%'
-                  AND actionStatus = 'INTERIM APPROVED';";
+                    string sql = @"Select idsalarymonth from EmployeeSalaries where IdEmployeeSalary = (Select max(idemployeesalary) from EmployeeSalaries)";
 
-                    var parameters = new { EmployeeId = employeeId };
+                    //var parameters = new { EmployeeIdParam = employeeId };
+                    var result = await connection.QueryFirstOrDefaultAsync<dynamic>(sql);
 
-                    var result = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, parameters);
+                    if (result == null)
+                        return null;
 
-                    return result;
+                    int? idDesignation = await _dbContext.Employees.Where(x=>x.IdEmployee == employeeId).Select(x=>x.IdDesignation).FirstOrDefaultAsync();
+                    int maxSalaryMonth = result.idsalarymonth;
+
+                    // Fetch WorkflowConfig Id
+                    var workflowConfigId = await _dbContext.WorkFlowConfig
+                        .Where(x => x.EntityCode == "EMPSALGEN")
+                        .Select(x => x.IdWorkFlowConfig)
+                        .FirstOrDefaultAsync();
+
+                    // Get current level
+                    var currentDetail = await _dbContext.WorkFlowConfigDetails
+                        .FirstOrDefaultAsync(x => x.IdWorkFlowConfig == workflowConfigId && x.ApprovalAuthorityID == idDesignation);
+
+                    string approvalStatus;
+
+                    if (currentDetail != null)
+                    {
+                        int levelNumber = currentDetail.LevelNumber - 1;
+
+                        if (levelNumber == 0)
+                        {
+                            approvalStatus = "Submitted";
+                        }
+                        else
+                        {
+                            approvalStatus = await _dbContext.WorkFlowConfigDetails
+                                .Where(x => x.IdWorkFlowConfig == workflowConfigId && x.LevelNumber == levelNumber)
+                                .Select(x => x.ApprovalStatusName)
+                                .FirstOrDefaultAsync();
+                        }
+                    }
+                    else
+                    {
+                        approvalStatus = "ALL";
+                    }
+
+                    return new
+                    {
+                        MaxSalaryMonth = maxSalaryMonth,
+                        ApprovalStatus = approvalStatus
+                    };
                 }
             }
             catch (Exception ex)
@@ -500,6 +449,8 @@ namespace YourNamespace.Services.Implementation
                 throw new Exception("An error occurred while retrieving salary approval. Please try again.");
             }
         }
+
+
 
 
 
