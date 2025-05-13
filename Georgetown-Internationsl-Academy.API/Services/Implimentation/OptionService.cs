@@ -304,6 +304,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+        public async Task<List<WorkFlowConfig>> GetWorkflowConfigList()
+        {
+            try
+            {
+                var notification = await _dbContext.WorkFlowConfig.Where(x=>x.EntityCode!= "EMPSALGEN").ToListAsync();
+                return _mapper.Map<List<WorkFlowConfig>>(notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all EmployeeNotification by Id.");
+                throw;
+            }
+        }
+
+        
 
         public async Task<NotificationDto> UpdateEmployeeNotification(int idNotification)
         {

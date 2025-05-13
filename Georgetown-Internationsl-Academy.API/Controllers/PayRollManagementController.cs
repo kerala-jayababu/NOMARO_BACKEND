@@ -32,6 +32,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IMaternityLeaveSalaryService _maternityLeaveSalaryService;
         private readonly IValidator<MaternityLeaveSalaryDto> _maternityLeaveSalaryValidator;
         private readonly IRentFreeQuarterService _rentfreeservice;
+        private readonly IOptionService _optionService;
         private readonly IValidator<RentFreeQuarterDto> _rentfreevalidator;
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedService;
@@ -43,6 +44,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             IValidator<OvertimeTransactionDto> overtimeTransactionValidator,
             ISalaryAdjustmentService salaryAdjustmentService, IValidator<SalaryAdjustmentDto> salaryAdjustmentvalidator,
             IScheduledSalaryDeductionService ScheduledSalaryDeductionservice,
+            IOptionService optionService,
             IValidator<ScheduledSalaryDeductionDto> scheduledSalaryDeductionValidator,
             IMaternityLeaveSalaryService maternityLeaveSalaryService, IValidator<MaternityLeaveSalaryDto> maternityLeaveSalaryValidator,
             IApprovalWorkflowService approvalWorkflowService,
@@ -51,6 +53,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             _currencyConversionService = currencyConversionService;
             _currencyConversionValidator = currencyConversionValidator;
+            _optionService = optionService;
             _overtimeTransactionService = overtimeTransactionService;
             _overtimeTransactionValidator = overtimeTransactionValidator;
             _salaryAdjustmentService = salaryAdjustmentService;
@@ -990,6 +993,28 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<ConfigApprovalsDto>>.CreateSuccess(workflows, "Salary list retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        #endregion
+
+        #region WorkflowConfig
+        [HttpGet("GetWorkflowConfigList")]
+        public async Task<IActionResult> GetWorkflowConfigList()
+        {
+            try
+            {
+                var conversions = await _optionService.GetWorkflowConfigList();
+
+                if (conversions == null || !conversions.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<WorkFlowConfig>>.CreateSuccess(Enumerable.Empty<WorkFlowConfig>(), "No Workflow Config Details found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<WorkFlowConfig>>.CreateSuccess(conversions, "Currency conversions retrieved successfully."));
             }
             catch (Exception ex)
             {

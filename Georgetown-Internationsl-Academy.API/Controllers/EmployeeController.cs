@@ -60,6 +60,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     {
                         employee.AttachmentBlobForchildcount = await System.IO.File.ReadAllBytesAsync(employee.ChildCountDocumentFilePath);
                         employee.ChildCountDocumentFilePath = Path.GetFileName(employee.ChildCountDocumentFilePath); 
+
                     }
                 }
 
@@ -92,6 +93,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
                 {
                     employeeDetails.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
+                }
+                if (!string.IsNullOrEmpty(employeeDetails.ChildCountDocumentFilePath) && System.IO.File.Exists(employeeDetails.ChildCountDocumentFilePath))
+                {
+                    employeeDetails.AttachmentBlobForchildcount = await System.IO.File.ReadAllBytesAsync(employeeDetails.ChildCountDocumentFilePath);
+                    employeeDetails.ChildCountDocumentFilePath = Path.GetFileName(employeeDetails.ChildCountDocumentFilePath);
+
                 }
 
                 //if (!string.IsNullOrEmpty(employeeDetails.EmployeePhotoFilePath) && System.IO.File.Exists(employeeDetails.EmployeePhotoFilePath))

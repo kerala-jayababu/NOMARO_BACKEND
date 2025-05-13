@@ -48,6 +48,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         e.ChildrenCount,
         e.IdDepartment,
         e.IdDesignation,
+    e.ChildCountDocumentFilePath,
         bc.BudgetCodeName,
         e.EmployeePhotoFilePath
     FROM 

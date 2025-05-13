@@ -64,8 +64,8 @@ namespace YourNamespace.Services.Implementation
                         filteredResult = status switch
                         {
                             "SUBMITTED" => filteredResult.Where(r => r.ApprovalStatus == "SUBMITTED"),
-                            "HR APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "HR APPROVED"),
-                            "FM APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "FM APPROVED"),
+                            "HR APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "HR Approved"),
+                            "FM APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "FM Approved"),
                             "APPROVED" => filteredResult.Where(r => r.ApprovalStatus == "APPROVED"),
                             "DRAFT GENERATED" => filteredResult.Where(r => r.ApprovalStatus == "DRAFT"),
                             "REJECTED" => filteredResult.Where(r => r.ApprovalStatus == "REJECTED"),

@@ -15,6 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<FinancialYearsDto>> GetAllFiancialyear();        
         Task<List<HolidayTypeDto>> GetHolidayTypes();
         Task<List<LatestEmployeeSalaryConfigDto>> GetEmployeeLatestSalaryStructure();
-        
+        Task<List<WorkFlowConfig?>> GetWorkflowConfigList();
+
     }
 }

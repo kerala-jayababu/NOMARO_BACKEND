@@ -340,12 +340,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
             }
+            var salarydetails = await _optionService.GetAllSalaryMonths();
 
             try
             {
                 var salaryHeads = await _salaryservice.GetSalaryHeadList();
                 var result = (await _salaryService.ExportSalaryGenerationDetails(employeeIds, idSalaryMonth)) as IEnumerable<dynamic>;
-
+             
+                var salarymonth = salarydetails.Where(x => x.IdSalaryMonth == idSalaryMonth).FirstOrDefault();
                 if (result == null || !result.Any())
                 {
                     return Ok(ApiResponseDto<string>.CreateFailure("No data found."));
@@ -371,8 +373,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
                 using (var package = new ExcelPackage())
                 {
-                    var worksheet = package.Workbook.Worksheets.Add("Salary Report");
-
+                   
+                    DateTime monthYear = Convert.ToDateTime(salarymonth.SalaryMonthText);
+                    string sheetName = monthYear.ToString("MMMM yyyy");
+                    var worksheet = package.Workbook.Worksheets.Add(sheetName);
                     int col = 1;
                     worksheet.Cells[1, col++].Value = "EmployeeCode";
                     worksheet.Cells[1, col++].Value = "EmployeeName";
@@ -389,13 +393,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     {
                         worksheet.Cells[1, col].Value = e;
                         worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
+                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));                        
                         col++;
                     }
 
                     worksheet.Cells[1, col].Value = "TotalEarnings";
                     worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                     worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
+                    worksheet.Cells[1, col].Style.Font.Bold = true;
                     col++;
 
                     foreach (var d in uniqueDeductions)
@@ -409,11 +414,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     worksheet.Cells[1, col].Value = "TotalDeductions";
                     worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                     worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
+                    worksheet.Cells[1, col].Style.Font.Bold = true;
                     col++;
 
                     worksheet.Cells[1, col].Value = "NetSalary";
                     worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                     worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
+                    worksheet.Cells[1, col].Style.Font.Bold = true;
                     col++;
 
                     worksheet.Cells[1, col++].Value = "Status";
@@ -451,6 +458,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalEarningsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, col].Style.Font.Bold = true;
                         worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                         col++;
 
@@ -470,6 +478,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalDeductionsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, col].Style.Font.Bold = true;
                         worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
                         col++;
 
@@ -477,6 +486,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, col].Style.Font.Bold = true;
                         worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
                         col++;
 
@@ -520,6 +530,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     // Total Earnings
                     string earningsCol = ExcelCellAddress.GetColumnLetter(currentCol);
                     worksheet.Cells[row, currentCol].Formula = $"SUM({earningsCol}{dataStartRow}:{earningsCol}{row - 1})";
+                    worksheet.Cells[row, currentCol].Style.Font.Bold = true;
                     currentCol++;
 
                     for (int i = 0; i < uniqueDeductions.Count; i++, currentCol++)
@@ -532,12 +543,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     // Total Deductions
                     string deductionsCol = ExcelCellAddress.GetColumnLetter(currentCol);
                     worksheet.Cells[row, currentCol].Formula = $"SUM({deductionsCol}{dataStartRow}:{deductionsCol}{row - 1})";
+                    worksheet.Cells[row, currentCol].Style.Font.Bold = true;
                     currentCol++;
 
                     // Net Salary
                     string netSalaryCol = ExcelCellAddress.GetColumnLetter(currentCol);
                     worksheet.Cells[row, currentCol].Formula = $"SUM({netSalaryCol}{dataStartRow}:{netSalaryCol}{row - 1})";
-
+                    worksheet.Cells[row, currentCol].Style.Font.Bold = true;
                     worksheet.Cells.AutoFitColumns();
 
                     var stream = new MemoryStream();
@@ -545,7 +557,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     stream.Position = 0;
 
                     var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-                    var fileName = "Salary_Report.xlsx";
+                    var fileName = $"Salary_Draft Generated_{sheetName}.xlsx";
 
                     return Ok(new
                     {
@@ -711,10 +723,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     worksheet.Cells[headerRow, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                     worksheet.Cells[headerRow, col].Style.Font.Bold = true;
                     worksheet.Cells[headerRow, col++].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
-                    worksheet.Cells[headerRow, col].Value = "Designation";
-                    worksheet.Cells[headerRow, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    worksheet.Cells[headerRow, col].Style.Font.Bold = true;
-                    worksheet.Cells[headerRow, col++].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
+                    //worksheet.Cells[headerRow, col].Value = "Designation";
+                    //worksheet.Cells[headerRow, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    //worksheet.Cells[headerRow, col].Style.Font.Bold = true;
+                    //worksheet.Cells[headerRow, col++].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                     worksheet.Cells[headerRow, col].Value = "FinalTaxableIncome";
                     worksheet.Cells[headerRow, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                     worksheet.Cells[headerRow, col].Style.Font.Bold = true;
