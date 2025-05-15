@@ -769,6 +769,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalEarningsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, col].Style.Font.Bold = true;
                         worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                         col++;
 
@@ -788,6 +789,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalDeductionsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, col].Style.Font.Bold = true;
                         worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
                         col++;
 
@@ -795,6 +797,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, col].Style.Font.Bold = true;
                         worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
                         col++;
 

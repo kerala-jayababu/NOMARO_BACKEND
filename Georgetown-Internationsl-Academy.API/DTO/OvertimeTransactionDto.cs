@@ -14,7 +14,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public DateTime EndDate { get; set; }
         public TimeSpan EndTime { get; set; }
         public decimal DurationInHours { get; set; }
-        public string ReasonForOvertime { get; set; } = string.Empty;
+        public string? ReasonForOvertime { get; set; } = string.Empty;
         public string? Attachment { get; set; }
         public string? AttachmentDescription { get; set; }
         public IFormFile? File { get; set; }

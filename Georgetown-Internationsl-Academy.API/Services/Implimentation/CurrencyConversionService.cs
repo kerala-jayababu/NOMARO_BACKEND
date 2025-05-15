@@ -50,11 +50,30 @@ public class CurrencyConversionService : ICurrencyConversionService
     {
         try
         {
-            var entity = _mapper.Map<CurrencyConversion>(dto);
+            _logger.LogInformation("Attempting to insert CurrencyConversion: {@CurrencyConversionDto}", dto);
+            var entity = new CurrencyConversion
+            {
+                FromCurrency = dto.FromCurrency,
+                ToCurrency = dto.ToCurrency,
+                RateDate = dto.RateDate,
+                ConversionRate = dto.ConversionRate
+            };
+            _logger.LogInformation("Mapped CurrencyConversion entity before insert: {@CurrencyConversion}", entity);
             var addedEntity = await _dbContext.CurrencyConversions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
 
-            return _mapper.Map<CurrencyConversionDto>(addedEntity.Entity);
+            // Manual mapping from entity to DTO
+            var resultDto = new CurrencyConversionDto
+            {
+                IdCurrencyConversion = addedEntity.Entity.IdCurrencyConversion,
+                FromCurrency = addedEntity.Entity.FromCurrency,
+                ToCurrency = addedEntity.Entity.ToCurrency,
+                RateDate = addedEntity.Entity.RateDate,
+                ConversionRate = addedEntity.Entity.ConversionRate
+            };
+            _logger.LogInformation("Returning CurrencyConversionDto response: {@ResponseCurrencyConversionDto}", resultDto);
+
+            return resultDto;
         }
         catch (Exception ex)
         {
