@@ -144,13 +144,15 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         Table CreateSalaryTable(List<EmployeeSalaryDetailsDto> details, String Heading)
         {
-            float[] columnWidths = { 40f, 20f, 20f, 20f };
+            float[] columnWidths = { 30f, 17.5f, 17.5f, 17.5f, 17.5f };
             Table table = new Table(UnitValue.CreatePercentArray(columnWidths)).UseAllAvailableWidth();
             float borderWidth = 0.5f;
             table.AddHeaderCell(CreateStyledCell(Heading, lineColor, borderWidth, bgGray, true, alignLeft));
             table.AddHeaderCell(CreateStyledCell("Amount(G$)", lineColor, borderWidth, bgGray, false, alignCenter));
             table.AddHeaderCell(CreateStyledCell("Amount(US$)", lineColor, borderWidth, bgGray, false, alignCenter));
             table.AddHeaderCell(CreateStyledCell("YTDAmount(G$)", lineColor, borderWidth, bgGray, false, alignCenter));
+            table.AddHeaderCell(CreateStyledCell("YTDAmount(US$)", lineColor, borderWidth, bgGray, false, alignCenter));
+
 
             foreach (var detail in details)
             {
@@ -158,17 +160,21 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                 table.AddCell(CreateStyledCell(detail.AmountG.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
                 table.AddCell(CreateStyledCell(detail.AmountUS.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
                 table.AddCell(CreateStyledCell(detail.YTDAmountG.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
+                table.AddCell(CreateStyledCell(detail.YTDAmountUSD.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
+
             }
 
             decimal totalG = details.Sum(x => x.AmountG);
             decimal totalUS = details.Sum(x => x.AmountUS);
             decimal totalYTDG = details.Sum(x => x.YTDAmountG);
+            decimal totalYTDUSD = details.Sum(x => x.YTDAmountUSD);
 
             // Add Totals Row
             table.AddCell(CreateStyledCell($"Total", lineColor, borderWidth, bgYellow, true, alignCenter));
             table.AddCell(CreateStyledCell(totalG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
             table.AddCell(CreateStyledCell(totalUS.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
             table.AddCell(CreateStyledCell(totalYTDG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
+            table.AddCell(CreateStyledCell(totalYTDUSD.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
 
             return table;
         }
@@ -178,7 +184,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                       iText.Layout.Properties.TextAlignment alignment)
         {
             Paragraph paragraph = new Paragraph(text)
-                .SetTextAlignment(alignment);
+                .SetTextAlignment(alignment).SetFontSize(10);
 
             if (isBold)
             {

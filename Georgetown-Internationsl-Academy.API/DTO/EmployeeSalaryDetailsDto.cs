@@ -6,5 +6,6 @@
         public decimal AmountG { get; set; }
         public decimal AmountUS { get; set; }
         public decimal YTDAmountG { get; set; }
+        public decimal YTDAmountUSD { get; set; }
     }
 }

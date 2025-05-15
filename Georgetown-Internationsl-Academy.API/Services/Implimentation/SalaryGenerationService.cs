@@ -660,6 +660,7 @@ namespace YourNamespace.Services.Implementation
                             Description = sd.SalaryHeadName,
                             AmountG = sd.Amount ?? 0,
                             AmountUS = sd.AmountInUSD ?? 0,
+                            YTDAmountUSD =sd.YTDAmountUSD??0,
                             YTDAmountG = sd.YTDAmount ?? 0 // Set to 0 as per requirement
                         })
                         .ToList();
@@ -671,6 +672,7 @@ namespace YourNamespace.Services.Implementation
                             Description = sd.SalaryHeadName,
                             AmountG = sd.Amount ?? 0,
                             AmountUS = sd.AmountInUSD ?? 0,
+                            YTDAmountUSD = sd.YTDAmountUSD ?? 0,
                             YTDAmountG = sd.YTDAmount ?? 0 
                         })
                         .ToList();
