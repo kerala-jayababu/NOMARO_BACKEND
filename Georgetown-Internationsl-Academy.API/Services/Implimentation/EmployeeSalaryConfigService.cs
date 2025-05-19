@@ -375,7 +375,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     await _dbContext.SaveChangesAsync();
                 }
-                var entityCode = _configuration["WorkflowEntityCodes:EMPSALCONFIG"];
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
                 // Step: Call the approval workflow service
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null);
 

@@ -5,6 +5,7 @@ using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Ocsp;
@@ -163,7 +164,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 else
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, 0, loggedInEmployeeId, null);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null);
                     await _dbContext.SaveChangesAsync();
                 }
 
@@ -879,108 +880,24 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<IEnumerable<ConfigApprovalsDto>> GetConfigApprovalsList(DateTime fromDate,string? actionStatus = null, string? entityCode = null, string? targetIdEmployee = null)
         {
-            var query = new StringBuilder(@"
-           SELECT 
-    asb.IdApprovalWorkFlow,
-	wc.EntityName,
-    asb.EntityTablePrimaryKeyID, 
-    asb.EntityCode, 
-    asb.CycleIndex, 
-	CONCAT(FirstName, ' ', MiddleName, ' ', LastName) AS CreatedBy,
-    asb.SentDate, 
-	asb.TargetIdEmployee,
-    asb.ActionStatus,
-    asb.RejectionRemarks,
-    CASE 
-        WHEN asb.EntityCode = 'SALTEM' 
-            THEN (SELECT SalaryTemplateName FROM SalaryTemplates WHERE IdSalaryTemplate = asb.EntityTablePrimaryKeyID)
-        WHEN asb.EntityCode = 'EMPSALCONFIG' 
-			THEN(select  CONCAT(e.FirstName, ' ', e.MiddleName, ' ', e.LastName)  from EmployeeSalaryConfig ec inner join Employees e on ec.IdEmployee=e.IdEmployee where ec.IdEmployeeSalaryConfig = asb.EntityTablePrimaryKeyID)
-
-        WHEN asb.EntityCode = 'OVERTIME' 
-           THEN(select  CONCAT(e.FirstName, ' ', e.MiddleName, ' ', e.LastName)  from OvertimeTransactions ot inner join Employees e on ot.IdEmployee=e.IdEmployee where ot.IdOvertimeTransaction = asb.EntityTablePrimaryKeyID)
-        ELSE NULL
-    END AS Details
-
-FROM ApprovalWorkFlowAllocations asb
-left join WorkFlowConfig wc on asb.IdWorkFlowConfig = wc.IdWorkFlowConfig
-left join Employees e on e.IdEmployee = asb.SourceIdEmployee
-            INNER JOIN (
-                SELECT 
-                    EntityTablePrimaryKeyID, 
-                    EntityCode, 
-                    MAX(CycleIndex) AS MaxCycleIndex
-                FROM ApprovalWorkFlowAllocations
-                GROUP BY EntityTablePrimaryKeyID, EntityCode
-            ) maxCycles 
-            ON asb.EntityTablePrimaryKeyID = maxCycles.EntityTablePrimaryKeyID 
-               AND asb.EntityCode = maxCycles.EntityCode 
-               AND asb.CycleIndex = maxCycles.MaxCycleIndex
-            WHERE 1=1 "); // Placeholder to append dynamic conditions
-
-            var parameters = new DynamicParameters();
-
-            // Fetch entity codes from appsettings.json
-            var allowedEntityCodes = _configuration.GetSection("ConfigApproval:EntityCodes").Get<List<string>>();
-
-            if (allowedEntityCodes?.Any() == true)
-            {
-                query.Append(" AND asb.EntityCode IN @EntityCodes ");
-                parameters.Add("EntityCodes", allowedEntityCodes);
-            }
-
-            
-            if (!string.IsNullOrEmpty(actionStatus))
-            {
-                if (actionStatus.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Include SUBMITTED and Interim Approved statuses
-                    query.Append(@"
-            AND (
-                asb.ActionStatus = 'SUBMITTED'
-                OR asb.ActionStatus = 'INTERIM APPROVED'
-            )");
-                }
-                else
-                {
-                    query.Append(" AND asb.ActionStatus = @ActionStatus ");
-                    parameters.Add("ActionStatus", actionStatus);
-                }
-            }
-
-
-            if (!string.IsNullOrEmpty(entityCode))
-            {
-                query.Append(" AND asb.EntityCode = @EntityCode ");
-                parameters.Add("EntityCode", entityCode);
-            }
-
-            if (!string.IsNullOrEmpty(targetIdEmployee))
-            {
-                query.Append(@" AND (
-                asb.TargetIdEmployee = @TargetIdEmployee
-                OR asb.TargetIdEmployee LIKE @TargetIdEmployeePrefix
-                OR asb.TargetIdEmployee LIKE @TargetIdEmployeeSuffix
-                OR asb.TargetIdEmployee LIKE @TargetIdEmployeeMiddle
-            )");
-                parameters.Add("TargetIdEmployee", targetIdEmployee);
-                parameters.Add("TargetIdEmployeePrefix", $"{targetIdEmployee},%");
-                parameters.Add("TargetIdEmployeeSuffix", $"%,{targetIdEmployee}");
-                parameters.Add("TargetIdEmployeeMiddle", $"%,{targetIdEmployee},%");
-            }
-            query.Append(" AND asb.SentDate >= @FromDate ");
-            parameters.Add("FromDate", fromDate);
-
-            query.Append(" ORDER BY wc.EntityName ASC;");
+           
 
             try
             {
-                using (var connection = _dbContext.Database.GetDbConnection())
+                using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
                 {
-                    if (connection.State == ConnectionState.Closed)
-                        await connection.OpenAsync();
+                    var parameters = new DynamicParameters();
+                    parameters.Add("@IdApprover", targetIdEmployee, DbType.Int32);
+                    parameters.Add("@DateFrom", fromDate, DbType.DateTime);
+                    parameters.Add("@EntityCode", entityCode, DbType.String);
+                    parameters.Add("@ActionStatus", actionStatus, DbType.String);
 
-                    return await connection.QueryAsync<ConfigApprovalsDto>(query.ToString(),parameters);
+                    var result = await connection.QueryAsync<ConfigApprovalsDto>(
+                        "GetDataForConfigApproval_NEW",
+                        parameters,
+                        commandType: CommandType.StoredProcedure);
+
+                    return result.ToList();
                 }
             }
             catch (Exception ex)

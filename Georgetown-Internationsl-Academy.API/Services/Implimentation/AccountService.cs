@@ -220,7 +220,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return new UserResponseDto
             {
                 Name = $"{user.FirstName} {user.MiddleName} {user.LastName}",
-                UserId = user.IdEmployee,
+                IdEmployee = user.IdEmployee,
+                UserId  = user.IdEmployee,
                 Role = designation?.DesignationName ?? string.Empty,
                 EmployeePhotoFilePath = user.EmployeePhotoFilePath,
                 AttachmentBlob = user.AttachmentBlob,
