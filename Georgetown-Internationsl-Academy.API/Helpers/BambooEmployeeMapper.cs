@@ -34,9 +34,13 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
                 JobTitle = Get("jobTitle"),
                 WorkEmail = Get("workEmail"),
                 HireDate = ParseDate(Get("hiredate")),
-                EmployeeNumber = Get("employeenumber")
+                EmployeeNumber = Get("employeenumber"),
+                customNIS = Get("customNIS"),
+                customTIN = Get("customTIN")
 
-        };
+
+
+            };
         }
     }
 }

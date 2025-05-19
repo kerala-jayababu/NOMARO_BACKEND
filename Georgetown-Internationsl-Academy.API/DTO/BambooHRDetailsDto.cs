@@ -27,5 +27,8 @@
         public string WorkEmail { get; set; }
         public DateTime? HireDate { get; set; }
         public string? EmployeePhotoPath { get; set; }
+        public string? customNIS { get; set; }
+        public string? customTIN { get; set; }
+
     }
 }

@@ -18,6 +18,7 @@ using iText.IO.Font.Constants;
 using Document = iText.Layout.Document;
 using Table = iText.Layout.Element.Table;
 using Serilog;
+using iText.Kernel.Geom;
 
 namespace Georgetown_Internationsl_Academy.API.DTO
 {
@@ -31,6 +32,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         private iText.Kernel.Colors.Color bgYellow;
         private iText.Kernel.Colors.Color bgWhite;
         private iText.Kernel.Colors.Color lineColor;
+        int rowHeight = 14;
 
         public void GeneratePayslipPdf(EmployeePayslipDto payslip, Stream outputStream)
         {
@@ -40,21 +42,18 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             using (PdfDocument pdf = new PdfDocument(writer))
             using (Document document = new Document(pdf))
             {
-              
+                pdf.SetDefaultPageSize(PageSize.LETTER);
                 AddLogo(document,payslip.logo,payslip.logoType);
                 PdfFont boldFont1 = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
                 document.Add(new Paragraph("Payslip").SetFontSize(18).SetTextAlignment(alignLeft).SetFont(boldFont1));
-                document.Add(new Paragraph($"Payslip for the period: {payslip.Period}\n\n"));
+                document.Add(new Paragraph($"Payslip for the period: {payslip.Period}\n"));
 
                 document.Add(CreateEmployeeDetails(document, payslip));
-                document.Add(new Paragraph(""));
+                document.Add(new Paragraph("").SetHeight(6));
 
                 // Earnings Table
                 document.Add(CreateSalaryTable(payslip.Earnings, "Earnings"));
-                document.Add(new Paragraph(""));
-
-                // Deductions Table
-                document.Add(new Paragraph(""));
+                document.Add(new Paragraph("").SetHeight(6));
                 document.Add(CreateSalaryTable(payslip.Deductions, "Deductions"));
 
                 //// Income Tax Details
@@ -66,9 +65,15 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                 decimal totalDeductions = payslip.Deductions.Sum(x => x.AmountG);
                 decimal netPay = totalEarnings - totalDeductions;
                 PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
-                document.Add(new Paragraph($"\nNet Pay G$ {netPay.ToString("N2")}\n").SetFont(boldFont).SetTextAlignment(alignCenter));
+
+                float[] columnWidths = { 100f };
+                Table table = new Table(UnitValue.CreatePercentArray(columnWidths));
+                table.SetWidth(UnitValue.CreatePercentValue(100));
+                table.AddCell(CreateStyledCellNetSalary("Net Pay G$     " + netPay.ToString("N2"), lineColor, 1, bgGray, true, alignCenter).SetFontSize(13).SetHeight(rowHeight+2));
+                document.Add(table);
+                document.Add(new Paragraph("").SetHeight(6));
                 AddStamp(document,payslip.stamp,payslip.stampType);
-                document.Add(new Paragraph($"Payslip generated on: {payslip.PayslipGeneratedDate}"));
+                document.Add(new Paragraph($"Payslip generated on: {payslip.PayslipGeneratedDate}").SetFontSize(9));
                 document.Close();
             }
         }
@@ -94,7 +99,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             float x = pageSize.GetWidth() - img.GetImageWidth() - 30; // 20 is the right margin
             float y = pageSize.GetHeight() - img.GetImageHeight() - 20; // 20 is the top margin
 
-            img.SetFixedPosition(x, y);
+            img.SetFixedPosition(x, y+20);
             document.Add(img);
         }
 
@@ -117,26 +122,25 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(stamp));
             float y = document.GetRenderer().GetCurrentArea().GetBBox().GetY();
             float x = document.GetPdfDocument().GetDefaultPageSize().GetWidth() - img.GetImageScaledWidth() - 30;
-            img.SetFixedPosition(x, y);
+            img.SetFixedPosition(x, y-10);
             document.Add(img);
         }
         private Table CreateEmployeeDetails(Document document, EmployeePayslipDto payslip)
         {
             float[] columnWidths = { 16f, 34f, 16f, 34f };
-
             Table table = new Table(UnitValue.CreatePercentArray(columnWidths));
             table.SetWidth(UnitValue.CreatePercentValue(100));
             // Row 1
-            table.AddCell(CreateStyledCell("Emp Code", lineColor, 1, bgWhite, false, alignLeft));
-            table.AddCell(CreateStyledCell(payslip.EmployeeCode, lineColor, 1, bgWhite, false, alignLeft));
-            table.AddCell(CreateStyledCell("Emp Name", lineColor, 1, bgWhite, false, alignLeft));
-            table.AddCell(CreateStyledCell(payslip.EmployeeName, lineColor, 1, bgWhite, false, alignLeft));
+            table.AddCell(CreateStyledCell("Emp Code", lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(payslip.EmployeeCode, lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell("Emp Name", lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(payslip.EmployeeName, lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
 
             // Row 2
-            table.AddCell(CreateStyledCell("Designation", lineColor, 1, bgWhite, false, alignLeft));
-            table.AddCell(CreateStyledCell(payslip.Position, lineColor, 1, bgWhite, false, alignLeft));
-            table.AddCell(CreateStyledCell("Department", lineColor, 1, bgWhite, false, alignLeft));
-            table.AddCell(CreateStyledCell(payslip.Department, lineColor, 1, bgWhite, false, alignLeft));
+            table.AddCell(CreateStyledCell("Designation", lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(payslip.Position, lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell("Department", lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(payslip.Department, lineColor, 1, bgWhite, false, alignLeft).SetHeight(rowHeight));
 
             return table;
         }
@@ -147,20 +151,21 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             float[] columnWidths = { 30f, 17.5f, 17.5f, 17.5f, 17.5f };
             Table table = new Table(UnitValue.CreatePercentArray(columnWidths)).UseAllAvailableWidth();
             float borderWidth = 0.5f;
-            table.AddHeaderCell(CreateStyledCell(Heading, lineColor, borderWidth, bgGray, true, alignLeft));
-            table.AddHeaderCell(CreateStyledCell("Amount(G$)", lineColor, borderWidth, bgGray, false, alignCenter));
-            table.AddHeaderCell(CreateStyledCell("Amount(US$)", lineColor, borderWidth, bgGray, false, alignCenter));
-            table.AddHeaderCell(CreateStyledCell("YTDAmount(G$)", lineColor, borderWidth, bgGray, false, alignCenter));
-            table.AddHeaderCell(CreateStyledCell("YTDAmount(US$)", lineColor, borderWidth, bgGray, false, alignCenter));
+            table.AddHeaderCell(CreateStyledCell(Heading, lineColor, borderWidth, bgGray, true, alignLeft).SetHeight(rowHeight));
+            table.AddHeaderCell(CreateStyledCell("Amount(G$)", lineColor, borderWidth, bgGray, false, alignCenter).SetHeight(rowHeight));
+            table.AddHeaderCell(CreateStyledCell("Amount(US$)", lineColor, borderWidth, bgGray, false, alignCenter).SetHeight(rowHeight));
+            table.AddHeaderCell(CreateStyledCell("YTDAmount(G$)", lineColor, borderWidth, bgGray, false, alignCenter).SetHeight(rowHeight));
+            table.AddHeaderCell(CreateStyledCell("YTDAmount(US$)", lineColor, borderWidth, bgGray, false, alignCenter).SetHeight(rowHeight));
+
 
 
             foreach (var detail in details)
             {
-                table.AddCell(CreateStyledCell(detail.Description, lineColor, borderWidth, bgWhite, false, alignLeft));
-                table.AddCell(CreateStyledCell(detail.AmountG.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
-                table.AddCell(CreateStyledCell(detail.AmountUS.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
-                table.AddCell(CreateStyledCell(detail.YTDAmountG.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
-                table.AddCell(CreateStyledCell(detail.YTDAmountUSD.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight));
+                table.AddCell(CreateStyledCell(detail.Description, lineColor, borderWidth, bgWhite, false, alignLeft).SetHeight(rowHeight));
+                table.AddCell(CreateStyledCell(detail.AmountG.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight).SetHeight(rowHeight));
+                table.AddCell(CreateStyledCell(detail.AmountUS.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight).SetHeight(rowHeight));
+                table.AddCell(CreateStyledCell(detail.YTDAmountG.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight).SetHeight(rowHeight));
+                table.AddCell(CreateStyledCell(detail.YTDAmountUSD.ToString("N2"), lineColor, borderWidth, bgWhite, false, alignRight).SetHeight(rowHeight));
 
             }
 
@@ -170,18 +175,18 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             decimal totalYTDUSD = details.Sum(x => x.YTDAmountUSD);
 
             // Add Totals Row
-            table.AddCell(CreateStyledCell($"Total", lineColor, borderWidth, bgYellow, true, alignCenter));
-            table.AddCell(CreateStyledCell(totalG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
-            table.AddCell(CreateStyledCell(totalUS.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
-            table.AddCell(CreateStyledCell(totalYTDG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
-            table.AddCell(CreateStyledCell(totalYTDUSD.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight));
+            table.AddCell(CreateStyledCell($"Total", lineColor, borderWidth, bgYellow, true, alignCenter).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(totalG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(totalUS.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(totalYTDG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(totalYTDUSD.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
 
             return table;
         }
 
         Cell CreateStyledCell(string text, iText.Kernel.Colors.Color borderColor, float borderWidth,
-                      iText.Kernel.Colors.Color backgroundColor, bool isBold,
-                      iText.Layout.Properties.TextAlignment alignment)
+                       iText.Kernel.Colors.Color backgroundColor, bool isBold,
+                       iText.Layout.Properties.TextAlignment alignment)
         {
             Paragraph paragraph = new Paragraph(text)
                 .SetTextAlignment(alignment).SetFontSize(10);
@@ -209,6 +214,38 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                 .SetTextAlignment(alignment);
 
         }
+
+        Cell CreateStyledCellNetSalary(string text, iText.Kernel.Colors.Color borderColor, float borderWidth,
+               iText.Kernel.Colors.Color backgroundColor, bool isBold,
+               iText.Layout.Properties.TextAlignment alignment)
+        {
+            Paragraph paragraph = new Paragraph(text)
+                .SetTextAlignment(alignment).SetFontSize(12);
+
+            if (isBold)
+            {
+                PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+
+                paragraph.SetFont(boldFont);
+            }
+            else
+            {
+                PdfFont nFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+
+                paragraph.SetFont(nFont);
+            }
+
+            return new Cell()
+                .Add(paragraph)
+                .SetFontSize(12)
+                .SetHeight(17)
+                .SetBorder(new iText.Layout.Borders.SolidBorder(borderColor, (float)0.5))
+                .SetBackgroundColor(backgroundColor)
+                .SetPadding(5)
+                .SetTextAlignment(alignment);
+
+        }
+
 
     }
 }

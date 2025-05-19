@@ -67,7 +67,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     try
                     {
-                        var detailUrl = $"{baseURL}/employees/{emp.Id}?fields=displayName,firstName,LastName,gender,dateofBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber";
+                        var detailUrl = $"{baseURL}/employees/{emp.Id}?fields=displayName,firstName,LastName,gender,dateofBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber,customNIS,customTIN";
 
                         var detailRequest = new RestRequest(detailUrl, Method.Get);
                         detailRequest.AddHeader("Authorization", $"Basic {token}");
@@ -106,6 +106,87 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<List<BambooHRDetailsDto>> SyncEmployeeReportingOfficerFromBambooHR()
+        {
+            var result = new List<BambooHRDetailsDto>();
+            try
+            {
+                var baseURL = _configuration["BambooHR:BaseUrl"];
+                var apikey = _configuration["BambooHR:ApiKey"];
+
+                if (string.IsNullOrWhiteSpace(baseURL) || string.IsNullOrWhiteSpace(apikey))
+                {
+                    _logger.LogError("BambooHR BaseUrl or ApiKey is missing in configuration.");
+                    return new List<BambooHRDetailsDto>();
+                }
+
+
+
+                var fullUrl = $"{baseURL}/employees/directory";
+                var client = new RestClient();
+                var request = new RestRequest(fullUrl, Method.Get);
+
+                var token = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{apikey}:x"));
+                request.AddHeader("Authorization", $"Basic {token}");
+
+                RestResponse response = await client.ExecuteAsync(request);
+
+                if (!response.IsSuccessful)
+                {
+                    _logger.LogError("Failed to retrieve data from BambooHR. Status: {StatusCode}, Content: {Content}",
+                        response.StatusCode, response.Content);
+                    return new List<BambooHRDetailsDto>();
+                }
+
+                var serializer = new XmlSerializer(typeof(EmployeeDirectoryDto));
+                using var reader = new StringReader(response.Content);
+                var directory = (EmployeeDirectoryDto)serializer.Deserialize(reader);
+
+                var rawEmployees = directory?.Employees ?? new List<EmployeeRawDto>();
+
+                foreach (var emp in rawEmployees)
+                {
+                    try
+                    {
+                        var detailUrl = $"{baseURL}/employees/{emp.Id}?fields=displayName,firstName,LastName,employeenumber,supervisor";
+
+                        var detailRequest = new RestRequest(detailUrl, Method.Get);
+                        detailRequest.AddHeader("Authorization", $"Basic {token}");
+
+                        var detailResponse = await client.ExecuteAsync(detailRequest);
+                        if (!detailResponse.IsSuccessful)
+                        {
+                            _logger.LogWarning("Failed to get details for employee ID {Id}", emp.Id);
+                            continue;
+                        }
+
+                        var detailSerializer = new XmlSerializer(typeof(BambooHREmployeeXmlDto));
+                        using var detailReader = new StringReader(detailResponse.Content);
+                        var detailedRaw = (BambooHREmployeeXmlDto)detailSerializer.Deserialize(detailReader);
+
+                        var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
+                        mapped.EmployeePhotoPath = emp.Fields.FirstOrDefault(f => f.Id == "photoUrl")?.Value;
+
+                        //await UpdateEmployeeReportingOfficerFromBambooHR(mapped);
+                        result.Add(mapped);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error while processing employee ID {Id}", emp.Id);
+                    }
+                }
+
+
+                return result;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing employees from BambooHR");
+                return new List<BambooHRDetailsDto>();
+            }
+        }
+
         public async Task<bool> AddUpdateEmployeeDetailsFromBambooHR(BambooHRDetailsDto bambooEmp)
         {
             var empDetails = await _dbContext.Employees
@@ -125,9 +206,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
 
             empDetails.EmployeeCode = bambooEmp.EmployeeNumber;
-            empDetails.FirstName = bambooEmp.FirstName;
-            empDetails.MiddleName = bambooEmp.MiddleName;
-            empDetails.LastName = bambooEmp.LastName;
+            empDetails.FirstName = bambooEmp.FirstName.Trim();
+            empDetails.MiddleName = bambooEmp.MiddleName?.Trim();
+            empDetails.LastName = bambooEmp.LastName.Trim();
             empDetails.Gender = bambooEmp.Gender;
 
             var idDesignation = await GetIdDesignation(bambooEmp.JobTitle);
@@ -138,17 +219,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (idDepartment > 0)
                 empDetails.IdDepartment = idDepartment;
 
-            empDetails.EmailID = bambooEmp.WorkEmail;
-            empDetails.PhoneNumber1 = bambooEmp.WorkPhone;
-            empDetails.PhoneNumber2 = bambooEmp.MobilePhone;
-            empDetails.Address1 = bambooEmp.Address1;
-            empDetails.Address2 = bambooEmp.Address2;
-            empDetails.City = bambooEmp.City;
-            empDetails.State = bambooEmp.State;
+            empDetails.EmailID = bambooEmp.WorkEmail.Trim();
+            empDetails.PhoneNumber1 = bambooEmp.WorkPhone.Trim();
+            empDetails.PhoneNumber2 = bambooEmp.MobilePhone.Trim();
+            empDetails.Address1 = bambooEmp.Address1.Trim();
+            empDetails.Address2 = bambooEmp.Address2.Trim();
+            empDetails.City = bambooEmp.City.Trim();
+            empDetails.State = bambooEmp.State.Trim();
             empDetails.ZipCode = bambooEmp.ZipCode;
             empDetails.JoiningDate = bambooEmp.HireDate;
             empDetails.DateOfBirth = bambooEmp.DateOfBirth;
-            
+            empDetails.IdNumber = bambooEmp.customNIS?.Trim();
+            empDetails.TaxIdNumber = bambooEmp.customTIN?.Trim();
 
             var reportingTo = await GetIdEmployee(bambooEmp.Supervisor);
             if (reportingTo > 0)
@@ -202,8 +284,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return true;
         }
-
-
+     
         public async Task<int> GetIdDesignation(string DesignationName)
         {
             var desigDetails = await _dbContext.Designations.Where(dd => dd.DesignationName.ToUpper() == DesignationName.ToUpper()).FirstOrDefaultAsync();
@@ -224,6 +305,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<int> GetIdEmployee(string EmployeeName)
         {
+            if (EmployeeName == null)
+                return -1;
             string[] splitEName = EmployeeName.Split(',');
             if (splitEName.Length == 1)
             {
@@ -234,7 +317,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (splitEName.Length == 2)
             {
                 var empDetails = await _dbContext.Employees.Where(em => (em.LastName ?? "").ToUpper() == splitEName[0].Trim().ToUpper() && 
-                em.FirstName == splitEName[1].ToUpper()).FirstOrDefaultAsync();
+                em.FirstName.ToUpper() == splitEName[1].Trim().ToUpper()).FirstOrDefaultAsync();
                 if (empDetails != null)
                     return empDetails.IdEmployee;
             }
