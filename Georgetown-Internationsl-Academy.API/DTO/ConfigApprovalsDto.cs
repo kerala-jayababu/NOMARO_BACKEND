@@ -12,6 +12,7 @@
         public DateTime SentDate { get; set; }
         public string? TargetIdEmployee { get; set; }
         public string? ActionStatus { get; set; }
+        public string? CurrentStatus { get; set; }
         public string? RejectionRemarks { get; set; }
     }
 }
