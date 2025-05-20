@@ -216,15 +216,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 user.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
             }
+            var link = await _dbContext.EmployeePermissions
+                  .AnyAsync(ep => ep.IdEmployee == user.IdEmployee)
+                  ? "PAYROLL,SelfPortal"
+                  : "SelfPortal";
 
             return new UserResponseDto
             {
                 Name = $"{user.FirstName} {user.MiddleName} {user.LastName}",
                 IdEmployee = user.IdEmployee,
-                UserId  = user.IdEmployee,
+                UserId = user.IdEmployee,
                 Role = designation?.DesignationName ?? string.Empty,
                 EmployeePhotoFilePath = user.EmployeePhotoFilePath,
                 AttachmentBlob = user.AttachmentBlob,
+                AuthorizedModules = link,
                 Token = token
             };
         }
@@ -245,7 +250,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (employeePermissions == null || !employeePermissions.Any())
                     return "SelfPortal";
 
-                return "Payroll,SelfPortal";
+                return "Payroll,SELFPORTAL";
             }
             catch (Exception ex)
             {

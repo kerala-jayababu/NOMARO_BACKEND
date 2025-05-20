@@ -301,6 +301,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.EmailId,
             e.PhoneNumber1 AS PhoneNumber1,
             e.PhoneNumber2 AS PhoneNumber2,
+            e.IdNumber as SSNNumber,
             e.WhatsAppNumber AS WhatsAppNumber,
             d.DepartmentName AS Department,
             des.DesignationName AS Designation,

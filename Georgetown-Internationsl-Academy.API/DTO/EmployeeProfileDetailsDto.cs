@@ -6,6 +6,7 @@
         public string EmployeeCode { get; set; }
         public string FullName { get; set; }
         public string EmailId { get; set; }
+        public string? SSNNumber { get; set; }
         public string PhoneNumber1 { get; set; }
         public string PhoneNumber2 { get; set; }
         public string WhatsAppNumber { get; set; }

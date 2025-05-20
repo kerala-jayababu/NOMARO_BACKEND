@@ -446,7 +446,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         {
                             decimal value = dict[e] != null ? Convert.ToDecimal(dict[e]) : 0.00m;
                             worksheet.Cells[row, col].Value = value;
-                            worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                            worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                             worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                             worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                             worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
@@ -454,7 +454,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         }
 
                         worksheet.Cells[row, col].Formula = $"SUM({ExcelCellAddress.GetColumnLetter(5)}{row}:{ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count - 1)}{row})";
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalEarningsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
@@ -466,7 +466,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         {
                             decimal value = dict[d] != null ? Convert.ToDecimal(dict[d]) : 0.00m;
                             worksheet.Cells[row, col].Value = value;
-                            worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                            worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                             worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                             worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                             worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
@@ -474,7 +474,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         }
 
                         worksheet.Cells[row, col].Formula = $"SUM({ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count + 1)}{row}:{ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count + uniqueDeductions.Count)}{row})";
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         string totalDeductionsColLetter = ExcelCellAddress.GetColumnLetter(col);
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
@@ -483,7 +483,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         col++;
 
                         worksheet.Cells[row, col].Formula = $"{totalEarningsColLetter}{row} - {totalDeductionsColLetter}{row}";
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
                         worksheet.Cells[row, col].Style.Font.Bold = true;
@@ -493,19 +493,19 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         worksheet.Cells[row, col++].Value = r.Status;
                         // Add tax fields
                         worksheet.Cells[row, col].Value = GetDecimal(dict, "ChildTaxCredit");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
 
                         worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxableIncome");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
 
                         worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxAmount");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
 
                         worksheet.Cells[row, col].Value = GetDecimal(dict, "TaxReturn");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
                         worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
 
 
@@ -524,7 +524,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     {
                         string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
                         worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
-                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
                     }
 
                     // Total Earnings
@@ -537,7 +537,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     {
                         string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
                         worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
-                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "0.00";
+                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
                     }
 
                     // Total Deductions

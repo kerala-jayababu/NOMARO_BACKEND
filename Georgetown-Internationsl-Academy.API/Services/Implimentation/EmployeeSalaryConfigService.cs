@@ -366,10 +366,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             }
 
                             // Add new details
-                            var newDetailEntity = _mapper.Map<EmployeeSalaryConfigDetails>(detailDto);
-                            newDetailEntity.IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig;
-                            newDetailEntity.IdEmployeeSalaryConfigDetail = null;
-                                                _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
+                            var newDetailEntity = new EmployeeSalaryConfigDetails
+                            {
+                                IdEmployeeSalaryConfigDetail = null,
+                                IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig,
+                                IdSalaryHead = detailDto.IdSalaryHead,
+                                CalculationMethod = detailDto.CalculationMethod,
+                                FixedAmount = detailDto.FixedAmount,
+                                PercentageValue = detailDto.PercentageValue,
+                                PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
+                                CustomFormula = detailDto.CustomFormula,
+                                SalaryAmount = detailDto.SalaryAmount
+                            };
+                               _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
                         }
                     }
 

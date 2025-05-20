@@ -507,6 +507,111 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
             }
+            else if (entityCode == _configuration["WorkflowEntityCodes:LEAVEPASS"])
+            {
+                var entity = await _dbContext.LeavePassages.FindAsync(entityTablePrimaryKeyID);
+                //var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
+                //var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
+                if (entity != null)
+                {
+                    entity.ApprovalStatus = finalStatus;
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                //if (finalStatus == "SUBMITTED")
+                //{
+                //    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+
+
+                //    foreach (var empId in employeeIdList)
+                //    {
+
+                //        var approverName = await GetFullNameById(empId);
+                //        var creatorName = await GetFullNameById(loggedInEmployeeId);
+                //        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+                //        var notificationConfig = await _dbContext.NotificationsConfig
+                //            .FirstOrDefaultAsync(x => x.EntityCode == "LEAVEPASS" && x.NotificationType == "Leave Passage for Approval");
+
+                //        var notification = await CreateNotificationforEnmployeeSalaryConfig(approverName.FullName, employeename, creatorName.FullName, createdDateTime, notificationConfig, (int)loggedInEmployeeId, empId, entityTablePrimaryKeyID, "SUBMITTED", null);
+                //        await _dbContext.Notifications.AddAsync(notification);
+                //        await _dbContext.SaveChangesAsync();
+
+                //        var tokenDetails = await _accountService.LoginForMail(empId);
+                //        if (tokenDetails != null)
+                //        {
+                //            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
+                //            string actionUrl = GenerateActionUrlForEmployeeSalaryConfig(tokenvalue);
+                //            string emailBody = await GenerateEmailBodyForEmployeeSalryConfig(notificationConfig.EmailContent, empId, loggedInEmployeeId, employeename, actionUrl);
+
+                //            await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
+                //        }
+                //    }
+                //}
+                //else if (finalStatus == "APPROVED" || finalStatus == "REJECTED")
+                //{
+                //    string notifType = finalStatus == "APPROVED"
+                //        ? "Employee Salary Config Approved"
+                //        : "Employee Salary Config  Rejected";
+
+
+                //    var notificationConfig = await _dbContext.NotificationsConfig
+                //        .FirstOrDefaultAsync(x => x.EntityCode == "SALTEM" && x.NotificationType == notifType);
+
+                //    var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
+                //        .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
+                //                                  x.EntityCode == "EMPSALCONFIG" &&
+                //                                  x.CycleIndex == cycleIndex);
+                //    var approverName = await GetFullNameById(loggedInEmployeeId);
+                //    var creatorName = await GetFullNameById(approvalworkflow.SourceIdEmployee);
+                //    string approvedDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+                //    if (approvalworkflow != null)
+                //    {
+                //        var notification = await CreateNotificationforEnmployeeSalaryConfig(approverName.FullName, employeename, creatorName.FullName, approvedDateTime, notificationConfig, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee, entityTablePrimaryKeyID, finalStatus, approvalworkflow.RejectionRemarks);
+
+                //        await _dbContext.Notifications.AddAsync(notification);
+                //        await _dbContext.SaveChangesAsync();
+
+                //        var tokenDetails = await _accountService.LoginForMail(approvalworkflow.SourceIdEmployee);
+                //        if (tokenDetails != null)
+                //        {
+                //            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
+                //            string actionUrl = GenerateActionUrlForEmployeeSalaryConfigForAPPROVEDREjected(tokenvalue);
+
+                //            var entitys = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
+
+                //            string salaryTemplateName = entitys?.SalaryTemplateName ?? "N/A";
+
+
+                //            string emailBody = "";
+
+                //            if (finalStatus == "APPROVED")
+                //            {
+                //                emailBody = notificationConfig.EmailContent
+                //                    .Replace("#CREATERNAME#", creatorName.FullName)
+                //                    .Replace("#SALARYEMPLOYEENAME#", employeename)
+                //                    .Replace("#APPROVERNAME#", approverName.FullName)
+                //                    .Replace("#APPROVEDDATETIME#", approvedDateTime);
+                //            }
+                //            else // REJECTED
+                //            {
+                //                emailBody = notificationConfig.EmailContent
+                //                    .Replace("##RECEIVEDEMPLOYEENAME##", creatorName.FullName)
+                //                    .Replace("#SALARYEMPLOYEENAME#", employeename)
+                //                    .Replace("#CREATERNAME#", approverName.FullName)
+                //                    .Replace("#APPROVEDDATETIME#", approvedDateTime)
+                //                    .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
+                //            }
+                //            emailBody += $"<p><a href='{actionUrl}'>Click here to view the employee salry config</a></p>";
+                //            await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
+                //        }
+                //    }
+                //}
+
+
+
+            }
+
             else if (entityCode == _configuration["WorkflowEntityCodes:EMPSALGEN"])
             {
                 var entity = await _dbContext.EmployeeSalaries.FindAsync(entityTablePrimaryKeyID);
