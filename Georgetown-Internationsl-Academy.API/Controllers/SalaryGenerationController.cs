@@ -525,6 +525,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
                         worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
                         worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
+                        worksheet.Cells[row, currentCol].Style.Font.Bold = true;
                     }
 
                     // Total Earnings
@@ -538,6 +539,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
                         worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
                         worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
+                        worksheet.Cells[row, currentCol].Style.Font.Bold = true;
                     }
 
                     // Total Deductions
@@ -549,6 +551,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     // Net Salary
                     string netSalaryCol = ExcelCellAddress.GetColumnLetter(currentCol);
                     worksheet.Cells[row, currentCol].Formula = $"SUM({netSalaryCol}{dataStartRow}:{netSalaryCol}{row - 1})";
+                    worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
                     worksheet.Cells[row, currentCol].Style.Font.Bold = true;
                     worksheet.Cells.AutoFitColumns();
 
