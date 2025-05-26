@@ -90,8 +90,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                     else
                     {
-                        // Optionally, keep the exact input if not all 12 months are selected
-                        dto.DisbursingMonths = string.Join(",", monthsList);
+                       
+                        var ordered = monthsList
+                         .OrderBy(m => Array.IndexOf(validMonths, m))
+                         .ToArray();
+
+                        dto.DisbursingMonths = string.Join(",", ordered);
                     }
                 }
                 var salaryHeadEntity = _mapper.Map<SalaryHeads>(dto);              
@@ -160,8 +164,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                     else
                     {
-                        // Optionally, keep the exact input if not all 12 months are selected
+
+                        var ordered = monthsList
+                       .OrderBy(m => Array.IndexOf(validMonths, m))
+                       .ToArray();
                         salaryHead.DisbursingMonths = string.Join(",", monthsList);
+                        
                     }
                 }
                 var updatedEntity = _dbContext.SalaryHeads.Update(salaryHead);
