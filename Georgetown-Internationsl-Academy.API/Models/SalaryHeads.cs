@@ -24,6 +24,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime? ModifiedOn { get; set; }
         public int? OrderNumber { get; set; }
         public decimal? NonTaxableThreshold { get; set; }
+        public string? DisbursingMonths { get; set; }
 
 
     }

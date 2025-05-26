@@ -62,6 +62,38 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     throw new ArgumentException($"Invalid CalculationMethod. Allowed values are: {string.Join(", ", validCalculationMethods)}.", nameof(dto.CalculationMethod));
                 }
+                if (!string.IsNullOrEmpty(dto.DisbursingMonths))
+                {
+                    // Check if the value is a valid comma-separated list of months
+                    var validMonths = new[] {
+                "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER",
+                "OCTOBER", "NOVEMBER", "DECEMBER"
+            };
+
+                    // Ensure months are in uppercase and separated by commas
+                    var monthsList = dto.DisbursingMonths.Split(',')
+                                                          .Select(m => m.Trim().ToUpper())
+                                                          .Distinct()
+                                                          .ToList();
+
+                    // Check if the provided months are valid
+                    var invalidMonths = monthsList.Where(m => !validMonths.Contains(m)).ToList();
+                    if (invalidMonths.Any())
+                    {
+                        throw new ArgumentException($"Invalid month(s) in DisbursingMonths: {string.Join(", ", invalidMonths)}.", nameof(dto.DisbursingMonths));
+                    }
+
+                    // If the user provides all 12 months, we can store null or handle it as required
+                    if (monthsList.Count == 12)
+                    {
+                        dto.DisbursingMonths = null;  // If all months are selected, we set it to null
+                    }
+                    else
+                    {
+                        // Optionally, keep the exact input if not all 12 months are selected
+                        dto.DisbursingMonths = string.Join(",", monthsList);
+                    }
+                }
                 var salaryHeadEntity = _mapper.Map<SalaryHeads>(dto);              
                 salaryHeadEntity.CreatedOn = DateTime.Now;
                 salaryHeadEntity.HeadType = dto.HeadType.ToUpper().Trim();
@@ -100,7 +132,38 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 salaryHead.ModifiedBy = IdEmployee;
                 salaryHead.ModifiedOn = DateTime.Now;
                 salaryHead.OrderNumber = dto.OrderNumber;
+                if (!string.IsNullOrEmpty(dto.DisbursingMonths))
+                {
+                    // Validate the provided DisbursingMonths (uppercase, valid months, comma-separated)
+                    var validMonths = new[] {
+                "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER",
+                "OCTOBER", "NOVEMBER", "DECEMBER"
+            };
 
+                    // Ensure months are in uppercase and separated by commas
+                    var monthsList = dto.DisbursingMonths.Split(',')
+                                                          .Select(m => m.Trim().ToUpper())
+                                                          .Distinct()
+                                                          .ToList();
+
+                    // Check if the provided months are valid
+                    var invalidMonths = monthsList.Where(m => !validMonths.Contains(m)).ToList();
+                    if (invalidMonths.Any())
+                    {
+                        throw new ArgumentException($"Invalid month(s) in DisbursingMonths: {string.Join(", ", invalidMonths)}.", nameof(dto.DisbursingMonths));
+                    }
+
+                    // If the user provides all 12 months, we can store null
+                    if (monthsList.Count == 12)
+                    {
+                        salaryHead.DisbursingMonths = null;  // Set to null if all 12 months are provided
+                    }
+                    else
+                    {
+                        // Optionally, keep the exact input if not all 12 months are selected
+                        salaryHead.DisbursingMonths = string.Join(",", monthsList);
+                    }
+                }
                 var updatedEntity = _dbContext.SalaryHeads.Update(salaryHead);
                 await _dbContext.SaveChangesAsync();
 

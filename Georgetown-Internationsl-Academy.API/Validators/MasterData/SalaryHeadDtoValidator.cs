@@ -61,6 +61,11 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
 
             RuleFor(s => s.OrderNumber)
                 .NotNull().WithMessage("OrderNumber is required.");
+
+            RuleFor(s => s.DisbursingMonths)
+               .Matches(@"^([A-Z]+)(,([A-Z]+))*$").WithMessage("DisbursingMonths must be a comma-separated list of uppercase month names.")
+               .Must(BeValidMonths).WithMessage("DisbursingMonths must contain valid month names (e.g., JANUARY, FEBRUARY, etc.)")
+               .When(s => !string.IsNullOrEmpty(s.DisbursingMonths));
         }
 
         private bool BeAValidCalculationMethod(string calculationMethod)
@@ -74,6 +79,22 @@ namespace Georgetown_Internationsl_Academy.API.Validators.MasterData
             var validHeadTypes = new[] { "Earning", "Deduction" };
             return !string.IsNullOrWhiteSpace(headType) &&
                    validHeadTypes.Contains(headType);
+        }
+        private bool BeValidMonths(string disbursingMonths)
+        {
+            if (string.IsNullOrWhiteSpace(disbursingMonths)) return true;
+
+            var validMonths = new[] {
+                "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER",
+                "OCTOBER", "NOVEMBER", "DECEMBER"
+            };
+
+            var monthsList = disbursingMonths.Split(',')
+                                              .Select(m => m.Trim())
+                                              .Distinct()
+                                              .ToList();
+
+            return monthsList.All(m => validMonths.Contains(m));
         }
     }
 

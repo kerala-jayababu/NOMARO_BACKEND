@@ -17,6 +17,7 @@
         public string CustomFormula { get; set; }        
         public int? OrderNumber { get; set; }
         public decimal? NonTaxableThreshold { get; set; }
+        public string ? DisbursingMonths { get; set; }
     }
 
 }
