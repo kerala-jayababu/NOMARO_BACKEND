@@ -5,24 +5,45 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 {
     public static class EmailService
     {
+        private class EmailSettings
+        {
+            public string Email { get; set; }
+            public string Password { get; set; }
+            public string SmtpHost { get; set; }
+            public int SmtpPort { get; set; }
+            public bool EnableSsl { get; set; }
+        }
+        private static readonly EmailSettings _settings;
+
+        static EmailService()
+        {
+            var config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())     
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+                .Build();
+
+            _settings = config
+                .GetSection("EmailSettings")
+                .Get<EmailSettings>();
+        }
         public static async Task<bool> SendMail(string toEmail, string subject, string htmlBody)
         {
             try
             {
-                using (var client = new SmtpClient("smtp.gmail.com", 587))
+                using (var client = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort))
                 {
-                    client.EnableSsl = true;
-                    client.Credentials = new NetworkCredential("georgetowninternational123@gmail.com", "osctzjyjppggggas");
+                    client.EnableSsl = _settings.EnableSsl;
+                    client.Credentials = new NetworkCredential(_settings.Email, _settings.Password);
 
                     var mailMessage = new MailMessage
                     {
-                        From = new MailAddress("georgetowninternational123@gmail.com", "George Town International Academy"),
+                        From = new MailAddress(_settings.Email, "George Town International Academy"),
                         Subject = subject,
-                        Body = htmlBody, 
-                        IsBodyHtml = true 
+                        Body = htmlBody,
+                        IsBodyHtml = true
                     };
-
                     mailMessage.To.Add(toEmail);
+
                     await client.SendMailAsync(mailMessage);
                 }
                 return true;
