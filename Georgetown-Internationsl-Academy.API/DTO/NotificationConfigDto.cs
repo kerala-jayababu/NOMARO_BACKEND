@@ -5,6 +5,7 @@
         public int IdNotificationConfig { get; set; }
         public string NotificationType { get; set; }
         public string? EmailSubject { get; set; }
+        public string? EntityCode { get; set; }
         public string? EmailContent { get; set; }
         public string? AppNotificationText { get; set; }
         public string? WebLink { get; set; }

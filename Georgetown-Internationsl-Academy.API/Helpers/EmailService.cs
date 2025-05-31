@@ -1,5 +1,6 @@
 ﻿using System.Net.Mail;
 using System.Net;
+using System.Net.Mime;
 
 namespace Georgetown_Internationsl_Academy.API.Helpers
 {
@@ -51,6 +52,47 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             catch (Exception ex)
             {
                 throw ex;
+            }
+        }
+
+
+        public static async Task<bool> SendMail(
+       string toEmail,
+       string subject,
+       string htmlBody,
+       byte[] attachmentBytes,
+       string attachmentFileName)
+        {
+            try
+            {
+                using var client = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort)
+                {
+                    EnableSsl = _settings.EnableSsl,
+                    Credentials = new NetworkCredential(_settings.Email, _settings.Password)
+                };
+
+                using var mailMessage = new MailMessage
+                {
+                    From = new MailAddress(_settings.Email, "George Town International Academy"),
+                    Subject = subject,
+                    Body = htmlBody,
+                    IsBodyHtml = true
+                };
+                mailMessage.To.Add("sandeep241798@gmail.com");
+
+                // attach the PDF
+                using var pdfStream = new MemoryStream(attachmentBytes);
+                var attachment = new Attachment(pdfStream, attachmentFileName,
+                                                MediaTypeNames.Application.Pdf);
+                mailMessage.Attachments.Add(attachment);
+
+                await client.SendMailAsync(mailMessage);
+                return true;
+            }
+            catch
+            {
+                // consider logging
+                throw;
             }
         }
     }

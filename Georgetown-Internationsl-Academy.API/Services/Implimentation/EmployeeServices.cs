@@ -406,6 +406,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         existingAccount.IdBankBranch = accountDto.IdBankBranch;
                         existingAccount.AccountNumber = accountDto.AccountNumber;
                         existingAccount.BranchCode = accountDto.BranchCode;
+                        existingAccount.DisbursementType    = accountDto.DisbursementType;
                         existingAccount.SalaryPercentageDistributed = accountDto.SalaryPercentageDistributed;
                         existingAccount.CurrencyCode = accountDto.CurrencyCode.ToUpper().Trim();
 
@@ -421,6 +422,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             IdBankBranch = accountDto.IdBankBranch,
                             AccountNumber = accountDto.AccountNumber,
                             BranchCode = accountDto.BranchCode,
+                            DisbursementType= accountDto.DisbursementType,
                             SalaryPercentageDistributed = accountDto.SalaryPercentageDistributed,
                             CurrencyCode = accountDto.CurrencyCode.ToUpper().Trim(),
                         };

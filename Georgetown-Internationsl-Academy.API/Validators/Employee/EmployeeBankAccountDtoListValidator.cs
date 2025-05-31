@@ -1,46 +1,107 @@
 ﻿using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Georgetown_Internationsl_Academy.API.Validators.Employee
 {
-    
-    public class EmployeeBankAccountDtoListValidator : AbstractValidator<List<EmployeeBankAccountDtoList>>
+    public class EmployeeBankAccountDtoListValidator
+        : AbstractValidator<List<EmployeeBankAccountDtoList>>
     {
         public EmployeeBankAccountDtoListValidator()
         {
+            // 1) Per‐item rules:
             RuleForEach(x => x).ChildRules(account =>
             {
+                // IdBank (required)
                 account.RuleFor(a => a.IdBank)
-                    .NotEmpty().WithMessage("IdBank is required.");
+                    .NotEmpty()
+                    .WithMessage("IdBank is required.");
 
+                // IdBankBranch (required)
                 account.RuleFor(a => a.IdBankBranch)
-                    .NotEmpty().WithMessage("IdBankBranch is required.");
+                    .NotEmpty()
+                    .WithMessage("IdBankBranch is required.");
 
-                account.RuleFor(a => a.SalaryPercentageDistributed)
-                    .GreaterThan(0).WithMessage("SalaryPercentageDistributed must be greater than 0.")
-                    .LessThanOrEqualTo(100).WithMessage("SalaryPercentageDistributed cannot exceed 100.");
+                // DisbursementType (required, either "PERCENTAGE" or "FIXEDAMOUNT")
+                account.RuleFor(a => a.DisbursementType)
+                    .Cascade(CascadeMode.Stop)
+                    .NotEmpty()
+                        .WithMessage("DisbursementType is required.")
+                    .Must(type =>
+                    {
+                        if (type is null) return false;
+                        var trimmed = type.Trim().ToUpperInvariant();
+                        return trimmed == "PERCENTAGE" || trimmed == "FIXEDAMOUNT";
+                    })
+                        .WithMessage("DisbursementType must be either 'PERCENTAGE' or 'FIXEDAMOUNT'.");
 
+                // SalaryPercentageDistributed (only when DisbursementType == "PERCENTAGE")
+                account.When(
+                    a => string.Equals(a.DisbursementType?.Trim(), "PERCENTAGE", StringComparison.OrdinalIgnoreCase),
+                    () =>
+                    {
+                        account.RuleFor(a => a.SalaryPercentageDistributed)
+                            .GreaterThan(0m)
+                                .WithMessage("SalaryPercentageDistributed must be greater than 0 when DisbursementType is 'PERCENTAGE'.")
+                            .LessThanOrEqualTo(100m)
+                                .WithMessage("SalaryPercentageDistributed cannot exceed 100 when DisbursementType is 'PERCENTAGE'.");
+                    }
+                );
+
+                // AccountNumber (required, max length 30)
                 account.RuleFor(a => a.AccountNumber)
-                    .NotEmpty().WithMessage("AccountNumber is required.")
-                    .MaximumLength(30).WithMessage("AccountNumber must not exceed 30 characters.");
+                    .NotEmpty()
+                        .WithMessage("AccountNumber is required.")
+                    .MaximumLength(30)
+                        .WithMessage("AccountNumber must not exceed 30 characters.");
 
+                // CurrencyCode (required, max length 10, must be "GYD" or "USD")
                 account.RuleFor(a => a.CurrencyCode)
-     .NotEmpty().WithMessage("CurrencyCode is required.")
-     .MaximumLength(10).WithMessage("CurrencyCode must not exceed 10 characters.")
-     .Must(code => new[] { "GYD", "USD" }.Contains(code?.ToUpper().Trim()))
-     .WithMessage("CurrencyCode must be either 'GYD' or 'USD'.");
+                    .Cascade(CascadeMode.Stop)
+                    .NotEmpty()
+                        .WithMessage("CurrencyCode is required.")
+                    .MaximumLength(10)
+                        .WithMessage("CurrencyCode must not exceed 10 characters.")
+                    .Must(code =>
+                    {
+                        if (string.IsNullOrWhiteSpace(code)) return false;
+                        var c = code.Trim().ToUpperInvariant();
+                        return c == "GYD" || c == "USD";
+                    })
+                        .WithMessage("CurrencyCode must be either 'GYD' or 'USD'.");
             });
 
-            // Ensure SalaryPercentageDistributed sum is 100
-            RuleFor(x => x.Sum(a => a.SalaryPercentageDistributed))
-    .LessThanOrEqualTo(100).WithMessage("The total SalaryPercentageDistributed must be less than or equal to 100.");
+            // 2) “Sum of all SalaryPercentageDistributed ≤ 100” 
+            //    only if at least one account is using PERCENTAGE.
+            RuleFor(list => list.Sum(a =>
+                    string.Equals(a.DisbursementType.Trim(), "PERCENTAGE", StringComparison.OrdinalIgnoreCase)
+                        ? a.SalaryPercentageDistributed
+                        : 0m
+                ))
+                .LessThanOrEqualTo(100m)
+                .When(list => list.Any(a =>
+                    string.Equals(a.DisbursementType?.Trim(), "PERCENTAGE", StringComparison.OrdinalIgnoreCase)
+                ))
+                .WithMessage("The total SalaryPercentageDistributed (for accounts with DisbursementType = 'PERCENTAGE') must be less than or equal to 100.");
 
+            // 3) “At least two bank accounts” → only when EVERY account is FIXEDAMOUNT
+            RuleFor(list => list)
+                .Must(list => list != null && list.Count >= 2)
+                .When(list => list != null
+                    && list.Count > 0
+                    && list.All(a => string.Equals(a.DisbursementType?.Trim(), "FIXEDAMOUNT", StringComparison.OrdinalIgnoreCase))
+                )
+                .WithMessage("At least two bank accounts must be provided when all DisbursementType values are 'FIXEDAMOUNT'.");
 
-            // Ensure IdBank and IdBankBranch are not duplicate
-            RuleFor(x => x)
+            // 4) Ensure no duplicate (IdBank, IdBankBranch) combinations:
+            RuleFor(list => list)
                 .Must(accounts =>
                 {
-                    var duplicates = accounts.  GroupBy(a => new { a.IdBank, a.IdBankBranch })
+                    if (accounts == null) return true;
+                    var duplicates = accounts
+                        .GroupBy(a => new { a.IdBank, a.IdBankBranch })
                         .Where(g => g.Count() > 1)
                         .ToList();
                     return !duplicates.Any();

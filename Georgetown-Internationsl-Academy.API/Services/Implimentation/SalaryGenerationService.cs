@@ -680,6 +680,7 @@ namespace YourNamespace.Services.Implementation
                     // Construct Employee Payslip DTO
                     var payslip = new EmployeePayslipDto
                     {
+                        IdEmployeeSalary = salary.IdEmployeeSalary,
                         EmployeeCode = employee.EmployeeCode,
                         EmployeeName = employee.FirstName,
                         Position = employee.Position,
@@ -706,6 +707,203 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+
+        public async Task<List<EmployeePayslipDto>> GenerateNotificationForEmployeeSalary(string idEmployeeSalary, int? IdSalaryMonth)
+        {
+           
+            var systemparamters = await _dbContext.SystemParameters.ToListAsync();
+
+            try
+            {
+                List<EmployeeSalaries> salaries;
+                if (!string.IsNullOrWhiteSpace(idEmployeeSalary))
+                {
+                    var idList = idEmployeeSalary.Split(',')
+                        .Select(x => x.Trim()).ToList();
+
+                    salaries = await _dbContext.EmployeeSalaries
+                        .Where(s => idList.Contains(s.IdEmployeeSalary.ToString()) && s.ApprovalStatus== "APPROVED")
+                        .ToListAsync();
+                }
+                else
+                {
+                    // we know idSalaryMonth.HasValue == true
+                    salaries = await _dbContext.EmployeeSalaries
+                        .Where(s => s.IdSalaryMonth == IdSalaryMonth.Value && s.ApprovalStatus == "APPROVED")
+                        .ToListAsync();
+                }
+
+               // var idEmployeeSalaryliST = idEmployeeSalary.Split(',').Select(id => id.Trim()).ToList();
+
+               
+
+                var employeeIdList = salaries.Select(x => x.IdEmployee).ToList();
+
+                // Fetch Employee Details
+                var employees = await _dbContext.Employees
+       .Where(e => employeeIdList.Contains(e.IdEmployee))
+       .Join(_dbContext.Designations,
+           emp => emp.IdDesignation,
+           des => des.IdDesignation,
+           (emp, des) => new { emp, des })
+       .Join(_dbContext.Departments,
+           combined => combined.emp.IdDepartment,
+           dept => dept.IdDepartment,
+           (combined, dept) => new
+           {
+               combined.emp.IdEmployee,
+               combined.emp.EmployeeCode,
+               FirstName = combined.emp.FirstName + " " + combined.emp.MiddleName + " " + combined.emp.LastName,
+               Position = combined.des.DesignationName,
+               EmailId=combined.emp.EmailID,
+               Department = dept.DepartmentName
+           })
+       .ToListAsync();
+
+
+                if (!employees.Any())
+                {
+                    throw new Exception("No employees found for the given IDs.");
+                }
+
+
+
+                if (!salaries.Any())
+                {
+                    throw new Exception("No salary details found for the given employees and salary month.");
+                }
+
+                // Fetch Salary Breakdown (Earnings & Deductions) for Employees
+                var salaryIds = salaries.Select(s => s.IdEmployeeSalary).ToList();
+                var salaryDetails = await _dbContext.EmployeeSalaryDetails
+                    .Where(sd => salaryIds.Contains((int)sd.IdEmployeeSalary))
+                    .ToListAsync();
+
+                var payslips = new List<EmployeePayslipDto>();
+                var remittances = await _dbContext.BankRemittance
+    .Where(r => salaryIds.Contains((int)r.IdEmployeeSalary))
+    .ToListAsync();
+
+                foreach (var salary in salaries)
+                {
+                    var employee = employees.FirstOrDefault(e => e.IdEmployee == salary.IdEmployee);
+                    if (employee == null) continue;
+
+                    var employeeSalaryDetails = salaryDetails
+                        .Where(sd => sd.IdEmployeeSalary == salary.IdEmployeeSalary)
+                        .ToList();
+
+                    // Grouping Salary Details into Earnings and Deductions
+                    var earnings = employeeSalaryDetails
+                        .Where(sd => sd.SalaryHeadType == "EARNING")
+                        .Select(sd => new EmployeeSalaryDetailsDto
+                        {
+                            Description = sd.SalaryHeadName,
+                            AmountG = sd.Amount ?? 0,
+                            AmountUS = sd.AmountInUSD ?? 0,
+                            YTDAmountUSD = sd.YTDAmountUSD ?? 0,
+                            YTDAmountG = sd.YTDAmount ?? 0 // Set to 0 as per requirement
+                        })
+                        .ToList();
+
+                    var deductions = employeeSalaryDetails
+                        .Where(sd => sd.SalaryHeadType == "DEDUCTION")
+                        .Select(sd => new EmployeeSalaryDetailsDto
+                        {
+                            Description = sd.SalaryHeadName,
+                            AmountG = sd.Amount ?? 0,
+                            AmountUS = sd.AmountInUSD ?? 0,
+                            YTDAmountUSD = sd.YTDAmountUSD ?? 0,
+                            YTDAmountG = sd.YTDAmount ?? 0
+                        })
+                        .ToList();
+
+                    // Construct Employee Payslip DTO
+                    var payslip = new EmployeePayslipDto
+                    {
+                        EmployeeCode = employee.EmployeeCode,
+                        EmployeeName = employee.FirstName,
+                        Position = employee.Position,
+                        EmailID = employee.EmailId,
+                        Department = employee.Department,
+                        Period = salary.SalaryMonthText,
+                        PayslipGeneratedDate = salary.GeneratedDate.ToString("yyyy-MM-dd"),
+                        Earnings = earnings,
+                        Deductions = deductions,
+                        logo = systemparamters.Where(x => x.ParameterName == "CompanyLogo").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                        logoType = systemparamters.Where(x => x.ParameterName == "CompanyLogo").Select(x => x.DataType).FirstOrDefault(),
+                        stamp = systemparamters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                        stampType = systemparamters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.DataType).FirstOrDefault(),
+                    };
+                    payslip.BankRemittance = remittances
+           .Where(r => r.IdEmployeeSalary == salary.IdEmployeeSalary)
+           .Select(r => new BankRemittanceDto
+           {
+               IdBankRemittance = r.IdBankRemittance,
+               BankName = r.BankName,
+               AccountNumber = r.AccountNumber,
+               ABARoutingNumber = r.ABARoutingNumber,
+               AmountGTD = r.AmountGYD,
+               AmountUSD = r.AmountUSD,
+               DistributedPercent = r.DistributedPercentage,
+               Currency = r.Currency,
+               
+           })
+           .ToList();
+
+                    payslips.Add(payslip);
+                }
+
+                return payslips;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating payslips.");
+                throw new Exception("An error occurred while generating the payslips.");
+            }
+        }
+
+        public async Task MarkSalaryEmailInProcessAsync(int idEmployeeSalary)
+        {
+            var salaryEntity = await _dbContext.EmployeeSalaries
+                .FirstOrDefaultAsync(s => s.IdEmployeeSalary == idEmployeeSalary);
+
+            if (salaryEntity != null)
+            {
+                salaryEntity.EmailStatus = "InProcess";
+                salaryEntity.EmailSentDate = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Cannot mark EmployeeSalary {SalaryId} as InProcess—record not found.",
+                    idEmployeeSalary);
+            }
+        }
+
+        public async Task MarkSalaryEmailSentAsync(int idEmployeeSalary)
+        {
+            var salaryEntity = await _dbContext.EmployeeSalaries
+                .FirstOrDefaultAsync(s => s.IdEmployeeSalary == idEmployeeSalary);
+
+            if (salaryEntity != null)
+            {
+                salaryEntity.EmailStatus = "Sent";
+                salaryEntity.EmailSentDate = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Cannot mark EmployeeSalary {SalaryId} as Sent—record not found.",
+                    idEmployeeSalary);
+            }
+        }
+
+
+
+
         public async Task<IEnumerable<SalarySlipDto>> GetSalarySlips(int idSalaryMonthFrom, int idSalaryMonthTo, string? dropdownFilter = null)
         {
             var query = new StringBuilder(@"
@@ -730,6 +928,8 @@ namespace YourNamespace.Services.Implementation
         es.TotalDeductions,
         es.TaxableIncome,
         es.TaxAmountAccounted,
+        es.EmailStatus,
+        es.EmailSentDate,
         es.TaxAmountDeducted,
         es.ApprovalStatus
     FROM EmployeeSalaries es

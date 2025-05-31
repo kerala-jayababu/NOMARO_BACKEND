@@ -19,6 +19,7 @@
         public string? PhoneNumber1 { get; set; } = string.Empty;
         public string? PhoneNumber2 { get; set; } = string.Empty;
         public string? EmailStatus { get; set; } = string.Empty;
+        public DateTime? EmailSentDate {  get; set; }
 
     }
 }

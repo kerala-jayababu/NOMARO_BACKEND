@@ -12,6 +12,8 @@ using System.Drawing;
 using System.IO.Compression;
 using ZipCompressionLevel = System.IO.Compression.CompressionLevel;
 using System.Security.Claims;
+using Georgetown_Internationsl_Academy.API.Helpers;
+using System.Net.Mail;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -26,18 +28,22 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly ISalaryGenerationService _salaryService;
         private readonly ISalaryHeadServices _salaryHeadService;
         private readonly IConfiguration _configuration;
+        private readonly INotificationConfigService _notificationConfigService;
         private readonly IRoleBasedScreenService _roleBasedService;
         private readonly IOptionService _optionService;
+        private readonly IServiceProvider _serviceProvider;
 
 
-        public SalaryGenerationController(ISalaryGenerationService salaryService,IOptionService optionService,  IConfiguration configuration, ISalaryHeadServices salaryservice, IRoleBasedScreenService roleBasedService, ISalaryHeadServices salaryHeadService)
+        public SalaryGenerationController(ISalaryGenerationService salaryService, IServiceProvider serviceProvider,INotificationConfigService notificationConfigService, IOptionService optionService,  IConfiguration configuration, ISalaryHeadServices salaryservice, IRoleBasedScreenService roleBasedService, ISalaryHeadServices salaryHeadService)
         {
             _salaryService = salaryService;
             _configuration = configuration;
             _roleBasedService = roleBasedService;
             _salaryHeadService = salaryHeadService;
             _optionService = optionService;
+            _serviceProvider = serviceProvider;
             _salaryservice = salaryservice;
+            _notificationConfigService = notificationConfigService;
         }
 
         /// <summary>
@@ -1092,6 +1098,143 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+
+
+        [HttpPost("GenerateNotificationForEmployeeSalary")]
+        [AllowAnonymous]
+        public IActionResult GenerateNotificationForEmployeeSalary(
+         string? idEmployeeSalary,
+         int? IdSalaryMonth)
+        {
+            if (string.IsNullOrWhiteSpace(idEmployeeSalary) && !IdSalaryMonth.HasValue)
+            {
+                return BadRequest(
+                    ApiResponseDto<string>.CreateFailure(
+                        "Please provide either a list of EmployeeSalary IDs or a SalaryMonth."));
+            }
+
+            // fire-and-forget
+            _ = Task.Run(async () =>
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var salaryService = scope.ServiceProvider.GetRequiredService<ISalaryGenerationService>();
+                var notificationConfigService = scope.ServiceProvider.GetRequiredService<INotificationConfigService>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<SalaryGenerationController>>();
+                try
+                {
+                    var payslipData = await salaryService
+                        .GenerateNotificationForEmployeeSalary(idEmployeeSalary, IdSalaryMonth);
+
+                    if (payslipData == null || !payslipData.Any())
+                    {
+                        // nothing to send
+                        return;
+                    }
+
+                    // grab template once
+                    var notificationList = await notificationConfigService.GetNotificationConfigList();
+                    var template = notificationList
+                        .FirstOrDefault(c => c.EntityCode == "SALARY")
+                        ?? throw new InvalidOperationException("Missing SALARY template");
+
+                    // process in parallel, up to 10 at once
+                    var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
+                    await Parallel.ForEachAsync(payslipData, parallelOptions, async (emp, ct) =>
+                    {
+                        try
+                        {
+                            await salaryService.MarkSalaryEmailInProcessAsync(emp.IdEmployeeSalary);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(
+                                ex,
+                                "Failed to mark EmployeeSalary {SalaryId} as InProcess before sending email.",
+                                emp.IdEmployeeSalary);
+                            // We still attempt to send the email, but it’s worth logging 
+                            // that the status update to "InProcess" failed
+                        }
+
+
+                        // 1) PDF
+                        byte[] pdfBytes;
+                        using (var ms = new MemoryStream())
+                        {
+                            var psGen = new PaySlipGeneratorDto();
+                            psGen.GeneratePayslipPdf(emp, ms);
+                            pdfBytes = ms.ToArray();
+                        }
+
+                        // 2) build email body
+                        var body = template.EmailContent
+                            .Replace("#EMPLOYEENAME#", emp.EmployeeName)
+                            .Replace("#SALARYMONTH#", emp.Period);
+
+                        var disbHtml = string.Join("<br/>", emp.BankRemittance.Select(r =>
+                        {
+                            var amt = r.AmountUSD ?? r.AmountGTD ?? 0m;
+                            var sym = r.Currency == "USD" ? "US$"
+                                     : r.Currency == "GYD" ? "G$" : "";
+                            return $"Bank: {r.BankName}, Account: {r.AccountNumber}, Amount: {sym} {amt:N2}";
+                        }));
+                        body = body.Replace(
+                            "[[Bank : #BANKNAME#, Account Number : #ACCOUNTNUMBER#, Amount : #AMOUNT#]]",
+                            disbHtml
+                        );
+
+                      
+                        // 4) send
+                        var fileName = $"{emp.EmployeeCode}_{emp.EmployeeName}_{emp.Period}.pdf";
+                        try
+                        {
+                            await EmailService.SendMail(
+                                emp.EmailID,
+                                template.EmailSubject,
+                                body,
+                                pdfBytes,
+                                fileName
+                            );
+
+                            // 3.5) Mark the salary record as "Sent" AFTER email is successfully delivered
+                            try
+                            {
+                                await salaryService.MarkSalaryEmailSentAsync(emp.IdEmployeeSalary);
+                            }
+                            catch (Exception ex2)
+                            {
+                                logger.LogError(
+                                    ex2,
+                                    "Failed to mark EmployeeSalary {SalaryId} as Sent after sending email.",
+                                    emp.IdEmployeeSalary);
+                            }
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // If the email fails to send, you might want to update 
+                            // EmailStatus = "Failed" (or leave it InProcess),
+                            // or log for retry. For simplicity, we just log here:
+                            logger.LogError(
+                                emailEx,
+                                "Error sending payslip email to {Email} for SalaryId {SalaryId}",
+                                emp.EmailID,
+                                emp.IdEmployeeSalary);
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // TODO: log exception
+                }
+            });
+
+            // immediate response
+            return Accepted(ApiResponseDto<string>.CreateSuccess(
+                "Payslip generation queued. You will get emails shortly."));
+        }
+
+
+
 
 
 

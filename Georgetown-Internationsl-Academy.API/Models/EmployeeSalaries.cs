@@ -21,6 +21,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime? ModifiedDate { get; set; }
         public int? IdApprovedBy { get; set; }
         public DateTime? ApprovedDate { get; set; }
+        public DateTime? EmailSentDate { get; set; }
         public string ApprovalStatus { get; set; } = string.Empty;
+        public string? EmailStatus { get; set; }
     }
 }
