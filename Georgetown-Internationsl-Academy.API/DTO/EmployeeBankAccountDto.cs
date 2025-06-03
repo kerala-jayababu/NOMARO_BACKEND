@@ -14,6 +14,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public decimal SalaryPercentageDistributed { get; set; }
         public string CurrencyCode { get; set; }
         public string? ABARoutingNumber { get; set; }
+        public string? DisbursementType {  get; set; }
 
         [NotMapped]
         public string? BankName { get; set; }

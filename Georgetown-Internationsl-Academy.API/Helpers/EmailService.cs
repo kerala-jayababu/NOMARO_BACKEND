@@ -78,7 +78,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
                     Body = htmlBody,
                     IsBodyHtml = true
                 };
-                mailMessage.To.Add("sandeep241798@gmail.com");
+                mailMessage.To.Add(toEmail);
 
                 // attach the PDF
                 using var pdfStream = new MemoryStream(attachmentBytes);

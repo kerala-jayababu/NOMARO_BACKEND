@@ -1104,14 +1104,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpPost("GenerateNotificationForEmployeeSalary")]
         [AllowAnonymous]
         public IActionResult GenerateNotificationForEmployeeSalary(
-         string? idEmployeeSalary,
-         int? IdSalaryMonth)
+         string? idEmployeeSalary)
         {
-            if (string.IsNullOrWhiteSpace(idEmployeeSalary) && !IdSalaryMonth.HasValue)
+            if (string.IsNullOrWhiteSpace(idEmployeeSalary))
             {
                 return BadRequest(
                     ApiResponseDto<string>.CreateFailure(
-                        "Please provide either a list of EmployeeSalary IDs or a SalaryMonth."));
+                        "Please provide either a list of EmployeeSalary IDs."));
             }
 
             // fire-and-forget
@@ -1124,7 +1123,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 try
                 {
                     var payslipData = await salaryService
-                        .GenerateNotificationForEmployeeSalary(idEmployeeSalary, IdSalaryMonth);
+                        .GenerateNotificationForEmployeeSalary(idEmployeeSalary);
 
                     if (payslipData == null || !payslipData.Any())
                     {

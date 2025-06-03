@@ -708,14 +708,14 @@ namespace YourNamespace.Services.Implementation
         }
 
 
-        public async Task<List<EmployeePayslipDto>> GenerateNotificationForEmployeeSalary(string idEmployeeSalary, int? IdSalaryMonth)
+        public async Task<List<EmployeePayslipDto>> GenerateNotificationForEmployeeSalary(string idEmployeeSalary)
         {
            
             var systemparamters = await _dbContext.SystemParameters.ToListAsync();
 
             try
             {
-                List<EmployeeSalaries> salaries;
+                List<EmployeeSalaries> salaries = new List<EmployeeSalaries>();
                 if (!string.IsNullOrWhiteSpace(idEmployeeSalary))
                 {
                     var idList = idEmployeeSalary.Split(',')
@@ -725,15 +725,15 @@ namespace YourNamespace.Services.Implementation
                         .Where(s => idList.Contains(s.IdEmployeeSalary.ToString()) && s.ApprovalStatus== "APPROVED")
                         .ToListAsync();
                 }
-                else
-                {
-                    // we know idSalaryMonth.HasValue == true
-                    salaries = await _dbContext.EmployeeSalaries
-                        .Where(s => s.IdSalaryMonth == IdSalaryMonth.Value && s.ApprovalStatus == "APPROVED")
-                        .ToListAsync();
-                }
+                //else
+                //{
+                //    // we know idSalaryMonth.HasValue == true
+                //    salaries = await _dbContext.EmployeeSalaries
+                //        .Where(s => s.IdSalaryMonth == IdSalaryMonth.Value && s.ApprovalStatus == "APPROVED")
+                //        .ToListAsync();
+                //}
 
-               // var idEmployeeSalaryliST = idEmployeeSalary.Split(',').Select(id => id.Trim()).ToList();
+                //var idEmployeeSalaryliST = idEmployeeSalary.Split(',').Select(id => id.Trim()).ToList();
 
                
 
@@ -829,6 +829,7 @@ namespace YourNamespace.Services.Implementation
                         Period = salary.SalaryMonthText,
                         PayslipGeneratedDate = salary.GeneratedDate.ToString("yyyy-MM-dd"),
                         Earnings = earnings,
+                        IdEmployeeSalary=salary.IdEmployeeSalary,
                         Deductions = deductions,
                         logo = systemparamters.Where(x => x.ParameterName == "CompanyLogo").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
                         logoType = systemparamters.Where(x => x.ParameterName == "CompanyLogo").Select(x => x.DataType).FirstOrDefault(),
@@ -889,7 +890,7 @@ namespace YourNamespace.Services.Implementation
 
             if (salaryEntity != null)
             {
-                salaryEntity.EmailStatus = "Sent";
+                salaryEntity.EmailStatus = "SENT";
                 salaryEntity.EmailSentDate = DateTime.Now;
                 await _dbContext.SaveChangesAsync();
             }

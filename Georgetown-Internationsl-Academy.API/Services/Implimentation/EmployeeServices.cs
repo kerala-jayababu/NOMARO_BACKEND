@@ -258,6 +258,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 	         b.BankName,
              eba.IdBankBranch,
 	         bb.BranchName,
+             eba.DisbursementType,
              eba.AccountNumber,            
              eba.BranchCode,
              bb.ABARoutingNumber,
