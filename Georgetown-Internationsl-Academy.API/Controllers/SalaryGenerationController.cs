@@ -14,6 +14,7 @@ using ZipCompressionLevel = System.IO.Compression.CompressionLevel;
 using System.Security.Claims;
 using Georgetown_Internationsl_Academy.API.Helpers;
 using System.Net.Mail;
+using System.Diagnostics;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -1099,7 +1100,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        private void LogEvent(string message, EventLogEntryType type = EventLogEntryType.Information)
+        {
+            //string source = "Payroll";
+            //string logName = "Application";
 
+            //if (!EventLog.SourceExists(source))
+            //{
+            //    EventLog.CreateEventSource(source, logName);
+            //}
+
+            //EventLog.WriteEntry(source, message, type);
+
+            if (EventLog.SourceExists("Payroll"))
+            {
+                EventLog.WriteEntry("Payroll", message, EventLogEntryType.Information);
+            }
+        }
 
         [HttpPost("GenerateNotificationForEmployeeSalary")]
         [AllowAnonymous]
@@ -1144,6 +1161,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         try
                         {
                             await salaryService.MarkSalaryEmailInProcessAsync(emp.IdEmployeeSalary);
+                            var preLog = $"[IN-PROCESS] Salary email is being prepared for {emp.EmployeeName} (EmployeeCode: {emp.EmployeeCode}, SalaryId: {emp.IdEmployeeSalary})";
+
+                            logger.LogInformation(preLog);
+                            //LogEvent(preLog); // Windows Event Viewer
                         }
                         catch (Exception ex)
                         {
@@ -1194,6 +1215,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                                 pdfBytes,
                                 fileName
                             );
+                            var postLog = $"[SENT] Payslip email successfully sent to {emp.EmployeeName} ({emp.EmailID}) for SalaryId: {emp.IdEmployeeSalary}";
+                            logger.LogInformation(postLog);
+                            //LogEvent(postLog);
 
                             // 3.5) Mark the salary record as "Sent" AFTER email is successfully delivered
                             try

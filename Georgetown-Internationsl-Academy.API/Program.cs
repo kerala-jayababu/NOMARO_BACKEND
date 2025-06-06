@@ -72,13 +72,22 @@ builder.Services.AddDbContext<ApplicationDBContext>(options =>
 var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowSpecificOrigins", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowSpecificOrigins", policy =>
+//    {
+//        policy.WithOrigins(allowedOrigins)
+//              .AllowAnyHeader()
+//              .AllowAnyMethod();
+//    });
+//});
 
 // JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -204,7 +213,8 @@ else
 
 app.UseStaticFiles();
 app.UseHttpsRedirection();
-app.UseCors("AllowSpecificOrigins");
+//app.UseCors("AllowSpecificOrigins");
+app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
