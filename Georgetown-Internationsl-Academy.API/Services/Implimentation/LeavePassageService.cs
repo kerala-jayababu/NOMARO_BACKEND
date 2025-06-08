@@ -145,6 +145,7 @@ WHERE 1 = 1
 	fy.FinancialYearFrom,
 	fy.FinancialYearTo,
   lp.IdSalaryMonth,
+lp.LeavePassageAmount,
   smFrom.SalaryMonthText,
   lp.Remarks,
   lp.ApprovalStatus
