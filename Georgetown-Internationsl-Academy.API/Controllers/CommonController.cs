@@ -168,6 +168,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         request.EntityCode,
                         int.Parse(IdEmployee),
                         request.Status,
+                        request.LeavePassageAmount,
                         request.RejectReason
                     );
 

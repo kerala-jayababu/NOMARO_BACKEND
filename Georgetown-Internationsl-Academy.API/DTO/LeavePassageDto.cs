@@ -14,6 +14,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? Remarks { get; set; }
         public string? ApprovalStatus { get; set; }
 
+        public decimal? LeavePassageAmount { get; set; }
         [NotMapped]
         public string EmployeeCode { get; set; } = string.Empty;
         [NotMapped]

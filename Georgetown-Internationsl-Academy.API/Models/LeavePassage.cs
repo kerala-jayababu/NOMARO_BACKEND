@@ -11,6 +11,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int IdSalaryMonth { get; set; }
         public string? Remarks { get; set; }
         public string ApprovalStatus { get; set; }
+        public decimal? LeavePassageAmount { get; set; }
         public DateTime? CreatedDate {  get; set; }
     }
 }

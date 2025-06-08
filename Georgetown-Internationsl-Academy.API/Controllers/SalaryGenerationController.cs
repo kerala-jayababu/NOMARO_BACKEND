@@ -1100,6 +1100,36 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+
+
+        [HttpPost("GetPayslipDetailsForLeavePassage")]
+        public async Task<IActionResult> GetPayslipDetailsForLeavePassage(int IdEmployee)
+        {
+            if (IdEmployee <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid employee ID."));
+            }
+
+            try
+            {
+                // Call your service method to get the payslip details
+                var payslipData = await _salaryService.GetPayslipDetailsForLeavePassage(IdEmployee);
+
+                if (payslipData == null)
+                {
+                    return Ok(ApiResponseDto<EmployeePayslipDto>.CreateFailure("No payslip found for the given employee."));
+                }
+
+                // Return the payslip data in a success response
+                return Ok(ApiResponseDto<EmployeePayslipDto>.CreateSuccess(payslipData));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
         private void LogEvent(string message, EventLogEntryType type = EventLogEntryType.Information)
         {
             //string source = "Payroll";

@@ -31,7 +31,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task<string> InitiateApprovalWorkflow(int entityTablePrimaryKeyID, string entityCode, int loggedInEmployeeId, string? status, string? rejectReason)
+        public async Task<string> InitiateApprovalWorkflow(int entityTablePrimaryKeyID, string entityCode, int loggedInEmployeeId, string? status,decimal? LeavePassageAmount,  string? rejectReason)
         {
 
 
@@ -90,12 +90,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                     if (actionStatussubmitted == "FINAL APPROVED")
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1, null,null);                        
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1, null,null,null);                        
                         return "Approval workflow initiated.";
                     }
                     else
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1, loggedInEmployeeId, targetEmployeeIds);
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1, loggedInEmployeeId, targetEmployeeIds,null);
                     }
 
                     return "Approval workflow initiated.";
@@ -123,7 +123,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (status == "REJECTED")
                 { 
 
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED",currentRecord.CycleIndex, loggedInEmployeeId, null);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED",currentRecord.CycleIndex, loggedInEmployeeId, null,LeavePassageAmount);
                     //await transaction.CommitAsync();
                     return "Record rejected successfully. Workflow terminated.";
                 }
@@ -159,12 +159,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, loggedInEmployeeId, targetEmployeeIdsForNextLevel);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, loggedInEmployeeId, targetEmployeeIdsForNextLevel, LeavePassageAmount);
                     await _dbContext.SaveChangesAsync();
                 }
                 else
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null, LeavePassageAmount);
                     await _dbContext.SaveChangesAsync();
                 }
 
@@ -185,7 +185,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel)
+        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel, decimal? LeavePassageAmount)
         {
             if (entityCode == _configuration["WorkflowEntityCodes:SalaryTemplate"])
             {
@@ -514,6 +514,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
                 if (entity != null)
                 {
+                   
+                    if (finalStatus == "APPROVED")
+                    {
+                        entity.LeavePassageAmount = LeavePassageAmount;                       
+                    }
+
                     entity.ApprovalStatus = finalStatus;
                     await _dbContext.SaveChangesAsync();
                 }
@@ -600,7 +606,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                     .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
                             }
                             emailBody += $"<p><a href='{actionUrl}'>Click here to view the leave passage details</a></p>";
-                            await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
+                            await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, notification.EmailContent);
                         }
                     }
                 }

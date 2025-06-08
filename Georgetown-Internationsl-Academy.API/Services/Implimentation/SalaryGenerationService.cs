@@ -233,6 +233,7 @@ namespace YourNamespace.Services.Implementation
                         entityCode,
                         idEmployeeCreated,
                         "SUBMITTED",
+                        null,
                         null
                     );
 
@@ -707,6 +708,105 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+        public async Task<EmployeePayslipDto> GetPayslipDetailsForLeavePassage(int IdEmployee)
+        {
+            try
+            {
+                var systemParameters = await _dbContext.SystemParameters.ToListAsync();
+
+                // Get latest salary record for the employee
+                var latestSalary = await _dbContext.EmployeeSalaries
+                    .Where(s => s.IdEmployee == IdEmployee && s.ApprovalStatus== "APPROVED")
+                    .OrderByDescending(s => s.IdEmployeeSalary)
+                    .FirstOrDefaultAsync();
+
+                if (latestSalary == null)
+                {
+                    // No salary slip found for the employee
+                    return null;
+                }
+
+                // Get employee details (including department, designation)
+                var employee = await _dbContext.Employees
+                    .Where(e => e.IdEmployee == IdEmployee)
+                    .Join(_dbContext.Designations,
+                        emp => emp.IdDesignation,
+                        des => des.IdDesignation,
+                        (emp, des) => new { emp, des })
+                    .Join(_dbContext.Departments,
+                        combined => combined.emp.IdDepartment,
+                        dept => dept.IdDepartment,
+                        (combined, dept) => new
+                        {
+                            combined.emp.IdEmployee,
+                            combined.emp.EmployeeCode,
+                            FirstName = combined.emp.FirstName + " " + combined.emp.MiddleName + " " + combined.emp.LastName,
+                            Position = combined.des.DesignationName,
+                            Department = dept.DepartmentName
+                        })
+                    .FirstOrDefaultAsync();
+
+                if (employee == null)
+                {
+                    // No employee details found
+                    return null;
+                }
+
+                // Get salary breakdown (earnings & deductions)
+                var salaryDetails = await _dbContext.EmployeeSalaryDetails
+                    .Where(sd => sd.IdEmployeeSalary == latestSalary.IdEmployeeSalary)
+                    .ToListAsync();
+
+                var earnings = salaryDetails
+                    .Where(sd => sd.SalaryHeadType == "EARNING")
+                    .Select(sd => new EmployeeSalaryDetailsDto
+                    {
+                        Description = sd.SalaryHeadName,
+                        AmountG = sd.Amount ?? 0,
+                        AmountUS = sd.AmountInUSD ?? 0,
+                        YTDAmountUSD = sd.YTDAmountUSD ?? 0,
+                        YTDAmountG = sd.YTDAmount ?? 0
+                    })
+                    .ToList();
+
+                var deductions = salaryDetails
+                    .Where(sd => sd.SalaryHeadType == "DEDUCTION")
+                    .Select(sd => new EmployeeSalaryDetailsDto
+                    {
+                        Description = sd.SalaryHeadName,
+                        AmountG = sd.Amount ?? 0,
+                        AmountUS = sd.AmountInUSD ?? 0,
+                        YTDAmountUSD = sd.YTDAmountUSD ?? 0,
+                        YTDAmountG = sd.YTDAmount ?? 0
+                    })
+                    .ToList();
+
+                // Construct and return the payslip DTO
+                var payslip = new EmployeePayslipDto
+                {
+                    IdEmployeeSalary = latestSalary.IdEmployeeSalary,
+                    EmployeeCode = employee.EmployeeCode,
+                    EmployeeName = employee.FirstName,
+                    Position = employee.Position,
+                    Department = employee.Department,
+                    Period = latestSalary.SalaryMonthText,
+                    PayslipGeneratedDate = latestSalary.GeneratedDate.ToString("yyyy-MM-dd"),
+                    Earnings = earnings,
+                    Deductions = deductions,
+                    logo = systemParameters.Where(x => x.ParameterName == "CompanyLogo").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                    logoType = systemParameters.Where(x => x.ParameterName == "CompanyLogo").Select(x => x.DataType).FirstOrDefault(),
+                    stamp = systemParameters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                    stampType = systemParameters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.DataType).FirstOrDefault(),
+                };
+
+                return payslip;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving payslip for Leave Passage.");
+                throw new Exception("An error occurred while retrieving the payslip.");
+            }
+        }
 
         public async Task<List<EmployeePayslipDto>> GenerateNotificationForEmployeeSalary(string idEmployeeSalary)
         {

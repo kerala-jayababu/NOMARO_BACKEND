@@ -279,7 +279,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(configEntity.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(configEntity.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null,null);
 
                 //if (approvalResult != "Approval workflow initiated.")
                 //{
@@ -386,7 +386,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
                 // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null,null);
 
                 await transaction.CommitAsync();
                 return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);

@@ -252,7 +252,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             }
             var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
             // Step: Call the approval workflow service
-            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED",null);
+            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED",null,null);
 
             if (approvalResult != "Approval workflow initiated.")
             {
@@ -358,7 +358,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             }
             var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
             // Step: Call the approval workflow service
-            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED", null);
+            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED", null,null);
 
             await transaction.CommitAsync();
             return _mapper.Map<SalaryTemplateDto>(templateEntity);

@@ -385,7 +385,7 @@ WHERE ot.IdEmployee = @EmployeeId ");
                 int insertedId = transactionEntity.IdOvertimeTransaction;
                 var entityCode = _configuration["WorkflowEntityCodes:Overtime"];
                 // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(insertedId, entityCode, transactionEntity.IdEmployee, "SUBMITTED", null);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(insertedId, entityCode, transactionEntity.IdEmployee, "SUBMITTED", null,null);
 
                 return _mapper.Map<OvertimeTransactionDto>(transactionEntity);
             }
@@ -457,7 +457,7 @@ WHERE ot.IdEmployee = @EmployeeId ");
                 await _dbContext.SaveChangesAsync();              
                 var entityCode = _configuration["WorkflowEntityCodes:Overtime"];
                 // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(transaction.IdOvertimeTransaction, entityCode, IdEmployee, "SUBMITTED", null);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(transaction.IdOvertimeTransaction, entityCode, IdEmployee, "SUBMITTED", null,null);
                 return _mapper.Map<OvertimeTransactionDto>(transaction);
             }
             catch (Exception ex)

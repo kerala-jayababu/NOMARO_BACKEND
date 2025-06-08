@@ -16,6 +16,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         public string? RejectReason { get; set; }
 
+        public decimal? LeavePassageAmount { get; set; }
+
         [NotMapped]
         public int? IdPayRollScreen { get; set; }
     }

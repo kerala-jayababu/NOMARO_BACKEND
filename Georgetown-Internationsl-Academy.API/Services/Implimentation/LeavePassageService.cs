@@ -197,6 +197,7 @@ WHERE lp.IdEmployee = @IdEmployee
         e.PhoneNumber1,
         e.PhoneNumber2,
         lp.IdFinancialYear,
+        lp.LeavePassageAmount,
         fy.FinancialYearFrom,
         fy.FinancialYearTo,
         lp.IdSalaryMonth,
@@ -252,7 +253,7 @@ WHERE lp.IdEmployee = @IdEmployee
 
                 // Call approval workflow service
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(
-                    insertedId, entityCode, leavePassageEntity.IdEmployee, "SUBMITTED", null);
+                    insertedId, entityCode, leavePassageEntity.IdEmployee, "SUBMITTED", null,null);
 
                 return _mapper.Map<LeavePassageDto>(leavePassageEntity);
             }
@@ -289,7 +290,7 @@ WHERE lp.IdEmployee = @IdEmployee
 
                 // Call approval workflow service
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(
-                    leavePassage.IdLeavePassage ?? 0, entityCode, IdEmployee, "SUBMITTED", null);
+                    leavePassage.IdLeavePassage ?? 0, entityCode, IdEmployee, "SUBMITTED", null,null);
 
                 return _mapper.Map<LeavePassageDto>(leavePassage);
             }

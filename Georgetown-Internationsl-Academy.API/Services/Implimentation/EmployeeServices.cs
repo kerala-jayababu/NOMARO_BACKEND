@@ -57,7 +57,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         Departments d ON e.IdDepartment = d.IdDepartment
     INNER JOIN 
         Designations des ON e.IdDesignation = des.IdDesignation
- INNER JOIN 
+ LEFT JOIN 
         BudgetCodes bc ON e.IdBudgetCode = bc.IdBudgetCode
     WHERE 
         e.IdEmployee = @Id;
