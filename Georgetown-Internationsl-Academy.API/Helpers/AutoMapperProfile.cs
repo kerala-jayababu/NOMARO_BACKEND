@@ -1,6 +1,10 @@
 ﻿using AutoMapper;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.DTO.Shift;
+using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Models.Shift;
+using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
 using Microsoft.Extensions.Logging;
 
 namespace Georgetown_Internationsl_Academy.API.Helpers
@@ -43,6 +47,11 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<LeavePassage, LeavePassageDto>().ReverseMap();
             CreateMap<Notification, NotificationDto>().ReverseMap();
             CreateMap<Holiday, HolidaysDto>().ReverseMap();
+
+            #region Time & Attendance
+            CreateMap<ShiftDefinitionEntity, ShiftDto>().ReverseMap();
+            CreateMap<ShiftSchedule, ShiftScheduleDto>().ReverseMap();
+            #endregion
         }
-     }
+    }
 }

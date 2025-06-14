@@ -1,5 +1,7 @@
 ﻿using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Models.Shift;
+using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,6 +61,12 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<LoginOTP> LoginOTP { get; set; }
         public DbSet<BankRemittance> BankRemittance { get; set; }
+
+        #region Time & Attendance
+        public DbSet<ShiftDefinitionEntity> ShiftDefinitions { get; set; }
+        public DbSet<ShiftSchedule> ShiftSchedules { get; set; }
+
+        #endregion
 
     }
 }
