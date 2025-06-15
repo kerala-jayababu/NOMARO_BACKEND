@@ -4,6 +4,7 @@ using Georgetown_International_Academy.API.Services.Implementations.TimeAndAtten
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.DTO.Shift;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attendance.Shift;
@@ -24,18 +25,25 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedScreenService;
         private readonly IShiftScheduleService _shiftScheduleService;
+        private readonly IShiftEmployeeService _shiftEmployeeService;
+        private readonly IShiftAssignmentService _shiftAssignmentService;        
         private readonly IValidator<ShiftDto> _shiftvalidator;
         private readonly IValidator<ShiftScheduleDto> _shiftScheduleValidator;
 
         public ShiftController(IShiftService shiftService, IConfiguration configuration, 
             IRoleBasedScreenService roleBasedScreenService,
             IShiftScheduleService shiftScheduleService,
+            IShiftEmployeeService shiftEmployeeService,
+            IShiftAssignmentService shiftAssignmentService,
+            // Injecting validators
             IValidator<ShiftDto>  shiftValidator,
              IValidator<ShiftScheduleDto> shiftScheduleValidator)
         {
             _shiftService = shiftService;
             _configuration = configuration;
             _shiftvalidator = shiftValidator;
+            _shiftEmployeeService = shiftEmployeeService;
+            _shiftAssignmentService = shiftAssignmentService;
             _shiftScheduleValidator = shiftScheduleValidator;
             _shiftScheduleService=shiftScheduleService;
             _roleBasedScreenService = roleBasedScreenService;
@@ -176,11 +184,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
         #region ShiftSchedules
 
         [HttpGet("GetShiftScheduleList")]
-        public async Task<IActionResult> GetShiftScheduleList()
+        public async Task<IActionResult> GetShiftScheduleList(int idShift)
         {
+            if (idShift <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid IdShift."));
+            }
             try
             {
-                var list = await _shiftScheduleService.GetAllShiftSchedulesAsync();
+                var list = await _shiftScheduleService.GetAllShiftSchedulesAsync(idShift);
                 if (list == null || !list.Any())
                 {
                     return Ok(ApiResponseDto<IEnumerable<ShiftScheduleDto>>.CreateSuccess(Enumerable.Empty<ShiftScheduleDto>(), "No shift schedules found."));
@@ -193,24 +205,49 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-
-        [HttpGet("GetShiftScheduleById")]
-        public async Task<IActionResult> GetShiftScheduleById(int id)
+        
+        [HttpPost("ManageShiftSchedules")]
+        public async Task<IActionResult> ManageShiftSchedules( List<ShiftScheduleDto> shiftSchedules)
         {
-            if (id <= 0)
+            if (shiftSchedules == null || !shiftSchedules.Any())
             {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid shift schedule ID."));
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Shift schedule list cannot be null or empty."));
             }
 
+            var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(employeeId))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            // var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(employeeId), _configuration["ScreenCodes:Shifts"], "A");
+            // if (!hasPermission)
+            //     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+            var validationErrors = new List<string>();
+
+            // Validate each DTO using FluentValidation
+            foreach (var dto in shiftSchedules)
+            {
+                var validationResult = await _shiftScheduleValidator.ValidateAsync(dto);
+                if (!validationResult.IsValid)
+                {
+                    var errorMessage = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                    validationErrors.Add($"Shift (IdShift: {dto.IdShift}, Start: {dto.StartTime}, End: {dto.EndTime}): {errorMessage}");
+                }
+            }
+
+            if (validationErrors.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {string.Join(" | ", validationErrors)}"));
+            }
             try
             {
-                var shift = await _shiftScheduleService.GetShiftScheduleByIdAsync(id);
-                if (shift == null)
+                var result = await _shiftScheduleService.ManageShiftSchedulesAsync(shiftSchedules);
+                if (result == null || !result.Any())
                 {
-                    return Ok(ApiResponseDto<ShiftScheduleDto>.CreateSuccess(null, "Shift schedule not found."));
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to manage shift schedules."));
                 }
 
-                return Ok(ApiResponseDto<ShiftScheduleDto>.CreateSuccess(shift, "Shift schedule retrieved successfully."));
+                return Ok(ApiResponseDto<string>.CreateSuccess(null, "Shift schedules managed successfully."));           
             }
             catch (Exception ex)
             {
@@ -218,43 +255,20 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
-        [HttpPost("AddShiftSchedule")]
-        public async Task<IActionResult> AddShiftSchedule( ShiftScheduleDto dto)
+
+        #endregion
+
+        #region ShiftEmployees
+        [HttpGet("GetShiftEmployeesByShift")]
+        public async Task<IActionResult> GetShiftEmployeesByShift(int idShift)
         {
+            if (idShift <= 0)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid IdShift."));
+
             try
             {
-                var validation = await _shiftScheduleValidator.ValidateAsync(dto);
-                if (!validation.IsValid)
-                {
-                    var errors = string.Join(", ", validation.Errors.Select(e => e.ErrorMessage));
-                    return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-                }
-
-                var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(employeeId))
-                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
-
-
-                // var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(employeeId), _configuration["ScreenCodes:Shifts"], "A");
-                // if (!hasPermission)
-                //     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
-                var existing = (await _shiftScheduleService.GetAllShiftSchedulesAsync())
-                                .FirstOrDefault(s =>
-                                    s.IdShift == dto.IdShift &&
-                                    s.StartTime == dto.StartTime &&
-                                    s.EndTime == dto.EndTime);
-
-                if (existing != null)
-                {
-                    return Conflict(ApiResponseDto<string>.CreateFailure("Shift schedule with same shift, start time, and end time already exists."));
-                }
-                var result = await _shiftScheduleService.AddShiftScheduleAsync(dto);
-                if (result == null)
-                {
-                    return UnprocessableEntity(ApiResponseDto<string>.CreateFailure("Failed to add shift schedule."));
-                }
-
-                return Ok(ApiResponseDto<string>.CreateSuccess("Shift schedule added successfully."));
+                var result = await _shiftEmployeeService.GetShiftEmployeesByShiftAsync(idShift);
+                return Ok(ApiResponseDto<List<ShiftEmployeeDto>>.CreateSuccess(result, "Shift employees retrieved successfully."));
             }
             catch (Exception ex)
             {
@@ -262,47 +276,55 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
-        [HttpPost("UpdateShiftSchedule")]
-        public async Task<IActionResult> UpdateShiftSchedule(ShiftScheduleDto dto)
+        [HttpPost("ManageShiftEmployees")]
+        public async Task<IActionResult> ManageShiftEmployees( List<ShiftEmployeeDto> employees)
         {
+            
+
+            if (employees == null || !employees.Any())
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee list cannot be empty."));
+
             try
             {
-                if (dto == null || dto.IdShiftSchedule == null || dto.IdShiftSchedule <= 0)
-                {
-                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid shift schedule ID."));
-                }
+                var result = await _shiftEmployeeService.ManageShiftEmployeesAsync(employees);
+                return Ok(ApiResponseDto<string>.CreateSuccess(null, "Shift employees managed successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
-                var validation = await _shiftScheduleValidator.ValidateAsync(dto);
-                if (!validation.IsValid)
-                {
-                    var errors = string.Join(", ", validation.Errors.Select(e => e.ErrorMessage));
-                    return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-                }
+        #endregion
 
-                var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(employeeId))
-                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
-                // var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(employeeId), _configuration["ScreenCodes:Shifts"], "U");
-                // if (!hasPermission)
-                //     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
-                var duplicate = (await _shiftScheduleService.GetAllShiftSchedulesAsync())
-                    .FirstOrDefault(s =>
-                        s.IdShift == dto.IdShift &&
-                        s.StartTime == dto.StartTime &&
-                        s.EndTime == dto.EndTime &&
-                        s.IdShiftSchedule != dto.IdShiftSchedule);
+        #region ShiftAssignment
+        [HttpGet("GetShiftAssignmentsByShift")]
+        public async Task<IActionResult> GetShiftAssignmentsByShift(int idShift)
+        {
+            if (idShift <= 0)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid IdShift."));
 
-                if (duplicate != null)
-                {
-                    return Conflict(ApiResponseDto<string>.CreateFailure("Another shift schedule with same shift, start time, and end time already exists."));
-                }
-                var result = await _shiftScheduleService.UpdateShiftScheduleAsync(dto);
-                if (result == null)
-                {
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update shift schedule."));
-                }
+            try
+            {
+                var result = await _shiftAssignmentService.GetShiftAssignmentsByShiftAsync(idShift);
+                return Ok(ApiResponseDto<List<ShiftAssignmentDto>>.CreateSuccess(result, "Shift assignments retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
-                return Ok(ApiResponseDto<string>.CreateSuccess("Shift schedule updated successfully."));
+        [HttpPost("ManageShiftAssignments")]
+        public async Task<IActionResult> ManageShiftAssignments([FromBody] List<ShiftAssignmentDto> assignments)
+        {
+            if (assignments == null || !assignments.Any())
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Assignment list cannot be empty."));
+
+            try
+            {
+                var result = await _shiftAssignmentService.ManageShiftAssignmentsAsync(assignments);
+                return Ok(ApiResponseDto<List<ShiftAssignmentDto>>.CreateSuccess(null, "Shift assignments managed successfully."));
             }
             catch (Exception ex)
             {

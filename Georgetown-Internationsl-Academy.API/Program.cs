@@ -5,6 +5,7 @@ using Georgetown_International_Academy.API.Database;
 using Georgetown_International_Academy.API.Services.Implementations.TimeAndAttendance;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attendance.Shift;
@@ -201,6 +202,8 @@ builder.Services.AddScoped<IBambooServices, BambooServices>();
 builder.Services.AddScoped<IHolidayServices, HolidayServices>();
 builder.Services.AddScoped<IShiftService, ShiftService>();
 builder.Services.AddScoped<IShiftScheduleService, ShiftScheduleService>();
+builder.Services.AddScoped<IShiftEmployeeService, ShiftEmployeeService>();
+builder.Services.AddScoped<IShiftAssignmentService, ShiftAssignmentService>();
 
 var app = builder.Build();
 

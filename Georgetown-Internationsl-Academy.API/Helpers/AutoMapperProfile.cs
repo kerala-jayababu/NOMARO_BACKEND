@@ -51,6 +51,8 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             #region Time & Attendance
             CreateMap<ShiftDefinitionEntity, ShiftDto>().ReverseMap();
             CreateMap<ShiftSchedule, ShiftScheduleDto>().ReverseMap();
+            CreateMap<ShiftEmployee, ShiftEmployeeDto>().ReverseMap();
+            CreateMap<ShiftAssignment, ShiftAssignmentDto>().ReverseMap();
             #endregion
         }
     }

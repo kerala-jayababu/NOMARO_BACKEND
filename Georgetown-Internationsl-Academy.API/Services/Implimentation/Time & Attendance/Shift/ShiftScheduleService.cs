@@ -21,12 +21,28 @@ namespace Georgetown_International_Academy.API.Services.Implementations.TimeAndA
             _logger = logger;
         }
 
-        public async Task<IEnumerable<ShiftScheduleDto>> GetAllShiftSchedulesAsync()
+        public async Task<IEnumerable<ShiftScheduleDto>> GetAllShiftSchedulesAsync(int idShift)
         {
             try
             {
-                var schedules = await _dbContext.ShiftSchedules.OrderBy(s => s.IdShift).ToListAsync();
-                return _mapper.Map<IEnumerable<ShiftScheduleDto>>(schedules);
+                var schedules = await (from s in _dbContext.ShiftSchedules
+                                       join shift in _dbContext.ShiftDefinitions
+                                           on s.IdShift equals shift.IdShift
+                                       where s.IdShift == idShift
+                                       orderby s.IdShift
+                                       select new ShiftScheduleDto
+                                       {
+                                           IdShiftSchedule = s.IdShiftSchedule,
+                                           IdShift = s.IdShift,
+                                           StartTime = s.StartTime,
+                                           EndTime = s.EndTime,
+                                           TotalDurationMinutes = s.TotalDurationMinutes,
+                                           TotalDurationHours = s.TotalDurationHours,
+                                           WorkDays = s.WorkDays,
+                                           ShiftName = shift.ShiftName
+                                       }).ToListAsync();
+
+                return schedules;
             }
             catch (Exception ex)
             {
@@ -34,6 +50,8 @@ namespace Georgetown_International_Academy.API.Services.Implementations.TimeAndA
                 throw;
             }
         }
+
+
 
         public async Task<ShiftScheduleDto?> GetShiftScheduleByIdAsync(int id)
         {
@@ -49,61 +67,61 @@ namespace Georgetown_International_Academy.API.Services.Implementations.TimeAndA
             }
         }
 
-        public async Task<ShiftScheduleDto?> AddShiftScheduleAsync(ShiftScheduleDto dto)
+        public async Task<List<ShiftScheduleDto>> ManageShiftSchedulesAsync(List<ShiftScheduleDto> shiftSchedules)
         {
+            var resultDtos = new List<ShiftScheduleDto>();
+
             try
             {
-                var duration = (dto.EndTime - dto.StartTime).Duration();
-                dto.TotalDurationMinutes = (int)duration.TotalMinutes;
-                dto.TotalDurationHours = (decimal)duration.TotalHours;
-
-                var entity = _mapper.Map<ShiftSchedule>(dto);
-
-                var result = await _dbContext.ShiftSchedules.AddAsync(entity);
-                await _dbContext.SaveChangesAsync();
-
-                return _mapper.Map<ShiftScheduleDto>(result.Entity);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error adding shift schedule.");
-                return null;
-            }
-        }
-
-        public async Task<ShiftScheduleDto?> UpdateShiftScheduleAsync(ShiftScheduleDto dto)
-        {
-            try
-            {
-                var existing = await _dbContext.ShiftSchedules.FindAsync(dto.IdShiftSchedule);
-                if (existing == null)
+                foreach (var dto in shiftSchedules)
                 {
-                    _logger.LogWarning("Shift schedule with ID {Id} not found", dto.IdShiftSchedule);
-                    return null;
+                    var duration = (dto.EndTime - dto.StartTime).Duration();
+                    dto.TotalDurationMinutes = (int)duration.TotalMinutes;
+                    dto.TotalDurationHours = (decimal)duration.TotalHours;
+
+                    if (dto.IdShiftSchedule.HasValue && dto.IdShiftSchedule > 0)
+                    {
+                        // Update
+                        var existing = await _dbContext.ShiftSchedules.FindAsync(dto.IdShiftSchedule);
+                        if (existing != null)
+                        {
+                            existing.IdShift = dto.IdShift;
+                            existing.StartTime = dto.StartTime;
+                            existing.EndTime = dto.EndTime;
+                            existing.TotalDurationMinutes = dto.TotalDurationMinutes ?? 0;
+                            existing.TotalDurationHours = dto.TotalDurationHours ?? 0;
+                            existing.WorkDays = dto.WorkDays;
+
+                            _dbContext.ShiftSchedules.Update(existing);
+                            resultDtos.Add(_mapper.Map<ShiftScheduleDto>(existing));
+                        }
+                    }
+                    else
+                    {
+                        // Add
+                        var isDuplicate = await _dbContext.ShiftSchedules.AnyAsync(s =>
+                            s.IdShift == dto.IdShift &&
+                            s.StartTime == dto.StartTime &&
+                            s.EndTime == dto.EndTime);
+
+                        if (!isDuplicate)
+                        {
+                            var entity = _mapper.Map<ShiftSchedule>(dto);
+                            var result = await _dbContext.ShiftSchedules.AddAsync(entity);
+                            resultDtos.Add(_mapper.Map<ShiftScheduleDto>(result.Entity));
+                        }
+                    }
                 }
 
-                var duration = (dto.EndTime - dto.StartTime).Duration();
-                dto.TotalDurationMinutes = (int)duration.TotalMinutes;
-                dto.TotalDurationHours = (decimal)duration.TotalHours;
-
-                // Update fields
-                existing.IdShift = dto.IdShift;
-                existing.StartTime = dto.StartTime;
-                existing.EndTime = dto.EndTime;
-                existing.TotalDurationMinutes = (int)dto.TotalDurationMinutes;
-                existing.TotalDurationHours = (decimal)dto.TotalDurationHours;
-                existing.WorkDays = dto.WorkDays;
-
-                _dbContext.ShiftSchedules.Update(existing);
                 await _dbContext.SaveChangesAsync();
-
-                return _mapper.Map<ShiftScheduleDto>(existing);
+                return resultDtos;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating shift schedule with ID {Id}", dto.IdShiftSchedule);
-                return null;
+                _logger.LogError(ex, "Error managing shift schedules.");
+                return new List<ShiftScheduleDto>(); // return empty list on failure
             }
         }
+
     }
 }

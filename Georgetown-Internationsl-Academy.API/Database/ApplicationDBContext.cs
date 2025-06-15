@@ -65,6 +65,8 @@ namespace Georgetown_International_Academy.API.Database
         #region Time & Attendance
         public DbSet<ShiftDefinitionEntity> ShiftDefinitions { get; set; }
         public DbSet<ShiftSchedule> ShiftSchedules { get; set; }
+        public DbSet<ShiftEmployee> ShiftEmployees { get; set; }
+        public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
 
         #endregion
 

@@ -1,4 +1,6 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
 {
     public class ShiftScheduleDto
     {
@@ -9,6 +11,8 @@
         public int? TotalDurationMinutes { get; set; }
         public decimal? TotalDurationHours { get; set; }
         public string WorkDays { get; set; } = string.Empty;
+        [NotMapped]
+        public string? ShiftName { get; set; } = string.Empty;
     }
 }
 
