@@ -3,16 +3,26 @@ using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
-using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using iText.Kernel.Geom;
+using iText.Kernel.Pdf;
+using iText.Layout.Element;
+using iText.Layout.Borders;
 using iText.StyledXmlParser.Jsoup.Nodes;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+using iText.Layout;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Text.Json;
-using static iText.IO.Image.Jpeg2000ImageData;
+using Paragraph = iText.Layout.Element.Paragraph;
+using iText.IO.Font.Constants;
+using iText.IO.Image;
+using iText.Kernel.Colors;
+using iText.Kernel.Font;
+using iText.Layout.Properties;
+using PageSize = iTextSharp.text.PageSize;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -199,6 +209,414 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return new List<dynamic>(); // return empty list on error
             }
         }
+
+
+        #region GetIncomeTax Report
+        public async Task<byte[]> GenerateIncomeTaxReportAsync(int payrollId, CompanyDetails compDetails, string taxMonth)
+        {
+            List<EmployeeTaxDetail> employees = new();
+
+            try
+            {
+                using var connection = _dbContext.Database.GetDbConnection();
+
+                if (connection.State != ConnectionState.Open)
+                    await connection.OpenAsync();
+
+                var result = await connection.QueryAsync<EmployeeTaxDetail>(
+                    "Report_GUYANA_INCOMETAX",
+                    new { SalaryMonth = payrollId },
+                    commandType: CommandType.StoredProcedure
+                );
+
+                employees = result.ToList();
+            }
+            catch
+            {
+                // Log the exception if needed
+                return Array.Empty<byte>();
+            }
+
+            return CreatePdf(employees, compDetails, taxMonth);
+        }
+
+        public byte[] CreatePdf(List<EmployeeTaxDetail> data, CompanyDetails compDetails, string taxMonth)
+        {
+            using var ms = new MemoryStream();
+            var writer = new iText.Kernel.Pdf.PdfWriter(ms);
+            var pdf = new iText.Kernel.Pdf.PdfDocument(writer);
+            var doc = new iText.Layout.Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            doc.SetMargins(36, 36, 36, 36);
+
+            var bold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var normal = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+
+            // Title
+            doc.Add(new Paragraph("GUYANA - INCOME TAX")
+                .SetFont(bold).SetFontSize(14)
+                .SetTextAlignment(TextAlignment.CENTER));
+
+            // TIN
+            doc.Add(new Paragraph("TIN: " + compDetails.TINNumber)
+                .SetFont(normal).SetFontSize(10)
+                .SetTextAlignment(TextAlignment.RIGHT));
+
+            //Address
+            doc.Add(new Paragraph("To").SetFont(normal).SetFontSize(10));
+
+            string fixedAddress = compDetails.TaxOfficeAddress.Replace("\\n", "\n");
+
+            foreach (var line in fixedAddress.Split('\n'))
+            {
+                doc.Add(new Paragraph(line.Trim())
+                    .SetFont(normal)
+                    .SetFontSize(10)
+                    .SetMarginLeft(20));
+            }
+
+            // Subtitle
+            doc.Add(new Paragraph("RETURN OF DEDUCTIONS OF TAX BY AN EMPLOYER")
+                .SetFont(bold).SetFontSize(11)
+                .SetTextAlignment(TextAlignment.CENTER));
+            doc.Add(new Paragraph("(Sec. 117 (1) of the Income Tax Act)")
+                .SetFont(normal).SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER));
+            doc.Add(new Paragraph("For the month of " + taxMonth)
+                .SetFont(normal).SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER));
+
+            doc.Add(new Paragraph(" "));
+
+            // Table setup
+            float[] columnWidths = { 3, 10, 18, 10, 10, 10, 10, 10 };
+            Table table = new Table(UnitValue.CreatePercentArray(columnWidths)).UseAllAvailableWidth();
+
+            Color bgGray = ColorConstants.LIGHT_GRAY;
+            Color border = ColorConstants.GRAY;
+
+            string[] headers = { "No", "TIN", "Name", "Total Income (G$)", "Statutory Deduction", "NIS", "Medical & Life Insurance", "Income Tax" };
+
+            foreach (var h in headers)
+            {
+                table.AddHeaderCell(new Cell().Add(new Paragraph(h).SetFont(bold).SetFontSize(9))
+                    .SetBackgroundColor(bgGray)
+                    .SetBorder(new SolidBorder(border, 0.5f))
+                    .SetTextAlignment(TextAlignment.CENTER));
+            }
+
+            // Data rows
+            int sl = 1;
+            decimal totalIncome = 0, totalStatutory = 0, totalNIS = 0, totalTax = 0;
+
+            foreach (var row in data)
+            {
+                decimal totalIncomeVal = row.TotalIncome ?? 0;
+                decimal deductionVal = row.Deduction ?? 0;
+                decimal nisVal = row.NIS ?? 0;
+                decimal mlieVal = row.MLIE ?? 0;
+                decimal incomeTaxVal = row.IncomeTax ?? 0;
+                totalIncome += totalIncomeVal;
+                totalStatutory += deductionVal;
+                totalNIS += nisVal;
+                totalTax += incomeTaxVal;
+
+                table.AddCell(CreateCell(sl++.ToString()));
+                table.AddCell(CreateCell(row.TINNumber ?? ""));
+                table.AddCell(CreateCell(row.EmployeeName ?? ""));
+                table.AddCell(CreateCell(totalIncomeVal.ToString("N2")));
+                table.AddCell(CreateCell(deductionVal.ToString("N2")));
+                table.AddCell(CreateCell(nisVal.ToString("N2")));
+                table.AddCell(CreateCell(mlieVal.ToString("N2")));
+                table.AddCell(CreateCell(incomeTaxVal.ToString("N2")));
+            }
+       
+
+            doc.Add(table);
+
+            // Signature block
+            // Signature block
+            if (compDetails.SignatureImage != null && compDetails.SignatureImage.Length > 0)
+            {
+                // Signature image
+                //byte[] signImgBytes = Convert.FromBase64String(compDetails.SignatureImageBase64);
+                //File.WriteAllBytes("C:\\Sandeep\\test_signature.jpg", signImgBytes);
+                ImageData imgData = ImageDataFactory.Create(compDetails.SignatureImage);
+                var signature = new iText.Layout.Element.Image(imgData)
+                    .ScaleToFit(100f, 40f)
+                    .SetHorizontalAlignment(HorizontalAlignment.RIGHT);
+
+                // Signer name
+                var signerName = new Paragraph(compDetails.TaxAuthorizedPersonName)
+                    .SetFontSize(9)
+                    .SetTextAlignment(TextAlignment.RIGHT);
+
+                // Left-side info: Date + IRD No.
+                var leftInfo = new Paragraph($"Date : {DateTime.Now:MM-dd-yyyy}\nI.R.D. NO. 5")
+                    .SetFontSize(9)
+                    .SetTextAlignment(TextAlignment.LEFT);
+
+                // Create 2-column table: 50/50 width
+                var signTable = new Table(UnitValue.CreatePercentArray(new float[] { 50, 50 }))
+                    .UseAllAvailableWidth();
+
+                // Left cell (no border, left-aligned)
+                var leftCell = new Cell()
+                    .Add(leftInfo)
+                    .SetBorder(Border.NO_BORDER)
+                    .SetTextAlignment(TextAlignment.LEFT);
+
+                // Right cell (no border, image + name, right-aligned)
+                var rightCell = new Cell()
+                    .Add(signature)
+                    .Add(signerName)
+                    .SetBorder(Border.NO_BORDER)
+                    .SetTextAlignment(TextAlignment.RIGHT);
+
+                signTable.AddCell(leftCell);
+                signTable.AddCell(rightCell);
+
+                doc.Add(new Paragraph(" ").SetHeight(10)); // Optional spacing
+                doc.Add(signTable);
+            }
+
+
+
+
+
+
+            doc.Close();
+            return ms.ToArray();
+        }     
+
+        // Helper to simplify cell creation
+        private Cell CreateCell(string content, bool bold = false)
+        {
+            var font = bold ? PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD) : PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            return new Cell().Add(new Paragraph(content).SetFont(font).SetFontSize(9)).SetTextAlignment(TextAlignment.RIGHT);
+        }
+        #endregion
+
+        public async Task<byte[]> GenerateNISReportAsync(int payrollId, string ageGroup, CompanyDetails compDetails, string salaryMonth)
+        {
+            List<EmployeeContributionDetails> employees = new();
+
+            try
+            {
+                using var connection = _dbContext.Database.GetDbConnection();
+                if (connection.State != ConnectionState.Open)
+                    await connection.OpenAsync();
+
+                var result = await connection.QueryAsync<EmployeeContributionDetails>(
+                    "Report_GUYANA_NIS",
+                    new { SalaryMonth = payrollId, AgeGroup = ageGroup },
+                    commandType: CommandType.StoredProcedure
+                );
+
+                employees = result.ToList();
+            }
+            catch (Exception ex)
+            {
+                // Optionally log
+                return Array.Empty<byte>();
+            }
+
+            return CreateNISPdf(employees, compDetails, salaryMonth,ageGroup );
+        }
+
+        public byte[] CreateNISPdf(List<EmployeeContributionDetails> employees, CompanyDetails compDetails, string salaryMonth, string ageGroup)
+        {
+            using var ms = new MemoryStream();
+            var writer = new iText.Kernel.Pdf.PdfWriter(ms);
+            var pdf = new iText.Kernel.Pdf.PdfDocument(writer);
+            var doc = new iText.Layout.Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            doc.SetMargins(36, 36, 36, 36);
+
+            var bold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var normal = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+
+            // Title
+            doc.Add(new Paragraph("NATIONAL INSURANCE AND SOCIAL SECURITY SCHEME")
+                .SetFont(bold).SetFontSize(14)
+                .SetTextAlignment(TextAlignment.CENTER));
+
+            doc.Add(new Paragraph("GUYANA CONTRIBUTION SUMMARY")
+                .SetFont(bold).SetFontSize(12)
+                .SetTextAlignment(TextAlignment.CENTER));
+
+            doc.Add(new Paragraph(" "));
+
+            // Employer details (table layout)
+            var infoTable = new Table(UnitValue.CreatePercentArray(new float[] { 5f, 10f }))
+                .UseAllAvailableWidth()
+                .SetMarginTop(10)
+                .SetMarginBottom(10);
+
+            infoTable.AddCell(CreateInfoCell("NAME OF EMPLOYER/BUSINESS:", normal));
+            infoTable.AddCell(CreateInfoCell(compDetails.CompanyName, normal));
+
+            infoTable.AddCell(CreateInfoCell("ADDRESS OF BUSINESS:", normal));
+            infoTable.AddCell(CreateInfoCell(compDetails.Address, normal));
+
+            infoTable.AddCell(CreateInfoCell("EMPLOYER'S REGISTRATION NUMBER:", normal));
+            infoTable.AddCell(CreateInfoCell(compDetails.RegNumber, normal));
+
+            infoTable.AddCell(CreateInfoCell("CONTRIBUTION FOR THE PERIOD:", normal));
+            infoTable.AddCell(CreateInfoCell(salaryMonth, normal));
+
+            doc.Add(infoTable);
+
+
+
+            // Accumulate totals
+            decimal totalActual = 0, totalInsurable = 0, totalEmployer = 0, totalEmployee = 0;
+            foreach (var e in employees)
+            {
+                totalActual += e.ActualEarnings;
+                totalInsurable += e.InsurableEarnings;
+                totalEmployer += e.EmployerContribution;
+                totalEmployee += e.EmployeeContribution;
+            }
+
+            // Insert summary block and section header
+            decimal totalPayable = totalEmployer + totalEmployee;
+            CreateConsTableBlock(doc, totalPayable, ageGroup, employees.Count);
+            doc.Add(new Paragraph(" "));
+            AddSectionHeader(doc);
+
+            // Table setup
+            float[] columnWidths = { 3, 3, 4, 4, 4, 3, 3 };
+            Table table = new Table(UnitValue.CreatePercentArray(columnWidths)).UseAllAvailableWidth();
+
+            Color bgGray = ColorConstants.LIGHT_GRAY;
+            Color border = ColorConstants.GRAY;
+
+            string[] headers = (ageGroup == "ABOVE60")
+                ? new[] { "Surname", "First Name", "NIS No", "Actual Earnings", "Insurable Earnings", "Employer 1.5%", "Employee 0%" }
+                : new[] { "Surname", "First Name", "NIS No", "Actual Earnings", "Insurable Earnings", "Employer 8.4%", "Employee 5.6%" };
+
+            foreach (var h in headers)
+            {
+                table.AddHeaderCell(new Cell().Add(new Paragraph(h).SetFont(bold).SetFontSize(9))
+                    .SetBackgroundColor(bgGray)
+                    .SetBorder(new SolidBorder(border, 0.5f))
+                    .SetTextAlignment(TextAlignment.CENTER));
+            }
+
+            // Data rows
+            foreach (var e in employees)
+            {
+                string[] names = (e.EmployeeName ?? "").Split(' ', 2);
+                string firstName = names.Length > 1 ? names[0] : "";
+                string surname = names.Length > 1 ? names[1] : names[0];
+
+                table.AddCell(CreateCellForNIS(surname));
+                table.AddCell(CreateCellForNIS(firstName));
+                table.AddCell(CreateCellForNIS(e.NISNumber ?? ""));
+                table.AddCell(CreateCellForNIS(e.ActualEarnings.ToString("N2"), TextAlignment.RIGHT));
+                table.AddCell(CreateCellForNIS(e.InsurableEarnings.ToString("N2"), TextAlignment.RIGHT));
+                table.AddCell(CreateCellForNIS(e.EmployerContribution.ToString("N2"), TextAlignment.RIGHT));
+                table.AddCell(CreateCellForNIS(e.EmployeeContribution.ToString("N2"), TextAlignment.RIGHT));
+            }
+
+            // Totals row
+            table.AddCell(new Cell(1, 3).Add(new Paragraph("TOTAL").SetFont(bold)).SetTextAlignment(TextAlignment.CENTER));
+            table.AddCell(CreateCellForNIS(totalActual.ToString("N2"), TextAlignment.RIGHT, bold));
+            table.AddCell(CreateCellForNIS(totalInsurable.ToString("N2"), TextAlignment.RIGHT, bold));
+            table.AddCell(CreateCellForNIS(totalEmployer.ToString("N2"), TextAlignment.RIGHT, bold));
+            table.AddCell(CreateCellForNIS(totalEmployee.ToString("N2"), TextAlignment.RIGHT, bold));
+
+            doc.Add(table);
+            doc.Close();
+            return ms.ToArray();
+        }
+
+        private Cell CreateCellForNIS(string text, TextAlignment align = TextAlignment.LEFT, iText.Kernel.Font.PdfFont font = null)
+        {
+            return new Cell()
+                .Add(new Paragraph(text).SetFont(font ?? PdfFontFactory.CreateFont(StandardFonts.HELVETICA)).SetFontSize(9))
+                .SetTextAlignment(align)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f));
+        }
+
+        private void CreateConsTableBlock(iText.Layout.Document doc, decimal totalNIS, string ageGroup, int employeeCount)
+        {
+            var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var normalFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var gray = new DeviceRgb(150, 150, 150);
+            float rowHeight = 20f;
+
+            Table summaryTable = new Table(UnitValue.CreatePercentArray(new float[] { 5f, 3f, 2f, 3f })).UseAllAvailableWidth();
+
+            var left = new Cell(2, 1)
+                .Add(new Paragraph($"Amount Payable G$ {totalNIS.ToString("N2")}").SetFont(boldFont).SetFontSize(9))
+                .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                .SetTextAlignment(TextAlignment.LEFT)
+                .SetHeight(rowHeight * 2)
+                .SetBorderRight(new SolidBorder(gray, 0.5f))
+                .SetBorderLeft(Border.NO_BORDER)
+                .SetBorderTop(Border.NO_BORDER)
+                .SetBorderBottom(Border.NO_BORDER);
+
+            summaryTable.AddCell(left);
+
+            summaryTable.AddCell(CreateSummaryCell("Employees Age Class", normalFont, TextAlignment.LEFT, gray));
+            summaryTable.AddCell(CreateSummaryCell("NO", normalFont, TextAlignment.CENTER, gray));
+            summaryTable.AddCell(CreateSummaryCell("Amount", normalFont, TextAlignment.RIGHT, gray));
+
+            string ageClass = ageGroup == "ABOVE60" ? "60 and above" : "Age 16-59 Years";
+            summaryTable.AddCell(CreateSummaryCell(ageClass, normalFont, TextAlignment.LEFT, gray));
+            summaryTable.AddCell(CreateSummaryCell(employeeCount.ToString(), normalFont, TextAlignment.CENTER, gray));
+            summaryTable.AddCell(CreateSummaryCell(totalNIS.ToString("N2"), normalFont, TextAlignment.RIGHT, gray));
+
+            doc.Add(summaryTable);
+        }
+
+        private Cell CreateSummaryCell(string text, iText.Kernel.Font.PdfFont font, TextAlignment align, DeviceRgb borderColor)
+        {
+            return new Cell()
+                .Add(new Paragraph(text).SetFont(font).SetFontSize(9))
+                .SetTextAlignment(align)
+                .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                .SetBorder(new SolidBorder(borderColor, 0.5f));
+        }
+
+        private void AddSectionHeader(iText.Layout.Document doc)
+        {
+            var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var gray = ColorConstants.LIGHT_GRAY;
+            var border = ColorConstants.GRAY;
+
+            var sectionHeader = new Table(UnitValue.CreatePercentArray(new float[] { 3, 3, 4, 4, 4, 3, 3 }))
+                .UseAllAvailableWidth();
+
+            sectionHeader.AddCell(new Cell(1, 5)
+                .Add(new Paragraph("Particulars of Employees").SetFont(boldFont).SetFontSize(9))
+                .SetBackgroundColor(gray)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetBorder(new SolidBorder(border, 0.5f)));
+
+            sectionHeader.AddCell(new Cell(1, 2)
+                .Add(new Paragraph("Contributions").SetFont(boldFont).SetFontSize(9))
+                .SetBackgroundColor(gray)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetBorder(new SolidBorder(border, 0.5f)));
+
+            doc.Add(sectionHeader);
+        }
+        private Cell CreateInfoCell(string text, iText.Kernel.Font.PdfFont font)
+        {
+            return new Cell()
+                .Add(new Paragraph(text).SetFont(font).SetFontSize(9))
+                .SetBorder(Border.NO_BORDER)
+                .SetTextAlignment(TextAlignment.LEFT)
+                .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                .SetPaddingBottom(4);
+        }
+
+
+
+
+
 
     }
 }

@@ -9,6 +9,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public decimal TotalDeductions { get; set; }
         public int  IdEmployee { get; set; }
 
+        public DateTime? ApprovedDate { get; set; }
+
         public List<SelfPortalEmployeeSalaryDetailsDto>? EmployeeSalaryDetails { get; set; }
 
         [NotMapped]

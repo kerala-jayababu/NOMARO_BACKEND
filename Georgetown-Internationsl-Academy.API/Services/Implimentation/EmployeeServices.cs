@@ -621,6 +621,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.JoiningDate,
             e.Gender,
             e.EmailID,
+            s.ApprovedDate,
             e.PhoneNumber1,
             e.PhoneNumber2,
             e.CurrentStatus
