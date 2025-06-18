@@ -73,6 +73,24 @@ namespace Georgetown_International_Academy.API.Services.Implementations.TimeAndA
 
             try
             {
+                if (shiftSchedules == null || !shiftSchedules.Any())
+                    return resultDtos;
+                var idShift = shiftSchedules.First().IdShift;
+
+                var existingSchedules = await _dbContext.ShiftSchedules
+                    .Where(s => s.IdShift == idShift)
+                    .ToListAsync();
+                var incomingScheduleIds = shiftSchedules
+          .Where(s => s.IdShiftSchedule.HasValue)
+          .Select(s => s.IdShiftSchedule.Value)
+          .ToHashSet();
+
+                // Remove schedules not present in incoming list
+                var toRemove = existingSchedules
+                    .Where(s => !incomingScheduleIds.Contains(s.IdShiftSchedule))
+                    .ToList();
+
+                _dbContext.ShiftSchedules.RemoveRange(toRemove);
                 foreach (var dto in shiftSchedules)
                 {
                     var duration = (dto.EndTime - dto.StartTime).Duration();
