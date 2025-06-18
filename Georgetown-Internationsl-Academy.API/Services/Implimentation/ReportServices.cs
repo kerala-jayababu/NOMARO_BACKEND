@@ -262,28 +262,43 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 .SetTextAlignment(TextAlignment.RIGHT));
 
             //Address
-            doc.Add(new Paragraph("To").SetFont(normal).SetFontSize(10));
+            doc.Add(new Paragraph("To")
+                 .SetFont(normal)
+                 .SetFontSize(10)
+                 .SetMarginBottom(0));
 
             string fixedAddress = compDetails.TaxOfficeAddress.Replace("\\n", "\n");
 
             foreach (var line in fixedAddress.Split('\n'))
             {
                 doc.Add(new Paragraph(line.Trim())
-                    .SetFont(normal)
-                    .SetFontSize(10)
-                    .SetMarginLeft(20));
+        .SetFont(normal)
+        .SetFontSize(10)
+        .SetMarginLeft(30)
+        .SetMarginBottom(0)
+        .SetMultipliedLeading(0.9f));
             }
 
             // Subtitle
             doc.Add(new Paragraph("RETURN OF DEDUCTIONS OF TAX BY AN EMPLOYER")
-                .SetFont(bold).SetFontSize(11)
-                .SetTextAlignment(TextAlignment.CENTER));
+     .SetFont(bold)
+     .SetFontSize(11)
+     .SetTextAlignment(TextAlignment.CENTER)
+     .SetMarginTop(10)
+       .SetMarginBottom(0)); // add just a little space if needed
+
             doc.Add(new Paragraph("(Sec. 117 (1) of the Income Tax Act)")
-                .SetFont(normal).SetFontSize(10)
-                .SetTextAlignment(TextAlignment.CENTER));
+                .SetFont(normal)
+                .SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetMarginTop(0)
+                .SetMarginBottom(0));
+
             doc.Add(new Paragraph("For the month of " + taxMonth)
-                .SetFont(normal).SetFontSize(10)
-                .SetTextAlignment(TextAlignment.CENTER));
+                .SetFont(normal)
+                .SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetMarginTop(0));
 
             doc.Add(new Paragraph(" "));
 
@@ -294,14 +309,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             Color bgGray = ColorConstants.LIGHT_GRAY;
             Color border = ColorConstants.GRAY;
 
-            string[] headers = { "No", "TIN", "Name", "Total Income (G$)", "Statutory Deduction", "NIS", "Medical & Life Insurance", "Income Tax" };
+            string[] headers = { "No", "TIN", "Name", "Total Income (G$)", "Statutory Deduction", "NIS Employee Contribution", "Medical & Life Insurance", "Income Tax Deducted" };
 
-            foreach (var h in headers)
+            for (int i = 0; i < headers.Length; i++)
             {
-                table.AddHeaderCell(new Cell().Add(new Paragraph(h).SetFont(bold).SetFontSize(9))
-                    .SetBackgroundColor(bgGray)
-                    .SetBorder(new SolidBorder(border, 0.5f))
-                    .SetTextAlignment(TextAlignment.CENTER));
+                var header = headers[i];
+                var alignment =TextAlignment.LEFT;
+
+                table.AddHeaderCell(new Cell()
+                   .Add(new Paragraph(header).SetFont(bold).SetFontSize(9))
+                   .SetBackgroundColor(bgGray)
+                   .SetBorder(new SolidBorder(border, 0.5f))
+                   .SetTextAlignment(alignment));
             }
 
             // Data rows
@@ -321,8 +340,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 totalTax += incomeTaxVal;
 
                 table.AddCell(CreateCell(sl++.ToString()));
-                table.AddCell(CreateCell(row.TINNumber ?? ""));
-                table.AddCell(CreateCell(row.EmployeeName ?? ""));
+                table.AddCell(CreateCell(row.TINNumber ?? "", false, TextAlignment.LEFT)); 
+                table.AddCell(CreateCell(row.EmployeeName ?? "", false, TextAlignment.LEFT));
                 table.AddCell(CreateCell(totalIncomeVal.ToString("N2")));
                 table.AddCell(CreateCell(deductionVal.ToString("N2")));
                 table.AddCell(CreateCell(nisVal.ToString("N2")));
@@ -386,13 +405,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             doc.Close();
             return ms.ToArray();
-        }     
+        }
 
         // Helper to simplify cell creation
-        private Cell CreateCell(string content, bool bold = false)
+        private Cell CreateCell(string content, bool bold = false, TextAlignment alignment = TextAlignment.RIGHT)
         {
             var font = bold ? PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD) : PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
-            return new Cell().Add(new Paragraph(content).SetFont(font).SetFontSize(9)).SetTextAlignment(TextAlignment.RIGHT);
+            Color border = ColorConstants.GRAY;
+
+            return new Cell()
+         .Add(new Paragraph(content).SetFont(font).SetFontSize(9))
+         .SetTextAlignment(alignment)
+         .SetBorder(new SolidBorder(border, 0.5f));
         }
         #endregion
 
@@ -479,7 +503,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             // Insert summary block and section header
             decimal totalPayable = totalEmployer + totalEmployee;
-            CreateConsTableBlock(doc, totalPayable, ageGroup, employees.Count);
+            CreateConsTableBlock(doc, totalInsurable, totalPayable,ageGroup, employees.Count);
             doc.Add(new Paragraph(" "));
             AddSectionHeader(doc);
 
@@ -499,7 +523,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 table.AddHeaderCell(new Cell().Add(new Paragraph(h).SetFont(bold).SetFontSize(9))
                     .SetBackgroundColor(bgGray)
                     .SetBorder(new SolidBorder(border, 0.5f))
-                    .SetTextAlignment(TextAlignment.CENTER));
+                    .SetTextAlignment(TextAlignment.LEFT));
             }
 
             // Data rows
@@ -519,11 +543,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
 
             // Totals row
-            table.AddCell(new Cell(1, 3).Add(new Paragraph("TOTAL").SetFont(bold)).SetTextAlignment(TextAlignment.CENTER));
-            table.AddCell(CreateCellForNIS(totalActual.ToString("N2"), TextAlignment.RIGHT, bold));
-            table.AddCell(CreateCellForNIS(totalInsurable.ToString("N2"), TextAlignment.RIGHT, bold));
-            table.AddCell(CreateCellForNIS(totalEmployer.ToString("N2"), TextAlignment.RIGHT, bold));
-            table.AddCell(CreateCellForNIS(totalEmployee.ToString("N2"), TextAlignment.RIGHT, bold));
+            table.AddCell(new Cell(1, 3)
+    .Add(new Paragraph("TOTAL").SetFont(bold))
+    .SetTextAlignment(TextAlignment.CENTER)
+    .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCellForNIS(totalActual.ToString("N2"), TextAlignment.RIGHT, bold)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCellForNIS(totalInsurable.ToString("N2"), TextAlignment.RIGHT, bold)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCellForNIS(totalEmployer.ToString("N2"), TextAlignment.RIGHT, bold)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCellForNIS(totalEmployee.ToString("N2"), TextAlignment.RIGHT, bold)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
 
             doc.Add(table);
             doc.Close();
@@ -538,7 +573,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f));
         }
 
-        private void CreateConsTableBlock(iText.Layout.Document doc, decimal totalNIS, string ageGroup, int employeeCount)
+        private void CreateConsTableBlock(iText.Layout.Document doc, decimal totalNIS,decimal totalPayabel, string ageGroup, int employeeCount)
         {
             var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
             var normalFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
@@ -548,7 +583,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             Table summaryTable = new Table(UnitValue.CreatePercentArray(new float[] { 5f, 3f, 2f, 3f })).UseAllAvailableWidth();
 
             var left = new Cell(2, 1)
-                .Add(new Paragraph($"Amount Payable G$ {totalNIS.ToString("N2")}").SetFont(boldFont).SetFontSize(9))
+                .Add(new Paragraph($"Amount Payable G$ {totalPayabel.ToString("N2")}").SetFont(boldFont).SetFontSize(9))
                 .SetVerticalAlignment(VerticalAlignment.MIDDLE)
                 .SetTextAlignment(TextAlignment.LEFT)
                 .SetHeight(rowHeight * 2)

@@ -144,13 +144,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             var pdfBytes = await _reportService.GenerateIncomeTaxReportAsync(payrollId, company, salaryMonthText);
             var fileName = $"IncomeTax_{salaryMonthText.Replace(" ", "_")}.pdf";
 
-            var response = new PdfFileResponseDto
-            {
-                FileName = fileName,
-                FileBytes = Convert.ToBase64String(pdfBytes)
-            };
+            //var response = new PdfFileResponseDto
+            //{
+            //    FileName = fileName,
+            //    FileBytes = Convert.ToBase64String(pdfBytes)
+            //};
 
-            return Ok(response);
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
 
@@ -198,7 +198,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 FileBytes = Convert.ToBase64String(pdfBytes)
             };
 
-            return Ok(response);
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
 
