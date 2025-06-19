@@ -67,6 +67,9 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<ShiftSchedule> ShiftSchedules { get; set; }
         public DbSet<ShiftEmployee> ShiftEmployees { get; set; }
         public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
+        public DbSet<DayAttendance> DayAttendance { get; set; }
+        public DbSet<ClockInOutDetails> ClockInOutDetails { get; set; }
+        
 
         #endregion
 

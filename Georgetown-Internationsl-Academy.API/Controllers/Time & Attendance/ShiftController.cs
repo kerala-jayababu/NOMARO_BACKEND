@@ -4,6 +4,7 @@ using Georgetown_International_Academy.API.Services.Implementations.TimeAndAtten
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.DTO.Shift;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
+using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
@@ -18,7 +19,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
     [ApiController]
     [ApiVersion(1)]
     [Route("/api/v{v:apiVersion}/[controller]")]
-    [Authorize]
+
     public class ShiftController : ControllerBase
     {
         private readonly IShiftService _shiftService;
@@ -26,17 +27,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
         private readonly IRoleBasedScreenService _roleBasedScreenService;
         private readonly IShiftScheduleService _shiftScheduleService;
         private readonly IShiftEmployeeService _shiftEmployeeService;
-        private readonly IShiftAssignmentService _shiftAssignmentService;        
+        private readonly IShiftAssignmentService _shiftAssignmentService;
         private readonly IValidator<ShiftDto> _shiftvalidator;
         private readonly IValidator<ShiftScheduleDto> _shiftScheduleValidator;
-
-        public ShiftController(IShiftService shiftService, IConfiguration configuration, 
+        private readonly IValidator<ApproveTimesheetDto> _appproveTimeSheetValidator;
+        private readonly IValidator<UpdateClockInOutMissingEntryDto> _updateClockInOutMissingEntryValidator;
+        private readonly IValidator<UpdateShortTimeReasonDto> _UpdateShortTimeReasonDtoValidator;
+        
+        public ShiftController(IShiftService shiftService, IConfiguration configuration,
             IRoleBasedScreenService roleBasedScreenService,
             IShiftScheduleService shiftScheduleService,
             IShiftEmployeeService shiftEmployeeService,
             IShiftAssignmentService shiftAssignmentService,
             // Injecting validators
-            IValidator<ShiftDto>  shiftValidator,
+            IValidator<ShiftDto> shiftValidator,
+            IValidator<ApproveTimesheetDto> appproveTimeSheetValidator,
+            IValidator<UpdateClockInOutMissingEntryDto> updateClockInOutMissingEntryValidator,
+             IValidator<UpdateShortTimeReasonDto> updateShortTimeReasonDtoValidator,
              IValidator<ShiftScheduleDto> shiftScheduleValidator)
         {
             _shiftService = shiftService;
@@ -45,9 +52,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             _shiftEmployeeService = shiftEmployeeService;
             _shiftAssignmentService = shiftAssignmentService;
             _shiftScheduleValidator = shiftScheduleValidator;
-            _shiftScheduleService=shiftScheduleService;
+            _appproveTimeSheetValidator = appproveTimeSheetValidator;
+            _UpdateShortTimeReasonDtoValidator = updateShortTimeReasonDtoValidator;
+            _updateClockInOutMissingEntryValidator = updateClockInOutMissingEntryValidator;
+            _shiftScheduleService = shiftScheduleService;
             _roleBasedScreenService = roleBasedScreenService;
-            
+
         }
         #region ShiftDefinitions
 
@@ -205,9 +215,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-        
+
         [HttpPost("ManageShiftSchedules")]
-        public async Task<IActionResult> ManageShiftSchedules( List<ShiftScheduleDto> shiftSchedules)
+        public async Task<IActionResult> ManageShiftSchedules(List<ShiftScheduleDto> shiftSchedules)
         {
             if (shiftSchedules == null || !shiftSchedules.Any())
             {
@@ -247,7 +257,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to manage shift schedules."));
                 }
 
-                return Ok(ApiResponseDto<string>.CreateSuccess(null, "Shift schedules managed successfully."));           
+                return Ok(ApiResponseDto<string>.CreateSuccess(null, "Shift schedules managed successfully."));
             }
             catch (Exception ex)
             {
@@ -277,9 +287,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
         }
 
         [HttpPost("ManageShiftEmployees")]
-        public async Task<IActionResult> ManageShiftEmployees( List<ShiftEmployeeDto> employees)
+        public async Task<IActionResult> ManageShiftEmployees(List<ShiftEmployeeDto> employees)
         {
-            
+
 
             if (employees == null || !employees.Any())
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee list cannot be empty."));
@@ -367,8 +377,126 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
+        [HttpPost("UpdateClockInOutMissingEntry")]
+        public async Task<IActionResult> UpdateClockInOutMissingEntry([FromBody] UpdateClockInOutMissingEntryDto dto)
+        {
+            var validationResult = await _updateClockInOutMissingEntryValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(
+                    string.Join(" | ", validationResult.Errors.Select(e => e.ErrorMessage))
+                ));
+            }
+
+            try
+            {
+                var success = await _shiftService.UpdateClockInOutMissingEntryAsync(dto);
+
+                if (!success)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("ClockIn/Out record not found or could not be updated."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("ClockIn/Out entry updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
         #endregion
+
+        #region Dayttendance
+        [HttpGet("GetDayAttendanceDetails")]
+        public async Task<IActionResult> GetDayAttendanceDetails(
+    DateTime? dateFrom = null, DateTime? dateTo = null, int? idEmployee = null, int? idDepartment = null)
+        {
+            try
+            {
+                var data = await _shiftService.GetDayAttendanceDetails(dateFrom, dateTo, idEmployee, idDepartment);
+
+                if (data == null || !data.Any())
+                    return Ok(ApiResponseDto<IEnumerable<DayAttendanceDto>>.CreateSuccess(Enumerable.Empty<DayAttendanceDto>(), "No attendance records found."));
+
+                return Ok(ApiResponseDto<IEnumerable<DayAttendanceDto>>.CreateSuccess(data, "Day attendance retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpPost("ApproveTimesheet")]
+        public async Task<IActionResult> ApproveTimesheet([FromBody] ApproveTimesheetDto dto)
+        {
+
+
+            if (dto == null || dto.IdDayAttendance == null || dto.IdDayAttendance <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid shift ID."));
+            }
+
+            var validationResult = await _appproveTimeSheetValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+            }
+
+            var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(employeeId))
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+
+            try
+            {
+                var result = await _shiftService.ApproveTimesheetAsync(dto, int.Parse(employeeId));
+
+                if (!result)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Failed to update timesheet."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Timesheet updated successfully."));
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure("An error occurred while processing the request."));
+            }
+        }
+
+        [HttpPost("UpdateAttendanceShortTimeDetails")]
+        public async Task<IActionResult> UpdateAttendanceShortTimeDetails([FromBody] UpdateShortTimeReasonDto dto)
+        {
+            var validationResult = await _UpdateShortTimeReasonDtoValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(
+                    string.Join(" | ", validationResult.Errors.Select(e => e.ErrorMessage))
+                ));
+            }
+
+            try
+            {
+                var result = await _shiftService.UpdateAttendanceShortTimeDetailsAsync(dto);
+
+                if (!result)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Attendance record not found or could not be updated."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Short time reason updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+
+        #endregion
+
+
 
     }
 }

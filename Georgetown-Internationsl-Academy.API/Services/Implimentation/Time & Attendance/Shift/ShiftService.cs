@@ -4,10 +4,12 @@ using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO.Shift;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
+using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Text;
 
 public class ShiftService : IShiftService
 {
@@ -118,4 +120,171 @@ public class ShiftService : IShiftService
             throw new Exception("An error occurred while retrieving clock-in/out details. Please try again later.");
         }
     }
+
+    public async Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
+     DateTime? dateFrom = null, DateTime? dateTo = null, int? idEmployee = null, int? idDepartment = null)
+    {
+        var query = new StringBuilder(@"
+        SELECT 
+            e.IdEmployee,
+            CONCAT(e.FirstName, ' ', ISNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDesignation,
+            dsg.DesignationName,
+            e.IdDepartment,
+            dept.DepartmentName,
+            da.AttendanceDate,
+            da.RegularDayType,
+            da.IdShiftSchedule,
+            da.FirstInDateTime,
+            da.LastOutDateTime,
+            da.ExpectedInDateTime,
+            da.ExpectedOutDateTime,
+            da.TotalDurationInMinutes,
+            da.TotalDurationInHours,
+            da.ActualDurationInMinutes,
+            da.ActualDurationInHours,
+            da.ExpectedDurationInMinutes,
+            da.MinuteDifference,
+            da.AllowedTolerenceInMinutes,
+            da.DeficitHours,
+            da.TotalDurationHoursText,
+            da.ActualHoursText,
+            da.StatusDetails,
+            da.ReasonForShortTime,
+            da.TimeSheetApprovalStatus,
+            da.IdDayAttendance
+        FROM DayAttendance da
+        INNER JOIN Employees e ON da.IdEmployee = e.IdEmployee
+        INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+        INNER JOIN Designations dsg ON e.IdDesignation = dsg.IdDesignation
+        WHERE 1 = 1
+    ");
+
+        var parameters = new DynamicParameters();
+
+        if (dateFrom.HasValue && dateTo.HasValue)
+        {
+            query.Append(" AND da.AttendanceDate BETWEEN @DateFrom AND @DateTo");
+            parameters.Add("DateFrom", dateFrom);
+            parameters.Add("DateTo", dateTo);
+        }
+
+        if (idEmployee.HasValue)
+        {
+            query.Append(" AND da.IdEmployee = @IdEmployee");
+            parameters.Add("IdEmployee", idEmployee);
+        }
+
+        if (idDepartment.HasValue)
+        {
+            query.Append(" AND e.IdDepartment = @IdDepartment");
+            parameters.Add("IdDepartment", idDepartment);
+        }
+
+        query.Append(" ORDER BY da.AttendanceDate DESC, EmployeeName");
+
+        try
+        {
+            using (var connection = _dbContext.Database.GetDbConnection())
+            {
+                if (connection.State == ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var result = await connection.QueryAsync<DayAttendanceDto>(query.ToString(), parameters);
+                return result;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching day attendance details.");
+            throw new Exception("An error occurred while fetching attendance data. Please try again later.");
+        }
+    }
+
+
+    public async Task<bool> ApproveTimesheetAsync(ApproveTimesheetDto dto, int EmployeeId)
+    {
+        try
+        {
+            var attendance = await _dbContext.Set<DayAttendance>().FirstOrDefaultAsync(a =>
+                a.IdDayAttendance == dto.IdDayAttendance);
+
+            if (attendance == null)
+                return false;
+
+            attendance.TimeSheetApprovalStatus = dto.ApprovalStatus;
+            attendance.ApprovedDateTime = DateTime.UtcNow;
+            attendance.IdApprovedBy = EmployeeId;
+            attendance.StatusDetails = dto.RejectReasons;
+
+            _dbContext.Update(attendance);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error approving timesheet.");
+            throw;
+        }
+    }
+
+    public async Task<bool> UpdateClockInOutMissingEntryAsync(UpdateClockInOutMissingEntryDto dto)
+    {
+        try
+        {
+            var record = await _dbContext.Set<ClockInOutDetails>()
+                .FirstOrDefaultAsync(c => c.IdClockDetails == dto.IdClockDetail);
+
+            if (record == null)
+                return false;
+
+            if (dto.ClockType == "IN")
+                record.INTime = dto.Time;
+            else if (dto.ClockType == "OUT")
+                record.OUTTime = dto.Time;
+
+            record.Remarks = dto.Reason;
+            record.StatusDetails = "Missing-ManualEntry";
+
+            _dbContext.Update(record);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating missing ClockIn/Out entry for ClockDetailId {Id}", dto.IdClockDetail);
+            throw;
+        }
+    }
+
+    public async Task<bool> UpdateAttendanceShortTimeDetailsAsync(UpdateShortTimeReasonDto dto)
+    {
+        try
+        {
+            var record = await _dbContext.Set<DayAttendance>()
+                .FirstOrDefaultAsync(x => x.IdDayAttendance == dto.IdDayAttendance);
+
+            if (record == null)
+                return false;
+
+            record.ReasonForShortTime = dto.ReasonForShortTime;
+
+            _dbContext.Update(record);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating short time reason for IdDayAttendance {Id}", dto.IdDayAttendance);
+            throw;
+        }
+    }
+
+
+
+
+
 }

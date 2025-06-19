@@ -1,0 +1,20 @@
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift
+{
+    public class ClockInOutDetails
+    {
+        [Key]
+        public int IdClockDetails { get; set; }
+        public int IdUserDevice { get; set; }
+        public int IdEmployee { get; set; }
+        public DateTime ClockDate { get; set; }
+        public DateTime? INTime { get; set; }
+        public DateTime? OUTTime { get; set; }
+        public decimal? TotalINHours { get; set; }
+        public int? TotalInMinutes { get; set; }
+        public string? TotalInHoursText { get; set; }
+        public string? StatusDetails { get; set; }
+        public string? Remarks { get; set; }
+    }
+}
