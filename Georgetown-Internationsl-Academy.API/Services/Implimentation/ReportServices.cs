@@ -23,6 +23,7 @@ using iText.Kernel.Colors;
 using iText.Kernel.Font;
 using iText.Layout.Properties;
 using PageSize = iTextSharp.text.PageSize;
+using System;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -257,28 +258,52 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 .SetTextAlignment(TextAlignment.CENTER));
 
             // TIN
-            doc.Add(new Paragraph("TIN: " + compDetails.TINNumber)
-                .SetFont(normal).SetFontSize(10)
-                .SetTextAlignment(TextAlignment.RIGHT));
 
-            //Address
-            doc.Add(new Paragraph("To")
-                 .SetFont(normal)
-                 .SetFontSize(10)
-                 .SetMarginBottom(0));
+ 
+            // Create a 2-column table: left = Tax Office Address, right = Company Info + TIN
+            var headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 50, 50 }))
+                .UseAllAvailableWidth()
+                .SetMarginBottom(10);
+
+            // Left Cell (Tax Office Address)
+            var leftCell = new Cell().SetBorder(Border.NO_BORDER);
+
+            leftCell.Add(new Paragraph("To")
+                .SetFont(normal)
+                .SetFontSize(10)
+                .SetMarginBottom(0));
 
             string fixedAddress = compDetails.TaxOfficeAddress.Replace("\\n", "\n");
-
             foreach (var line in fixedAddress.Split('\n'))
             {
-                doc.Add(new Paragraph(line.Trim())
-        .SetFont(normal)
-        .SetFontSize(10)
-        .SetMarginLeft(30)
-        .SetMarginBottom(0)
-        .SetMultipliedLeading(0.9f));
+                leftCell.Add(new Paragraph(line.Trim())
+                    .SetFont(normal)
+                    .SetFontSize(10)
+                    .SetMarginBottom(0)
+                    .SetMultipliedLeading(0.9f));
             }
 
+            // Right Cell (TIN + Company Info)
+            var rightCell = new Cell().SetBorder(Border.NO_BORDER);
+            rightCell.Add(new Paragraph("TIN : " + compDetails.TINNumber)
+    .SetFont(normal)
+    .SetFontSize(10)
+    .SetTextAlignment(TextAlignment.RIGHT));
+
+            Paragraph companyInfo = new Paragraph()
+     .Add(new Text(compDetails.CompanyName + "\n").SetFont(normal))
+     .Add(new Text(compDetails.Address.Replace("\\n", "\n")).SetFont(normal))
+     .SetFontSize(10)
+     .SetTextAlignment(TextAlignment.LEFT)
+     .SetMultipliedLeading(0.9f);
+
+            rightCell.Add(companyInfo);          
+
+            headerTable.AddCell(leftCell);
+            headerTable.AddCell(rightCell);
+
+            // Add table to document
+            doc.Add(headerTable);
             // Subtitle
             doc.Add(new Paragraph("RETURN OF DEDUCTIONS OF TAX BY AN EMPLOYER")
      .SetFont(bold)
@@ -379,20 +404,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .UseAllAvailableWidth();
 
                 // Left cell (no border, left-aligned)
-                var leftCell = new Cell()
+                var leftCesll = new Cell()
                     .Add(leftInfo)
                     .SetBorder(Border.NO_BORDER)
                     .SetTextAlignment(TextAlignment.LEFT);
 
                 // Right cell (no border, image + name, right-aligned)
-                var rightCell = new Cell()
+                var rightCells = new Cell()
                     .Add(signature)
                     .Add(signerName)
                     .SetBorder(Border.NO_BORDER)
                     .SetTextAlignment(TextAlignment.RIGHT);
 
-                signTable.AddCell(leftCell);
-                signTable.AddCell(rightCell);
+                signTable.AddCell(leftCesll);
+                signTable.AddCell(rightCells);
 
                 doc.Add(new Paragraph(" ").SetHeight(10)); // Optional spacing
                 doc.Add(signTable);

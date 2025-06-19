@@ -108,10 +108,19 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 .Select(x => x.SalaryMonthText)
                 .FirstOrDefault();
 
+            
             var taxOfficeAddress = systemParameters
                 .Where(x => x.ParameterName == "TaxOfficeAddress")
                 .Select(c => c.ParameterValue)
                 .FirstOrDefault();
+            var CompanyName = systemParameters
+             .Where(x => x.ParameterName == "CompanyName")
+             .Select(c => c.ParameterValue)
+             .FirstOrDefault();
+            var CompanyAddress = systemParameters
+         .Where(x => x.ParameterName == "CompanyAddress")
+         .Select(c => c.ParameterValue)
+         .FirstOrDefault();
 
             var tinNumber = systemParameters
                 .Where(x => x.ParameterName == "TINNumber")
@@ -130,8 +139,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             var company = new CompanyDetails
             {
-                CompanyName = null,
-                Address = null,
+                CompanyName = CompanyName,
+                Address = CompanyAddress,
                 RegNumber = null,
                 TINNumber = tinNumber,
                 TaxAuthorizedPersonName = taxAuthorizedPersonName,
@@ -151,7 +160,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             };
 
             return Ok(response);
-            // return File(pdfBytes, "application/pdf", fileName);
+             //return File(pdfBytes, "application/pdf", fileName);
         }
 
 
