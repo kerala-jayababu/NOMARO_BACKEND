@@ -74,7 +74,8 @@ e.CurrentStatus ,
             e.EmployeeCode LIKE @SearchText OR
             CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
             des.DesignationName LIKE @SearchText OR
-            dept.DepartmentName LIKE @SearchText
+            dept.DepartmentName LIKE @SearchText OR
+            sh.SalaryHeadName LIKE @SearchText
         )
         ");
                 parameters.Add("SearchText", $"%{searchText}%");
