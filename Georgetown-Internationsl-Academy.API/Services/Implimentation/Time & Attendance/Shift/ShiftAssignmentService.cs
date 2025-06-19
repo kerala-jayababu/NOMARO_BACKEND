@@ -6,6 +6,7 @@ using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attendance.Shift;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Linq;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance.Shift
 {
@@ -75,9 +76,28 @@ ORDER BY sa.StartDate DESC";
                 if (assignments == null || !assignments.Any())
                     return resultDtos;
 
+                var idShiftSchedule = assignments.First().IdShiftSchedule;
+
+                // Get existing assignments for the schedule
+                var existingAssignments = await _dbContext.ShiftAssignments
+                    .Where(sa => sa.IdShiftSchedule == idShiftSchedule)
+                    .ToListAsync();
+
+                // Get incoming IDs (i.e., assignments to keep or update)
+                var incomingIds = assignments
+                    .Where(sa => sa.IdShiftAssignment.HasValue)
+                    .Select(sa => sa.IdShiftAssignment.Value)
+                    .ToHashSet();
+
+                // Remove assignments that are not in the incoming list
+                var toRemove = existingAssignments
+                    .Where(existing => !incomingIds.Contains((int)existing.IdShiftAssignment))
+                    .ToList();
+
+                _dbContext.ShiftAssignments.RemoveRange(toRemove);
+
                 foreach (var dto in assignments)
                 {
-                    // Duration calculation from StartDate to EndDate
                     var duration = (dto.EndDate - dto.StartDate).Duration();
                     dto.TotalDurationMinutes = (int)duration.TotalMinutes;
                     dto.TotalDurationHours = (decimal)duration.TotalHours;
@@ -119,6 +139,7 @@ ORDER BY sa.StartDate DESC";
                 return new List<ShiftAssignmentDto>();
             }
         }
+
     }
 
 }

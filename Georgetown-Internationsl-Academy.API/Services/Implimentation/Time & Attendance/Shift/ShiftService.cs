@@ -1,9 +1,13 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO.Shift;
+using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 public class ShiftService : IShiftService
 {
@@ -82,6 +86,36 @@ public class ShiftService : IShiftService
         {
             _logger.LogError(ex, "Error updating shift with ID {Id}", shiftDto.IdShift);
             return null;
+        }
+    }
+
+
+
+    public async Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string idEmployeeString, DateTime dateFrom, DateTime dateTo)
+    {
+        try
+        {
+            using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
+            {
+                var parameters = new DynamicParameters();
+                parameters.Add("@IdEmployeeString", idEmployeeString, DbType.String);
+                parameters.Add("@Datefrom", dateFrom, DbType.DateTime);
+                parameters.Add("@DateTo", dateTo, DbType.DateTime);
+
+                var result = await connection.QueryAsync<ClockInOutDto>(
+                    "GetClockInClockOutDetails",
+                    parameters,
+                    commandType: CommandType.StoredProcedure);
+
+                return result.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving clock-in/out details for Employee(s): {EmployeeString}, From: {DateFrom}, To: {DateTo}",
+                idEmployeeString, dateFrom, dateTo);
+
+            throw new Exception("An error occurred while retrieving clock-in/out details. Please try again later.");
         }
     }
 }

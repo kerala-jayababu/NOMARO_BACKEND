@@ -539,7 +539,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             Color bgGray = ColorConstants.LIGHT_GRAY;
             Color border = ColorConstants.GRAY;
 
-            string[] headers = (ageGroup == "ABOVE60")
+            string[] headers = (ageGroup == "60ANDABOVE")
                 ? new[] { "Surname", "First Name", "NIS No", "Actual Earnings", "Insurable Earnings", "Employer 1.5%", "Employee 0%" }
                 : new[] { "Surname", "First Name", "NIS No", "Actual Earnings", "Insurable Earnings", "Employer 8.4%", "Employee 5.6%" };
 
@@ -623,7 +623,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             summaryTable.AddCell(CreateSummaryCell("NO", normalFont, TextAlignment.CENTER, gray));
             summaryTable.AddCell(CreateSummaryCell("Amount", normalFont, TextAlignment.RIGHT, gray));
 
-            string ageClass = ageGroup == "ABOVE60" ? "60 and above" : "Age 16-59 Years";
+            string ageClass = ageGroup == "60ANDABOVE" ? "Below 16 & 60 and above" : "16-59 Years";
             summaryTable.AddCell(CreateSummaryCell(ageClass, normalFont, TextAlignment.LEFT, gray));
             summaryTable.AddCell(CreateSummaryCell(employeeCount.ToString(), normalFont, TextAlignment.CENTER, gray));
             summaryTable.AddCell(CreateSummaryCell(totalNIS.ToString("N2"), normalFont, TextAlignment.RIGHT, gray));
