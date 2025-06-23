@@ -1,6 +1,7 @@
 ﻿using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
+using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Bamboo_HR;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -69,8 +70,13 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
         public DbSet<DayAttendance> DayAttendance { get; set; }
         public DbSet<ClockInOutDetails> ClockInOutDetails { get; set; }
-        
 
+
+        #endregion
+
+        #region BambooHR
+        public DbSet<EmployeeLeave> EmployeeLeaves { get; set; }
+        public DbSet<EmployeeLeaveDetail> EmployeeLeaveDetails { get; set; }
         #endregion
 
     }

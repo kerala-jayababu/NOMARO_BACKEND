@@ -17,7 +17,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<DesignationEntity, DesignationDto>().ReverseMap();
             CreateMap<DepartmentEntity, DepartmentDto>().ReverseMap();
             CreateMap<SalaryHeads, SalaryHeadDto>().ReverseMap();
-            CreateMap<Employee, EmployeeDto>().ReverseMap();
+            CreateMap<Employee, Georgetown_Internationsl_Academy.API.DTO.EmployeeDto>().ReverseMap();
             CreateMap<EmployeePermissions, EmployeePermissionDto>().ReverseMap();
             CreateMap<RoleBasedPermission, RoleBasedPermissionDto>().ReverseMap();
             CreateMap<SystemParameter, SystemParameterDto>().ReverseMap();

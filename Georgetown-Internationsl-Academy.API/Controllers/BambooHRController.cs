@@ -51,7 +51,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         }
 
-      
+        [HttpGet("SyncTimeOffRequests")]
+        public async Task<IActionResult> SyncTimeOffRequests([FromQuery] DateTime? start = null, [FromQuery] DateTime? end = null)
+        {
+            try
+            {
+                var fromDate = start ?? DateTime.Today;
+                var toDate = end ?? DateTime.Today;
+
+                var result = await _bambooservice.SyncTimeOffRequests(fromDate, toDate);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error syncing time off requests: {ex.Message}");
+            }
+        }
+
 
     }
 

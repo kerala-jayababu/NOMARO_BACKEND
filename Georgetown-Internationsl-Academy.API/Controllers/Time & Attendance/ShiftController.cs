@@ -18,6 +18,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 {
     [ApiController]
     [ApiVersion(1)]
+    [Authorize]
     [Route("/api/v{v:apiVersion}/[controller]")]
 
     public class ShiftController : ControllerBase
@@ -377,30 +378,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
-        [HttpPost("UpdateClockInOutMissingEntry")]
-        public async Task<IActionResult> UpdateClockInOutMissingEntry([FromBody] UpdateClockInOutMissingEntryDto dto)
+        [HttpPost("UpdateClockInOutMissingEntries")]
+        public async Task<IActionResult> UpdateClockInOutMissingEntries([FromBody] List<UpdateClockInOutMissingEntryDto> dtos)
         {
-            var validationResult = await _updateClockInOutMissingEntryValidator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
+            if (dtos == null || !dtos.Any())
+                return BadRequest(ApiResponseDto<string>.CreateFailure("No entries provided."));
+
+            foreach (var dto in dtos)
             {
-                return BadRequest(ApiResponseDto<string>.CreateFailure(
-                    string.Join(" | ", validationResult.Errors.Select(e => e.ErrorMessage))
-                ));
+                var validationResult = await _updateClockInOutMissingEntryValidator.ValidateAsync(dto);
+                if (!validationResult.IsValid)
+                {
+                    var errorMessages = string.Join(" | ", validationResult.Errors.Select(e => $"ID {dto.IdClockDetail}: {e.ErrorMessage}"));
+                    return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errorMessages}"));
+                }
             }
 
-            try
-            {
-                var success = await _shiftService.UpdateClockInOutMissingEntryAsync(dto);
+            var success = await _shiftService.UpdateClockInOutMissingEntriesAsync(dtos);
+            if (!success)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("One or more records could not be updated."));
 
-                if (!success)
-                    return NotFound(ApiResponseDto<string>.CreateFailure("ClockIn/Out record not found or could not be updated."));
-
-                return Ok(ApiResponseDto<string>.CreateSuccess("ClockIn/Out entry updated successfully."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
+            return Ok(ApiResponseDto<string>.CreateSuccess("All entries updated successfully."));
         }
 
         #endregion
@@ -408,11 +406,28 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
         #region Dayttendance
         [HttpGet("GetDayAttendanceDetails")]
         public async Task<IActionResult> GetDayAttendanceDetails(
-    DateTime? dateFrom = null, DateTime? dateTo = null, int? idEmployee = null, int? idDepartment = null)
+    DateTime dateFrom , DateTime dateTo , string? idEmployee = null, int? idDepartment = null)
         {
+
+            if (dateFrom == default || dateTo == default)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Both 'dateFrom' and 'dateTo' are required."));
+            List<int> employeeIds = new();
+            if (!string.IsNullOrWhiteSpace(idEmployee))
+            {
+                try
+                {
+                    employeeIds = idEmployee.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                            .Select(id => int.Parse(id.Trim()))
+                                            .ToList();
+                }
+                catch
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid format for 'idEmployee'. It should be a comma-separated list of integers."));
+                }
+            }
             try
             {
-                var data = await _shiftService.GetDayAttendanceDetails(dateFrom, dateTo, idEmployee, idDepartment);
+                var data = await _shiftService.GetDayAttendanceDetails(dateFrom, dateTo, employeeIds, idDepartment);
 
                 if (data == null || !data.Any())
                     return Ok(ApiResponseDto<IEnumerable<DayAttendanceDto>>.CreateSuccess(Enumerable.Empty<DayAttendanceDto>(), "No attendance records found."));
@@ -425,43 +440,40 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
-
-        [HttpPost("ApproveTimesheet")]
-        public async Task<IActionResult> ApproveTimesheet([FromBody] ApproveTimesheetDto dto)
+        [HttpPost("ApproveTimesheets")]
+        public async Task<IActionResult> ApproveTimesheets([FromBody] List<ApproveTimesheetDto> dtos)
         {
+            if (dtos == null || !dtos.Any())
+                return BadRequest(ApiResponseDto<string>.CreateFailure("No timesheet entries provided."));
 
+            var invalidDtos = dtos.Where(d => d.IdDayAttendance <= 0).ToList();
+            if (invalidDtos.Any())
+                return BadRequest(ApiResponseDto<string>.CreateFailure("One or more timesheet entries have invalid IDs."));
 
-            if (dto == null || dto.IdDayAttendance == null || dto.IdDayAttendance <= 0)
+            foreach (var dto in dtos)
             {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid shift ID."));
-            }
-
-            var validationResult = await _appproveTimeSheetValidator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
-            {
-                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-                return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+                var validationResult = await _appproveTimeSheetValidator.ValidateAsync(dto);
+                if (!validationResult.IsValid)
+                {
+                    var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                    return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed for ID {dto.IdDayAttendance}: {errors}"));
+                }
             }
 
             var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(employeeId))
                 return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
 
-
             try
             {
-                var result = await _shiftService.ApproveTimesheetAsync(dto, int.Parse(employeeId));
-
+                var result = await _shiftService.ApproveTimesheetAsync(dtos, int.Parse(employeeId));
                 if (!result)
-                {
-                    return BadRequest(ApiResponseDto<string>.CreateFailure("Failed to update timesheet."));
-                }
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("One or more timesheet entries could not be updated."));
 
-                return Ok(ApiResponseDto<string>.CreateSuccess("Timesheet updated successfully."));
+                return Ok(ApiResponseDto<string>.CreateSuccess("All timesheet entries approved successfully."));
             }
             catch (Exception ex)
             {
-
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure("An error occurred while processing the request."));
             }
         }

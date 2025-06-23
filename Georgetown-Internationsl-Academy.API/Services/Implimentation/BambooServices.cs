@@ -1,13 +1,16 @@
 ﻿using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Bamboo_HR;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using iText.Kernel.Pdf.Canvas.Wmf;
 using Microsoft.EntityFrameworkCore;
 using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Crmf;
 using RestSharp;
+using System.Text;
 using System.Xml.Serialization;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -105,6 +108,117 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return new List<BambooHRDetailsDto>();
             }
         }
+
+
+
+        public async Task<string> SyncTimeOffRequests(DateTime start, DateTime end)
+        {
+            var baseUrl = "https://api.bamboohr.com"; // Base URL without /api/gateway...
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var subdomain = _configuration["BambooHR:Subdomain"]; // e.g. "giagy"
+
+            var options = new RestClientOptions(baseUrl)
+            {
+                MaxTimeout = -1
+            };
+
+            var client = new RestClient(options);
+            var url = $"/api/gateway.php/{subdomain}/v1/time_off/requests/?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
+            var request = new RestRequest(url, Method.Get);
+
+            // Auth Header
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            // Optional: If Cookie is needed, uncomment and use (based on your Postman success)
+            // request.AddHeader("Cookie", "<your cookie value from Postman>");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+            {
+                throw new Exception($"BambooHR API failed: {response.StatusCode} - {response.Content}");
+            }
+
+            var serializer = new XmlSerializer(typeof(TimeOffRequestsDto));
+            using var reader = new StringReader(response.Content);
+            var requests = serializer.Deserialize(reader) as TimeOffRequestsDto;
+
+            if (requests?.Requests == null || !requests.Requests.Any())
+                return "No requests found in the date range.";
+
+            foreach (var req in requests.Requests)
+            {
+                int internalEmpId = await GetInternalEmployeeIdFromBambooId(req.Employee.Id);
+
+                var leave = new EmployeeLeave
+                {
+                    IdEmployee = internalEmpId,
+                    LeaveFromDate = req.Start,
+                    LeaveToDate = req.End,
+                    NoDays = req.Amount.Value,
+                    AppliedDate = req.Created,
+                    ApprovalStatus = req.Status.Value,
+                    ApprovedDate = req.Status.LastChanged,
+                    IdLeaveType = req.Type.Id,
+                    LeaveTypeName = req.Type.Value,
+                    BambooHRRequestId = req.Id
+                };
+
+                await _dbContext.EmployeeLeaves.AddAsync(leave);
+                await _dbContext.SaveChangesAsync();
+
+                if (req.Dates != null)
+                {
+                    foreach (var date in req.Dates)
+                    {
+                        var detail = new EmployeeLeaveDetail
+                        {
+                            IdEmployeeLeave = leave.IdEmployeeLeave,
+                            LeaveDate = date.Ymd,
+                            AmountFlag = date.Amount > 0,
+                            Amount = date.Amount
+                        };
+
+                        await _dbContext.EmployeeLeaveDetails.AddAsync(detail);
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+
+            return "Sync Completed Successfully";
+        }
+
+
+        private async Task<int> GetInternalEmployeeIdFromBambooId(int employeeId)
+        {
+            var baseURL = _configuration["BambooHR:BaseUrl"];
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var client = new RestClient(new RestClientOptions(baseURL) { MaxTimeout = -1 });
+
+            var detailUrl = $"/employees/{employeeId}?fields=displayName,firstName,lastName,gender,dateOfBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber,customNIS,customTIN";
+
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            var request = new RestRequest(detailUrl, Method.Get);
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"Failed to get details for employee ID {employeeId}. Status: {response.StatusCode}");
+
+            var serializer = new XmlSerializer(typeof(BambooHREmployeeXmlDto));
+            using var reader = new StringReader(response.Content);
+            var detailedRaw = serializer.Deserialize(reader) as BambooHREmployeeXmlDto;
+
+            if (detailedRaw == null)
+                throw new Exception("Deserialization of BambooHR employee data failed.");
+
+            var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
+
+            var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.EmployeeCode == mapped.EmployeeNumber);
+            return employee?.IdEmployee ?? throw new Exception("Employee not found in internal system");
+        }
+
 
         public async Task<List<BambooHRDetailsDto>> SyncEmployeeReportingOfficerFromBambooHR()
         {

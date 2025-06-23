@@ -122,57 +122,55 @@ public class ShiftService : IShiftService
     }
 
     public async Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
-     DateTime? dateFrom = null, DateTime? dateTo = null, int? idEmployee = null, int? idDepartment = null)
+    DateTime dateFrom,
+    DateTime dateTo,
+    List<int> idEmployees,
+    int? idDepartment = null)
     {
         var query = new StringBuilder(@"
-        SELECT 
-            e.IdEmployee,
-            CONCAT(e.FirstName, ' ', ISNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-            e.IdDesignation,
-            dsg.DesignationName,
-            e.IdDepartment,
-            dept.DepartmentName,
-            da.AttendanceDate,
-            da.RegularDayType,
-            da.IdShiftSchedule,
-            da.FirstInDateTime,
-            da.LastOutDateTime,
-            da.ExpectedInDateTime,
-            da.ExpectedOutDateTime,
-            da.TotalDurationInMinutes,
-            da.TotalDurationInHours,
-            da.ActualDurationInMinutes,
-            da.ActualDurationInHours,
-            da.ExpectedDurationInMinutes,
-            da.MinuteDifference,
-            da.AllowedTolerenceInMinutes,
-            da.DeficitHours,
-            da.TotalDurationHoursText,
-            da.ActualHoursText,
-            da.StatusDetails,
-            da.ReasonForShortTime,
-            da.TimeSheetApprovalStatus,
-            da.IdDayAttendance
-        FROM DayAttendance da
-        INNER JOIN Employees e ON da.IdEmployee = e.IdEmployee
-        INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
-        INNER JOIN Designations dsg ON e.IdDesignation = dsg.IdDesignation
-        WHERE 1 = 1
-    ");
+    SELECT 
+        e.IdEmployee,
+        CONCAT(e.FirstName, ' ', ISNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.IdDesignation,
+        dsg.DesignationName,
+        e.IdDepartment,
+        dept.DepartmentName,
+        da.AttendanceDate,
+        da.RegularDayType,
+        da.IdShiftSchedule,
+        da.FirstInDateTime,
+        da.LastOutDateTime,
+        da.ExpectedInDateTime,
+        da.ExpectedOutDateTime,
+        da.TotalDurationInMinutes,
+        da.TotalDurationInHours,
+        da.ActualDurationInMinutes,
+        da.ActualDurationInHours,
+        da.ExpectedDurationInMinutes,
+        da.MinuteDifference,
+        da.AllowedTolerenceInMinutes,
+        da.DeficitHours,
+        da.TotalDurationHoursText,
+        da.ActualHoursText,
+        da.StatusDetails,
+        da.ReasonForShortTime,
+        da.TimeSheetApprovalStatus,
+        da.IdDayAttendance
+    FROM DayAttendance da
+    INNER JOIN Employees e ON da.IdEmployee = e.IdEmployee
+    INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+    INNER JOIN Designations dsg ON e.IdDesignation = dsg.IdDesignation
+    WHERE da.AttendanceDate BETWEEN @DateFrom AND @DateTo
+");
 
         var parameters = new DynamicParameters();
+        parameters.Add("DateFrom", dateFrom);
+        parameters.Add("DateTo", dateTo);
 
-        if (dateFrom.HasValue && dateTo.HasValue)
+        if (idEmployees != null && idEmployees.Any())
         {
-            query.Append(" AND da.AttendanceDate BETWEEN @DateFrom AND @DateTo");
-            parameters.Add("DateFrom", dateFrom);
-            parameters.Add("DateTo", dateTo);
-        }
-
-        if (idEmployee.HasValue)
-        {
-            query.Append(" AND da.IdEmployee = @IdEmployee");
-            parameters.Add("IdEmployee", idEmployee);
+            query.Append(" AND da.IdEmployee IN @IdEmployees");
+            parameters.Add("IdEmployees", idEmployees);
         }
 
         if (idDepartment.HasValue)
@@ -201,63 +199,84 @@ public class ShiftService : IShiftService
         }
     }
 
-
-    public async Task<bool> ApproveTimesheetAsync(ApproveTimesheetDto dto, int EmployeeId)
+    public async Task<bool> ApproveTimesheetAsync(List<ApproveTimesheetDto> dtos, int employeeId)
     {
         try
         {
-            var attendance = await _dbContext.Set<DayAttendance>().FirstOrDefaultAsync(a =>
-                a.IdDayAttendance == dto.IdDayAttendance);
+            var ids = dtos.Select(d => d.IdDayAttendance).ToList();
 
-            if (attendance == null)
+            var records = await _dbContext.Set<DayAttendance>()
+                .Where(a => ids.Contains(a.IdDayAttendance))
+                .ToListAsync();
+
+            if (!records.Any())
                 return false;
 
-            attendance.TimeSheetApprovalStatus = dto.ApprovalStatus;
-            attendance.ApprovedDateTime = DateTime.UtcNow;
-            attendance.IdApprovedBy = EmployeeId;
-            attendance.StatusDetails = dto.RejectReasons;
+            var currentTime = DateTime.UtcNow;
 
-            _dbContext.Update(attendance);
+            foreach (var record in records)
+            {
+                var dto = dtos.FirstOrDefault(d => d.IdDayAttendance == record.IdDayAttendance);
+                if (dto == null) continue;
+
+                record.TimeSheetApprovalStatus = dto.ApprovalStatus;
+                record.ApprovedDateTime = currentTime;
+                record.IdApprovedBy = employeeId;
+                record.StatusDetails = dto.RejectReasons;
+            }
+
+            _dbContext.UpdateRange(records);
             await _dbContext.SaveChangesAsync();
 
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error approving timesheet.");
+            _logger.LogError(ex, "Error approving timesheets in batch.");
             throw;
         }
     }
 
-    public async Task<bool> UpdateClockInOutMissingEntryAsync(UpdateClockInOutMissingEntryDto dto)
+
+    public async Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos)
     {
         try
         {
-            var record = await _dbContext.Set<ClockInOutDetails>()
-                .FirstOrDefaultAsync(c => c.IdClockDetails == dto.IdClockDetail);
+            var ids = dtos.Select(d => d.IdClockDetail).ToList();
 
-            if (record == null)
-                return false;
+            var records = await _dbContext.Set<ClockInOutDetails>()
+                .Where(c => ids.Contains(c.IdClockDetails))
+                .ToListAsync();
 
-            if (dto.ClockType == "IN")
-                record.INTime = dto.Time;
-            else if (dto.ClockType == "OUT")
-                record.OUTTime = dto.Time;
+            if (records.Count != dtos.Count)
+                return false; // Some records not found
 
-            record.Remarks = dto.Reason;
-            record.StatusDetails = "Missing-ManualEntry";
+            foreach (var dto in dtos)
+            {
+                var record = records.FirstOrDefault(r => r.IdClockDetails == dto.IdClockDetail);
+                if (record == null)
+                    return false;
 
-            _dbContext.Update(record);
+                if (dto.ClockType == "IN")
+                    record.INTime = dto.Time;
+                else if (dto.ClockType == "OUT")
+                    record.OUTTime = dto.Time;
+
+                record.Remarks = dto.Reason;
+                record.StatusDetails = "Missing-ManualEntry";
+            }
+
+            _dbContext.UpdateRange(records);
             await _dbContext.SaveChangesAsync();
-
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating missing ClockIn/Out entry for ClockDetailId {Id}", dto.IdClockDetail);
-            throw;
+            _logger.LogError(ex, "Error in batch updating ClockIn/Out entries.");
+            return false;
         }
     }
+
 
     public async Task<bool> UpdateAttendanceShortTimeDetailsAsync(UpdateShortTimeReasonDto dto)
     {
