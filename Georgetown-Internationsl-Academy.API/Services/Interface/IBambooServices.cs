@@ -7,5 +7,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<BambooHRDetailsDto>> SyncEmployeesFromBambooHR();
 
         Task<string> SyncTimeOffRequests(DateTime start, DateTime end);
+        Task<DateTime?> BambooHRLeaveIntegrationLastRun();
+        
     }
 }

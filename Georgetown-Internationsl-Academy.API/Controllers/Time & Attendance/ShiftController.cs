@@ -349,11 +349,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 
         #region ClockInClockOutDeatils
         [HttpGet("GetClockInClockOutDetails")]
-        public async Task<IActionResult> GetClockInClockOutDetails(string idEmployeeString, DateTime? dateFrom, DateTime? dateTo)
+        public async Task<IActionResult> GetClockInClockOutDetails(string idEmploye, DateTime? dateFrom, DateTime? dateTo,int? deparmentId )
         {
-            // Validate required parameters
-            if (string.IsNullOrWhiteSpace(idEmployeeString))
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID(s) are required."));
+            
 
             if (!dateFrom.HasValue)
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Start date (dateFrom) is required."));
@@ -363,7 +361,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 
             try
             {
-                var details = await _shiftService.GetClockInClockOutDetailsAsync(idEmployeeString, dateFrom.Value, dateTo.Value);
+                var details = await _shiftService.GetClockInClockOutDetailsAsync(idEmploye, dateFrom.Value, dateTo.Value, deparmentId);
 
                 if (details == null || !details.Any())
                 {

@@ -93,14 +93,16 @@ public class ShiftService : IShiftService
 
 
 
-    public async Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string idEmployeeString, DateTime dateFrom, DateTime dateTo)
+    public async Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string idEmployeeString, DateTime dateFrom, DateTime dateTo, int? deparmentId)
     {
         try
         {
             using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
             {
                 var parameters = new DynamicParameters();
-                parameters.Add("@IdEmployeeString", idEmployeeString, DbType.String);
+                parameters.Add("@IdEmployeeString",
+                string.IsNullOrWhiteSpace(idEmployeeString) ? null : idEmployeeString,
+                DbType.String);
                 parameters.Add("@Datefrom", dateFrom, DbType.DateTime);
                 parameters.Add("@DateTo", dateTo, DbType.DateTime);
 
@@ -108,6 +110,10 @@ public class ShiftService : IShiftService
                     "GetClockInClockOutDetails",
                     parameters,
                     commandType: CommandType.StoredProcedure);
+                if (deparmentId.HasValue)
+                {
+                    result = result.Where(x => x.IdDepartment == deparmentId.Value);
+                }
 
                 return result.ToList();
             }
