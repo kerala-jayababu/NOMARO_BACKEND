@@ -112,7 +112,7 @@ public class ShiftService : IShiftService
                 var result = await connection.QueryAsync<ClockInOutDto>(
                     "GetClockInClockOutDetails",
                     parameters,
-                    commandType: CommandType.StoredProcedure);
+                    commandType: CommandType.StoredProcedure);               
 
                 return result.ToList();
             }

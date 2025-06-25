@@ -3,6 +3,7 @@ using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Bamboo_HR;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance.BambooHR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -77,6 +78,10 @@ namespace Georgetown_International_Academy.API.Database
         #region BambooHR
         public DbSet<EmployeeLeave> EmployeeLeaves { get; set; }
         public DbSet<EmployeeLeaveDetail> EmployeeLeaveDetails { get; set; }
+        public DbSet<BambooHRIntegrationLog> BambooHRIntegrationLogs { get; set; }
+        public DbSet<BambooHRLeaveIntegrationLastRun> BambooHRLeaveIntegrationLastRun { get; set; }
+
+        
         #endregion
 
     }

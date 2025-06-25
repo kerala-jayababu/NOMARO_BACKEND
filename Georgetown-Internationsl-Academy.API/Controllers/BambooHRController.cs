@@ -8,6 +8,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
@@ -56,7 +57,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             try
             {
-                var fromDate = start ?? DateTime.Today;
+                var lastRunDate = await _bambooservice.BambooHRLeaveIntegrationLastRun();
+                var fromDate = start ?? lastRunDate ?? DateTime.UtcNow;
                 var toDate = end ?? DateTime.Today;
 
                 var result = await _bambooservice.SyncTimeOffRequests(fromDate, toDate);
