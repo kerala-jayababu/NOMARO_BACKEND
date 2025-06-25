@@ -10,7 +10,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface.Shift
         Task<ShiftDto?> GetShiftById(int id);
         Task<ShiftDto?> AddShift(ShiftDto shift);
         Task<ShiftDto?> UpdateShift(ShiftDto shift);
-        Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string idEmployeeString, DateTime dateFrom, DateTime dateTo);
+        Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string? idEmployeeString,DateTime dateFrom,DateTime dateTo,int? idDepartment,bool? missingEntryOnly);
         Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
             DateTime dateFrom, DateTime dateTo , List<int> idEmployees, int? idDepartment = null);
         Task<bool> ApproveTimesheetAsync(List<ApproveTimesheetDto> dtos, int employeeId);

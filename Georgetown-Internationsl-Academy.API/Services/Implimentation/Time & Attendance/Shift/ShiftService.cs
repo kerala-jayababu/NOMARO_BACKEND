@@ -93,16 +93,21 @@ public class ShiftService : IShiftService
 
 
 
-    public async Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string idEmployeeString, DateTime dateFrom, DateTime dateTo)
+    public async Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string? idEmployee,DateTime dateFrom,DateTime dateTo,int? idDepartment,bool? missingEntryOnly)
     {
         try
         {
             using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
             {
                 var parameters = new DynamicParameters();
-                parameters.Add("@IdEmployeeString", idEmployeeString, DbType.String);
+                parameters.Add("@IdEmployeeString", idEmployee, DbType.String);
                 parameters.Add("@Datefrom", dateFrom, DbType.DateTime);
                 parameters.Add("@DateTo", dateTo, DbType.DateTime);
+                parameters.Add("@IdDepartment", idDepartment, DbType.Int32);
+
+                // Convert bool? to "Yes"/"No" or null
+                string? missingEntryString = missingEntryOnly.HasValue ? (missingEntryOnly.Value ? "Yes" : "No") : null;
+                parameters.Add("@MissingEntryOnly", missingEntryString, DbType.String);
 
                 var result = await connection.QueryAsync<ClockInOutDto>(
                     "GetClockInClockOutDetails",
@@ -114,13 +119,10 @@ public class ShiftService : IShiftService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving clock-in/out details for Employee(s): {EmployeeString}, From: {DateFrom}, To: {DateTo}",
-                idEmployeeString, dateFrom, dateTo);
-
+            _logger.LogError(ex, "Error retrieving clock-in/out details for parameters");
             throw new Exception("An error occurred while retrieving clock-in/out details. Please try again later.");
         }
     }
-
     public async Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
     DateTime dateFrom,
     DateTime dateTo,
