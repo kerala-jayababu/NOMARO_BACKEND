@@ -208,7 +208,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         LeaveToDate = req.End,
                         NoDays = req.Amount.Value,
                         AppliedDate = req.Created,
-                        ApprovalStatus = req.Status.Value,
+                        ApprovalStatus = req.Status.Value.ToUpper(),
                         ApprovedDate = req.Status.LastChanged,
                         IdLeaveType = req.Type.Id,
                         LeaveTypeName = req.Type.Value,
