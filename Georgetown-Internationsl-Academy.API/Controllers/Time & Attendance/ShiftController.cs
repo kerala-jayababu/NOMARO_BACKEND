@@ -18,7 +18,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 {
     [ApiController]
     [ApiVersion(1)]
-    [Authorize]
+   
     [Route("/api/v{v:apiVersion}/[controller]")]
 
     public class ShiftController : ControllerBase

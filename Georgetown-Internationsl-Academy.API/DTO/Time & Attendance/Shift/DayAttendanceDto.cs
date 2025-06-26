@@ -23,11 +23,12 @@
         public int? MinuteDifference { get; set; }
         public int? AllowedTolerenceInMinutes { get; set; }
         public decimal? DeficitHours { get; set; }
-        public string TotalDurationHoursText { get; set; }
+        public string? TotalDurationHoursText { get; set; }
         public string ActualHoursText { get; set; }
-        public string StatusDetails { get; set; }
-        public string ReasonForShortTime { get; set; }
-        public string TimeSheetApprovalStatus { get; set; }
+        public string? StatusType { get; set; }
+        public string? StatusDetails { get; set; }
+        public string? ReasonForShortTime { get; set; }
+        public string? TimeSheetApprovalStatus { get; set; }
         public int IdDayAttendance { get; set; }
     }
 

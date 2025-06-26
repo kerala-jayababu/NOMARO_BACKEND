@@ -154,6 +154,7 @@ public class ShiftService : IShiftService
         da.DeficitHours,
         da.TotalDurationHoursText,
         da.ActualHoursText,
+        da.StatusType,
         da.StatusDetails,
         da.ReasonForShortTime,
         da.TimeSheetApprovalStatus,
@@ -260,12 +261,29 @@ public class ShiftService : IShiftService
                     return false;
 
                 if (dto.ClockType == "IN")
+                {
                     record.INTime = dto.Time;
+                    record.StatusDetails = "Missing-ManualInEntry";
+                }
+                    
                 else if (dto.ClockType == "OUT")
+                {
+                    record.StatusDetails = "Missing-ManualOutEntry";
                     record.OUTTime = dto.Time;
+                }                  
 
                 record.Remarks = dto.Reason;
-                record.StatusDetails = "Missing-ManualEntry";
+                if (record.INTime != null && record.OUTTime != null)
+                {
+                    var totalDuration = record.OUTTime.Value - record.INTime.Value;
+                    record.TotalINHours = (decimal?)Math.Round(totalDuration.TotalHours, 2);
+                    record.TotalInMinutes = (int)totalDuration.TotalMinutes;
+
+                    int hours = totalDuration.Hours;
+                    int minutes = totalDuration.Minutes;
+                    record.TotalInHoursText = $"{hours} hrs {minutes} minutes";
+                }
+
             }
 
             _dbContext.UpdateRange(records);
