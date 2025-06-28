@@ -4,6 +4,7 @@ using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Bamboo_HR;
+using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance.BambooHR;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using iText.Kernel.Pdf.Canvas.Wmf;
@@ -263,6 +264,49 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         LeaveIntegrationLastRunDate = end
                     });
                 }
+
+                //UpdateEmployeeLeaveDetails
+
+
+                var employeeLeaves = await _dbContext.EmployeeLeaves.Where(el => el.LeaveFromDate >= start && el.LeaveToDate <= end)
+                    .ToListAsync();
+                var unauthorizedAbsencesToUpdate = new List<EmployeeUnauthorizedAbsence>();
+
+                // Iterate over each employee leave record
+                foreach (var leave in employeeLeaves)
+                {
+                    // Fetch the corresponding leave details for the employee leave
+                    var leaveDetails = await _dbContext.EmployeeLeaveDetails
+                        .Where(ld => ld.IdEmployeeLeave == leave.IdEmployeeLeave)
+                        .ToListAsync();
+
+                    // For each leave detail, check and update unauthorized absences that match
+                    foreach (var detail in leaveDetails)
+                    {
+                        // Fetch matching unauthorized absences for the employee on the leave date
+                        var unauthorizedAbsences = await _dbContext.EmployeeUnAuthorizedAbsence
+                            .Where(eua => eua.IdEmployee == leave.IdEmployee
+                                          && eua.AbsentDate == detail.LeaveDate
+                                          && eua.IdEmployeeLeave == null)  // Only those that don't have IdEmployeeLeave set
+                            .ToListAsync();
+
+                        // Update the unauthorized absence records
+                        foreach (var abs in unauthorizedAbsences)
+                        {
+                            abs.IdEmployeeLeave = leave.IdEmployeeLeave;
+                            abs.IdEmployeeLeaveDetails = detail.IdEmployeeLeaveDetail; // Link the EmployeeLeaveDetail
+                            unauthorizedAbsencesToUpdate.Add(abs); // Collect for update
+                        }
+                    }
+                }
+
+                // Now update the modified EmployeeUnauthorizedAbsence records
+                if (unauthorizedAbsencesToUpdate.Any())
+                {
+                    _dbContext.EmployeeUnAuthorizedAbsence.UpdateRange(unauthorizedAbsencesToUpdate);
+                }
+
+
                 // Final save and commit
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();

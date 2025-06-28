@@ -71,7 +71,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
         public DbSet<DayAttendance> DayAttendance { get; set; }
         public DbSet<ClockInOutDetails> ClockInOutDetails { get; set; }
-
+        public DbSet<EmployeeUnauthorizedAbsence> EmployeeUnAuthorizedAbsence { get; set; }
 
         #endregion
 
@@ -81,8 +81,8 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<BambooHRIntegrationLog> BambooHRIntegrationLogs { get; set; }
         public DbSet<BambooHRLeaveIntegrationLastRun> BambooHRLeaveIntegrationLastRun { get; set; }
 
-        
-        #endregion
 
+        #endregion
+      
     }
 }

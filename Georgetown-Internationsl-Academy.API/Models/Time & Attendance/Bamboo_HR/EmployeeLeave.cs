@@ -16,9 +16,9 @@ namespace Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Bamboo_H
         public int? ApprovedBy { get; set; }
         public int IdLeaveType { get; set; }
         public string LeaveTypeName { get; set; }
-        public string PayableStatus { get; set; }
+        public string? PayableStatus { get; set; }
         public int? IdSalaryMonthAdjusted { get; set; }
-        public string SalaryTransactionType { get; set; }
+        public string? SalaryTransactionType { get; set; }
         public int? SalaryTransactionID { get; set; }
         public decimal? SalaryAmountAdjusted { get; set; }
         public int? BambooHRRequestId { get; set; }

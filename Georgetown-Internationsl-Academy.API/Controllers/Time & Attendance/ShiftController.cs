@@ -18,7 +18,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 {
     [ApiController]
     [ApiVersion(1)]
-   
+    [Authorize]
     [Route("/api/v{v:apiVersion}/[controller]")]
 
     public class ShiftController : ControllerBase
@@ -191,7 +191,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 
         #endregion
 
-
         #region ShiftSchedules
 
         [HttpGet("GetShiftScheduleList")]
@@ -344,8 +343,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
         }
 
         #endregion
-
-
 
         #region ClockInClockOutDeatils
        [HttpGet("GetClockInClockOutDetails")]
@@ -511,7 +508,7 @@ public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, D
 
         #endregion
 
-
+        
 
     }
 }
