@@ -63,6 +63,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                     }
                 }
+                employeeList.First().ActiveEmployeeCount = employeeList.Count(e => e.CurrentStatus == "Working");
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDto>>.CreateSuccess(employeeList, "Employee list retrieved successfully."));
             }
