@@ -38,11 +38,29 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var permittedScreenIds = employeePermissions.Select(p => p.IdPayrollScreen).ToHashSet();
                 if(appType.Contains("PAYROLL"))
                 {
-                    
 
                     screens = await _dbContext.PayrollScreens
-                .Where(x => x.Enabled == true && x.APPTYPE == "PAYROLL" && permittedScreenIds.Contains(x.IdPayrollScreen))
-                .ToListAsync();
+                            .Where(x => x.Enabled == true && x.APPTYPE == "PAYROLL" && permittedScreenIds.Contains(x.IdPayrollScreen))
+                            .ToListAsync();
+
+                    var payrentScreenIds = screens
+            .Select(c => c.IdParentPayrollScreen)
+            .Where(id => id != 0)
+            .Distinct()
+            .ToList();
+
+                    // Declare the variable outside the if block
+                    List<PayrollScreens> parentScreenss = new List<PayrollScreens>();
+
+                    if (payrentScreenIds.Any())
+                    {
+                        parentScreenss = await _dbContext.PayrollScreens
+                            .Where(x => x.APPTYPE == "PAYROLL" && payrentScreenIds.Contains(x.IdPayrollScreen))
+                            .ToListAsync();
+                    }
+
+                    // Now it's in scope here
+                    screens.AddRange(parentScreenss.Where(p => !screens.Any(s => s.IdPayrollScreen == p.IdPayrollScreen)));
                 }
                 else
                 {
