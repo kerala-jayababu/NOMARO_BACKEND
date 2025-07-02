@@ -19,5 +19,6 @@
         public string? ChildCountDocumentFilePath { get; set; }
         public byte[]? AttachmentBlob { get; set; }
         public byte[]? AttachmentBlobForchildcount { get; set; }
+        public int? ActiveEmployeeCount { get; set; }
     }
 }

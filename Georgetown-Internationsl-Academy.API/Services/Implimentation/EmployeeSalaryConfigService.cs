@@ -27,7 +27,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
         #region EmployeeSalaryConfig
-        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter = null)
+        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter = null, bool showLatestRecord = false)
         {
             var query = new StringBuilder(@"
     SELECT 
@@ -98,6 +98,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 AND ApprovalStatus = 'APPROVED'
             )");
                 }
+            }
+            if (showLatestRecord)
+            {
+                query.Append(@"
+        AND esc.IdEmployeeSalaryConfig IN (
+            SELECT IdEmployeeSalaryConfig FROM vw_LatestEmployeeSalaryConfig
+        )");
             }
 
             query.Append(" ORDER BY e.FirstName, e.LastName;");

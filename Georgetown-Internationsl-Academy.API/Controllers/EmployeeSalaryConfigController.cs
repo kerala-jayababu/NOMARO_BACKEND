@@ -37,16 +37,31 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region EmployeeSalaryConfig
 
         [HttpGet("GetAllEmployeeSalaryConfig")]
-        public async Task<IActionResult> GetAllEmployeeSalaryConfig(string? searchText = null,  string? dropdownFilter = null)
-        {
+        public async Task<IActionResult> GetAllEmployeeSalaryConfig(string? searchText = null,  string? dropdownFilter = null, bool showLatestRecord = false)
+                {
             try
             {
-                var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText, dropdownFilter);
+                var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText, dropdownFilter, showLatestRecord);
                 if (configs == null || !configs.Any())
                 {
                     return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(Enumerable.Empty<EmployeeSalaryConfigDto>(), "No configurations found."));
                 }
+                // Count distinct employees with Approved config
+                int approvedCount = configs
+                    .Where(x => x.ApprovalStatus == "APPROVED")
+                    .Select(x => x.IdEmployee)
+                    .Distinct()
+                    .Count();
 
+                // Total distinct employees in the result
+                int totalEmployees = configs
+                    .Select(x => x.IdEmployee)
+                    .Distinct()
+                    .Count();
+
+                int notApprovedCount = totalEmployees - approvedCount;
+                configs.First().ApprovedCount = approvedCount;
+                configs.First().NotApprovedCount = notApprovedCount;
                 return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(configs, "EmployeeSalaryConfig retrieved successfully."));
             }
             catch (Exception ex)
