@@ -153,6 +153,53 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<IEnumerable<EmployeeWithoutSalaryApprovalDto>> GetEmployeeStatusListAsync()
+        {
+            var query = @"
+        SELECT 
+            e.IdEmployee,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDesignation,
+            des.DesignationName,
+            e.IdDepartment,
+            d.DepartmentName,
+            e.JoiningDate,
+            e.Gender,
+            e.EmailID,
+            e.PhoneNumber1, 
+            e.PhoneNumber2,            
+            e.CurrentStatus,
+            CASE 
+                WHEN esc.IdEmployee IS NULL THEN 'Not Available'
+                WHEN esc.ApprovalStatus = 'REJECTED' THEN 'Rejected'
+                WHEN esc.ApprovalStatus != 'APPROVED' THEN 'Sent For Approval'
+            END AS Status
+        FROM Employees e
+        INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        LEFT JOIN EmployeeSalaryConfig esc ON e.IdEmployee = esc.IdEmployee
+        WHERE esc.ApprovalStatus IS NULL OR esc.ApprovalStatus != 'APPROVED';";
+
+            try
+            {
+                _logger.LogInformation("Fetching employee status list.");
+
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var employees = await connection.QueryAsync<EmployeeWithoutSalaryApprovalDto>(query);
+                    return employees;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee status list.");
+                throw;
+            }
+        }
 
         public async Task<bool> UpdateEmployeeDetails(UpdateEmployeeDto dto)
         {

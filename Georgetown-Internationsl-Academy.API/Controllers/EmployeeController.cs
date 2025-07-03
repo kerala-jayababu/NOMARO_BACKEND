@@ -74,6 +74,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("EmployeeWithoutSalaryApprovalDto")]
+        public async Task<IActionResult> EmployeeWithoutSalaryApprovalDto()
+        {
+            try
+            {
+                var employeeList = await _employeeservice.GetEmployeeStatusListAsync();
+
+                if (employeeList == null || !employeeList.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeWithoutSalaryApprovalDto>>.CreateSuccess(Enumerable.Empty<EmployeeWithoutSalaryApprovalDto>(), "No employee status records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeWithoutSalaryApprovalDto>>.CreateSuccess(employeeList, "Employee status list retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
 
         [HttpGet("GetEmployeeDetailsByID")]
         public async Task<IActionResult> GetEmployeeDetailsByID(int Id)

@@ -45,8 +45,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                 pdf.SetDefaultPageSize(PageSize.LETTER);
                 AddLogo(document,payslip.logo,payslip.logoType);
                 PdfFont boldFont1 = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
-                document.Add(new Paragraph("Payslip").SetFontSize(18).SetTextAlignment(alignLeft).SetFont(boldFont1));
-                document.Add(new Paragraph($"Payslip for the period: {payslip.Period}\n"));
+                document.Add(new Paragraph("Payslip").SetFontSize(18).SetTextAlignment(alignRight).SetFont(boldFont1));
+                document.Add(new Paragraph($"Payslip for the period: {payslip.Period}\n").SetTextAlignment(alignRight));
 
                 document.Add(CreateEmployeeDetails(document, payslip));
                 document.Add(new Paragraph("").SetHeight(6));
@@ -96,10 +96,14 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(logo));
             //iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(@"C:\Sandeep\Logo.png"));
             iText.Kernel.Geom.Rectangle pageSize = document.GetPdfDocument().GetDefaultPageSize();
-            float x = pageSize.GetWidth() - img.GetImageWidth() - 30; // 20 is the right margin
-            float y = pageSize.GetHeight() - img.GetImageHeight() - 20; // 20 is the top margin
+            float leftMargin = 30;
+            float topMargin = 20;
 
-            img.SetFixedPosition(x, y+20);
+            // Position logo at top-left with margin
+            float x = leftMargin;
+            float y = pageSize.GetHeight() - img.GetImageHeight() - topMargin;
+
+            img.SetFixedPosition(x, y);
             document.Add(img);
         }
 

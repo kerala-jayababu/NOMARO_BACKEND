@@ -27,36 +27,37 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
         #region EmployeeSalaryConfig
-        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter = null, bool showLatestRecord = false)
+        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter = null, bool showLatestRecord = false, DateTime? date = null)
         {
             var query = new StringBuilder(@"
-    SELECT 
-        esc.IdEmployeeSalaryConfig,
-        esc.ValidFrom,
-        esc.ValidTo,
-        esc.IdSalaryTemplate,
-        esc.ActiveStatus,
-        e.IdEmployee,
-        e.EmployeeCode,
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-        e.IdDesignation,
-        des.DesignationName,
-        e.IdDepartment,
-        d.DepartmentName,
-        e.JoiningDate,
-        e.Gender,
-        e.EmailID,
-        e.PhoneNumber1, 
-        e.PhoneNumber2,            
-        e.CurrentStatus,
-        esc.TotalEarnings,
-        esc.TotalDeductions,
-        esc.NetSalary,
-        esc.ApprovalStatus
-    FROM EmployeeSalaryConfig esc
-    INNER JOIN Employees e ON esc.IdEmployee = e.IdEmployee
-    INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+  SELECT 
+    esc.IdEmployeeSalaryConfig,
+    esc.ValidFrom,
+    esc.ValidTo,
+    esc.IdSalaryTemplate,
+    esc.ActiveStatus,
+    e.IdEmployee,
+    e.EmployeeCode,
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    e.IdDesignation,
+    des.DesignationName,
+    e.IdDepartment,
+    d.DepartmentName,
+    e.JoiningDate,
+    e.Gender,
+    e.EmailID,
+    e.PhoneNumber1, 
+    e.PhoneNumber2,            
+    e.CurrentStatus,
+    esc.TotalEarnings,
+    esc.TotalDeductions,
+    esc.NetSalary,
+    esc.ApprovalStatus
+FROM Employees e
+LEFT JOIN EmployeeSalaryConfig esc 
+    ON esc.IdEmployee = e.IdEmployee 
+	LEFT JOIN Departments d ON e.IdDepartment = d.IdDepartment
+LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
     WHERE 1=1 ");
 
             var parameters = new DynamicParameters();
@@ -98,6 +99,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 AND ApprovalStatus = 'APPROVED'
             )");
                 }
+            }
+
+            if (date.HasValue)
+            {
+                query.Append(@"
+        AND esc.ValidFrom >= @Date ");
+                parameters.Add("Date", date.Value.Date); // .Date ensures time portion is ignored
             }
             if (showLatestRecord)
             {
@@ -321,7 +329,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 // Manual mapping for update
                 configEntity.IdEmployee = dto.IdEmployee;
-                configEntity.ValidFrom = dto.ValidFrom;
+                configEntity.ValidFrom = (DateTime)dto.ValidFrom;
                 configEntity.ValidTo = dto.ValidTo;
                 configEntity.IdSalaryTemplate = dto.IdSalaryTemplate;
                 configEntity.TotalEarnings = dto.TotalEarnings;

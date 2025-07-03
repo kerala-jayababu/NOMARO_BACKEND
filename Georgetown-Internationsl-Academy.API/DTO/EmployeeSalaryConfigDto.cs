@@ -6,7 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
     {
         public int? IdEmployeeSalaryConfig { get; set; }
         public int IdEmployee { get; set; }
-        public DateTime ValidFrom { get; set; }
+        public DateTime? ValidFrom { get; set; }
         public DateTime? ValidTo { get; set; }
         public int? IdSalaryTemplate { get; set; }
         public int CreatedBy { get; set; }

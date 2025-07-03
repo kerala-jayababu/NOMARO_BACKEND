@@ -6,6 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     public interface IEmployeeServices
     {
         Task<IEnumerable<EmployeeProfileDto>> GetEmployeeList(string? searchText, DateTime? startDate);
+        Task<IEnumerable<EmployeeWithoutSalaryApprovalDto>> GetEmployeeStatusListAsync();
         Task<EmployeeDetailsDto> GetEmployeeDetailsByID(int Id);
         Task<IEnumerable<EmployeeBankAccountDto>> GetEmployeeBankAccountsByID(int Id);
         Task<IEnumerable<EmployeeProfileDetailsDto>> GetEmployeeProfileByID(int Id);        

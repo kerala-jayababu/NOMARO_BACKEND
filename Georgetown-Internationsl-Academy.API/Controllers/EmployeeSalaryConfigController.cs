@@ -37,11 +37,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region EmployeeSalaryConfig
 
         [HttpGet("GetAllEmployeeSalaryConfig")]
-        public async Task<IActionResult> GetAllEmployeeSalaryConfig(string? searchText = null,  string? dropdownFilter = null, bool showLatestRecord = false)
+        public async Task<IActionResult> GetAllEmployeeSalaryConfig(string? searchText = null,  string? dropdownFilter = null, bool showLatestRecord = false, DateTime? date = null)
                 {
             try
             {
-                var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText, dropdownFilter, showLatestRecord);
+                var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText, dropdownFilter, showLatestRecord,date);
                 if (configs == null || !configs.Any())
                 {
                     return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(Enumerable.Empty<EmployeeSalaryConfigDto>(), "No configurations found."));

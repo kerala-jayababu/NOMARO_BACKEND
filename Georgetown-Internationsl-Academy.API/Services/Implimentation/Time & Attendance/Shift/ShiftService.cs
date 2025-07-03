@@ -136,6 +136,7 @@ public class ShiftService : IShiftService
         e.IdDesignation,
         dsg.DesignationName,
         e.IdDepartment,
+e.EmployeeCode,
         dept.DepartmentName,
         da.AttendanceDate,
         da.RegularDayType,
