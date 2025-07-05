@@ -626,7 +626,52 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                 }
 
-                if(finalStatus == "REJECTED")
+
+                if(finalStatus == "SUBMITTED")
+                {
+                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+
+
+                    foreach (var empId in employeeIdList)
+                    {
+
+                        var approverName = await GetFullNameById(empId);
+                        var creatorName = await GetFullNameById(loggedInEmployeeId);
+                        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+                        var notificationConfig = await _dbContext.NotificationsConfig
+                            .FirstOrDefaultAsync(x => x.EntityCode == "SALARYGEN" && x.NotificationType == "Salary generated and Submitted");                        
+                        if (notificationConfig != null)
+                        {                            
+                            string emailBody = await GenerateEmailBodyForSalaryGenertaion(notificationConfig.EmailContent, empId, loggedInEmployeeId);
+
+                            await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
+                        }                    }
+                }
+
+                if (finalStatus == "FM Approved" || finalStatus == "HR Approved")
+                {
+                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+
+
+                    foreach (var empId in employeeIdList)
+                    {
+
+                        var approverName = await GetFullNameById(empId);
+                        var creatorName = await GetFullNameById(loggedInEmployeeId);
+                        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+                        var notificationConfig = await _dbContext.NotificationsConfig
+                            .FirstOrDefaultAsync(x => x.EntityCode == "SALARYGEN" && x.NotificationType == "Salary Approved");
+                        if (notificationConfig != null)
+                        {
+                            string emailBody = await GenerateEmailBodyForSalaryGenertaionApproval(notificationConfig.EmailContent, empId, loggedInEmployeeId);
+
+                            await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
+                        }
+                    }
+                }
+                if (finalStatus == "REJECTED")
                 {
                     var bankremittance = await _dbContext.BankRemittance.Where(x => x.IdEmployeeSalary == entityTablePrimaryKeyID).ToListAsync();
                     if (bankremittance != null)
@@ -635,7 +680,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         await _dbContext.SaveChangesAsync();
                     }
 
+                    var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
+                     .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
+                                               x.EntityCode == "EMPSALGEN" &&
+                                               x.CycleIndex == cycleIndex);
+                    var notificationConfig = await _dbContext.NotificationsConfig
+                           .FirstOrDefaultAsync(x => x.EntityCode == "SALARYGEN" && x.NotificationType == "Salary Rejected");
 
+                    var creatorName = await GetFullNameById(approvalworkflow.SourceIdEmployee);
+                    string emailBody = await GenerateEmailBodyForSalaryGenertaionRejection(notificationConfig.EmailContent, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee);
+
+                    await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
                 }
 
             }
@@ -745,7 +800,44 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return content;
         }
 
+        private async Task<string> GenerateEmailBodyForSalaryGenertaion(string template, int approverId, int? creatorId)
+        {
+            var approverName = await GetFullNameById(approverId);
+            var creatorName = await GetFullNameById(creatorId);
+            string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
 
+            string content = template
+                .Replace("#EmployeeName#", approverName.FullName)
+                .Replace("#SubmittedBy#", creatorName.FullName);
+          
+            return content;
+        }
+
+
+        private async Task<string> GenerateEmailBodyForSalaryGenertaionApproval(string template, int approverId, int? creatorId)
+        {
+            var approverName = await GetFullNameById(approverId);
+            var creatorName = await GetFullNameById(creatorId);
+            string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+            string content = template
+                .Replace("#EmployeeName#", approverName.FullName)
+                .Replace("#ApprovedBy#", creatorName.FullName);
+
+            return content;
+        }
+        private async Task<string> GenerateEmailBodyForSalaryGenertaionRejection(string template, int approverId, int? creatorId)
+        {
+            var approverName = await GetFullNameById(approverId);
+            var creatorName = await GetFullNameById(creatorId);
+            string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+            string content = template
+                .Replace("#EmployeeName#", creatorName.FullName)
+                .Replace("#RejectedBy#", approverName.FullName);
+
+            return content;
+        }
         private async Task<(string FullName, string Email)> GetFullNameById(int? employeeId)
         {
             if (!employeeId.HasValue) return ("", "");
