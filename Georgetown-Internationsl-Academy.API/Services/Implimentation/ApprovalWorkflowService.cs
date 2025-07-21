@@ -31,7 +31,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task<string> InitiateApprovalWorkflow(int entityTablePrimaryKeyID, string entityCode, int loggedInEmployeeId, string? status, decimal? LeavePassageAmount, string? rejectReason)
+        public async Task<string> InitiateApprovalWorkflow(int entityTablePrimaryKeyID, string entityCode, int loggedInEmployeeId, string? status, decimal? LeavePassageAmount, string? rejectReason, int count=1)
         {
 
 
@@ -90,12 +90,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                     if (actionStatussubmitted == "FINAL APPROVED")
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1, null, null, null);
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1, null, null, null,count);
                         return "Approval workflow initiated.";
                     }
                     else
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1, loggedInEmployeeId, targetEmployeeIds, null);
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1, loggedInEmployeeId, targetEmployeeIds, null, count);
                     }
 
                     return "Approval workflow initiated.";
@@ -123,7 +123,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (status == "REJECTED")
                 {
 
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex, loggedInEmployeeId, null, LeavePassageAmount);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex, loggedInEmployeeId, null, LeavePassageAmount,count);
                     //await transaction.CommitAsync();
                     return "Record rejected successfully. Workflow terminated.";
                 }
@@ -159,12 +159,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, loggedInEmployeeId, targetEmployeeIdsForNextLevel, LeavePassageAmount);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, loggedInEmployeeId, targetEmployeeIdsForNextLevel, LeavePassageAmount,count);
                     await _dbContext.SaveChangesAsync();
                 }
                 else
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null, LeavePassageAmount);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null, LeavePassageAmount,count);
                     await _dbContext.SaveChangesAsync();
                 }
 
@@ -185,7 +185,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel, decimal? LeavePassageAmount)
+        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel, decimal? LeavePassageAmount,int count)
         {
             if (entityCode == _configuration["WorkflowEntityCodes:SalaryTemplate"])
             {
@@ -628,7 +628,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
 
-                if (finalStatus == "SUBMITTED")
+                if (finalStatus == "SUBMITTED" && count == 1)
                 {
                     var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
 
@@ -651,7 +651,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
 
-                if (finalStatus == "FM Approved" || finalStatus == "HR Approved")
+                if (finalStatus == "FM Approved" &&  count == 1 || finalStatus == "HR Approved" && count == 1)
                 {
                     var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
 
@@ -675,7 +675,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
 
-                if (finalStatus == "APPROVED")
+                if (finalStatus == "APPROVED" && count == 1)
                 {                  
 
                     var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations.Where(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
@@ -699,6 +699,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         await _dbContext.SaveChangesAsync();
                     }
 
+                    if (count == 1)
+                    {
+
+                    
                     var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
                      .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
                                                x.EntityCode == "EMPSALGEN" &&
@@ -710,6 +714,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     string emailBody = await GenerateEmailBodyForSalaryGenertaionRejection(notificationConfig.EmailContent, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee);
 
                     await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
+                        }
                 }
 
             }

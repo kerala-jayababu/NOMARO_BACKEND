@@ -157,6 +157,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             //    return BadRequest(ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
             //}
 
+            int count = 1;
 
             foreach (var request in requests)
             {
@@ -169,7 +170,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         int.Parse(IdEmployee),
                         request.Status,
                         request.LeavePassageAmount,
-                        request.RejectReason
+                        request.RejectReason,
+                        count
                     );
 
                     if (result.Contains("Error"))
@@ -196,6 +198,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     results.Add($"Exception for ID {request.EntityTablePrimaryKeyID}: {ex.Message}");
                 }
+                count++;
             }
 
             if (results.Any(r => r.StartsWith("Failed") || r.StartsWith("Exception")))
