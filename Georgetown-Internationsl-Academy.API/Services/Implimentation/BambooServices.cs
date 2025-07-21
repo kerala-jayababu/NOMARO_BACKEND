@@ -9,9 +9,12 @@ using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attend
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using iText.Kernel.Pdf.Canvas.Wmf;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
+using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Crmf;
 using RestSharp;
+using System.Drawing;
 using System.Text;
 using System.Xml.Serialization;
 
@@ -22,7 +25,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IConfiguration _configuration;
         private readonly ILogger<BambooServices> _logger;
         private readonly ApplicationDBContext _dbContext;
-
+        private bool IsDataChangedInBambooHR;
+        private string DataChanges;
+        private bool IsNewEmployee;
+        private string DesignationName;
+        private string DepartmentName;
+        private string ReportingTo;
         public BambooServices(IConfiguration configuration, ILogger<BambooServices> logger, ApplicationDBContext dbContext)
         {
             _configuration = configuration;
@@ -35,6 +43,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var result = new List<BambooHRDetailsDto>();
             try
             {
+                IsDataChangedInBambooHR = false;
                 var baseURL = _configuration["BambooHR:BaseUrl"];
                 var apikey = _configuration["BambooHR:ApiKey"];
 
@@ -43,9 +52,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     _logger.LogError("BambooHR BaseUrl or ApiKey is missing in configuration.");
                     return new List<BambooHRDetailsDto>();
                 }
-
             
-
                 var fullUrl = $"{baseURL}/employees/directory";
                 var client = new RestClient();
                 var request = new RestRequest(fullUrl, Method.Get);
@@ -90,8 +97,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                         var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
                         mapped.EmployeePhotoPath = emp.Fields.FirstOrDefault(f => f.Id == "photoUrl")?.Value;
-
-                        await AddUpdateEmployeeDetailsFromBambooHR(mapped);
+                        if (mapped.EmployeeNumber.IndexOf("0000") < 0)
+                        {
+                            await AddUpdateEmployeeDetailsFromBambooHR(mapped);
+                        }
                         result.Add(mapped);
                     }
                     catch (Exception ex)
@@ -156,7 +165,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             // Prepare in-memory collections
             var employeeMap = new Dictionary<int, int>();                        // BambooId => InternalId
-            var logsToInsert = new List<BambooHRIntegrationLog>();
+            var logsToInsert = new List<BambooHRIntegrationLogs>();
             var leavesToInsert = new List<EmployeeLeave>();
             var leaveDetailsToInsert = new List<EmployeeLeaveDetail>();
 
@@ -188,7 +197,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             var rawXml = await GetRawEmployeeXml(req.Employee.Id);
                             var mapped = BambooEmployeeMapper.ToDetailsDto(rawXml);
 
-                            logsToInsert.Add(new BambooHRIntegrationLog
+                            logsToInsert.Add(new BambooHRIntegrationLogs
                             {
                                 EntityType = "time/timeout",
                                 EntityActionType = "insert",
@@ -459,44 +468,60 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 .Where(em => em.EmployeeCode == bambooEmp.EmployeeNumber)
                 .FirstOrDefaultAsync();
 
-            bool isNewEmployee = empDetails == null;
+            IsNewEmployee = false;
+            DataChanges = string.Empty;
+            IsDataChangedInBambooHR = false;
 
-            if (isNewEmployee)
-                empDetails = new Models.Employee();
-
-            //Check whether employee status changed
-            if(bambooEmp.Status != "Active")
+            if (empDetails == null)
+                IsNewEmployee = true;
+            if (IsNewEmployee)
             {
-                //Disable the token
-
+                IsNewEmployee = true;
+                empDetails = new Models.Employee();
             }
 
-            empDetails.EmployeeCode = bambooEmp.EmployeeNumber;
-            empDetails.FirstName = bambooEmp.FirstName.Trim();
-            empDetails.MiddleName = bambooEmp.MiddleName?.Trim();
-            empDetails.LastName = bambooEmp.LastName.Trim();
-            empDetails.Gender = bambooEmp.Gender;
+            empDetails.EmployeeCode= CompareStringData("EmployeeCode", empDetails.EmployeeCode,bambooEmp.EmployeeNumber.Trim());
 
+            empDetails.FirstName = CompareStringData("FirstName", empDetails.FirstName, bambooEmp.FirstName.Trim());
+            empDetails.MiddleName = CompareStringData("MiddleName", empDetails.MiddleName, bambooEmp.MiddleName?.Trim());
+            empDetails.LastName = CompareStringData("LastName", empDetails.LastName, bambooEmp.LastName?.Trim());
+            empDetails.Gender = CompareStringData("Gender", empDetails.Gender, bambooEmp.Gender?.Trim()).ToUpper();
+            if (empDetails.Gender == "")
+                empDetails.Gender = "NOTKNOWN";
+
+            empDetails.EmailID = CompareStringData("EmailID", empDetails.EmailID, bambooEmp.WorkEmail?.Trim());
+            empDetails.PhoneNumber1 = CompareStringData("PhoneNumber1", empDetails.PhoneNumber1, bambooEmp.WorkPhone?.Trim());
+            empDetails.PhoneNumber2 = CompareStringData("PhoneNumber2", empDetails.PhoneNumber2, bambooEmp.MobilePhone?.Trim());
+            empDetails.Address1 = CompareStringData("Address1", empDetails.Address1, bambooEmp.Address1?.Trim());
+            empDetails.Address2 = CompareStringData("Address2", empDetails.Address2, bambooEmp.Address2?.Trim());
+            empDetails.City = CompareStringData("City", empDetails.City, bambooEmp.City?.Trim());
+            empDetails.State = CompareStringData("State", empDetails.State, bambooEmp.State?.Trim());
+            empDetails.ZipCode = CompareStringData("ZipCode", empDetails.ZipCode, bambooEmp.ZipCode?.Trim());
+            empDetails.IdNumber = CompareStringData("IdNumber", empDetails.IdNumber, bambooEmp.customNIS?.Trim());
+            empDetails.TaxIdNumber = CompareStringData("TaxIdNumber", empDetails.TaxIdNumber, bambooEmp.customTIN?.Trim());
+
+            // Set Designation
+            DesignationName = string.Empty;
             var idDesignation = await GetIdDesignation(bambooEmp.JobTitle);
             if (idDesignation > 0)
+            {
                 empDetails.IdDesignation = idDesignation;
+                CompareStringData("Designation", DesignationName, bambooEmp.JobTitle?.Trim());
+            }
+            else
+                DataChanges += "Designation " + bambooEmp.JobTitle + " Not found\n";
 
+            // Set Department
+            DepartmentName = string.Empty;
             var idDepartment = await GetIdDepartment(bambooEmp.Department);
             if (idDepartment > 0)
+            {
                 empDetails.IdDepartment = idDepartment;
+                CompareStringData("Department", DepartmentName, bambooEmp.Department?.Trim());
+            }
+            else
+                DataChanges += "Department " + bambooEmp.Department + " Not found\n";
 
-            empDetails.EmailID = bambooEmp.WorkEmail.Trim();
-            empDetails.PhoneNumber1 = bambooEmp.WorkPhone.Trim();
-            empDetails.PhoneNumber2 = bambooEmp.MobilePhone.Trim();
-            empDetails.Address1 = bambooEmp.Address1.Trim();
-            empDetails.Address2 = bambooEmp.Address2.Trim();
-            empDetails.City = bambooEmp.City.Trim();
-            empDetails.State = bambooEmp.State.Trim();
-            empDetails.ZipCode = bambooEmp.ZipCode;
-            empDetails.JoiningDate = bambooEmp.HireDate;
-            empDetails.DateOfBirth = bambooEmp.DateOfBirth;
-            empDetails.IdNumber = bambooEmp.customNIS?.Trim();
-            empDetails.TaxIdNumber = bambooEmp.customTIN?.Trim();
 
             var reportingTo = await GetIdEmployee(bambooEmp.Supervisor);
             if (reportingTo > 0)
@@ -515,7 +540,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     Directory.CreateDirectory(folderPath);
 
                 // Delete old image if exists
-                if (!isNewEmployee && !string.IsNullOrEmpty(empDetails.EmployeePhotoFilePath))
+                if (!IsNewEmployee && !string.IsNullOrEmpty(empDetails.EmployeePhotoFilePath))
                 {
                     try
                     {
@@ -541,30 +566,45 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
 
             // ⬇⬇ SAVE TO DB ⬇⬇
-            if (!isNewEmployee)
-                _dbContext.Employees.Update(empDetails);
+            if (!IsNewEmployee)
+            {
+                if (IsDataChangedInBambooHR == true)
+                {
+                    _dbContext.Employees.Update(empDetails);
+                    await AddBambooHRIntegrationLog(empDetails.EmployeeCode, empDetails.FirstName, "UPDATE");
+                }
+            }
             else
+            {
                 _dbContext.Employees.Add(empDetails);
-
+                DataChanges = "New Employee Added";
+                await AddBambooHRIntegrationLog(empDetails.EmployeeCode, empDetails.FirstName, "NEW");
+            }
             await _dbContext.SaveChangesAsync();
 
             return true;
         }
      
-        public async Task<int> GetIdDesignation(string DesignationName)
+        public async Task<int> GetIdDesignation(string DesigName)
         {
-            var desigDetails = await _dbContext.Designations.Where(dd => dd.DesignationName.ToUpper() == DesignationName.ToUpper()).FirstOrDefaultAsync();
+            var desigDetails = await _dbContext.Designations.Where(dd => dd.DesignationName.ToUpper() == DesigName.ToUpper()).FirstOrDefaultAsync();
             if (desigDetails != null)
+            {
+                DesignationName = desigDetails.DesignationName;
                 return desigDetails.IdDesignation;
-                
+            }
             return -1;
         }
 
-        public async Task<int> GetIdDepartment(string DepartmentName)
+        public async Task<int> GetIdDepartment(string DeptName)
         {
-            var deptDetails = await _dbContext.Departments.Where(dd => dd.DepartmentName.ToUpper() == DepartmentName.ToUpper()).FirstOrDefaultAsync();
+            var deptDetails = await _dbContext.Departments.Where(dd => dd.DepartmentName.ToUpper() == DeptName.ToUpper()).FirstOrDefaultAsync();
             if (deptDetails != null)
+            {
+                DepartmentName = deptDetails.DepartmentName;
                 return deptDetails.IdDepartment;
+
+            }
 
             return -1;
         }
@@ -578,18 +618,87 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var empDetails = await _dbContext.Employees.Where(em => (em.LastName ?? "").ToUpper() == splitEName[0].Trim().ToUpper()).FirstOrDefaultAsync();
                 if (empDetails != null)
+                {
+                    ReportingTo = empDetails.FirstName;
                     return empDetails.IdEmployee;
+                }
             }
             if (splitEName.Length == 2)
             {
                 var empDetails = await _dbContext.Employees.Where(em => (em.LastName ?? "").ToUpper() == splitEName[0].Trim().ToUpper() && 
                 em.FirstName.ToUpper() == splitEName[1].Trim().ToUpper()).FirstOrDefaultAsync();
                 if (empDetails != null)
+                {
+                    ReportingTo = empDetails.FirstName;
                     return empDetails.IdEmployee;
+                }
             }
             return -1;
         }
 
+        public string CompareStringData(string ColumnName, string FirstValue, string SecondValue)
+        {
+            if (!IsNewEmployee)
+            {
+                if (FirstValue == null)
+                    FirstValue = string.Empty;
+                if (SecondValue == null)
+                    SecondValue = string.Empty;
+                if (!string.Equals(FirstValue.ToUpper(), SecondValue.ToUpper(), StringComparison.OrdinalIgnoreCase))
+                {
+                    IsDataChangedInBambooHR = true;
+                    DataChanges += $"{ColumnName} {FirstValue ?? ""} -> {SecondValue ?? ""}\n ";
+                    FirstValue = SecondValue;
+                    return FirstValue;
+                    
+                }
+            }
+            return SecondValue;
+        }
+
+        public string CompareIntegerData(string ColumnName, string FirstValue, string SecondValue)
+        {
+            if (!IsNewEmployee)
+            {
+                if (!string.Equals(FirstValue, SecondValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    IsDataChangedInBambooHR = true;
+                    DataChanges += $"{ColumnName} {FirstValue ?? ""} -> {SecondValue ?? ""}\n ";
+                    FirstValue = SecondValue;
+                }
+            }
+            return FirstValue;
+        }
+
+        public async Task<int> AddBambooHRIntegrationLog(string EmployeeCode, string EmployeeName, string ActionType)
+        {
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var bambooHRLog = new Models.BambooHRIntegrationLogs
+                {
+                    EntityType = "Employees",
+                    EntityActionType = ActionType,
+                    IntegrationDate = DateTime.Now,
+                    IntegrationStatus = "Completed",
+                    IntegrationActionDetails = DataChanges
+                };
+                _dbContext.BambooHRIntegrationLogs.Add(bambooHRLog);
+                await _dbContext.SaveChangesAsync();          
+                await transaction.CommitAsync();
+
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding, updating, or removing BambooHR Details.");
+                throw new Exception("An error occurred while processing BambooHR Details. Please try again.");
+            }
+            return -1;
+        }
     }
 
 }
