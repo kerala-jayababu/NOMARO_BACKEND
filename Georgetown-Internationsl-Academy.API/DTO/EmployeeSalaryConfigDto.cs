@@ -48,6 +48,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? CreatedByValue { get; set; }
         public int? ApprovedCount { get; set; }
         public int? NotApprovedCount { get; set; }
+        public int? submittedCount { get; set; }
+        public int? rejectedCount { get; set; }
+        public int? notConfiguredCount { get; set; }
 
         public List<EmployeeSalaryConfigDetailsDto>? EmployeeSalaryConfigDetails { get; set; }
 

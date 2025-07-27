@@ -358,7 +358,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.TaxIdNumber,
             CONCAT(e.Address1, ', ', e.Address2, ',' , e.Address3, ',', e.City, ', ', e.State, ', ', e.ZipCode) AS Address,
             e.CurrentStatus,
-            e.JoiningDate,         
+            e.JoiningDate, 
+            e.DateOfBirth,
             e.EmployeePhotoFilePath,
             e.Gender       -- Include Gender
         FROM dbo.Employees e
