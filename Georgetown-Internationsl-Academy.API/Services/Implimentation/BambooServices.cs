@@ -581,6 +581,35 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await AddBambooHRIntegrationLog(empDetails.EmployeeCode, empDetails.FirstName, "NEW");
             }
             await _dbContext.SaveChangesAsync();
+            if (IsNewEmployee)
+            {
+                var notificationConfig = await _dbContext.NotificationsConfig
+        .FirstOrDefaultAsync(x => x.EntityCode == "NEWEMPLOYEE" && x.NotificationType == "New Employee Added");
+                if (notificationConfig != null)
+                {
+                    string newEmployeeName = $"{empDetails.FirstName} {empDetails.MiddleName} {empDetails.LastName}".Replace("  ", " ").Trim();
+
+                    string emailBody = notificationConfig.EmailContent
+                        .Replace("#NEWEMPLOYEENAME#", newEmployeeName);
+
+                    // Get employee(s) with Department = 4 and Designation = 19 or 37
+                    var notifyEmployees = await _dbContext.Employees
+                        .Where(e => e.IdDepartment == 4 && (e.IdDesignation == 19 || e.IdDesignation == 37))
+                        .ToListAsync();
+
+                    foreach (var approver in notifyEmployees)
+                    {
+                        if (!string.IsNullOrEmpty(approver.EmailID))
+                        {
+                            await EmailService.SendMail(
+                                "sandeep241798@gmail.com",
+                                notificationConfig.EmailSubject,
+                                emailBody
+                            );
+                        }
+                    }
+                }
+            }
 
             return true;
         }
