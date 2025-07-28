@@ -602,12 +602,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         if (!string.IsNullOrEmpty(approver.EmailID))
                         {
                             await EmailService.SendMail(
-                                "sandeep241798@gmail.com",
+                               approver.EmailID,
                                 notificationConfig.EmailSubject,
                                 emailBody
                             );
                         }
+
+
+                        Notification notification = new Notification();
+                        notification.IdNotificationConfig = notificationConfig.IdNotificationConfig;
+                        notification.NotificationType = notificationConfig.NotificationType;
+                        notification.SentByIdEmployee = null;
+                        notification.ReceivedByIdEmployee = approver.IdEmployee;
+                        notification.EmailSubject = notificationConfig.EmailSubject;
+                        notification.EmailContent = emailBody;
+                        notification.EmailSentStatus = "SENT";
+                        notification.CreatedAt = DateTime.UtcNow;
+                         _dbContext.Notifications.Add(notification);
                     }
+                    await _dbContext.SaveChangesAsync();
                 }
             }
 
