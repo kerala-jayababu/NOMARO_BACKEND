@@ -4,6 +4,7 @@
     {
         public int IdEmployee { get; set; }
         public string EmployeeName { get; set; }
+        public string EmployeeCode { get; set; }
         public int IdDesignation { get; set; }
         public string DesignationName { get; set; }
         public int IdDepartment { get; set; }

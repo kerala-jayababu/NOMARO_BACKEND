@@ -57,13 +57,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
 
             if (dateFrom.HasValue)
             {
-                query.Append(" AND el.AppliedDate >= @DateFrom");
+                query.Append(" AND el.LeaveFromDate >= @DateFrom");
                 parameters.Add("DateFrom", dateFrom.Value);
             }
 
             if (dateTo.HasValue)
             {
-                query.Append(" AND el.AppliedDate <= @DateTo");
+                query.Append(" AND el.LeaveToDate <= @DateTo");
                 parameters.Add("DateTo", dateTo.Value);
             }
 

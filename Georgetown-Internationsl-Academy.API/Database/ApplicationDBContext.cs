@@ -63,6 +63,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<LoginOTP> LoginOTP { get; set; }
         public DbSet<BankRemittance> BankRemittance { get; set; }
+        public DbSet<BambooHRIntegrationLogs> BambooHRIntegrationLogs { get; set; }
 
         #region Time & Attendance
         public DbSet<ShiftDefinitionEntity> ShiftDefinitions { get; set; }
@@ -78,7 +79,6 @@ namespace Georgetown_International_Academy.API.Database
         #region BambooHR
         public DbSet<EmployeeLeave> EmployeeLeaves { get; set; }
         public DbSet<EmployeeLeaveDetail> EmployeeLeaveDetails { get; set; }
-        public DbSet<BambooHRIntegrationLog> BambooHRIntegrationLogs { get; set; }
         public DbSet<BambooHRLeaveIntegrationLastRun> BambooHRLeaveIntegrationLastRun { get; set; }
 
 

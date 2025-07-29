@@ -136,6 +136,7 @@ public class ShiftService : IShiftService
         e.IdDesignation,
         dsg.DesignationName,
         e.IdDepartment,
+e.EmployeeCode,
         dept.DepartmentName,
         da.AttendanceDate,
         da.RegularDayType,
@@ -152,8 +153,10 @@ public class ShiftService : IShiftService
         da.MinuteDifference,
         da.AllowedTolerenceInMinutes,
         da.DeficitHours,
-        da.TotalDurationHoursText,
-        da.ActualHoursText,
+       	 CAST(FLOOR(da.TotalDurationInHours) AS VARCHAR) + ' Hrs ' + 
+		CAST(CAST((da.TotalDurationInHours - FLOOR(da.TotalDurationInHours)) * 60 AS INT) AS VARCHAR) + ' Min' AS TotalDurationHoursText,
+		CAST(FLOOR(da.ActualDurationInHours) AS VARCHAR) + ' Hrs ' + 
+		CAST(CAST((da.ActualDurationInHours - FLOOR(da.ActualDurationInHours)) * 60 AS INT) AS VARCHAR) + ' Min' AS ActualHoursText,
         da.StatusType,
         da.StatusDetails,
         da.ReasonForShortTime,

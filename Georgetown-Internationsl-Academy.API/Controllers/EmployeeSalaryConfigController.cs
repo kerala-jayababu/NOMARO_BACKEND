@@ -10,6 +10,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 {
     [ApiController]
     [ApiVersion(1)]
+    
     [Route("/api/v{v:apiVersion}/[controller]")]
     public class EmployeeSalaryConfigController : ControllerBase
     {
@@ -37,11 +38,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region EmployeeSalaryConfig
 
         [HttpGet("GetAllEmployeeSalaryConfig")]
-        public async Task<IActionResult> GetAllEmployeeSalaryConfig(string? searchText = null,  string? dropdownFilter = null, bool showLatestRecord = false)
-                {
+        public async Task<IActionResult> GetAllEmployeeSalaryConfig(string? searchText = null,  string? dropdownFilter = null, DateTime? date = null)
+         {
             try
             {
-                var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText, dropdownFilter, showLatestRecord);
+                var configs = await _employeeSalaryConfigService.GetAllConfigs(searchText, dropdownFilter,date);
                 if (configs == null || !configs.Any())
                 {
                     return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(Enumerable.Empty<EmployeeSalaryConfigDto>(), "No configurations found."));
@@ -52,7 +53,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     .Select(x => x.IdEmployee)
                     .Distinct()
                     .Count();
-
+                int submittedCount = configs
+                 .Where(x => x.ApprovalStatus == "SUBMITTED" || x.ApprovalStatus == "INTERIM APPROVED")
+                 .Select(x => x.IdEmployee)
+                 .Distinct()
+                 .Count();
+                    int rejectedCount = configs
+              .Where(x => x.ApprovalStatus == "REJECTED")
+              .Select(x => x.IdEmployee)
+              .Distinct()
+              .Count();
                 // Total distinct employees in the result
                 int totalEmployees = configs
                     .Select(x => x.IdEmployee)
@@ -62,6 +72,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 int notApprovedCount = totalEmployees - approvedCount;
                 configs.First().ApprovedCount = approvedCount;
                 configs.First().NotApprovedCount = notApprovedCount;
+                configs.First().submittedCount = submittedCount;
+                configs.First().rejectedCount = rejectedCount;
+                //configs.First().notConfiguredCount = await _employeeSalaryConfigService.GetNotConfiguredEmployeeCount();
                 return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(configs, "EmployeeSalaryConfig retrieved successfully."));
             }
             catch (Exception ex)

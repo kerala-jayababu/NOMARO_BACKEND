@@ -6,7 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
     {
         public int? IdEmployeeSalaryConfig { get; set; }
         public int IdEmployee { get; set; }
-        public DateTime ValidFrom { get; set; }
+        public DateTime? ValidFrom { get; set; }
         public DateTime? ValidTo { get; set; }
         public int? IdSalaryTemplate { get; set; }
         public int CreatedBy { get; set; }
@@ -48,6 +48,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? CreatedByValue { get; set; }
         public int? ApprovedCount { get; set; }
         public int? NotApprovedCount { get; set; }
+        public int? submittedCount { get; set; }
+        public int? rejectedCount { get; set; }
+        public int? notConfiguredCount { get; set; }
 
         public List<EmployeeSalaryConfigDetailsDto>? EmployeeSalaryConfigDetails { get; set; }
 

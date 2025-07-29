@@ -17,7 +17,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IConfiguration _configuration;
         private readonly IApprovalWorkflowService _approvalWorkflowService;
 
-        public EmployeeSalaryConfigService(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeSalaryConfigService> logger, IConfiguration configuration,IApprovalWorkflowService approvalWorkflowService)
+        public EmployeeSalaryConfigService(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeSalaryConfigService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
@@ -27,36 +27,37 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
         #region EmployeeSalaryConfig
-        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter = null, bool showLatestRecord = false)
+        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter = null, DateTime? date = null)
         {
             var query = new StringBuilder(@"
-    SELECT 
-        esc.IdEmployeeSalaryConfig,
-        esc.ValidFrom,
-        esc.ValidTo,
-        esc.IdSalaryTemplate,
-        esc.ActiveStatus,
-        e.IdEmployee,
-        e.EmployeeCode,
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-        e.IdDesignation,
-        des.DesignationName,
-        e.IdDepartment,
-        d.DepartmentName,
-        e.JoiningDate,
-        e.Gender,
-        e.EmailID,
-        e.PhoneNumber1, 
-        e.PhoneNumber2,            
-        e.CurrentStatus,
-        esc.TotalEarnings,
-        esc.TotalDeductions,
-        esc.NetSalary,
-        esc.ApprovalStatus
-    FROM EmployeeSalaryConfig esc
-    INNER JOIN Employees e ON esc.IdEmployee = e.IdEmployee
-    INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+  SELECT 
+    esc.IdEmployeeSalaryConfig,
+    esc.ValidFrom,
+    esc.ValidTo,
+    esc.IdSalaryTemplate,
+    esc.ActiveStatus,
+    e.IdEmployee,
+    e.EmployeeCode,
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    e.IdDesignation,
+    des.DesignationName,
+    e.IdDepartment,
+    d.DepartmentName,
+    e.JoiningDate,
+    e.Gender,
+    e.EmailID,
+    e.PhoneNumber1, 
+    e.PhoneNumber2,            
+    e.CurrentStatus,
+    esc.TotalEarnings,
+    esc.TotalDeductions,
+    esc.NetSalary,
+    esc.ApprovalStatus
+FROM Employees e
+LEFT JOIN EmployeeSalaryConfig esc 
+    ON esc.IdEmployee = e.IdEmployee 
+	LEFT JOIN Departments d ON e.IdDepartment = d.IdDepartment
+LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
     WHERE 1=1 ");
 
             var parameters = new DynamicParameters();
@@ -74,22 +75,55 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 parameters.Add("SearchText", $"%{searchText}%");
             }
 
-            // Handle dropdown filter logic
-            if (!string.IsNullOrEmpty(dropdownFilter))
+            if (string.IsNullOrEmpty(dropdownFilter))
             {
-                if (dropdownFilter.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Include SUBMITTED and Interim Approved statuses
-                    query.Append(@"
-            AND (
-                esc.ApprovalStatus = 'SUBMITTED'
-                OR esc.ApprovalStatus = 'INTERIM APPROVED'
-            )");
-                }
-                else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Include only the record with MAX(ValidFrom) for APPROVED status
-                    query.Append(@"
+                query.Append(@"
+        AND esc.IdEmployeeSalaryConfig IN (
+            SELECT IdEmployeeSalaryConfig FROM vw_LatestEmployeeSalaryConfig
+        )
+        AND e.CurrentStatus = 'Working'");
+            }
+            else if (dropdownFilter.Equals("Show All", StringComparison.OrdinalIgnoreCase))
+            {
+                // No extra filter - show all records
+            }
+            else if (dropdownFilter.Equals("Not Configured", StringComparison.OrdinalIgnoreCase))
+            {
+                // Select employees without any salary configuration
+                query.Clear();
+                query.Append(@"
+        SELECT 
+            e.IdEmployee,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDesignation,
+            des.DesignationName,
+            e.IdDepartment,
+            d.DepartmentName,
+            e.JoiningDate,
+            e.Gender,
+            e.EmailID,
+            e.PhoneNumber1,
+            e.PhoneNumber2,
+            e.CurrentStatus
+        FROM Employees e
+        LEFT JOIN EmployeeSalaryConfig esc ON esc.IdEmployee = e.IdEmployee
+        LEFT JOIN Departments d ON e.IdDepartment = d.IdDepartment
+        LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        WHERE esc.IdEmployee IS NULL");
+            }
+            else if (dropdownFilter.Equals("Submitted", StringComparison.OrdinalIgnoreCase))
+            {
+                query.Append(" AND esc.ApprovalStatus IN ('SUBMITTED', 'INTERIM APPROVED') ");
+            }
+            else if (dropdownFilter.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+            {
+                query.Append(" AND esc.ApprovalStatus = 'REJECTED' ");
+            }
+            else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase))
+            {
+                // Include only the record with MAX(ValidFrom) for APPROVED status
+                query.Append(@"
             AND esc.ApprovalStatus = 'APPROVED'
             AND esc.ValidFrom = (
                 SELECT MAX(ValidFrom)
@@ -97,17 +131,26 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 WHERE IdEmployee = esc.IdEmployee
                 AND ApprovalStatus = 'APPROVED'
             )");
-                }
-            }
-            if (showLatestRecord)
-            {
-                query.Append(@"
-        AND esc.IdEmployeeSalaryConfig IN (
-            SELECT IdEmployeeSalaryConfig FROM vw_LatestEmployeeSalaryConfig
-        )");
             }
 
+
+
+            if (date.HasValue)
+            {
+                query.Append(@"
+        AND esc.ValidFrom >= @Date ");
+                parameters.Add("Date", date.Value.Date); // .Date ensures time portion is ignored
+            }
+
+
             query.Append(" ORDER BY e.FirstName, e.LastName;");
+            var notConfiguredQuery = new StringBuilder(@"
+    SELECT COUNT(DISTINCT e.IdEmployee)
+    FROM Employees e
+    LEFT JOIN EmployeeSalaryConfig esc ON esc.IdEmployee = e.IdEmployee
+    WHERE esc.IdEmployee IS NULL
+      AND e.CurrentStatus = 'Working'
+");
 
             try
             {
@@ -117,7 +160,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         await connection.OpenAsync();
 
                     var configs = await connection.QueryAsync<EmployeeSalaryConfigDto>(query.ToString(), parameters);
-                    return configs;
+                    var configList = configs.ToList();
+                    var notConfiguredCount = await connection.ExecuteScalarAsync<int>(notConfiguredQuery.ToString());
+                    if (configList.Any())
+                        configList[0].notConfiguredCount = notConfiguredCount;
+                    return configList;
                 }
             }
             catch (Exception ex)
@@ -144,29 +191,29 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             .Select(e => e.FirstName + " " + e.MiddleName + " " + e.LastName)
                             .FirstOrDefault(),
                         IdEmployee = c.IdEmployee,
-                        ValidFrom =c.ValidFrom,
-                        ValidTo =c.ValidTo,
-                        IdSalaryTemplate =c.IdSalaryTemplate,
-                        ApprovalStatus =c.ApprovalStatus,
-                        ActiveStatus =c.ActiveStatus,
-                        TotalEarnings=c.TotalEarnings,
+                        ValidFrom = c.ValidFrom,
+                        ValidTo = c.ValidTo,
+                        IdSalaryTemplate = c.IdSalaryTemplate,
+                        ApprovalStatus = c.ApprovalStatus,
+                        ActiveStatus = c.ActiveStatus,
+                        TotalEarnings = c.TotalEarnings,
                         CreatedOn = (DateTime)c.CreatedOn,
-                        TotalDeductions=c.TotalDeductions,
-                        NetSalary =c.NetSalary,
+                        TotalDeductions = c.TotalDeductions,
+                        NetSalary = c.NetSalary,
 
                         EmployeeSalaryConfigDetails = _dbContext.EmployeeSalaryConfigDetails
                             .Where(d => d.IdEmployeeSalaryConfig == c.IdEmployeeSalaryConfig)
                             .Select(d => new EmployeeSalaryConfigDetailsDto
                             {
-                                IdEmployeeSalaryConfig =d.IdEmployeeSalaryConfig,
-                                CustomFormula =d.CustomFormula,
-                                SalaryAmount =d.SalaryAmount,
-                                PercentageOfIdSalaryHead=d.PercentageOfIdSalaryHead,
+                                IdEmployeeSalaryConfig = d.IdEmployeeSalaryConfig,
+                                CustomFormula = d.CustomFormula,
+                                SalaryAmount = d.SalaryAmount,
+                                PercentageOfIdSalaryHead = d.PercentageOfIdSalaryHead,
                                 IdEmployeeSalaryConfigDetail = d.IdEmployeeSalaryConfigDetail,
                                 IdSalaryHead = d.IdSalaryHead,
                                 FixedAmount = d.FixedAmount,
                                 PercentageValue = d.PercentageValue,
-                                CalculationMethod = d.CalculationMethod,                               
+                                CalculationMethod = d.CalculationMethod,
                                 SalaryHeadName = _dbContext.SalaryHeads
                                     .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
                                     .Select(sh => sh.SalaryHeadName)
@@ -274,7 +321,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             FixedAmount = detailDto.FixedAmount,
                             PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
                             PercentageValue = detailDto.PercentageValue,
-                            CustomFormula = detailDto.CustomFormula,     
+                            CustomFormula = detailDto.CustomFormula,
                             SalaryAmount = detailDto.SalaryAmount,
                         };
 
@@ -282,11 +329,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                     await _dbContext.SaveChangesAsync();
 
-               
+
                 }
 
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(configEntity.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null,null);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(configEntity.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null, null);
 
                 //if (approvalResult != "Approval workflow initiated.")
                 //{
@@ -321,7 +368,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 // Manual mapping for update
                 configEntity.IdEmployee = dto.IdEmployee;
-                configEntity.ValidFrom = dto.ValidFrom;
+                configEntity.ValidFrom = (DateTime)dto.ValidFrom;
                 configEntity.ValidTo = dto.ValidTo;
                 configEntity.IdSalaryTemplate = dto.IdSalaryTemplate;
                 configEntity.TotalEarnings = dto.TotalEarnings;
@@ -364,8 +411,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         else
                         {
                             // Add new details
-                                                var trackedEntity = _dbContext.ChangeTracker.Entries<EmployeeSalaryConfigDetails>()
-                                .FirstOrDefault(e => e.Entity.IdEmployeeSalaryConfigDetail == detailDto.IdEmployeeSalaryConfigDetail);
+                            var trackedEntity = _dbContext.ChangeTracker.Entries<EmployeeSalaryConfigDetails>()
+            .FirstOrDefault(e => e.Entity.IdEmployeeSalaryConfigDetail == detailDto.IdEmployeeSalaryConfigDetail);
 
                             if (trackedEntity != null)
                             {
@@ -385,7 +432,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                 CustomFormula = detailDto.CustomFormula,
                                 SalaryAmount = detailDto.SalaryAmount
                             };
-                               _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
+                            _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
                         }
                     }
 
@@ -393,7 +440,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
                 // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null,null);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null, null);
 
                 await transaction.CommitAsync();
                 return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
@@ -403,6 +450,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error updating Employee Salary Configuration and Details.");
                 throw new Exception("An error occurred while updating the configuration. Please try again later.");
+            }
+        }
+
+        public async Task<int?> GetNotConfiguredEmployeeCount()
+        {
+            var query = new StringBuilder(@"
+        SELECT COUNT(DISTINCT e.IdEmployee)
+        FROM Employees e
+        LEFT JOIN EmployeeSalaryConfig esc ON esc.IdEmployee = e.IdEmployee
+        WHERE esc.IdEmployee IS NULL");
+
+            var parameters = new DynamicParameters();
+
+            using (var connection = _dbContext.Database.GetDbConnection())
+            {
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                return await connection.ExecuteScalarAsync<int>(query.ToString(), parameters);
             }
         }
 
