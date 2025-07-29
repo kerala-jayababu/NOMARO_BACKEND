@@ -635,7 +635,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     foreach (var empId in employeeIdList)
                     {
-
                         var approverName = await GetFullNameById(empId);
                         var creatorName = await GetFullNameById(loggedInEmployeeId);
                         string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
@@ -647,8 +646,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             string emailBody = await GenerateEmailBodyForSalaryGenertaion(notificationConfig.EmailContent, empId, loggedInEmployeeId);
 
                             await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
+
+                            Notification notification = new Notification();
+                            notification.IdNotificationConfig = notificationConfig.IdNotificationConfig;
+                            notification.EmailContent = emailBody;
+                            notification.EmailSubject = notificationConfig.EmailSubject;
+                            notification.NotificationType= notificationConfig.NotificationType;
+                            notification.Status = "SENT";
+                            notification.CreatedAt = DateTime.UtcNow;
+                            notification.SentByIdEmployee = loggedInEmployeeId;
+                            notification.EmailSentStatus = "SENT";
+                            notification.ReceivedByIdEmployee = empId;
+                            _dbContext.Notifications.Add(notification);
                         }
                     }
+                    await _dbContext.SaveChangesAsync();
                 }
 
                 if (finalStatus == "FM Approved" &&  count == 1 || finalStatus == "HR Approved" && count == 1)
@@ -670,8 +682,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             string emailBody = await GenerateEmailBodyForSalaryGenertaionApproval(notificationConfig.EmailContent, empId, loggedInEmployeeId);
 
                             await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
+                            Notification notification = new Notification();
+                            notification.IdNotificationConfig = notificationConfig.IdNotificationConfig;
+                            notification.EmailContent = emailBody;
+                            notification.EmailSubject = notificationConfig.EmailSubject;
+                            notification.NotificationType = notificationConfig.NotificationType;
+                            notification.Status = "SENT";
+                            notification.CreatedAt = DateTime.UtcNow;
+                            notification.SentByIdEmployee = loggedInEmployeeId;
+                            notification.EmailSentStatus = "SENT";
+                            notification.ReceivedByIdEmployee = empId;
+                            _dbContext.Notifications.Add(notification);
                         }
                     }
+                    await _dbContext.SaveChangesAsync();
                 }
 
 
@@ -689,6 +713,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     string emailBody = await GenerateEmailBodyForSalaryGenertaionFinalApproval(notificationConfig.EmailContent, (int)loggedInEmployeeId, previousApprovalWorkflow.SourceIdEmployee);
 
                     await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
+                    Notification notification = new Notification();
+                    notification.IdNotificationConfig = notificationConfig.IdNotificationConfig;
+                    notification.EmailContent = emailBody;
+                    notification.EmailSubject = notificationConfig.EmailSubject;
+                    notification.NotificationType = notificationConfig.NotificationType;
+                    notification.Status = "SENT";
+                    notification.CreatedAt = DateTime.UtcNow;
+                    notification.SentByIdEmployee = loggedInEmployeeId;
+                    notification.EmailSentStatus = "SENT";
+                    notification.ReceivedByIdEmployee = previousApprovalWorkflow.SourceIdEmployee;
+                    _dbContext.Notifications.Add(notification);
+                    await _dbContext.SaveChangesAsync();
                 }
                 if (finalStatus == "REJECTED")
                 {
@@ -714,7 +750,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     string emailBody = await GenerateEmailBodyForSalaryGenertaionRejection(notificationConfig.EmailContent, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee);
 
                     await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
+                        Notification notification = new Notification();
+                        notification.IdNotificationConfig = notificationConfig.IdNotificationConfig;
+                        notification.EmailContent = emailBody;
+                        notification.EmailSubject = notificationConfig.EmailSubject;
+                        notification.NotificationType = notificationConfig.NotificationType;
+                        notification.Status = "SENT";
+                        notification.CreatedAt = DateTime.UtcNow;
+                        notification.SentByIdEmployee = loggedInEmployeeId;
+                        notification.EmailSentStatus = "SENT";
+                        notification.ReceivedByIdEmployee = approvalworkflow.SourceIdEmployee;
+                        _dbContext.Notifications.Add(notification);
+                        await _dbContext.SaveChangesAsync();
+                    }
                 }
 
             }
