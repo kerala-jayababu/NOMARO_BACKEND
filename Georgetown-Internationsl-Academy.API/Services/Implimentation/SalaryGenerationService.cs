@@ -225,6 +225,7 @@ namespace YourNamespace.Services.Implementation
 
                 var entityCode = _configuration["WorkflowEntityCodes:EMPSALGEN"];
 
+                int count = 1;
                 // Step: Call the approval workflow service
                 foreach (var salary in employeeSalaries)
                 {
@@ -234,9 +235,10 @@ namespace YourNamespace.Services.Implementation
                         idEmployeeCreated,
                         "SUBMITTED",
                         null,
-                        null
+                        null,
+                        count
                     );
-
+                    count++;
                     if (!result.Contains("Approval workflow initiated", StringComparison.OrdinalIgnoreCase))
                     {
                         throw new Exception($"Failed to initiate approval workflow for Salary ID: {salary.IdEmployeeSalary}. Error: {result}");

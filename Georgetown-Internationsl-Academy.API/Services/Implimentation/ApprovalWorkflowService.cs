@@ -90,12 +90,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                     if (actionStatussubmitted == "FINAL APPROVED")
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1, null, null, null,count);
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1,1, null, null, null,count);
                         return "Approval workflow initiated.";
                     }
                     else
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1, loggedInEmployeeId, targetEmployeeIds, null, count);
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1,1, loggedInEmployeeId, targetEmployeeIds, null, count);
                     }
 
                     return "Approval workflow initiated.";
@@ -123,7 +123,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (status == "REJECTED")
                 {
 
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex, loggedInEmployeeId, null, LeavePassageAmount,count);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex, workflowConfigDetailsFinal.LevelNumber, loggedInEmployeeId, null, LeavePassageAmount,count);
                     //await transaction.CommitAsync();
                     return "Record rejected successfully. Workflow terminated.";
                 }
@@ -159,12 +159,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, loggedInEmployeeId, targetEmployeeIdsForNextLevel, LeavePassageAmount,count);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, nextLevelNumber,loggedInEmployeeId, targetEmployeeIdsForNextLevel, LeavePassageAmount,count);
                     await _dbContext.SaveChangesAsync();
                 }
                 else
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, loggedInEmployeeId, null, LeavePassageAmount,count);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, currentRecord.LevelNumber, loggedInEmployeeId, null, LeavePassageAmount,count);
                     await _dbContext.SaveChangesAsync();
                 }
 
@@ -185,7 +185,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel, decimal? LeavePassageAmount,int count)
+        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex,int? nextLevelNumber, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel, decimal? LeavePassageAmount,int count)
         {
             if (entityCode == _configuration["WorkflowEntityCodes:SalaryTemplate"])
             {
@@ -704,7 +704,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations.Where(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
                                                x.EntityCode == "EMPSALGEN" &&
-                                               x.LevelNumber == cycleIndex).ToListAsync();
+                                               x.CycleIndex == cycleIndex).ToListAsync();
                     var previousApprovalWorkflow = approvalworkflow.OrderByDescending(x => x.LevelNumber).Skip(1) .FirstOrDefault();
                     var notificationConfig = await _dbContext.NotificationsConfig
                            .FirstOrDefaultAsync(x => x.EntityCode == "SALARYGEN" && x.NotificationType == "Final Approved");

@@ -179,7 +179,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         results.Add($"Failed for ID {request.EntityTablePrimaryKeyID}: {result}");
                         continue;
                     }
-
+                    count++;
                     results.Add($"Success for ID {request.EntityTablePrimaryKeyID}: {result}");
                 }
                 catch (ArgumentNullException argEx)
@@ -197,8 +197,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 catch (Exception ex)
                 {
                     results.Add($"Exception for ID {request.EntityTablePrimaryKeyID}: {ex.Message}");
-                }
-                count++;
+                }               
             }
 
             if (results.Any(r => r.StartsWith("Failed") || r.StartsWith("Exception")))
