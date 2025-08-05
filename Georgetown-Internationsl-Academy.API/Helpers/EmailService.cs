@@ -38,7 +38,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 
                     var mailMessage = new MailMessage
                     {
-                        From = new MailAddress(_settings.Email, "George Town International Academy"),
+                        From = new MailAddress(_settings.Email, "GeorgeTown International Academy"),
                         Subject = subject,
                         Body = htmlBody,
                         IsBodyHtml = true

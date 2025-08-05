@@ -435,8 +435,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         }
                     }
                 }
-                else if (finalStatus == "APPROVED" || finalStatus == "REJECTED" || finalStatus == "INTERIM APPROVED")
+                else if (finalStatus == "APPROVED" || finalStatus == "REJECTED" || finalStatus == "INTERIM APPROVED" || finalStatus == "HR APPROVED")
                 {
+
                     string notifType = string.Empty;
 
                     if (finalStatus == "INTERIM APPROVED")
@@ -476,7 +477,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
                             string emailBody = "";
-                            if (finalStatus == "INTERIM APPROVED")
+                            if (finalStatus == "INTERIM APPROVED" ||finalStatus == "HR APPROVED")
                             {
                                 emailBody = notificationConfig.EmailContent
                                     .Replace("#CREATORNAME#", creatorName.FullName)
