@@ -38,7 +38,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 
                     var mailMessage = new MailMessage
                     {
-                        From = new MailAddress(_settings.Email, "GeorgeTown International Academy"),
+                        From = new MailAddress(_settings.Email, "Georgetown International Academy"),
                         Subject = subject,
                         Body = htmlBody,
                         IsBodyHtml = true
@@ -73,7 +73,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 
                 using var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(_settings.Email, "GeorgeTown International Academy"),
+                    From = new MailAddress(_settings.Email, "Georgetown International Academy"),
                     Subject = subject,
                     Body = htmlBody,
                     IsBodyHtml = true
