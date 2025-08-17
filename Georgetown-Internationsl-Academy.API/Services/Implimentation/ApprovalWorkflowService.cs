@@ -165,7 +165,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 else
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, status == "REJECTED" ? 0 : status == "APPROVED" ? 99 : currentRecord.LevelNumber, loggedInEmployeeId, null, LeavePassageAmount,count, rejectReason,currentRecord.SourceIdEmployee);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, status == "REJECTED" ? 0 :  99 , loggedInEmployeeId, null, LeavePassageAmount,count, rejectReason,currentRecord.SourceIdEmployee);
                     await _dbContext.SaveChangesAsync();
                 }
 
@@ -192,7 +192,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var entity = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
-                if ( finalStatus == "APPROVED" || finalStatus == "REJECTED")
+                if ( finalStatus == "REJECTED"|| nextLevelNumber ==99)
                 {
                     targetEmployeeIdsForNextLevel = sourceIdEmployee.ToString();
                 }
@@ -213,7 +213,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     var toEmail = emp["Email"];
                     if (!string.IsNullOrWhiteSpace(toEmail))
                     {
-                        EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, notificationConfig.EmailContent);
+                        EmailService.SendMail(toEmail, notificationConfig.EmailSubject, notificationConfig.EmailContent);
                     }
                     var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
@@ -247,7 +247,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var entity = await _dbContext.EmployeeSalaryConfig.FindAsync(entityTablePrimaryKeyID);
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
-                if ( finalStatus == "APPROVED" || finalStatus == "REJECTED")
+                if ( finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
                     targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
                 }
@@ -270,7 +270,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     var toEmail = emp["Email"];
                     if (!string.IsNullOrWhiteSpace(toEmail))
                     {
-                        EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, notificationConfig.EmailContent);
+                        EmailService.SendMail(toEmail, notificationConfig.EmailSubject, notificationConfig.EmailContent);
                     }
                     var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
@@ -304,7 +304,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var entity = await _dbContext.OvertimeTransactions.FindAsync(entityTablePrimaryKeyID);
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
-                if( finalStatus  == "APPROVED"|| finalStatus == "REJECTED")
+                if( finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
                     targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
                 }
@@ -326,7 +326,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     var toEmail = emp["Email"];
                     if (!string.IsNullOrWhiteSpace(toEmail))
                     {
-                         EmailService.SendMail("sandeep241798@gmail.com",notificationConfig.EmailSubject,notificationConfig.EmailContent);
+                         EmailService.SendMail(toEmail,notificationConfig.EmailSubject,notificationConfig.EmailContent);
                     }
                     var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
@@ -364,7 +364,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (entity != null)
                 {
 
-                    if (finalStatus == "APPROVED")
+                    if (nextLevelNumber ==99)
                     {
                         entity.LeavePassageAmount = LeavePassageAmount;
                     }
@@ -373,7 +373,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                 }
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
-                if ( finalStatus == "APPROVED" || finalStatus == "REJECTED")
+                if ( finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
                     targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
                 }
@@ -388,7 +388,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     var toEmail = emp["Email"];
                     if (!string.IsNullOrWhiteSpace(toEmail))
                     {
-                        EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, notificationConfig.EmailContent);
+                        EmailService.SendMail(toEmail, notificationConfig.EmailSubject, notificationConfig.EmailContent);
                     }
                     var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
