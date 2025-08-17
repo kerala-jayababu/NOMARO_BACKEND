@@ -1021,6 +1021,27 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+        [HttpGet("GetWorkflowConfigList1")]
+        public async Task<IActionResult> GetWorkflowConfigList1(int entityId)
+        {
+            try
+            {
+                var conversions = await _optionService.GetWorkflowConfigDetailsList(entityId);
+
+                if (conversions == null || !conversions.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<WorkFlowConfigDetails>>.CreateSuccess(Enumerable.Empty<WorkFlowConfigDetails>(), "No Workflow Config Details found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<WorkFlowConfigDetails>>.CreateSuccess(conversions, "Workflow Flow Config Details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
         #endregion
     }
 }

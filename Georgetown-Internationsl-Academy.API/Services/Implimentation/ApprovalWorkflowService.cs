@@ -11,6 +11,7 @@ using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Ocsp;
 using System.Collections.Generic;
 using System.Data;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -90,12 +91,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                     if (actionStatussubmitted == "FINAL APPROVED")
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1,1, null, null, null,count);
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "FINAL APPROVED", 1,1, null, null, null,count, rejectReason,null);
                         return "Approval workflow initiated.";
                     }
                     else
                     {
-                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1,1, loggedInEmployeeId, targetEmployeeIds, null, count);
+                        await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "SUBMITTED", 1,1, loggedInEmployeeId, targetEmployeeIds, null, count, rejectReason,null);
                     }
 
                     return "Approval workflow initiated.";
@@ -123,7 +124,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (status == "REJECTED")
                 {
 
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex, workflowConfigDetailsFinal.LevelNumber, loggedInEmployeeId, null, LeavePassageAmount,count);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, "REJECTED", currentRecord.CycleIndex, workflowConfigDetailsFinal.LevelNumber, loggedInEmployeeId, null, LeavePassageAmount,count, rejectReason,currentRecord.SourceIdEmployee);
                     //await transaction.CommitAsync();
                     return "Record rejected successfully. Workflow terminated.";
                 }
@@ -159,12 +160,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, nextLevelNumber,loggedInEmployeeId, targetEmployeeIdsForNextLevel, LeavePassageAmount,count);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, newNextLevelRecord.CycleIndex, nextLevelNumber,loggedInEmployeeId, targetEmployeeIdsForNextLevel,  LeavePassageAmount,count, rejectReason,null);
                     await _dbContext.SaveChangesAsync();
                 }
                 else
                 {
-                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, currentRecord.LevelNumber, loggedInEmployeeId, null, LeavePassageAmount,count);
+                    await UpdateEntityStatus(entityTablePrimaryKeyID, entityCode, workflowConfigDetailsFinal.ApprovalStatusName, currentRecord.CycleIndex, status == "REJECTED" ? 0 : status == "APPROVED" ? 99 : currentRecord.LevelNumber, loggedInEmployeeId, null, LeavePassageAmount,count, rejectReason,currentRecord.SourceIdEmployee);
                     await _dbContext.SaveChangesAsync();
                 }
 
@@ -185,106 +186,59 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex,int? nextLevelNumber, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel, decimal? LeavePassageAmount,int count)
+        private async Task UpdateEntityStatus(int entityTablePrimaryKeyID, string entityCode, string finalStatus, int cycleIndex,int? nextLevelNumber, int? loggedInEmployeeId, string targetEmployeeIdsForNextLevel, decimal? LeavePassageAmount,int count,string? rejectReason,int? sourceIdEmployee)
         {
             if (entityCode == _configuration["WorkflowEntityCodes:SalaryTemplate"])
             {
                 var entity = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
+                var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
+                if ( finalStatus == "APPROVED" || finalStatus == "REJECTED")
+                {
+                    targetEmployeeIdsForNextLevel = sourceIdEmployee.ToString();
+                }
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
                     await _dbContext.SaveChangesAsync();
                 }
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
+                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                var employees = await GetEmployeesByIds(employeeIdList);
+                var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+                var receiverEmails = employees.Select(e => e["Email"]).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                var notificationConfig = await GetNotificationConfigForEntity(entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
 
-                if (finalStatus == "SUBMITTED")
+                foreach (var emp in employees)
                 {
-                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
-
-
-                    foreach (var empId in employeeIdList)
+                    var toEmail = emp["Email"];
+                    if (!string.IsNullOrWhiteSpace(toEmail))
                     {
-
-                        var approverName = await GetFullNameById(empId);
-                        var creatorName = await GetFullNameById(loggedInEmployeeId);
-                        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-
-                        var notificationConfig = await _dbContext.NotificationsConfig
-                            .FirstOrDefaultAsync(x => x.EntityCode == "SALTEM" && x.NotificationType == "Salary Template Submitted for Approval");
-
-                        var notification = await CreateNotificationforSalaryTemplate(empId, (int)loggedInEmployeeId, notificationConfig, approverName.FullName, creatorName.FullName, entityTablePrimaryKeyID, createdDateTime, entity.SalaryTemplateName, "SUBMITTED", null);
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(empId);
-                        if (tokenDetails != null)
-                        {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrl(tokenvalue);
-                            string emailBody = await GenerateEmailBody(notificationConfig.EmailContent, empId, loggedInEmployeeId, entity.SalaryTemplateName, actionUrl);
-
-                            await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
+                        EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, notificationConfig.EmailContent);
                     }
-                }
-                else if (finalStatus == "APPROVED" || finalStatus == "REJECTED")
-                {
-                    string notifType = finalStatus == "APPROVED"
-                        ? "Salary Template Approved"
-                        : "Salary Template Rejected";
+                    var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
-
-                    var notificationConfig = await _dbContext.NotificationsConfig
-                        .FirstOrDefaultAsync(x => x.EntityCode == "SALTEM" && x.NotificationType == notifType);
-
-                    var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
-                        .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
-                                                  x.EntityCode == "SALTEM" &&
-
-                                                  x.CycleIndex == cycleIndex);
-                    var approverName = await GetFullNameById(loggedInEmployeeId);
-                    var creatorName = await GetFullNameById(approvalworkflow.SourceIdEmployee);
-                    string approvedDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-                    if (approvalworkflow != null)
+                    if (employeeDetails != null)
                     {
-                        var notification = await CreateNotificationforSalaryTemplate((int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee, notificationConfig, approverName.FullName, creatorName.FullName, approvalworkflow.EntityTablePrimaryKeyID, approvedDateTime, entity.SalaryTemplateName, finalStatus, approvalworkflow.RejectionRemarks);
-
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(approvalworkflow.SourceIdEmployee);
-                        if (tokenDetails != null)
+                        Notification obj = new Notification
                         {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrl(tokenvalue);
+                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                            NotificationType = notificationConfig.NotificationType,
+                            SentByIdEmployee = loggedInEmployeeId,
+                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            AppNotificationText = notificationConfig.AppNotificationText,
+                            EmailSubject = notificationConfig.EmailSubject,
+                            EmailContent = notificationConfig.EmailContent,
+                            EmailSentStatus = "SENT",
+                            IsReadAppNotification = false,
+                            CreatedAt = DateTime.Now,
+                            Status = "SENT",
+                            RelatedRecordID = entityTablePrimaryKeyID,
+                            RelatedRecordType = entityCode,
+                            LogoText = notificationConfig.LogoText
+                        };
 
-                            var entitys = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
-
-                            string salaryTemplateName = entitys?.SalaryTemplateName ?? "N/A";
-
-
-                            string emailBody = "";
-
-                            if (finalStatus == "APPROVED")
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("#CREATORNAME#", creatorName.FullName)
-                                    .Replace("#SALARYTEMPLATENAME#", salaryTemplateName)
-                                    .Replace("#APPROVERNAME#", approverName.FullName)
-                                    .Replace("#APPROVEDDATETIME#", approvedDateTime);
-                            }
-                            else // REJECTED
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("#CREATORNAME#", creatorName.FullName)
-                                    .Replace("#SALARYTEMPLATENAME#", salaryTemplateName)
-                                    .Replace("#APPROVERNAME#", approverName.FullName)
-                                    .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
-                            }
-
-                            emailBody += $"<p><a href='{actionUrl}'>Click here to view the Salary Template</a></p>";
-
-                            await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
+                        await _dbContext.Notifications.AddAsync(obj);
+                        await _dbContext.SaveChangesAsync();
                     }
                 }
 
@@ -292,221 +246,114 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"])
             {
                 var entity = await _dbContext.EmployeeSalaryConfig.FindAsync(entityTablePrimaryKeyID);
-                var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
-                var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
+                var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
+                if ( finalStatus == "APPROVED" || finalStatus == "REJECTED")
+                {
+                    targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
+                }
+                //var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
+                //var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
                     await _dbContext.SaveChangesAsync();
                 }
 
-                if (finalStatus == "SUBMITTED")
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
+                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                var employees = await GetEmployeesByIds(employeeIdList);
+                var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+                var receiverEmails = employees.Select(e => e["Email"]).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                var notificationConfig = await GetNotificationConfigForEntity(entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
+                foreach (var emp in employees)
                 {
-                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
-
-
-                    foreach (var empId in employeeIdList)
+                    var toEmail = emp["Email"];
+                    if (!string.IsNullOrWhiteSpace(toEmail))
                     {
+                        EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, notificationConfig.EmailContent);
+                    }
+                    var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
-                        var approverName = await GetFullNameById(empId);
-                        var creatorName = await GetFullNameById(loggedInEmployeeId);
-                        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-
-                        var notificationConfig = await _dbContext.NotificationsConfig
-                            .FirstOrDefaultAsync(x => x.EntityCode == "SALTEM" && x.NotificationType == "Employee Salary Config Submitted for Approval");
-
-                        var notification = await CreateNotificationforEnmployeeSalaryConfig(approverName.FullName, employeename, creatorName.FullName, createdDateTime, notificationConfig, (int)loggedInEmployeeId, empId, entityTablePrimaryKeyID, "SUBMITTED", null);
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(empId);
-                        if (tokenDetails != null)
+                    if (employeeDetails != null)
+                    {
+                        Notification obj = new Notification
                         {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrlForEmployeeSalaryConfig(tokenvalue);
-                            string emailBody = await GenerateEmailBodyForEmployeeSalryConfig(notificationConfig.EmailContent, empId, loggedInEmployeeId, employeename, actionUrl);
+                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                            NotificationType = notificationConfig.NotificationType,
+                            SentByIdEmployee = loggedInEmployeeId,
+                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            AppNotificationText = notificationConfig.AppNotificationText,
+                            EmailSubject = notificationConfig.EmailSubject,
+                            EmailContent = notificationConfig.EmailContent,
+                            EmailSentStatus = "SENT",
+                            IsReadAppNotification = false,
+                            CreatedAt = DateTime.Now,
+                            Status = "SENT",
+                            RelatedRecordID = entityTablePrimaryKeyID,
+                            RelatedRecordType = entityCode,
+                            LogoText = notificationConfig.LogoText
+                        };
 
-                            await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
+                        await _dbContext.Notifications.AddAsync(obj);
+                        await _dbContext.SaveChangesAsync();
                     }
                 }
-                else if (finalStatus == "APPROVED" || finalStatus == "REJECTED")
-                {
-                    string notifType = finalStatus == "APPROVED"
-                        ? "Employee Salary Config Approved"
-                        : "Employee Salary Config  Rejected";
-
-
-                    var notificationConfig = await _dbContext.NotificationsConfig
-                        .FirstOrDefaultAsync(x => x.EntityCode == "SALTEM" && x.NotificationType == notifType);
-
-                    var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
-                        .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
-                                                  x.EntityCode == "EMPSALCONFIG" &&
-                                                  x.CycleIndex == cycleIndex);
-                    var approverName = await GetFullNameById(loggedInEmployeeId);
-                    var creatorName = await GetFullNameById(approvalworkflow.SourceIdEmployee);
-                    string approvedDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-                    if (approvalworkflow != null)
-                    {
-                        var notification = await CreateNotificationforEnmployeeSalaryConfig(approverName.FullName, employeename, creatorName.FullName, approvedDateTime, notificationConfig, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee, entityTablePrimaryKeyID, finalStatus, approvalworkflow.RejectionRemarks);
-
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(approvalworkflow.SourceIdEmployee);
-                        if (tokenDetails != null)
-                        {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrlForEmployeeSalaryConfigForAPPROVEDREjected(tokenvalue);
-
-                            var entitys = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
-
-                            string salaryTemplateName = entitys?.SalaryTemplateName ?? "N/A";
-
-
-                            string emailBody = "";
-
-                            if (finalStatus == "APPROVED")
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("#CREATERNAME#", creatorName.FullName)
-                                    .Replace("#SALARYEMPLOYEENAME#", employeename)
-                                    .Replace("#APPROVERNAME#", approverName.FullName)
-                                    .Replace("#APPROVEDDATETIME#", approvedDateTime);
-                            }
-                            else // REJECTED
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("##RECEIVEDEMPLOYEENAME##", creatorName.FullName)
-                                    .Replace("#SALARYEMPLOYEENAME#", employeename)
-                                    .Replace("#CREATERNAME#", approverName.FullName)
-                                    .Replace("#APPROVEDDATETIME#", approvedDateTime)
-                                    .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
-                            }
-                            emailBody += $"<p><a href='{actionUrl}'>Click here to view the employee salry config</a></p>";
-                            await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
-                    }
-                }
-
-
 
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:OVERTIME"])
             {
                 var entity = await _dbContext.OvertimeTransactions.FindAsync(entityTablePrimaryKeyID);
-                var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
-                var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
+                var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
+                if( finalStatus  == "APPROVED"|| finalStatus == "REJECTED")
+                {
+                    targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
+                }
+                
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
                     await _dbContext.SaveChangesAsync();
                 }
-
-
-                if (finalStatus == "SUBMITTED")
+                
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
+                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                var employees = await GetEmployeesByIds(employeeIdList);
+                var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+                var receiverEmails = employees.Select(e => e["Email"]).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                var notificationConfig = await GetNotificationConfigForEntity(entityCode,nextLevelNumber ?? 0,senderName,receiverNames, rejectReason);
+                foreach (var emp in employees)
                 {
-                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
-
-
-                    foreach (var empId in employeeIdList)
+                    var toEmail = emp["Email"];
+                    if (!string.IsNullOrWhiteSpace(toEmail))
                     {
+                         EmailService.SendMail("sandeep241798@gmail.com",notificationConfig.EmailSubject,notificationConfig.EmailContent);
+                    }
+                    var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
-                        var approverName = await GetFullNameById(empId);
-                        var creatorName = await GetFullNameById(loggedInEmployeeId);
-                        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-
-                        var notificationConfig = await _dbContext.NotificationsConfig
-                            .FirstOrDefaultAsync(x => x.EntityCode == "OVERTIME" && x.NotificationType == "Overtime Transaction Submitted for Approval");
-
-                        var notification = await CreateNotificationforOvertimeConfig(approverName.FullName, employeename, creatorName.FullName, createdDateTime, notificationConfig, (int)loggedInEmployeeId, empId, entityTablePrimaryKeyID, "SUBMITTED", null);
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(empId);
-                        if (tokenDetails != null)
+                    if (employeeDetails != null)
+                    {
+                        Notification obj = new Notification
                         {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrlForEmployeeSalaryConfig(tokenvalue);
-                            string emailBody = await GenerateEmailBodyForOvertimeConfig(notificationConfig.EmailContent, empId, loggedInEmployeeId, employeename, actionUrl);
+                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                            NotificationType = notificationConfig.NotificationType,
+                            SentByIdEmployee = loggedInEmployeeId,
+                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            AppNotificationText = notificationConfig.AppNotificationText,
+                            EmailSubject = notificationConfig.EmailSubject,
+                            EmailContent = notificationConfig.EmailContent,
+                            EmailSentStatus = "SENT",
+                            IsReadAppNotification = false,
+                            CreatedAt = DateTime.Now,
+                            Status = "SENT",
+                            RelatedRecordID = entityTablePrimaryKeyID,
+                            RelatedRecordType = entityCode,
+                            LogoText = notificationConfig.LogoText
+                        };
 
-                            await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
+                        await _dbContext.Notifications.AddAsync(obj);
+                        await _dbContext.SaveChangesAsync();
                     }
                 }
-                else if (finalStatus == "APPROVED" || finalStatus == "REJECTED" || finalStatus == "INTERIM APPROVED" || finalStatus == "HR APPROVED")
-                {
-
-                    string notifType = string.Empty;
-
-                    if (finalStatus == "INTERIM APPROVED")
-                        notifType = "Overtime Transaction Interim Approved";
-                    else if (finalStatus == "APPROVED")
-                        notifType = "Overtime Transaction Approved";
-                    else
-                        notifType = "Overtime Transaction Rejected";
-
-
-                    var notificationConfig = await _dbContext.NotificationsConfig
-                        .FirstOrDefaultAsync(x => x.EntityCode == "OVERTIME" && x.NotificationType == notifType);
-
-                    var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
-                        .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
-                                                  x.EntityCode == "OVERTIME" &&
-                                                  x.CycleIndex == cycleIndex);
-                    var approverName = await GetFullNameById(loggedInEmployeeId);
-                    var creatorName = await GetFullNameById(approvalworkflow.SourceIdEmployee);
-                    string approvedDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-                    if (approvalworkflow != null)
-                    {
-                        var notification = await CreateNotificationforOvertimeConfig(approverName.FullName, employeename, creatorName.FullName, approvedDateTime, notificationConfig, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee, entityTablePrimaryKeyID, finalStatus, approvalworkflow.RejectionRemarks);
-
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(approvalworkflow.SourceIdEmployee);
-                        if (tokenDetails != null)
-                        {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrlForOvertimeConfigForAPPROVEDREjected(tokenvalue);
-
-                            var entitys = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
-
-                            string salaryTemplateName = entitys?.SalaryTemplateName ?? "N/A";
-
-
-                            string emailBody = "";
-                            if (finalStatus == "INTERIM APPROVED" ||finalStatus == "HR APPROVED")
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("#CREATORNAME#", creatorName.FullName)
-                                    .Replace("#APPROVERNAME#", approverName.FullName)
-                                    .Replace("#APPROVEDEDDATETIME#", approvedDateTime);
-                            }
-                            else
-                            if (finalStatus == "APPROVED")
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("#CREATORNAME#", creatorName.FullName)
-                                    .Replace("#APPROVEDEDDATETIME#", approvedDateTime);
-                            }
-                            else
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("#RECEIVEDEMPLOYEENAME#", creatorName.FullName)
-                                    .Replace("#REJECTEDEMPLOYEENAME#", approverName.FullName)
-                                    .Replace("#REJECTEDEDDATETIME#", approvedDateTime)
-                                    .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
-                            }
-                            emailBody += $"<p><a href='{actionUrl}'>Click here to view the Overtime Tranasaction</a></p>";
-                            await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
-                    }
-                }
-
-
-
 
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:LEAVEPASS"])
@@ -525,98 +372,51 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.ApprovalStatus = finalStatus;
                     await _dbContext.SaveChangesAsync();
                 }
-
-                if (finalStatus == "SUBMITTED")
+                var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
+                if ( finalStatus == "APPROVED" || finalStatus == "REJECTED")
                 {
-                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
-
-
-                    foreach (var empId in employeeIdList)
+                    targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
+                }
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
+                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                var employees = await GetEmployeesByIds(employeeIdList);
+                var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+                var receiverEmails = employees.Select(e => e["Email"]).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                var notificationConfig = await GetNotificationConfigForEntity(entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
+                foreach (var emp in employees)
+                {
+                    var toEmail = emp["Email"];
+                    if (!string.IsNullOrWhiteSpace(toEmail))
                     {
+                        EmailService.SendMail("sandeep241798@gmail.com", notificationConfig.EmailSubject, notificationConfig.EmailContent);
+                    }
+                    var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
 
-                        var approverName = await GetFullNameById(empId);
-                        var creatorName = await GetFullNameById(loggedInEmployeeId);
-                        string createdDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-
-                        var notificationConfig = await _dbContext.NotificationsConfig
-                            .FirstOrDefaultAsync(x => x.EntityCode == "LEAVEPASS" && x.NotificationType == "Leave Passage Submitted for Approval");
-
-                        var notification = await CreateNotificationforLeavePasage(approverName.FullName, employeename, creatorName.FullName, createdDateTime, notificationConfig, (int)loggedInEmployeeId, empId, entityTablePrimaryKeyID, "SUBMITTED", null);
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(empId);
-                        if (tokenDetails != null)
+                    if (employeeDetails != null)
+                    {
+                        Notification obj = new Notification
                         {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrlForLeavePassageForAPPROVEDREjected(tokenvalue);
-                            string emailBody = await GenerateEmailBodyForLeavePasage(notificationConfig.EmailContent, empId, loggedInEmployeeId, employeename, actionUrl);
+                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                            NotificationType = notificationConfig.NotificationType,
+                            SentByIdEmployee = loggedInEmployeeId,
+                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            AppNotificationText = notificationConfig.AppNotificationText,
+                            EmailSubject = notificationConfig.EmailSubject,
+                            EmailContent = notificationConfig.EmailContent,
+                            EmailSentStatus = "SENT",
+                            IsReadAppNotification = false,
+                            CreatedAt = DateTime.Now,
+                            Status = "SENT",
+                            RelatedRecordID = entityTablePrimaryKeyID,
+                            RelatedRecordType = entityCode,
+                            LogoText = notificationConfig.LogoText
+                        };
 
-                            await EmailService.SendMail(approverName.Email, notificationConfig.EmailSubject, emailBody);
-                        }
+                        await _dbContext.Notifications.AddAsync(obj);
+                        await _dbContext.SaveChangesAsync();
                     }
                 }
-                else if (finalStatus == "APPROVED" || finalStatus == "REJECTED")
-                {
-                    string notifType = finalStatus == "APPROVED"
-                        ? "Leave Passage Approved"
-                        : "Leave Passage Rejected";
-
-
-                    var notificationConfig = await _dbContext.NotificationsConfig
-                        .FirstOrDefaultAsync(x => x.EntityCode == "LEAVEPASS" && x.NotificationType == notifType);
-
-                    var approvalworkflow = await _dbContext.ApprovalWorkFlowAllocations
-                        .FirstOrDefaultAsync(x => x.EntityTablePrimaryKeyID == entityTablePrimaryKeyID &&
-                                                  x.EntityCode == "LEAVEPASS" &&
-                                                  x.CycleIndex == cycleIndex);
-                    var approverName = await GetFullNameById(loggedInEmployeeId);
-                    var creatorName = await GetFullNameById(approvalworkflow.SourceIdEmployee);
-                    string approvedDateTime = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
-                    if (approvalworkflow != null)
-                    {
-                        var notification = await CreateNotificationforLeavePasage(approverName.FullName, employeename, creatorName.FullName, approvedDateTime, notificationConfig, (int)loggedInEmployeeId, approvalworkflow.SourceIdEmployee, entityTablePrimaryKeyID, finalStatus, approvalworkflow.RejectionRemarks);
-
-                        await _dbContext.Notifications.AddAsync(notification);
-                        await _dbContext.SaveChangesAsync();
-
-                        var tokenDetails = await _accountService.LoginForMail(approvalworkflow.SourceIdEmployee);
-                        if (tokenDetails != null)
-                        {
-                            var tokenvalue = $"{tokenDetails.Token},{notification.IdNotification}";
-                            string actionUrl = GenerateActionUrlForLeavePassageForAPPROVEDREjected(tokenvalue);
-
-                            // var entitys = await _dbContext.LeavePassages.FindAsync(entityTablePrimaryKeyID);
-
-
-
-                            string emailBody = "";
-
-                            if (finalStatus == "APPROVED")
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("#CREATERNAME#", creatorName.FullName)
-                                    .Replace("#APPROVERNAME#", approverName.FullName)
-                                    .Replace("#APPROVEDDATETIME#", approvedDateTime);
-                            }
-                            else // REJECTED
-                            {
-                                emailBody = notificationConfig.EmailContent
-                                    .Replace("##RECEIVEDEMPLOYEENAME##", creatorName.FullName)
-                                    .Replace("#CREATERNAME#", approverName.FullName)
-                                    .Replace("#APPROVEDDATETIME#", approvedDateTime)
-                                    .Replace("#REJECTIONREASON#", approvalworkflow.RejectionRemarks ?? "No reason provided.");
-                            }
-                            emailBody += $"<p><a href='{actionUrl}'>Click here to view the leave passage details</a></p>";
-                            await EmailService.SendMail(creatorName.Email, notificationConfig.EmailSubject, notification.EmailContent);
-                        }
-                    }
-                }
-
-
-
             }
-
             else if (entityCode == _configuration["WorkflowEntityCodes:EMPSALGEN"])
             {
                 var entity = await _dbContext.EmployeeSalaries.FindAsync(entityTablePrimaryKeyID);
@@ -770,6 +570,78 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
+
+        private async Task<List<Dictionary<string, string>>> GetEmployeesByIds(List<int> employeeIds)
+        {
+            if (employeeIds == null || employeeIds.Count == 0)
+                return new List<Dictionary<string, string>>();
+
+            var empDataList = await _dbContext.Employees
+                .Where(e => employeeIds.Contains(e.IdEmployee))
+                .Select(e => new
+                {
+                    FirstName = e.FirstName,
+                    MiddleName = e.MiddleName,
+                    LastName = e.LastName,
+                    Email = e.EmailID
+                })
+                .ToListAsync();
+
+            var result = empDataList
+                .Select(e => new Dictionary<string, string>
+                {
+                    ["Name"] = $"{e.FirstName ?? ""} {e.MiddleName ?? ""} {e.LastName ?? ""}".Trim(),
+                    ["Email"] = e.Email ?? ""
+                })
+                .ToList();
+
+            return result;
+        }
+
+        public async Task<NotificationConfig> GetNotificationConfigForEntity(string EntityCode, int LevelNumber, string SenderName, string ReceiverName,string? rejectReason)
+        {
+            try
+            {
+                if(rejectReason != null && rejectReason!= string.Empty)
+                {
+                    LevelNumber = 0;
+                }
+                var nConfig = await _dbContext.NotificationsConfig
+                    .FirstOrDefaultAsync(n => n.EntityCode == EntityCode && n.LevelNumber == LevelNumber);
+
+                if (nConfig == null || string.IsNullOrEmpty(nConfig.EmailContent))
+                {
+                    return new NotificationConfig(); 
+                }
+
+                string emailContent = nConfig.EmailContent;
+
+                nConfig.EmailContent = emailContent
+                    .Replace("#SENDER#", SenderName)
+                    .Replace("#RECEIVER#", ReceiverName)
+                    .Replace("#REJECTIONREASON#",rejectReason)
+                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"));
+
+                string appContent = nConfig.AppNotificationText;
+
+                nConfig.AppNotificationText = appContent
+                    .Replace("#SENDER#", SenderName)
+                    .Replace("#RECEIVER#", ReceiverName)
+                    .Replace("#REJECTIONREASON#", rejectReason)
+                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"));
+
+
+
+
+                return nConfig;
+            }
+            catch (Exception)
+            {
+                throw; 
+            }
+        }
+
+       
 
         private List<int> ParseEmployeeIds(string csv)
         {
@@ -1244,6 +1116,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return await _dbContext.Employees
                     .Where(e => e.IdEmployee == loggedInEmployeeId)
                     .Select(e => (int)e.ReportingTo)
+                    .ToListAsync();
+            }
+            else if (workflowConfigDetails.ApprovalAuthorityType == "EMPLOYEE")
+            {
+                return await _dbContext.Employees
+                    .Where(e => e.IdEmployee == loggedInEmployeeId)
+                    .Select(e => (int)e.IdEmployee)
                     .ToListAsync();
             }
 

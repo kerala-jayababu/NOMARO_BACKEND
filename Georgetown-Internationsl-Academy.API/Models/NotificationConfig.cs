@@ -16,6 +16,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? LogoText { get; set; }
         public bool? EmailNotificationEnabled { get; set; }
         public bool? AppNotificationEnabled { get; set; }
+        public int? LevelNumber { get; set; }
+        
     }
 
 }

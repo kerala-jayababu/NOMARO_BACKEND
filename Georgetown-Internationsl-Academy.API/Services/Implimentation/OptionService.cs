@@ -346,5 +346,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<List<WorkFlowConfigDetails>> GetWorkflowConfigDetailsList(int  entityId)
+        {
+            try
+            {
+                var notification = await _dbContext.WorkFlowConfigDetails
+                    .Where(x => x.IdWorkFlowConfig == entityId).ToListAsync();
+                return notification;
+            }
+            catch (Exception ex)
+            {
+               
+                return null;
+            }
+        }
+
+        
+
     }
 }
