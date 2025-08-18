@@ -346,22 +346,46 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<List<WorkFlowConfigDetails>> GetWorkflowConfigDetailsList(int  entityId)
+        public async Task<List<WorkFlowConfigDetails>> GetWorkflowConfigDetailsList(int entityId)
         {
             try
             {
                 var notification = await _dbContext.WorkFlowConfigDetails
-                    .Where(x => x.IdWorkFlowConfig == entityId).ToListAsync();
+                    .Where(x => x.IdWorkFlowConfig == entityId)
+                    .ToListAsync();
+
+                // Hardcoded Submitted and Rejected
+                notification.Insert(0, new WorkFlowConfigDetails
+                {
+                    IdWorkFlowConfigDetail = 0,
+                    IdWorkFlowConfig = entityId,
+                    LevelNumber = 0,
+                    ApprovalAuthorityType = "System",
+                    ApprovalAuthorityID = null,
+                    ApprovalStatusName = "SUBMITTED"
+                });
+
+                notification.Add(new WorkFlowConfigDetails
+                {
+                    IdWorkFlowConfigDetail = -1,
+                    IdWorkFlowConfig = entityId,
+                    LevelNumber = 0,
+                    ApprovalAuthorityType = "System",
+                    ApprovalAuthorityID = null,
+                    ApprovalStatusName = "REJECTED"
+                });
+
                 return notification;
             }
             catch (Exception ex)
             {
-               
+                // log exception here if needed
                 return null;
             }
         }
 
-        
+
+
 
     }
 }

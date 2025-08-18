@@ -234,7 +234,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
-                            LogoText = notificationConfig.LogoText
+                            LogoText = notificationConfig.LogoText,
+                            NotificationLink = notificationConfig.NotificationLink
                         };
 
                         await _dbContext.Notifications.AddAsync(obj);
@@ -291,7 +292,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
-                            LogoText = notificationConfig.LogoText
+                            LogoText = notificationConfig.LogoText,
+                            NotificationLink = notificationConfig.NotificationLink
                         };
 
                         await _dbContext.Notifications.AddAsync(obj);
@@ -347,7 +349,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
-                            LogoText = notificationConfig.LogoText
+                            LogoText = notificationConfig.LogoText,
+                            NotificationLink = notificationConfig.NotificationLink
                         };
 
                         await _dbContext.Notifications.AddAsync(obj);
@@ -409,7 +412,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
-                            LogoText = notificationConfig.LogoText
+                            LogoText = notificationConfig.LogoText,
+                            NotificationLink = notificationConfig.NotificationLink
                         };
 
                         await _dbContext.Notifications.AddAsync(obj);
@@ -598,50 +602,99 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return result;
         }
 
-        public async Task<NotificationConfig> GetNotificationConfigForEntity(string EntityCode, int LevelNumber, string SenderName, string ReceiverName,string? rejectReason)
+        public async Task<NotificationConfigDto> GetNotificationConfigForEntity(
+     string EntityCode,
+     int LevelNumber,
+     string SenderName,
+     string ReceiverName,
+     string? rejectReason)
         {
             try
             {
-                if(rejectReason != null && rejectReason!= string.Empty)
+                if (!string.IsNullOrEmpty(rejectReason))
                 {
                     LevelNumber = 0;
                 }
+
                 var nConfig = await _dbContext.NotificationsConfig
+                    .AsNoTracking() // ensures EF won’t track it
                     .FirstOrDefaultAsync(n => n.EntityCode == EntityCode && n.LevelNumber == LevelNumber);
 
                 if (nConfig == null || string.IsNullOrEmpty(nConfig.EmailContent))
                 {
-                    return new NotificationConfig(); 
+                    return null; // or new NotificationConfigDto() if you prefer
                 }
 
-                string emailContent = nConfig.EmailContent;
-
-                nConfig.EmailContent = emailContent
+                // Prepare processed content
+                string emailContent = nConfig.EmailContent
                     .Replace("#SENDER#", SenderName)
                     .Replace("#RECEIVER#", ReceiverName)
-                    .Replace("#REJECTIONREASON#",rejectReason)
+                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
                     .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"));
 
-                string appContent = nConfig.AppNotificationText;
-
-                nConfig.AppNotificationText = appContent
+                string appContent = nConfig.AppNotificationText?
                     .Replace("#SENDER#", SenderName)
                     .Replace("#RECEIVER#", ReceiverName)
-                    .Replace("#REJECTIONREASON#", rejectReason)
+                       .Replace("#APPROVERNAME#", SenderName)
+                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
                     .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"));
 
 
+                string notificationLink;
 
+                // Case 1: Level = 1 → always "config-approvals"
+                if (LevelNumber == 1)
+                {
+                    notificationLink = "config-approvals";
+                }
+                // Case 2: Level = 0 or 99 → depends on EntityCode
+                else if (LevelNumber == 0 || LevelNumber == 99)
+                {
+                    switch (EntityCode)
+                    {
+                        case "SALTEM":
+                            notificationLink = "salary-templates";
+                            break;
+                        case "EMPLSALCONFIG":
+                            notificationLink = "employee-salary-config";
+                            break;
+                        case "OVERTIME":
+                            notificationLink = "overtime-transactions";
+                            break;
+                        case "LEAVEPASS":
+                            notificationLink = "leave-passages";
+                            break;
+                        default:
+                            notificationLink = "config-approvals";
+                            break;
+                    }
+                }
+                // Default → config-approvals
+                else
+                {
+                    notificationLink = "config-approvals";
+                }
 
-                return nConfig;
+                // Return DTO (not EF entity)
+                return new NotificationConfigDto
+                {
+                    IdNotificationConfig = nConfig.IdNotificationConfig,
+                    NotificationType = nConfig.NotificationType,
+                    EntityCode = nConfig.EntityCode,
+                    EmailSubject = nConfig.EmailSubject,
+                    EmailContent = emailContent,
+                    LogoText = nConfig.LogoText,
+                    NotificationLink = notificationLink,
+                    AppNotificationText = appContent,
+                    WebLink = nConfig.WebLink
+                };
             }
             catch (Exception)
             {
-                throw; 
+                throw;
             }
         }
 
-       
 
         private List<int> ParseEmployeeIds(string csv)
         {
