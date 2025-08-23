@@ -295,7 +295,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var notification = await _dbContext.Notifications.Where(x=>x.ReceivedByIdEmployee == employeeID && x.IsReadAppNotification == false) .ToListAsync();
+                var notification = await _dbContext.Notifications.Where(x=>x.ReceivedByIdEmployee == employeeID && x.IsReadAppNotification == false).OrderByDescending(x=>x.CreatedAt).ToListAsync();
                 return _mapper.Map<List<NotificationDto>>(notification);
             }
             catch (Exception ex)

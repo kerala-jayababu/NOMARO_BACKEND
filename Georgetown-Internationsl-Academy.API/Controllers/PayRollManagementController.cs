@@ -992,7 +992,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return Ok(ApiResponseDto<IEnumerable<ConfigApprovalsDto>>.CreateSuccess(Enumerable.Empty<ConfigApprovalsDto>(), "No ConfigApprovalsList records found."));
                 }
 
-                return Ok(ApiResponseDto<IEnumerable<ConfigApprovalsDto>>.CreateSuccess(workflows, "Salary list retrieved successfully."));
+                return Ok(ApiResponseDto<IEnumerable<ConfigApprovalsDto>>.CreateSuccess(workflows.OrderByDescending(x=>x.SentDate), "Salary list retrieved successfully."));
             }
             catch (Exception ex)
             {
