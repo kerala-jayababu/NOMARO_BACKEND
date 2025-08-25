@@ -710,6 +710,109 @@ namespace YourNamespace.Services.Implementation
             }
         }
 
+
+        public async Task<EmployeePayslipDto> GetPayslipObjectAsync(int idEmployeeSalary)
+        {
+            if (idEmployeeSalary <= 0)
+                throw new ArgumentException("Employee Salary ID cannot be empty.");
+
+            var systemparamters = await _dbContext.SystemParameters.ToListAsync();
+
+            var salary = await _dbContext.EmployeeSalaries
+                         .FirstOrDefaultAsync(s => s.IdEmployeeSalary == idEmployeeSalary);
+
+            if (salary == null)
+                throw new Exception("No salary details found for the given ID.");
+
+            var employee = await _dbContext.Employees
+                .Where(e => e.IdEmployee == salary.IdEmployee)
+                .Join(_dbContext.Designations,
+                    emp => emp.IdDesignation,
+                    des => des.IdDesignation,
+                    (emp, des) => new { emp, des })
+                .Join(_dbContext.Departments,
+                    combined => combined.emp.IdDepartment,
+                    dept => dept.IdDepartment,
+                    (combined, dept) => new
+                    {
+                        combined.emp.IdEmployee,
+                        combined.emp.EmployeeCode,
+                        FullName = combined.emp.FirstName + " " + combined.emp.MiddleName + " " + combined.emp.LastName,
+                        Position = combined.des.DesignationName,
+                        Department = dept.DepartmentName
+                    })
+                .FirstOrDefaultAsync();
+
+            if (employee == null)
+                throw new Exception("No employee found for the given salary ID.");
+
+            var salaryDetails = await _dbContext.EmployeeSalaryDetails
+                                  .Where(sd => sd.IdEmployeeSalary == idEmployeeSalary)
+                                  .ToListAsync();
+        
+            var earnings = salaryDetails
+                .Where(sd => sd.SalaryHeadType == "EARNING")
+                .Select(sd => new EmployeeSalaryDetailsDto
+                {
+                    Description = sd.SalaryHeadName,
+                    AmountG = sd.Amount ?? 0,
+                    AmountUS = sd.AmountInUSD ?? 0,
+                    YTDAmountUSD = sd.YTDAmountUSD ?? 0,
+                    YTDAmountG = sd.YTDAmount ?? 0
+                })
+                .ToList();
+
+            var deductions = salaryDetails
+                .Where(sd => sd.SalaryHeadType == "DEDUCTION")
+                .Select(sd => new EmployeeSalaryDetailsDto
+                {
+                    Description = sd.SalaryHeadName,
+                    AmountG = sd.Amount ?? 0,
+                    AmountUS = sd.AmountInUSD ?? 0,
+                    YTDAmountUSD = sd.YTDAmountUSD ?? 0,
+                    YTDAmountG = sd.YTDAmount ?? 0
+                })
+                .ToList();
+
+            var remittances = await _dbContext.BankRemittance
+        .Where(r => r.IdEmployeeSalary == idEmployeeSalary)
+        .Select(r => new BankRemittanceDto
+        {
+            IdBankRemittance = r.IdBankRemittance,
+            BankName = r.BankName,
+            AccountNumber = r.AccountNumber,
+            ABARoutingNumber = r.ABARoutingNumber,
+            AmountGTD = r.AmountGYD,
+            AmountUSD = r.AmountUSD,
+            DistributedPercent = r.DistributedPercentage,
+            Currency = r.Currency
+        })
+        .ToListAsync();
+
+            return new EmployeePayslipDto
+            {
+                IdEmployeeSalary = salary.IdEmployeeSalary,
+                EmployeeCode = employee.EmployeeCode,
+                EmployeeName = employee.FullName,
+                Position = employee.Position,
+                Department = employee.Department,
+                Period = salary.SalaryMonthText,
+                PayslipGeneratedDate = salary.GeneratedDate.ToString("yyyy-MM-dd"),
+                Earnings = earnings,
+                Deductions = deductions,
+                BankRemittance = remittances,
+                logo = systemparamters.Where(x => x.ParameterName == "CompanyLogo")
+                                      .Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                logoType = systemparamters.Where(x => x.ParameterName == "CompanyLogo")
+                                          .Select(x => x.DataType).FirstOrDefault(),
+                stamp = systemparamters.Where(x => x.ParameterName == "CompanySeal")
+                                       .Select(x => x.ParameterBinaryValue).FirstOrDefault(),
+                stampType = systemparamters.Where(x => x.ParameterName == "CompanySeal")
+                                           .Select(x => x.DataType).FirstOrDefault()
+            };
+        }
+
+
         public async Task<EmployeePayslipDto> GetPayslipDetailsForLeavePassage(int IdEmployee)
         {
             try
@@ -1059,7 +1162,7 @@ namespace YourNamespace.Services.Implementation
                 parameters.Add("DropdownFilter", $"%{dropdownFilter}%");
             }
 
-            query.Append(" ORDER BY e.FirstName, e.LastName;");
+            query.Append(" ORDER BY e.FirstName, e.LastName, es.IdSalaryMonth DESC;");
 
             try
             {
