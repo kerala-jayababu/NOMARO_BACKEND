@@ -14,7 +14,9 @@ using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Crmf;
 using RestSharp;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
 
@@ -75,6 +77,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var rawEmployees = directory?.Employees ?? new List<EmployeeRawDto>();
 
+                await UpdateEmployeeStatusNotWorkingIfNotFoundInBambooHR(rawEmployees);
+
                 foreach (var emp in rawEmployees)
                 {
                     try
@@ -119,6 +123,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return new List<BambooHRDetailsDto>();
             }
         }
+
+
 
         
         public async Task<DateTime?> BambooHRLeaveIntegrationLastRun()
@@ -531,6 +537,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             if (bambooEmp.TerminationDate != null)
                 empDetails.LastWorkingDay = bambooEmp.TerminationDate;
+            if (bambooEmp.DateOfBirth != null)
+                empDetails.DateOfBirth = bambooEmp.DateOfBirth; 
+            if (bambooEmp.HireDate != null)
+                empDetails.JoiningDate = bambooEmp.HireDate;
 
             // ⬇⬇ PHOTO UPLOAD AND REPLACEMENT ⬇⬇
             if (!string.IsNullOrEmpty(bambooEmp.EmployeePhotoPath))
@@ -584,7 +594,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (IsNewEmployee)
             {
                 var notificationConfig = await _dbContext.NotificationsConfig
-        .FirstOrDefaultAsync(x => x.EntityCode == "NEWEMPLOYEE" && x.NotificationType == "New Employee Added");
+                .FirstOrDefaultAsync(x => x.EntityCode == "NEWEMPLOYEE" && x.NotificationType == "New Employee Added");
                 if (notificationConfig != null)
                 {
                     string newEmployeeName = $"{empDetails.FirstName} {empDetails.MiddleName} {empDetails.LastName}".Replace("  ", " ").Trim();
@@ -740,6 +750,41 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("An error occurred while processing BambooHR Details. Please try again.");
             }
             return -1;
+        }
+
+        public async Task<int> UpdateEmployeeStatusNotWorkingIfNotFoundInBambooHR(List <EmployeeRawDto> bambooHREmpList)
+        {
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var bambooHREmailIDs = bambooHREmpList
+                           .Select(x => x.Fields.FirstOrDefault(f => f.Id == "workEmail")?.Value)
+                           .Where(email => !string.IsNullOrEmpty(email))
+                           .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var empDetails = await _dbContext.Employees.ToListAsync();
+                var employeesToUpdate = empDetails
+                    .Where(e => !bambooHREmailIDs.Contains(e.EmailID))
+                    .ToList();
+
+                        foreach (var emp in employeesToUpdate)
+                        {
+                            emp.CurrentStatus = "NotWorking";
+                        }
+
+                        await _dbContext.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        return employeesToUpdate.Count;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding, updating, or removing BambooHR Details.");
+                throw new Exception("An error occurred while processing BambooHR Details. Please try again.");
+            }
         }
     }
 
