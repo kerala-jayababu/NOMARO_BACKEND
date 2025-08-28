@@ -766,8 +766,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var empDetails = await _dbContext.Employees.ToListAsync();
                 var employeesToUpdate = empDetails
-                    .Where(e => !bambooHREmailIDs.Contains(e.EmailID))
-                    .ToList();
+             .Where(e => !bambooHREmailIDs.Contains(e.EmailID) && e.IdEmployee > 1000)
+             .ToList();
+              
 
                         foreach (var emp in employeesToUpdate)
                         {
