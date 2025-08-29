@@ -46,6 +46,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         [NotMapped]
         public string? CreatedByValue { get; set; }
+
+        [NotMapped]
+        public string? OverTimeAllowedStatus { get; set; }
         public int? ApprovedCount { get; set; }
         public int? NotApprovedCount { get; set; }
         public int? submittedCount { get; set; }

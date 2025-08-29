@@ -38,6 +38,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
 
         public string? EmployeePhotoFilePath { get; set; }
 
+        public string? OverTimeAllowedStatus { get; set; }
+
         [NotMapped]
         public byte[]? AttachmentBlob { get; set; }
     }

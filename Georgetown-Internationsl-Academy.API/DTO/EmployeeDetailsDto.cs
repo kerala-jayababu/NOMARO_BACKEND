@@ -17,6 +17,8 @@
         public string? ChildCountDocumentFilePath {  get; set; }
         public byte[]? AttachmentBlobForchildcount { get; set; }
 
+        public string? OverTimeAllowedStatus { get; set; }
+
 
     }
 }

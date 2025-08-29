@@ -350,7 +350,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             // Data rows
             int sl = 1;
-            decimal totalIncome = 0, totalStatutory = 0, totalNIS = 0, totalTax = 0;
+            decimal totalIncome = 0, totalStatutory = 0, totalNIS = 0, totalMLIE = 0, totalTax = 0;
 
             foreach (var row in data)
             {
@@ -362,6 +362,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 totalIncome += totalIncomeVal;
                 totalStatutory += deductionVal;
                 totalNIS += nisVal;
+                totalMLIE += mlieVal;
                 totalTax += incomeTaxVal;
 
                 table.AddCell(CreateCell(sl++.ToString()));
@@ -373,7 +374,28 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 table.AddCell(CreateCell(mlieVal.ToString("N2")));
                 table.AddCell(CreateCell(incomeTaxVal.ToString("N2")));
             }
-       
+
+            // --- TOTAL Row ---
+            table.AddCell(new Cell(1, 3)
+                .Add(new Paragraph("TOTAL").SetFont(bold))
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCell(totalIncome.ToString("N2"), true, TextAlignment.RIGHT)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCell(totalStatutory.ToString("N2"), true, TextAlignment.RIGHT)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCell(totalNIS.ToString("N2"), true, TextAlignment.RIGHT)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCell(totalMLIE.ToString("N2"), true, TextAlignment.RIGHT)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
+            table.AddCell(CreateCell(totalTax.ToString("N2"), true, TextAlignment.RIGHT)
+                .SetBorder(new SolidBorder(ColorConstants.GRAY, 0.5f)));
+
 
             doc.Add(table);
 

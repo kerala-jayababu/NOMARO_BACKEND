@@ -49,6 +49,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
     e.PhoneNumber1, 
     e.PhoneNumber2,            
     e.CurrentStatus,
+    e.OverTimeAllowedStatus,
     esc.TotalEarnings,
     esc.TotalDeductions,
     esc.NetSalary,
@@ -175,6 +176,57 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
         }
 
 
+        public async Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigsSp(string? searchText = null, string? dropdownFilter = null, bool isLatest = true)
+        {
+            // Map dropdownFilter to stored procedure @Status
+            string statusParam = "ALL";
+            if (!string.IsNullOrWhiteSpace(dropdownFilter))
+            {
+                if (dropdownFilter.Equals("Show All", StringComparison.OrdinalIgnoreCase)) statusParam = "ALL";
+                else if (dropdownFilter.Equals("Not Configured", StringComparison.OrdinalIgnoreCase)) statusParam = "NOT CONFIGURED";
+                else if (dropdownFilter.Equals("Submitted", StringComparison.OrdinalIgnoreCase)) statusParam = "SUBMITTED";
+                else if (dropdownFilter.Equals("Rejected", StringComparison.OrdinalIgnoreCase)) statusParam = "REJECTED";
+                else if (dropdownFilter.Equals("APPROVED", StringComparison.OrdinalIgnoreCase)) statusParam = "APPROVED";
+                else statusParam = dropdownFilter;
+            }
+
+            var parameters = new DynamicParameters();
+            parameters.Add("QueryType", isLatest ? "LATEST" : "ALL");
+            parameters.Add("SearchString", string.IsNullOrWhiteSpace(searchText) ? null : searchText);
+            parameters.Add("Status", statusParam);
+
+            var procName = "[dbo].[GetLatestSalaryConfigForListing]";
+
+            var notConfiguredQuery = new StringBuilder(@"
+    SELECT COUNT(DISTINCT e.IdEmployee)
+    FROM Employees e
+    LEFT JOIN EmployeeSalaryConfig esc ON esc.IdEmployee = e.IdEmployee
+    WHERE esc.IdEmployee IS NULL
+      AND e.CurrentStatus = 'Working'
+");
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var configs = await connection.QueryAsync<EmployeeSalaryConfigDto>(procName, parameters, commandType: System.Data.CommandType.StoredProcedure);
+                    var configList = configs.ToList();
+                    var notConfiguredCount = await connection.ExecuteScalarAsync<int>(notConfiguredQuery.ToString());
+                    if (configList.Any())
+                        configList[0].notConfiguredCount = notConfiguredCount;
+                    return configList;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Employee Salary Configurations via stored procedure.");
+                throw new Exception("An error occurred while fetching configurations. Please try again later.");
+            }
+        }
+
         public async Task<EmployeeSalaryConfigDto?> GetConfigById(int id)
         {
             try
@@ -253,7 +305,8 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 e.EmailID,
                 e.PhoneNumber1,
                 e.PhoneNumber2,
-                e.CurrentStatus
+                e.CurrentStatus,
+                e.OverTimeAllowedStatus
             FROM EmployeeSalaryConfig esc
             INNER JOIN Employees e ON esc.IdEmployee = e.IdEmployee
             INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
@@ -280,6 +333,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     config.PhoneNumber1 = employeeInfo.PhoneNumber1;
                     config.PhoneNumber2 = employeeInfo.PhoneNumber2;
                     config.CurrentStatus = employeeInfo.CurrentStatus;
+                    config.OverTimeAllowedStatus = employeeInfo.OverTimeAllowedStatus;
                 }
 
                 return config;

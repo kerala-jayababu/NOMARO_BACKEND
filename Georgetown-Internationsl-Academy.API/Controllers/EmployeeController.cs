@@ -335,7 +335,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             if (overtimeConfigs == null || !overtimeConfigs.Any())
             {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Overtime config list cannot be null or empty."));
+                // Return 200 OK instead of BadRequest
+                return Ok(ApiResponseDto<string>.CreateSuccess("No overtime configs provided. Nothing to update."));
             }
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 

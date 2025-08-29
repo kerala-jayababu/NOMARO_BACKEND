@@ -9,28 +9,33 @@ namespace Georgetown_Internationsl_Academy.API.Validators.Employee
         {
             RuleForEach(x => x).ChildRules(config =>
             {
-               
-
+                // DayType validation (only if provided)
                 config.RuleFor(c => c.DayType)
-    .NotEmpty().WithMessage("DayType is required.")
-    .Must(type => new[] { "WORKINGDAY", "HOLIDAY", "PUBLICHOLIDAY" }
-        .Contains(type?.Trim(), StringComparer.OrdinalIgnoreCase))
-    .WithMessage("DayType must be one of the following: 'WORKINGDAY', 'HOLIDAY', 'PUBLICHOLIDAY'.");
+                    .Must(type => string.IsNullOrWhiteSpace(type) ||
+                        new[] { "WORKINGDAY", "HOLIDAY", "PUBLICHOLIDAY" }
+                            .Contains(type.Trim(), StringComparer.OrdinalIgnoreCase))
+                    .WithMessage("DayType must be one of the following: 'WORKINGDAY', 'HOLIDAY', 'PUBLICHOLIDAY'.");
 
-
+                // StandardRate validation (only if provided)
                 config.RuleFor(c => c.StandardRate)
-                    .GreaterThan(0).WithMessage("StandardRate must be greater than 0.");
+                    .GreaterThan(0)
+                    .When(c => c.StandardRate.HasValue)
+                    .WithMessage("StandardRate must be greater than 0.");
 
+                // DayRate validation (only if provided)
                 config.RuleFor(c => c.DayRate)
-                    .GreaterThanOrEqualTo(0).WithMessage("DayRate must be greater than or equal to 0.");
+                    .GreaterThanOrEqualTo(0)
+                    .When(c => c.DayRate.HasValue)
+                    .WithMessage("DayRate must be greater than or equal to 0.");
             });
 
-            // Ensure DayType is unique
+            // Ensure DayType is unique, but ignore null/empty
             RuleFor(x => x)
                 .Must(configs =>
                 {
                     var duplicates = configs
-                        .GroupBy(c => c.DayType?.ToUpper().Trim())
+                        .Where(c => !string.IsNullOrWhiteSpace(c.DayType))
+                        .GroupBy(c => c.DayType.Trim().ToUpper())
                         .Where(g => g.Count() > 1)
                         .ToList();
                     return !duplicates.Any();
@@ -38,5 +43,4 @@ namespace Georgetown_Internationsl_Academy.API.Validators.Employee
                 .WithMessage("Duplicate DayType values are not allowed.");
         }
     }
-
 }

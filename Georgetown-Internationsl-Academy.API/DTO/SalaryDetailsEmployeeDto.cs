@@ -29,6 +29,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         [NotMapped]
         public string? CurrentStatus { get; set; }
 
+        [NotMapped]
+        public string? OverTimeAllowedStatus { get; set; }
+
         public List<EmployeeSalariesDto>? EmployeeSalaries { get; set; }
 
 

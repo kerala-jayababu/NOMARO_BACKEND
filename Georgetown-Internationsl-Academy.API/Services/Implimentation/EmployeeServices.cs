@@ -50,7 +50,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         e.IdDesignation,
     e.ChildCountDocumentFilePath,
         bc.BudgetCodeName,
-        e.EmployeePhotoFilePath
+        e.EmployeePhotoFilePath,
+        e.OverTimeAllowedStatus
     FROM 
         Employees e
     INNER JOIN 
@@ -105,7 +106,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 e.IdDepartment,
                 e.IdDesignation,
                 e.ChildCountDocumentFilePath,
-                e.EmployeePhotoFilePath   
+                e.EmployeePhotoFilePath,
+                e.OverTimeAllowedStatus   
             FROM Employees e
             INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
             INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
@@ -170,6 +172,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.PhoneNumber1, 
             e.PhoneNumber2,            
             e.CurrentStatus,
+            e.OverTimeAllowedStatus,
             CASE 
                 WHEN esc.IdEmployee IS NULL THEN 'Not Available'
                 WHEN esc.ApprovalStatus = 'REJECTED' THEN 'Rejected'
@@ -361,7 +364,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.JoiningDate, 
             e.DateOfBirth,
             e.EmployeePhotoFilePath,
-            e.Gender       -- Include Gender
+            e.Gender,
+            e.OverTimeAllowedStatus
         FROM dbo.Employees e
         LEFT JOIN dbo.Departments d ON e.IdDepartment = d.IdDepartment
         LEFT JOIN dbo.Designations des ON e.IdDesignation = des.IdDesignation
@@ -531,7 +535,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         // Update existing config
                         existingConfig.DayType = configDto.DayType.ToUpper();
-                        existingConfig.StandardRate = configDto.StandardRate;
+                        existingConfig.StandardRate = (decimal)configDto.StandardRate;
                         existingConfig.DayRate = configDto.DayRate;
                         _dbContext.EmployeeOvertimeConfig.Update(existingConfig);
                     }
@@ -542,7 +546,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         {
                             IdEmployee = employeeId,
                             DayType = configDto.DayType.ToUpper(),
-                            StandardRate = configDto.StandardRate,
+                            StandardRate = (decimal)configDto.StandardRate,
                             DayRate = configDto.DayRate
                         };
 
@@ -596,6 +600,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         e.IdDepartment,
         d.DepartmentName,
         e.ReportingTo,
+        e.OverTimeAllowedStatus,
         CONCAT(r.FirstName, ' ', COALESCE(r.MiddleName, ''), ' ', r.LastName) AS IdReportingToName
     FROM Employees e
     INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
@@ -613,6 +618,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         e.IdDepartment,
         d.DepartmentName,
         e.ReportingTo,
+        e.OverTimeAllowedStatus,
         CONCAT(r.FirstName, ' ', COALESCE(r.MiddleName, ''), ' ', r.LastName) AS IdReportingToName
     FROM Employees e
     INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
@@ -672,7 +678,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             s.ApprovedDate,
             e.PhoneNumber1,
             e.PhoneNumber2,
-            e.CurrentStatus
+            e.CurrentStatus,
+            e.OverTimeAllowedStatus
         FROM EmployeeSalaries s
         INNER JOIN Employees e ON s.IdEmployee = e.IdEmployee
         INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
@@ -738,6 +745,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.PhoneNumber1,
             e.PhoneNumber2,
             e.CurrentStatus,
+            e.OverTimeAllowedStatus,
             s.IdEmployeeSalary,
             s.SalaryMonthText AS SalaryMonthName,
             s.TotalEarnings,

@@ -16,5 +16,7 @@
         public string? PhoneNumber2 { get; set; }
         public string? CurrentStatus { get; set; }
         public string? Status { get; set; }
+
+        public string? OverTimeAllowedStatus { get; set; }
     }
 }

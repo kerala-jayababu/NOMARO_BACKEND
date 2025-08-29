@@ -37,5 +37,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? PhoneNumber2 { get; set; }
         [NotMapped]
         public string? CurrentStatus { get; set; }
+
+        [NotMapped]
+        public string? OverTimeAllowedStatus { get; set; }
     }
 }

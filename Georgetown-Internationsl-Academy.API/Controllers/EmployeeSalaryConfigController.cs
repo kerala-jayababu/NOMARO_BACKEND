@@ -102,6 +102,53 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetAllEmployeeSalaryConfigSp")]
+        public async Task<IActionResult> GetAllEmployeeSalaryConfigSp(string? searchText = null, string? dropdownFilter = null, bool isLatest = true)
+        {
+            try
+            {
+                var configs = await _employeeSalaryConfigService.GetAllConfigsSp(searchText, dropdownFilter, isLatest);
+                if (configs == null || !configs.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(Enumerable.Empty<EmployeeSalaryConfigDto>(), "No configurations found."));
+                }
+
+                // Count distinct employees with Approved config
+                int approvedCount = configs
+                    .Where(x => x.ApprovalStatus == "APPROVED")
+                    .Select(x => x.IdEmployee)
+                    .Distinct()
+                    .Count();
+                int submittedCount = configs
+                 .Where(x => x.ApprovalStatus == "SUBMITTED" || x.ApprovalStatus == "INTERIM APPROVED")
+                 .Select(x => x.IdEmployee)
+                 .Distinct()
+                 .Count();
+                int rejectedCount = configs
+              .Where(x => x.ApprovalStatus == "REJECTED")
+              .Select(x => x.IdEmployee)
+              .Distinct()
+              .Count();
+                // Total distinct employees in the result
+                int totalEmployees = configs
+                    .Select(x => x.IdEmployee)
+                    .Distinct()
+                    .Count();
+
+                int notApprovedCount = totalEmployees - approvedCount;
+                configs.First().ApprovedCount = approvedCount;
+                configs.First().NotApprovedCount = notApprovedCount;
+                configs.First().submittedCount = submittedCount;
+                configs.First().rejectedCount = rejectedCount;
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(configs, "EmployeeSalaryConfig (SP) retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpPost("AddEmployeeSalaryConfig")]
         public async Task<IActionResult> AddEmployeeSalaryConfig([FromBody] EmployeeSalaryConfigDto dto)
         {

@@ -11,5 +11,7 @@
         public string DepartmentName { get; set; }
         public int? ReportingTo { get; set; }
         public string? IdReportingToName { get; set; }
+
+        public string? OverTimeAllowedStatus { get; set; }
     }
 }
