@@ -197,13 +197,13 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
 
             var procName = "[dbo].[GetLatestSalaryConfigForListing]";
 
-            var notConfiguredQuery = new StringBuilder(@"
-    SELECT COUNT(DISTINCT e.IdEmployee)
-    FROM Employees e
-    LEFT JOIN EmployeeSalaryConfig esc ON esc.IdEmployee = e.IdEmployee
-    WHERE esc.IdEmployee IS NULL
-      AND e.CurrentStatus = 'Working'
-");
+//            var notConfiguredQuery = new StringBuilder(@"
+//    SELECT COUNT(DISTINCT e.IdEmployee)
+//    FROM Employees e
+//    LEFT JOIN EmployeeSalaryConfig esc ON esc.IdEmployee = e.IdEmployee
+//    WHERE esc.IdEmployee IS NULL
+//      AND e.CurrentStatus = 'Working'
+//");
 
             try
             {
@@ -214,9 +214,9 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
 
                     var configs = await connection.QueryAsync<EmployeeSalaryConfigDto>(procName, parameters, commandType: System.Data.CommandType.StoredProcedure);
                     var configList = configs.ToList();
-                    var notConfiguredCount = await connection.ExecuteScalarAsync<int>(notConfiguredQuery.ToString());
-                    if (configList.Any())
-                        configList[0].notConfiguredCount = notConfiguredCount;
+                    //var notConfiguredCount = await connection.ExecuteScalarAsync<int>(notConfiguredQuery.ToString());
+                    //if (configList.Any())
+                    //    configList[0].notConfiguredCount = notConfiguredCount;
                     return configList;
                 }
             }

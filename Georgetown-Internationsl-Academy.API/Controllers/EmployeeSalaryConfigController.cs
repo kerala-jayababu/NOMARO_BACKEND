@@ -129,6 +129,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
               .Select(x => x.IdEmployee)
               .Distinct()
               .Count();
+                int notConfigCount = configs
+        .Where(x => x.ApprovalStatus == "Not Configured")
+        .Select(x => x.IdEmployee)
+        .Distinct()
+        .Count();
                 // Total distinct employees in the result
                 int totalEmployees = configs
                     .Select(x => x.IdEmployee)
@@ -140,6 +145,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 configs.First().NotApprovedCount = notApprovedCount;
                 configs.First().submittedCount = submittedCount;
                 configs.First().rejectedCount = rejectedCount;
+                configs.First().notConfiguredCount = notConfigCount;
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeSalaryConfigDto>>.CreateSuccess(configs, "EmployeeSalaryConfig (SP) retrieved successfully."));
             }

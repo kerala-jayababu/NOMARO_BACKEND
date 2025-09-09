@@ -223,14 +223,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Employee ID. Employee ID must be greater than 0."));
             }
-            if (dto.BudgetCodeId <= 0)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Budget Code ID. Budget Code ID must be greater than 0."));
-            }
-            if (dto.ChildCount < 0)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Child Count. Child Count cannot be negative."));
-            }
+          
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
