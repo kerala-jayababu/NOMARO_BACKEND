@@ -189,5 +189,59 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+
+
+        #region LeavePassageAmount
+        [HttpGet("GetLeavePassageAmountDetails")]
+        public async Task<IActionResult> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null)
+        {
+            try
+            {
+                var result = await _leavePassageServices.GetLeavePassageAmountDetails(financialYear, searchString);
+
+                if (result == null || !result.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<LeavePassageAmountDto>>.CreateSuccess(Enumerable.Empty<LeavePassageAmountDto>(), "No records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<LeavePassageAmountDto>>.CreateSuccess(result, "Leave Passage details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("SubmitLeavePassage")]
+        public async Task<IActionResult> SubmitLeavePassage([FromBody] List<LeavePassageAmountDetailsDto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid data."));
+            }
+
+            try
+            {
+                var success = await _leavePassageServices.SubmitLeavePassageAsync(dtoList);
+
+                if (!success)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to save Leave Passage details."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave passage details saved successfully."));
+            }
+            catch (Exception ex)
+            {                
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+
+        #endregion
+
+
+
     }
 }

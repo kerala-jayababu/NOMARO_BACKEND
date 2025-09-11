@@ -64,6 +64,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<LoginOTP> LoginOTP { get; set; }
         public DbSet<BankRemittance> BankRemittance { get; set; }
         public DbSet<BambooHRIntegrationLogs> BambooHRIntegrationLogs { get; set; }
+        public DbSet<LeavePassageAmounts> LeavePassageAmounts { get; set; }
 
         #region Time & Attendance
         public DbSet<ShiftDefinitionEntity> ShiftDefinitions { get; set; }
