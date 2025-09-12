@@ -9,5 +9,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<LeavePassageDto?> GetLeavePassagesById(int id);
         Task<LeavePassageDto?> AddLeavePassages(LeavePassageDto leavePassage, int IdEmployee);
         Task<LeavePassageDto?> UpdateLeavePassage(LeavePassageDto leavePassage, int IdEmployee);
+        Task<IEnumerable<LeavePassageAmountDto>> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null);
+        Task<bool> SubmitLeavePassageAsync(List<LeavePassageAmountDetailsDto> leavePassages);
     }
 }

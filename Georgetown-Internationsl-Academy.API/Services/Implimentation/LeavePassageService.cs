@@ -4,8 +4,10 @@ using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using iText.Commons.Actions.Contexts;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
+using static Georgetown_Internationsl_Academy.API.Services.Implimentation.LeavePassageService;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -301,6 +303,149 @@ WHERE lp.IdEmployee = @IdEmployee
                 return null;
             }
         }
+
+        public async Task<IEnumerable<LeavePassageAmountDto>> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null)
+        {
+            var query = new StringBuilder(@"
+    SELECT 
+        e.IdEmployee,
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.EmployeeCode,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        dept.DepartmentName,
+        e.JoiningDate,
+        e.Gender,
+        e.EmailID,
+        e.PhoneNumber1,
+        e.PhoneNumber2,
+
+        -- Leave Passage Amount Fields
+        lpa.IdLeavePassageAmount,
+        lpa.IdFinancialYear,
+        lpa.DateFrom,
+        lpa.DateTo,
+        lpa.LeavePassageAmount,
+
+        -- Financial Year Fields
+        fy.FinancialYearName,
+        fy.FinancialYearFrom,
+        fy.FinancialYearTo
+
+    FROM Employees e
+    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+    LEFT JOIN LeavePassageAmounts lpa 
+        ON e.IdEmployee = lpa.IdEmployee 
+        " + (financialYear.HasValue ? "AND lpa.IdFinancialYear = @FinancialYear" : "") + @"
+    LEFT JOIN FinancialYears fy 
+        ON lpa.IdFinancialYear = fy.IdFinancialYear
+    WHERE 1 = 1
+      AND e.CurrentStatus = 'WORKING'
+");
+
+            var parameters = new DynamicParameters();
+
+            if (financialYear.HasValue && financialYear.Value > 0)
+            {
+                parameters.Add("FinancialYear", financialYear.Value);
+            }
+
+            // Search filter
+            if (!string.IsNullOrEmpty(searchString))
+            {
+                query.Append(@"
+        AND (
+            e.EmployeeCode LIKE @SearchText OR
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+            des.DesignationName LIKE @SearchText OR
+            dept.DepartmentName LIKE @SearchText
+        )
+    ");
+                parameters.Add("SearchText", $"%{searchString}%");
+            }
+
+            query.Append(" ORDER BY e.FirstName, e.LastName;");
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var result = await connection.QueryAsync<LeavePassageAmountDto>(query.ToString(), parameters);
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave Passage Amount Details.");
+                throw new Exception("An error occurred while fetching leave passage amount details.");
+            }
+        }
+
+        public async Task<bool> SubmitLeavePassageAsync(List<LeavePassageAmountDetailsDto> leavePassages)
+        {
+            try
+            {
+                var financialYears = await _dbContext.FinancialYears.ToListAsync();
+
+                if (financialYears == null || !financialYears.Any())
+                    return false;
+
+                foreach (var dto in leavePassages)
+                {
+                    var year = financialYears.FirstOrDefault(x => x.IdFinancialYear == dto.IdFinancialYear);
+                    if (year == null) return false;
+
+                    if (dto.IdLeavePassageAmount == 0) // Insert
+                    {
+                        var entity = new LeavePassageAmounts
+                        {
+                            IdEmployee = dto.IdEmployee,
+                            LeavePassageAmount = dto.Amount,
+                            IdFinancialYear = dto.IdFinancialYear,
+                            DateFrom = year.FinancialYearFrom,
+                            DateTo = year.FinancialYearTo
+                        };
+
+                        _dbContext.LeavePassageAmounts.Add(entity);
+                    }
+                    else // Update
+                    {
+                        var entity = await _dbContext.LeavePassageAmounts
+                            .FirstOrDefaultAsync(x => x.IdLeavePassageAmount == dto.IdLeavePassageAmount);
+
+                        if (entity == null) return false;
+
+                        entity.IdEmployee = dto.IdEmployee;
+                        entity.LeavePassageAmount = dto.Amount;
+                        entity.IdFinancialYear = dto.IdFinancialYear;
+                        entity.DateFrom = year.FinancialYearFrom;
+                        entity.DateTo = year.FinancialYearTo;
+
+                        _dbContext.LeavePassageAmounts.Update(entity);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while submitting Leave Passage Amounts");
+                return false;
+            }
+        }
+
+
+
+
+
+
+
 
     }
 }
