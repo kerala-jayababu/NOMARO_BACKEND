@@ -118,7 +118,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             try
             {
                 var workFlowConfigId = await _dbContext.WorkFlowConfig
-        .Where(c => c.EntityCode == "EMPSALGEN")
+        .Where(c => c.EntityCode == "SALARYGEN")
         .Select(c => c.IdWorkFlowConfig)
         .FirstOrDefaultAsync();
 
