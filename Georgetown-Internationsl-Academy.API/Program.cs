@@ -76,9 +76,9 @@ builder.Services.AddDbContext<ApplicationDBContext>(options =>
 var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("https://payrollgia.com")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -223,7 +223,7 @@ else
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 //app.UseCors("AllowSpecificOrigins");
-app.UseCors("AllowAll");
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
