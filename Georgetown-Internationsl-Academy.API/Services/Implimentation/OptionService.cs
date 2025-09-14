@@ -308,7 +308,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var notification = await _dbContext.WorkFlowConfig.Where(x=>x.EntityCode!= "EMPSALGEN").ToListAsync();
+                var notification = await _dbContext.WorkFlowConfig.Where(x=>x.EntityCode!= "SALARYGEN").ToListAsync();
                 return _mapper.Map<List<WorkFlowConfig>>(notification);
             }
             catch (Exception ex)
