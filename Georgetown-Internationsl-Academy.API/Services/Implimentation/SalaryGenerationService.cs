@@ -408,7 +408,7 @@ namespace YourNamespace.Services.Implementation
 
                     // Fetch WorkflowConfig Id
                     var workflowConfigId = await _dbContext.WorkFlowConfig
-                        .Where(x => x.EntityCode == "EMPSALGEN")
+                        .Where(x => x.EntityCode == "SALARYGEN")
                         .Select(x => x.IdWorkFlowConfig)
                         .FirstOrDefaultAsync();
 

@@ -363,6 +363,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             else if (entityCode == _configuration["WorkflowEntityCodes:LEAVEPASS"])
             {
                 var entity = await _dbContext.LeavePassages.FindAsync(entityTablePrimaryKeyID);
+                var leavepassageamount = await _dbContext.LeavePassageAmounts.Where(x => x.IdEmployee == entity.IdEmployee && x.IdFinancialYear == entity.IdFinancialYear).FirstOrDefaultAsync();
                 var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
                 var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
                 if (entity != null)
@@ -370,7 +371,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (nextLevelNumber ==99)
                     {
-                        entity.LeavePassageAmount = LeavePassageAmount;
+                        entity.LeavePassageAmount = leavepassageamount?.LeavePassageAmount ?? 0;
                     }
 
                     entity.ApprovalStatus = finalStatus;
@@ -389,6 +390,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var notificationConfig = await GetNotificationConfigForEntity(entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
                 foreach (var emp in employees)
                 {
+                    if (notificationConfig != null)
+                    {
+
+                    
                     var toEmail = emp["Email"];
                     if (!string.IsNullOrWhiteSpace(toEmail))
                     {
@@ -420,6 +425,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         await _dbContext.Notifications.AddAsync(obj);
                         await _dbContext.SaveChangesAsync();
                     }
+                      }
                 }
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:EMPSALGEN"])
@@ -646,38 +652,54 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-       
+
 
 
         /// <summary>
         /// Fetches target employees based on the approval authority type.
         /// </summary>
-        private async Task<List<int>> GetTargetEmployees(WorkFlowConfigDetails workflowConfigDetails, int loggedInEmployeeId)
+        private async Task<List<int>> GetTargetEmployees(WorkFlowConfigDetails workflowConfigDetails,int loggedInEmployeeId)
         {
+            if (workflowConfigDetails == null)
+                return new List<int> { 0 };
+
+            List<int> result = new List<int>();
+
             if (workflowConfigDetails.ApprovalAuthorityType == "ROLE")
             {
                 var designationId = workflowConfigDetails.ApprovalAuthorityID;
-                return await _dbContext.Employees
-                    .Where(e => e.IdDesignation == designationId)
-                    .Select(e => e.IdEmployee)
-                    .ToListAsync();
+                if (designationId.HasValue)
+                {
+                    result = await _dbContext.Employees
+                        .Where(e => e.IdDesignation == designationId.Value)
+                        .Select(e => e.IdEmployee)
+                        .ToListAsync();
+                }
             }
-            else if (workflowConfigDetails.ApprovalAuthorityType == "REPOFFICER" && workflowConfigDetails.ApprovalAuthorityID.HasValue)
+            else if (workflowConfigDetails.ApprovalAuthorityType == "REPOFFICER"
+                     && workflowConfigDetails.ApprovalAuthorityID.HasValue)
             {
-                return await _dbContext.Employees
-                    .Where(e => e.IdEmployee == loggedInEmployeeId)
-                    .Select(e => (int)e.ReportingTo)
+                result = await _dbContext.Employees
+                    .Where(e => e.IdEmployee == loggedInEmployeeId && e.ReportingTo.HasValue)
+                    .Select(e => e.ReportingTo.Value)
                     .ToListAsync();
             }
             else if (workflowConfigDetails.ApprovalAuthorityType == "EMPLOYEE")
             {
-                return await _dbContext.Employees
-                    .Where(e => e.IdEmployee == workflowConfigDetails.ApprovalAuthorityID)
-                    .Select(e => (int)e.IdEmployee)
-                    .ToListAsync();
+                if (workflowConfigDetails.ApprovalAuthorityID.HasValue)
+                {
+                    result = await _dbContext.Employees
+                        .Where(e => e.IdEmployee == workflowConfigDetails.ApprovalAuthorityID.Value)
+                        .Select(e => e.IdEmployee)
+                        .ToListAsync();
+                }
             }
 
-            return new List<int>();
+            // If result is null or empty, append 0
+            if (result == null || !result.Any())
+                result = new List<int> { 0 };
+
+            return result;
         }
 
         public async Task<IEnumerable<ConfigApprovalsDto>> GetConfigApprovalsList(DateTime fromDate, string? actionStatus = null, string? entityCode = null, string? targetIdEmployee = null)

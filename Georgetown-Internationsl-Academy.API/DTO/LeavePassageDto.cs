@@ -34,7 +34,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         [NotMapped]
         public DateTime FinancialYearFrom{ get; set; }
         public DateTime FinancialYearTo { get; set; }
-
+        public decimal? LeavePassageAmountFromLeavePassageAmount { get; set; }
 
 
 

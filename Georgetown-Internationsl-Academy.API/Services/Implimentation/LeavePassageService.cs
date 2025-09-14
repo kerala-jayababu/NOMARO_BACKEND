@@ -206,13 +206,17 @@ WHERE lp.IdEmployee = @IdEmployee
         lp.IdSalaryMonth,
         smFrom.SalaryMonthText,
         lp.Remarks,
-        lp.ApprovalStatus
+        lp.ApprovalStatus,
+    lpa.LeavePassageAmount as LeavePassageAmountFromLeavePassageAmount
     FROM LeavePassages lp
     INNER JOIN Employees e ON lp.IdEmployee = e.IdEmployee
     INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
     INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
     LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
     LEFT JOIN FinancialYears fy ON lp.IdSalaryMonth = fy.IdFinancialYear
+ LEFT JOIN LeavePassageAmounts lpa 
+     ON lp.IdEmployee = lpa.IdEmployee 
+     AND lp.IdFinancialYear = lpa.IdFinancialYear
     WHERE lp.IdLeavePassage = @IdLeavePassage
     ");
 
@@ -342,7 +346,10 @@ WHERE lp.IdEmployee = @IdEmployee
     LEFT JOIN FinancialYears fy 
         ON lpa.IdFinancialYear = fy.IdFinancialYear
     WHERE 1 = 1
-      AND e.CurrentStatus = 'WORKING'
+      AND (
+        e.CurrentStatus = 'WORKING'
+        OR ISNULL(lpa.IdFinancialYear, 0) > 0
+    
 ");
 
             var parameters = new DynamicParameters();
