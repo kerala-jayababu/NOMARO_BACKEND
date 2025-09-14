@@ -41,8 +41,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var currentRecord = await _dbContext.ApprovalWorkFlowAllocations
                              .Where(a => a.EntityTablePrimaryKeyID == entityTablePrimaryKeyID && a.EntityCode == entityCode)
-                             .OrderByDescending(a => a.LevelNumber)
-                             .ThenByDescending(a => a.CycleIndex)
+                             .OrderByDescending(a => a.CycleIndex)
+                             .ThenByDescending(a => a.LevelNumber)
                              .FirstOrDefaultAsync();
 
                 if (currentRecord == null || status == "SUBMITTED")
