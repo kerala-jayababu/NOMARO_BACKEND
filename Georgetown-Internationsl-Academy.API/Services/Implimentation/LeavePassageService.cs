@@ -340,16 +340,16 @@ WHERE lp.IdEmployee = @IdEmployee
     FROM Employees e
     INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
     INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
-    LEFT JOIN LeavePassageAmounts lpa 
-        ON e.IdEmployee = lpa.IdEmployee 
-        " + (financialYear.HasValue ? "AND lpa.IdFinancialYear = @FinancialYear" : "") + @"
-    LEFT JOIN FinancialYears fy 
-        ON lpa.IdFinancialYear = fy.IdFinancialYear
-    WHERE 1 = 1
-      AND (
-        e.CurrentStatus = 'WORKING'
-        OR ISNULL(lpa.IdFinancialYear, 0) > 0
-    
+   LEFT JOIN LeavePassageAmounts lpa 
+    ON e.IdEmployee = lpa.IdEmployee
+LEFT JOIN FinancialYears fy 
+    ON lpa.IdFinancialYear = fy.IdFinancialYear
+WHERE 1 = 1
+  AND (
+    e.CurrentStatus = 'WORKING'
+    OR ISNULL(lpa.IdFinancialYear, 0) > 0
+  )
+  " + (financialYear.HasValue ? "AND lpa.IdFinancialYear = @FinancialYear" : "") + @"
 ");
 
             var parameters = new DynamicParameters();
