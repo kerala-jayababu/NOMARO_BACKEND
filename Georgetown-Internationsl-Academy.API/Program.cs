@@ -78,7 +78,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://payrollgia.com")
+        policy.WithOrigins(
+            "https://payrollgia.com",
+            "http://localhost:5173"
+        )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });

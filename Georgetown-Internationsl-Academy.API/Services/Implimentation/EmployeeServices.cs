@@ -175,14 +175,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.OverTimeAllowedStatus,
             CASE 
                 WHEN esc.IdEmployee IS NULL THEN 'Not Available'
-                WHEN esc.ApprovalStatus = 'REJECTED' THEN 'Rejected'
-                WHEN esc.ApprovalStatus != 'APPROVED' THEN 'Sent For Approval'
+                --WHEN esc.ApprovalStatus = 'REJECTED' THEN 'Rejected'
+                --WHEN esc.ApprovalStatus != 'APPROVED' THEN 'Sent For Approval'
             END AS Status
         FROM Employees e
         INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
         INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
         LEFT JOIN EmployeeSalaryConfig esc ON e.IdEmployee = esc.IdEmployee
-        WHERE esc.ApprovalStatus IS NULL OR esc.ApprovalStatus != 'APPROVED';";
+        WHERE esc.ApprovalStatus IS NULL ;";
 
             try
             {
