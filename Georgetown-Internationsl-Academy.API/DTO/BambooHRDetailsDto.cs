@@ -29,6 +29,7 @@
         public string? EmployeePhotoPath { get; set; }
         public string? customNIS { get; set; }
         public string? customTIN { get; set; }
+        public string? Exempt { get; set; }
 
     }
 }

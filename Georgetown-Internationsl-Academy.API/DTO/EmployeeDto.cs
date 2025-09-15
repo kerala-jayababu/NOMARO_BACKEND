@@ -32,6 +32,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public DateTime? LastWorkingDay { get; set; }
         public int? IdBudgetCode { get; set; }
         public int? ChildrenCount { get; set; }
+        public string? OverTimeAllowedStatus { get; set; }
+
     }
 
 }

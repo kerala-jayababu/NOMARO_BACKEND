@@ -35,7 +35,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime? LastWorkingDay { get; set; }
         public int? IdBudgetCode { get; set; }
         public int? ChildrenCount { get; set; }
-
+        public string? OverTimeAllowedStatus { get; set; }
         public string? EmployeePhotoFilePath { get; set; }
 
         public string? OverTimeAllowedStatus { get; set; }

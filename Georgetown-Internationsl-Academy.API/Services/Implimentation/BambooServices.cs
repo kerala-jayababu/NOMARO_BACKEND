@@ -363,7 +363,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var apiKey = _configuration["BambooHR:ApiKey"];
             var client = new RestClient(new RestClientOptions(baseURL) { MaxTimeout = -1 });
 
-            var detailUrl = $"/employees/{employeeId}?fields=displayName,firstName,lastName,gender,dateOfBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber,customNIS,customTIN";
+            var detailUrl = $"/employees/{employeeId}?fields=displayName,firstName,lastName,gender,dateOfBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber,customNIS,customTIN,Exempt";
 
             var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
             var request = new RestRequest(detailUrl, Method.Get);
@@ -385,8 +385,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.EmployeeCode == mapped.EmployeeNumber);
             return employee?.IdEmployee ?? throw new Exception("Employee not found in internal system");
         }
-
-
         public async Task<List<BambooHRDetailsDto>> SyncEmployeeReportingOfficerFromBambooHR()
         {
             var result = new List<BambooHRDetailsDto>();
@@ -400,8 +398,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     _logger.LogError("BambooHR BaseUrl or ApiKey is missing in configuration.");
                     return new List<BambooHRDetailsDto>();
                 }
-
-
 
                 var fullUrl = $"{baseURL}/employees/directory";
                 var client = new RestClient();
@@ -467,7 +463,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return new List<BambooHRDetailsDto>();
             }
         }
-
         public async Task<bool> AddUpdateEmployeeDetailsFromBambooHR(BambooHRDetailsDto bambooEmp)
         {
             var empDetails = await _dbContext.Employees
@@ -505,6 +500,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             empDetails.ZipCode = CompareStringData("ZipCode", empDetails.ZipCode, bambooEmp.ZipCode?.Trim());
             empDetails.IdNumber = CompareStringData("IdNumber", empDetails.IdNumber, bambooEmp.customNIS?.Trim());
             empDetails.TaxIdNumber = CompareStringData("TaxIdNumber", empDetails.TaxIdNumber, bambooEmp.customTIN?.Trim());
+            empDetails.OverTimeAllowedStatus = CompareStringData("OverTimeAllowedStatus", empDetails.OverTimeAllowedStatus, bambooEmp.Exempt?.Trim());
 
             // Set Designation
             DesignationName = string.Empty;
