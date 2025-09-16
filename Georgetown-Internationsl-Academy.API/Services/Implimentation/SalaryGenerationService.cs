@@ -151,34 +151,50 @@ namespace YourNamespace.Services.Implementation
                                                 .Select(id => int.Parse(id.Trim()))
                                                 .ToList();
 
-                // Find records to delete
+                // Find EmployeeSalaries records to delete
                 var recordsToDelete = await _dbContext.EmployeeSalaries
                     .Where(es => employeeIdList.Contains(es.IdEmployee) && es.IdSalaryMonth == idSalaryMonth)
                     .ToListAsync();
 
-                var idemployeeSalaries= recordsToDelete.Select(x => x.IdEmployeeSalary).ToList();
                 if (!recordsToDelete.Any())
                 {
                     return 0; // No records found to delete
                 }
-                        var salaryDetailsToDelete = await _dbContext.EmployeeSalaryDetails
-                .Where(x => idemployeeSalaries.Contains((int)x.IdEmployeeSalary))
-                .ToListAsync();
 
+                var idEmployeeSalaries = recordsToDelete.Select(x => x.IdEmployeeSalary).ToList();
+
+                // Get related EmployeeSalaryDetails
+                var salaryDetailsToDelete = await _dbContext.EmployeeSalaryDetails
+                    .Where(x => idEmployeeSalaries.Contains((int)x.IdEmployeeSalary))
+                    .ToListAsync();
+
+                // Get related BankRemittance
                 var bankRemittanceToDelete = await _dbContext.BankRemittance
-              .Where(x => idemployeeSalaries.Contains((int)x.IdEmployeeSalary))
-              .ToListAsync();
+                    .Where(x => idEmployeeSalaries.Contains((int)x.IdEmployeeSalary))
+                    .ToListAsync();
 
+                // ✅ Reset OvertimeTransactions (set IdSalaryMonthAccounted = null)
+                var overtimeTransactions = await _dbContext.OvertimeTransactions
+                    .Where(ot => employeeIdList.Contains(ot.IdEmployee)
+                              && ot.IdSalaryMonthAccounted == idSalaryMonth)
+                    .ToListAsync();
 
+                foreach (var ot in overtimeTransactions)
+                {
+                    ot.IdSalaryMonthAccounted = null;
+                }
+
+                // Remove dependent records
                 _dbContext.EmployeeSalaryDetails.RemoveRange(salaryDetailsToDelete);
+                _dbContext.BankRemittance.RemoveRange(bankRemittanceToDelete);
 
-                // Remove EmployeeSalaries records
+                // Remove EmployeeSalaries
                 _dbContext.EmployeeSalaries.RemoveRange(recordsToDelete);
 
+                // Save all changes in one transaction
+                int affectedRows = await _dbContext.SaveChangesAsync();
 
-                _dbContext.BankRemittance.RemoveRange(bankRemittanceToDelete);
-                int deletedCount = await _dbContext.SaveChangesAsync();
-                return deletedCount;
+                return affectedRows;
             }
             catch (Exception ex)
             {

@@ -251,7 +251,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
                 if ( finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
-                    targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
+                    targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
                 }
                 //var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
                 //var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
@@ -309,7 +309,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
                 if( finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
-                    targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
+                    targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
                 }
                 
                 if (entity != null)

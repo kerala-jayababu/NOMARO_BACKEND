@@ -20,6 +20,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime? CreatedOn { get; set; }
         public string? ApprovalStatus { get; set; }
         public string? DayType { get; set; }
+        public int? IdSalaryMonthAccounted { get; set; }
         
     }
+    
 }
