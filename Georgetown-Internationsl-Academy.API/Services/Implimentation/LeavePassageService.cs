@@ -338,19 +338,18 @@ WHERE lp.IdEmployee = @IdEmployee
         fy.FinancialYearTo
 
     FROM Employees e
-    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-    INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
-   LEFT JOIN LeavePassageAmounts lpa 
-    ON e.IdEmployee = lpa.IdEmployee
-LEFT JOIN FinancialYears fy 
-    ON lpa.IdFinancialYear = fy.IdFinancialYear
-WHERE 1 = 1
-  AND (
-    e.CurrentStatus = 'WORKING'
-    OR ISNULL(lpa.IdFinancialYear, 0) > 0
-  )
-  " + (financialYear.HasValue ? "AND lpa.IdFinancialYear = @FinancialYear" : "") + @"
-");
+    INNER JOIN Designations des 
+        ON e.IdDesignation = des.IdDesignation
+    INNER JOIN Departments dept 
+        ON e.IdDepartment = dept.IdDepartment
+    LEFT JOIN LeavePassageAmounts lpa 
+        ON e.IdEmployee = lpa.IdEmployee 
+        " + (financialYear.HasValue ? "AND lpa.IdFinancialYear = @FinancialYear" : "") + @"
+    LEFT JOIN FinancialYears fy 
+        ON lpa.IdFinancialYear = fy.IdFinancialYear
+    WHERE e.CurrentStatus = 'WORKING'
+        AND e.IdEmployee >= 1000
+    ");
 
             var parameters = new DynamicParameters();
 
@@ -369,7 +368,7 @@ WHERE 1 = 1
             des.DesignationName LIKE @SearchText OR
             dept.DepartmentName LIKE @SearchText
         )
-    ");
+        ");
                 parameters.Add("SearchText", $"%{searchString}%");
             }
 

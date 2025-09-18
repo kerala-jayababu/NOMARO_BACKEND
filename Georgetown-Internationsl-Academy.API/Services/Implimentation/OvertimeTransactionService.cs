@@ -285,35 +285,46 @@ WHERE ot.IdEmployee = @EmployeeId ");
         public async Task<OvertimeTransactionDto?> GetOvertimeTransactionById(int id)
         {
             const string query = @"
-    SELECT 
-        ot.IdOvertimeTransaction,
-        ot.IdEmployee,
-        ot.IdOvertimeType,
-        ot.StartDate,
-        ot.StartTime,
-        ot.EndDate,
-        ot.EndTime,
-        ot.DurationInHours,
-        ot.ReasonForOvertime,
-        ot.Attachment,
-        ot.AttachmentDescription,
-        ot.ApprovalStatus,
-        e.EmployeeCode,
-        ot.CreatedOn,
-        ot.DayType,
-       CONCAT(ec.FirstName, ' ', COALESCE(ec.MiddleName, ''), ' ', ec.LastName) AS CreatedBy,
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-        e.IdDepartment,
-        e.IdDesignation,
-        d.DepartmentName AS Department,
-        des.DesignationName AS Designation
-    FROM OvertimeTransactions ot
-    INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
-    INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-    INNER JOIN Employees ec on ot.CreatedBy= ec.IdEmployee
-    WHERE ot.IdOvertimeTransaction = @Id;
-    ";
+SELECT 
+    ot.IdOvertimeTransaction,
+    ot.IdEmployee,
+    ot.IdOvertimeType,
+    ot.StartDate,
+    ot.StartTime,
+    ot.EndDate,
+    ot.EndTime,
+    ot.DurationInHours,
+    ot.ReasonForOvertime,
+    ot.Attachment,
+    ot.AttachmentDescription,
+    ot.ApprovalStatus,
+    e.EmployeeCode,
+    ot.CreatedOn,
+    ot.DayType,
+    CONCAT(ec.FirstName, ' ', COALESCE(ec.MiddleName, ''), ' ', ec.LastName) AS CreatedBy,
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    e.IdDepartment,
+    e.IdDesignation,
+    d.DepartmentName AS Department,
+    des.DesignationName AS Designation
+FROM OvertimeTransactions ot
+INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
+INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+INNER JOIN Employees ec on ot.CreatedBy = ec.IdEmployee
+WHERE ot.IdOvertimeTransaction = @Id;
+";
+
+            const string configQuery = @"
+SELECT 
+    IdEmployeeOvertimeConfig,
+    IdEmployee,
+    DayType,
+    StandardRate,
+    DayRate
+FROM EmployeeOvertimeConfig
+WHERE IdEmployee = @IdEmployee;
+";
 
             try
             {
@@ -324,9 +335,20 @@ WHERE ot.IdEmployee = @EmployeeId ");
                     if (connection.State == System.Data.ConnectionState.Closed)
                         await connection.OpenAsync();
 
+                    // 1. Get overtime transaction
                     var transaction = await connection.QueryFirstOrDefaultAsync<OvertimeTransactionDto>(query, new { Id = id });
+
+                    if (transaction == null)
+                        return null;
+
+                    // 2. Get OT Amount
                     var res = await GetOverTimeAmount(transaction.IdEmployee, transaction.StartDate, transaction.DurationInHours);
                     transaction.OTAmount = res;
+
+                    // 3. Get configs
+                    var configs = await connection.QueryAsync<EmployeeOvertimeConfigDto>(configQuery, new { IdEmployee = transaction.IdEmployee });
+                    transaction.OvertimeConfigs = configs.ToList();
+
                     return transaction;
                 }
             }

@@ -44,6 +44,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int IdDesignation { get; set; }
 
         [NotMapped]
-        public decimal? OTAmount { get; set; } 
+        public decimal? OTAmount { get; set; }
+        [NotMapped]
+        public List<EmployeeOvertimeConfigDto> OvertimeConfigs { get; set; } = new();
     }
 }
