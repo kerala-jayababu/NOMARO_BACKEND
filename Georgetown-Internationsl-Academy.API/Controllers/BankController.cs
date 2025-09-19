@@ -72,13 +72,56 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-        [HttpPost("AddOrUpdateBranchesOfBank")]
-        public async Task<IActionResult> AddOrUpdateBranchesOfBank( List<BankBranchesDto> bankBranchesDtoList)
-        {
-            if (bankBranchesDtoList == null || !bankBranchesDtoList.Any())
+            [HttpPost("AddOrUpdateBranchesOfBank")]
+            public async Task<IActionResult> AddOrUpdateBranchesOfBank( List<BankBranchesDto> bankBranchesDtoList)
             {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input. Please provide a valid list of bank branches."));
+                if (bankBranchesDtoList == null || !bankBranchesDtoList.Any())
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input. Please provide a valid list of bank branches."));
+                }
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(IdEmployee))
+                {
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+                }
+
+                try
+                {
+                    var screenCode = _configuration["ScreenCodes:BankBranches"];
+                    var actionType = "A";
+
+                    // Check permission
+                    var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+                    if (!hasPermission)
+                    {
+                        return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+                    }
+
+                    var isSuccess = await _bankservice.AddOrUpdateBranchesOfBank(bankBranchesDtoList);
+
+                    if (!isSuccess)
+                    {
+                        return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add or update bank branches. Please try again."));
+                    }
+
+                    return Ok(ApiResponseDto<string>.CreateSuccess("Bank branches added/updated successfully."));
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+                }
             }
+        [HttpPost("AddOrUpdateBanks")]
+        public async Task<IActionResult> AddOrUpdateBanks(List<BankDto> bankDtoList)
+        {
+            if (bankDtoList == null || !bankDtoList.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input. Please provide a valid list of banks."));
+            }
+
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(IdEmployee))
@@ -88,7 +131,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var screenCode = _configuration["ScreenCodes:BankBranches"];
+                var screenCode = _configuration["ScreenCodes:Banks"];
                 var actionType = "A";
 
                 // Check permission
@@ -97,17 +140,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!hasPermission)
                 {
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
-
                 }
 
-                var isSuccess = await _bankservice.AddOrUpdateBranchesOfBank(bankBranchesDtoList);
+                var isSuccess = await _bankservice.AddOrUpdateBanks(bankDtoList);
 
                 if (!isSuccess)
                 {
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add or update bank branches. Please try again."));
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add or update banks. Please try again."));
                 }
 
-                return Ok(ApiResponseDto<string>.CreateSuccess("Bank branches added/updated successfully."));
+                return Ok(ApiResponseDto<string>.CreateSuccess("Banks added/updated successfully."));
             }
             catch (Exception ex)
             {

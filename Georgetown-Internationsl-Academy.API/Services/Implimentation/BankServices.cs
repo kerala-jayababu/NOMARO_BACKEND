@@ -141,5 +141,64 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
+
+        public async Task<bool> AddOrUpdateBanks(List<BankDto> bankDtoList)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var existingBanks = await _dbContext.Banks.ToListAsync();
+                var updatedBanks = new List<Banks>();
+
+                foreach (var bankDto in bankDtoList)
+                {
+                    var existingBank = existingBanks.FirstOrDefault(b => b.IdBank == bankDto.IdBank);
+
+                    if (existingBank != null)
+                    {
+                        // Update existing
+                        existingBank.BankName = bankDto.BankName;
+                        existingBank.SwiftCode = bankDto.SwiftCode;
+
+                        updatedBanks.Add(existingBank);
+                    }
+                    else
+                    {
+                        // Add new
+                        var newBank = new Banks
+                        {
+                            BankName = bankDto.BankName,
+                            SwiftCode = bankDto.SwiftCode
+                        };
+
+                        await _dbContext.Banks.AddAsync(newBank);
+                        updatedBanks.Add(newBank);
+                    }
+                }
+
+                // Delete banks that are not in the input list
+                //var inputBankIds = bankDtoList.Where(b => b.IdBank > 0).Select(b => b.IdBank).ToList();
+                //var banksToRemove = existingBanks.Where(b => !inputBankIds.Contains(b.IdBank)).ToList();
+
+                //if (banksToRemove.Any())
+                //{
+                //    _dbContext.Banks.RemoveRange(banksToRemove);
+                //}
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding, updating, or removing banks.");
+                throw new Exception("An error occurred while processing banks. Please try again.");
+            }
+        }
+
+
     }
 }

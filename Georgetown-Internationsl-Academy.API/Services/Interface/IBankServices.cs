@@ -7,5 +7,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<BankDto>> GetBanksList();
         Task<IEnumerable<BankBranchesDto>> GetBranchesOfBank(int idBank);
         Task<bool> AddOrUpdateBranchesOfBank(List<BankBranchesDto> bankBranchesDtoList);
+        Task<bool> AddOrUpdateBanks(List<BankDto> bankDtoList);
     }
 }
