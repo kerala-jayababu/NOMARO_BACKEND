@@ -9,5 +9,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<RentFreeQuarterDto?> GetRentFreeQuarterById(int id);
         Task<RentFreeQuarterDto?> AddRentFreeQuarter(RentFreeQuarterDto dto);
         Task<RentFreeQuarterDto?> UpdateRentFreeQuarter(RentFreeQuarterDto dto);
+        Task<IEnumerable<RentFreeQuarterAllowanceDto>> GetRentFreeQuarterAllowanceList(int? financialYear = null, string? searchString = null);
     }
 }

@@ -221,5 +221,81 @@ public class RentFreeQuarterService : IRentFreeQuarterService
         }
     }
 
-  
+    public  async Task<IEnumerable<RentFreeQuarterAllowanceDto>> GetRentFreeQuarterAllowanceList(int? financialYear = null, string? searchString = null)
+    {
+        var query = new StringBuilder(@"
+SELECT 
+    e.IdEmployee,
+    e.EmployeeCode,
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    d.DepartmentName,
+    des.DesignationName,
+
+    -- RFQ fields
+    rfq.IdRFQ,
+    rfq.IdFinancialYear,
+    rfq.Duration,
+    rfq.Sqft,
+    rfq.Rate,
+
+    -- Computed RFQ values
+    (rfq.Duration * rfq.Sqft * rfq.Rate) AS AnnualRFQ,
+    ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0) AS TaxFree,
+    ((rfq.Duration * rfq.Sqft * rfq.Rate) - ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0)) AS TaxableAmount,
+    (((rfq.Duration * rfq.Sqft * rfq.Rate) - ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0)) * 0.40) AS TaxAmount,
+    ((rfq.Duration * rfq.Sqft * rfq.Rate) - (((rfq.Duration * rfq.Sqft * rfq.Rate) - ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0)) * 0.40)) AS NetRent,
+
+    fy.FinancialYearName,
+    fy.FinancialYearFrom,
+    fy.FinancialYearTo
+
+FROM Employees e
+INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+LEFT JOIN RentFreeQuarters rfq ON e.IdEmployee = rfq.IdEmployee
+    " + (financialYear.HasValue ? "AND rfq.IdFinancialYear = @FinancialYear" : "") + @"
+LEFT JOIN FinancialYears fy ON rfq.IdFinancialYear = fy.IdFinancialYear
+WHERE e.CurrentStatus = 'WORKING'
+    AND e.IdEmployee >= 1000
+");
+
+        var parameters = new DynamicParameters();
+
+        if (financialYear.HasValue && financialYear.Value > 0)
+        {
+            parameters.Add("FinancialYear", financialYear.Value);
+        }
+
+        // Search filter
+        if (!string.IsNullOrEmpty(searchString))
+        {
+            query.Append(@"
+    AND (
+        e.EmployeeCode LIKE @SearchText OR
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+        des.DesignationName LIKE @SearchText OR
+        d.DepartmentName LIKE @SearchText
+    )");
+            parameters.Add("SearchText", $"%{searchString}%");
+        }
+
+        query.Append(" ORDER BY e.FirstName, e.LastName;");
+
+        try
+        {
+            using (var connection = _dbContext.Database.GetDbConnection())
+            {
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var result = await connection.QueryAsync<RentFreeQuarterAllowanceDto>(query.ToString(), parameters);
+                return result;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching Rent Free Quarter Details.");
+            throw new Exception("An error occurred while fetching Rent Free Quarter details.");
+        }
+    }
 }

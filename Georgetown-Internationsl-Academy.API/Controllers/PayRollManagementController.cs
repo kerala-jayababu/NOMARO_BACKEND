@@ -968,6 +968,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetRentFreeQuarterAllowanceList")]
+        public async Task<IActionResult> GetRentFreeQuarterAllowanceList(int? financialYear = null, string? searchString = null)
+        {
+            try
+            {
+                var result = await _rentfreeservice.GetRentFreeQuarterAllowanceList(financialYear, searchString);
+
+                if (result == null || !result.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterAllowanceDto>>.CreateSuccess(
+                        Enumerable.Empty<RentFreeQuarterAllowanceDto>(), "No records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<RentFreeQuarterAllowanceDto>>.CreateSuccess(
+                    result, "Rent Free Quarter Allowance details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
         #endregion
 
         #region ConfigApprovals
