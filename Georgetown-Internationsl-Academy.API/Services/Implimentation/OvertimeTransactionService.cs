@@ -360,54 +360,33 @@ WHERE IdEmployee = @IdEmployee;
         }
 
 
-        public async Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transactionDto, int IdEmployee)
+        public async Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transactionDto, int idEmployee)
         {
             try
             {
+                // 🔹 Map DTO to entity
                 var transactionEntity = _mapper.Map<OvertimeTransactionEntity>(transactionDto);
-                string filePath = null;
-                string fileNameWithExtension = null;
-                if (transactionDto.File != null)
-                {
-                    string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/OvertimeTransactions");
-                    if (!Directory.Exists(uploadFolderPath))
-                    {
-                        Directory.CreateDirectory(uploadFolderPath);
-                    }
-                    fileNameWithExtension = transactionDto.File.FileName;
-                    string uniqueFileName = $"{Guid.NewGuid()}_{transactionDto.IdEmployee}_{transactionDto.File.FileName}";
-                    filePath = Path.Combine(uploadFolderPath, uniqueFileName);
 
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await transactionDto.File.CopyToAsync(stream);
-                    }
-                }
-                var holiday = await _dbContext.Holidays
-      .FirstOrDefaultAsync(h => h.HolidayDate.Date == transactionDto.StartDate.Date);
-
-                if (holiday != null)
-                {
-                    transactionEntity.DayType = holiday.HolidayType; // Use the HolidayType from Holidays table
-                    transactionEntity.IdOvertimeType =await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "HOLIDAY").Select(x=>x.IdOvertimeType).FirstOrDefaultAsync();
-                }
-                else
-                {
-                    transactionEntity.DayType = "WORKINGDAY"; // Default value if no holiday exists
-                    transactionEntity.IdOvertimeType = await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "Working Day").Select(x => x.IdOvertimeType).FirstOrDefaultAsync();
-                }
-
-                transactionEntity.CreatedBy = IdEmployee;
-                transactionEntity.CreatedOn = DateTime.Now;
+                // 🔹 Attach file if uploaded
+                (string filePath, string fileName) = await SaveAttachmentAsync(transactionDto);
                 transactionEntity.Attachment = filePath;
+                transactionEntity.AttachmentDescription = fileName;
+
+                // 🔹 Determine Day Type (Holiday or Working Day)
+                await SetDayTypeAsync(transactionEntity);
+
+                // 🔹 Audit fields
+                transactionEntity.CreatedBy = idEmployee;
+                transactionEntity.CreatedOn = DateTime.Now;
                 transactionEntity.ApprovalStatus = "SUBMITTED";
-                transactionEntity.AttachmentDescription = fileNameWithExtension;
+
+                // 🔹 Save transaction
                 await _dbContext.OvertimeTransactions.AddAsync(transactionEntity);
                 await _dbContext.SaveChangesAsync();
                 int insertedId = transactionEntity.IdOvertimeTransaction;
-                var entityCode = _configuration["WorkflowEntityCodes:Overtime"];
-                // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(insertedId, entityCode, transactionEntity.IdEmployee, "SUBMITTED", null,null);
+
+                // 🔹 Start Workflow
+                await HandleApprovalWorkflow(transactionEntity, idEmployee, insertedId,false);
 
                 return _mapper.Map<OvertimeTransactionDto>(transactionEntity);
             }
@@ -418,69 +397,204 @@ WHERE IdEmployee = @IdEmployee;
             }
         }
 
-        public async Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transactionDto, int IdEmployee)
+        #region Helpers
+
+        private async Task<(string FilePath, string FileName)> SaveAttachmentAsync(OvertimeTransactionDto dto)
+        {
+            if (dto.File == null) return (null, null);
+
+            string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/OvertimeTransactions");
+            if (!Directory.Exists(uploadFolderPath))
+            {
+                Directory.CreateDirectory(uploadFolderPath);
+            }
+
+            string fileName = dto.File.FileName;
+            string uniqueFileName = $"{Guid.NewGuid()}_{dto.IdEmployee}_{fileName}";
+            string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
+
+            using var stream = new FileStream(filePath, FileMode.Create);
+            await dto.File.CopyToAsync(stream);
+
+            return (filePath, fileName);
+        }
+
+        private async Task SetDayTypeAsync(OvertimeTransactionEntity entity)
+        {
+            var holiday = await _dbContext.Holidays
+                .FirstOrDefaultAsync(h => h.HolidayDate.Date == entity.StartDate.Date);
+
+            if (holiday != null)
+            {
+                entity.DayType = holiday.HolidayType;
+                entity.IdOvertimeType = await _dbContext.OvertimeTypes
+                    .Where(x => x.OvertimeTypeName == "HOLIDAY")
+                    .Select(x => x.IdOvertimeType)
+                    .FirstOrDefaultAsync();
+            }
+            else
+            {
+                entity.DayType = "WORKINGDAY";
+                entity.IdOvertimeType = await _dbContext.OvertimeTypes
+                    .Where(x => x.OvertimeTypeName == "Working Day")
+                    .Select(x => x.IdOvertimeType)
+                    .FirstOrDefaultAsync();
+            }
+        }
+
+        private async Task HandleApprovalWorkflow(OvertimeTransactionEntity entity, int idEmployee, int insertedId, bool isUpdate = false)
+        {
+            var workflowConfig = await _dbContext.WorkFlowConfig
+                .Where(x => x.EntityCode == "OVERTIME")
+                .ToListAsync();
+
+            if (!workflowConfig.Any()) return;
+
+            string entityCode = _configuration["WorkflowEntityCodes:Overtime"];
+            var employee = await _dbContext.Employees
+                .FirstOrDefaultAsync(x => x.IdEmployee == entity.IdEmployee);
+
+            bool isSelfReporting = employee != null && employee.ReportingTo == idEmployee;
+
+            // 🔹 Find current cycle index if update
+            int cycleIndex = 1;
+            if (isUpdate)
+            {
+                var lastCycle = await _dbContext.ApprovalWorkFlowAllocations
+                    .Where(a => a.EntityCode == entityCode && a.EntityTablePrimaryKeyID == insertedId)
+                    .OrderByDescending(a => a.CycleIndex)
+                    .FirstOrDefaultAsync();
+
+                cycleIndex = (lastCycle?.CycleIndex ?? 0) + 1;
+            }
+
+            if (isSelfReporting)
+            {
+                var firstLevel = await _dbContext.WorkFlowConfigDetails
+                    .FirstOrDefaultAsync(w =>
+                        w.IdWorkFlowConfig == workflowConfig.First().IdWorkFlowConfig &&
+                        w.LevelNumber == 1);
+
+                if (firstLevel != null)
+                {
+                    var targetEmployees = await GetTargetEmployeesForOT(firstLevel, entity.IdEmployee);
+                    var targetEmployeeIds = string.Join(",", targetEmployees);
+
+                    var autoApprovedRecord = new ApprovalWorkFlowAllocation
+                    {
+                        IdWorkFlowConfig = workflowConfig.First().IdWorkFlowConfig,
+                        EntityCode = entityCode,
+                        EntityTablePrimaryKeyID = insertedId,
+                        CycleIndex = cycleIndex,   // ✅ dynamic cycle index
+                        LevelNumber = 1,
+                        SourceIdEmployee = entity.IdEmployee,
+                        TargetIdEmployee = targetEmployeeIds,
+                        SentDate = DateTime.Now
+                    };
+
+                    await _dbContext.ApprovalWorkFlowAllocations.AddAsync(autoApprovedRecord);
+                    await _dbContext.SaveChangesAsync();
+
+                    await _approvalWorkflowService.InitiateApprovalWorkflow(
+                        insertedId, entityCode, idEmployee, firstLevel.ApprovalStatusName, null, null);
+                }
+            }
+            else
+            {
+                await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    insertedId, entityCode, entity.IdEmployee, "SUBMITTED", null, null);
+            }
+        }
+
+
+        #endregion
+
+        private async Task<List<int>> GetTargetEmployeesForOT(WorkFlowConfigDetails workflowConfigDetails, int loggedInEmployeeId)
+        {
+            if (workflowConfigDetails == null)
+                return new List<int> { 0 };
+
+            List<int> result = new List<int>();
+
+            if (workflowConfigDetails.ApprovalAuthorityType == "ROLE")
+            {
+                var designationId = workflowConfigDetails.ApprovalAuthorityID;
+                if (designationId.HasValue)
+                {
+                    result = await _dbContext.Employees
+                        .Where(e => e.IdDesignation == designationId.Value)
+                        .Select(e => e.IdEmployee)
+                        .ToListAsync();
+                }
+            }
+            else if (workflowConfigDetails.ApprovalAuthorityType == "REPOFFICER"
+                     && workflowConfigDetails.ApprovalAuthorityID.HasValue)
+            {
+                result = await _dbContext.Employees
+                    .Where(e => e.IdEmployee == loggedInEmployeeId && e.ReportingTo.HasValue)
+                    .Select(e => e.ReportingTo.Value)
+                    .ToListAsync();
+            }
+            else if (workflowConfigDetails.ApprovalAuthorityType == "EMPLOYEE")
+            {
+                if (workflowConfigDetails.ApprovalAuthorityID.HasValue)
+                {
+                    result = await _dbContext.Employees
+                        .Where(e => e.IdEmployee == workflowConfigDetails.ApprovalAuthorityID.Value)
+                        .Select(e => e.IdEmployee)
+                        .ToListAsync();
+                }
+            }
+
+            // If result is null or empty, append 0
+            if (result == null || !result.Any())
+                result = new List<int> { 0 };
+
+            return result;
+        }
+
+        public async Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transactionDto, int idEmployee)
         {
             try
             {
+                var transactionEntity = await _dbContext.OvertimeTransactions
+                    .FirstOrDefaultAsync(x => x.IdOvertimeTransaction == transactionDto.IdOvertimeTransaction);
 
-                var transaction = await _dbContext.OvertimeTransactions.FirstOrDefaultAsync(x => x.IdOvertimeTransaction == transactionDto.IdOvertimeTransaction);
+                if (transactionEntity == null) return null;
 
-                if (transaction == null) return null;
-
-                string filePath = transaction.Attachment;
-
+                // 🔹 Update attachment if new file uploaded
                 if (transactionDto.File != null)
                 {
-                    if (Directory.Exists(transaction.Attachment))
+                    // Delete old file if exists
+                    if (!string.IsNullOrEmpty(transactionEntity.Attachment) && File.Exists(transactionEntity.Attachment))
                     {
-                        Directory.Delete(transaction.Attachment);
+                        File.Delete(transactionEntity.Attachment);
                     }
 
-                    string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/OvertimeTransactions");
-                    if (!Directory.Exists(uploadFolderPath))
-                    {
-                        Directory.CreateDirectory(uploadFolderPath);
-                    }
-
-                    string uniqueFileName = $"{Guid.NewGuid()}_{transactionDto.IdEmployee}_{transactionDto.File.FileName}";
-                    filePath = Path.Combine(uploadFolderPath, uniqueFileName);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await transactionDto.File.CopyToAsync(stream);
-                    }
+                    (string filePath, string fileName) = await SaveAttachmentAsync(transactionDto);
+                    transactionEntity.Attachment = filePath;
+                    transactionEntity.AttachmentDescription = fileName;
                 }
-                var holiday = await _dbContext.Holidays
-    .FirstOrDefaultAsync(h => h.HolidayDate.Date == transactionDto.StartDate.Date);
 
-                if (holiday != null)
-                {
-                    transaction.DayType = holiday.HolidayType; // Use the HolidayType from Holidays table
-                    transaction.IdOvertimeType = await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "HOLIDAY").Select(x => x.IdOvertimeType).FirstOrDefaultAsync();
-                }
-                else
-                {
-                    transaction.DayType = "WORKINGDAY"; // Default value if no holiday exists
-                    transaction.IdOvertimeType = await _dbContext.OvertimeTypes.Where(x => x.OvertimeTypeName == "Working Day").Select(x => x.IdOvertimeType).FirstOrDefaultAsync();
-                }
-                transaction.StartTime = transactionDto.StartTime;
-                transaction.EndTime = transactionDto.EndTime;
-                transaction.StartDate = transactionDto.StartDate;
-                //transaction.IdOvertimeType= transactionDto.IdOvertimeType;               
-                transaction.EndDate = transactionDto.EndDate;
-                transaction.DurationInHours = transactionDto.DurationInHours;
-                transaction.ReasonForOverTime = transactionDto.ReasonForOvertime;
-                transaction.AttachmentDescription = transactionDto.AttachmentDescription;
-                transaction.ApprovalStatus = transactionDto.ApprovalStatus;
-                transaction.Attachment = filePath;
+                // 🔹 Update Day Type (holiday vs working day)
+                await SetDayTypeAsync(transactionEntity);
 
-                _dbContext.OvertimeTransactions.Update(transaction);
+                // 🔹 Update fields
+                transactionEntity.StartTime = transactionDto.StartTime;
+                transactionEntity.EndTime = transactionDto.EndTime;
+                transactionEntity.StartDate = transactionDto.StartDate;
+                transactionEntity.EndDate = transactionDto.EndDate;
+                transactionEntity.DurationInHours = transactionDto.DurationInHours;
+                transactionEntity.ReasonForOverTime = transactionDto.ReasonForOvertime;
+                transactionEntity.ApprovalStatus = "SUBMITTED"; // always reset to submitted when updated
 
-                await _dbContext.SaveChangesAsync();              
-                var entityCode = _configuration["WorkflowEntityCodes:Overtime"];
-                // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(transaction.IdOvertimeTransaction, entityCode, IdEmployee, "SUBMITTED", null,null);
-                return _mapper.Map<OvertimeTransactionDto>(transaction);
+                _dbContext.OvertimeTransactions.Update(transactionEntity);
+                await _dbContext.SaveChangesAsync();
+
+                // 🔹 Workflow logic (same as Add)
+                await HandleApprovalWorkflow(transactionEntity, idEmployee, transactionEntity.IdOvertimeTransaction,true);
+
+                return _mapper.Map<OvertimeTransactionDto>(transactionEntity);
             }
             catch (Exception ex)
             {
