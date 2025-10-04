@@ -3,12 +3,18 @@ using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Models.YourNamespace.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using static Azure.Core.HttpHeader;
 
 public class RentFreeQuarterService : IRentFreeQuarterService
 {
@@ -132,7 +138,7 @@ public class RentFreeQuarterService : IRentFreeQuarterService
     public async Task<RentFreeQuarterDto?> AddRentFreeQuarter(RentFreeQuarterDto dto)
     {
         try
-        {           
+        {
 
             var templateEntity = new RentFreeQuarter();
             templateEntity.IdEmployee = dto.IdEmployee;
@@ -197,7 +203,7 @@ public class RentFreeQuarterService : IRentFreeQuarterService
             entity.MonthlyTaxAmount = dto.MonthlyTaxAmount;
 
             _dbContext.RentFreeQuarters.Update(entity);
-             await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
             // Manually mapping the updated entity back to DTO
             var updatedDto = new RentFreeQuarterDto
             {
@@ -221,61 +227,54 @@ public class RentFreeQuarterService : IRentFreeQuarterService
         }
     }
 
-    public  async Task<IEnumerable<RentFreeQuarterAllowanceDto>> GetRentFreeQuarterAllowanceList(int? financialYear = null, string? searchString = null)
+    public async Task<IEnumerable<RentFreeQuarterAllowanceDto>> GetRentFreeQuarterAllowanceList(int? financialYear = null, string? searchString = null)
     {
         var query = new StringBuilder(@"
 SELECT 
-    e.IdEmployee,
+    r.IdRentFreeQuarterAllowance,
+    r.IdEmployee,
     e.EmployeeCode,
     CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
     d.DepartmentName,
     des.DesignationName,
-
-    -- RFQ fields
-    rfq.IdRFQ,
-    rfq.IdFinancialYear,
-    rfq.Duration,
-    rfq.Sqft,
-    rfq.Rate,
-
-    -- Computed RFQ values
-    (rfq.Duration * rfq.Sqft * rfq.Rate) AS AnnualRFQ,
-    ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0) AS TaxFree,
-    ((rfq.Duration * rfq.Sqft * rfq.Rate) - ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0)) AS TaxableAmount,
-    (((rfq.Duration * rfq.Sqft * rfq.Rate) - ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0)) * 0.40) AS TaxAmount,
-    ((rfq.Duration * rfq.Sqft * rfq.Rate) - (((rfq.Duration * rfq.Sqft * rfq.Rate) - ((rfq.Duration * rfq.Sqft * rfq.Rate) / 3.0)) * 0.40)) AS NetRent,
-
+    r.Duration,
+    r.FinancialYear,
+    r.AllottedSqft,
+    r.SqFtRate,
+    r.AnnualRFQAllowance,
+    r.TaxFreeAllowance,
+    r.TaxableAmount,
+    r.TaxAmount,
+    r.NetRFQAllowance,
     fy.FinancialYearName,
-    fy.FinancialYearFrom,
-    fy.FinancialYearTo
-
-FROM Employees e
+    r.CreatedDate,
+    r.UpdatedDate,
+    r.CreatedBy
+FROM RentFreeQuarterAllowance r
+INNER JOIN Employees e ON r.IdEmployee = e.IdEmployee
 INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
 INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-LEFT JOIN RentFreeQuarters rfq ON e.IdEmployee = rfq.IdEmployee
-    " + (financialYear.HasValue ? "AND rfq.IdFinancialYear = @FinancialYear" : "") + @"
-LEFT JOIN FinancialYears fy ON rfq.IdFinancialYear = fy.IdFinancialYear
+LEFT JOIN FinancialYears fy ON r.FinancialYear = fy.IdFinancialYear
 WHERE e.CurrentStatus = 'WORKING'
-    AND e.IdEmployee >= 1000
 ");
 
         var parameters = new DynamicParameters();
 
         if (financialYear.HasValue && financialYear.Value > 0)
         {
+            query.Append(" AND r.FinancialYear = @FinancialYear");
             parameters.Add("FinancialYear", financialYear.Value);
         }
 
-        // Search filter
         if (!string.IsNullOrEmpty(searchString))
         {
             query.Append(@"
-    AND (
-        e.EmployeeCode LIKE @SearchText OR
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
-        des.DesignationName LIKE @SearchText OR
-        d.DepartmentName LIKE @SearchText
-    )");
+ AND (
+    e.EmployeeCode LIKE @SearchText OR
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+    des.DesignationName LIKE @SearchText OR
+    d.DepartmentName LIKE @SearchText
+ )");
             parameters.Add("SearchText", $"%{searchString}%");
         }
 
@@ -294,8 +293,133 @@ WHERE e.CurrentStatus = 'WORKING'
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching Rent Free Quarter Details.");
-            throw new Exception("An error occurred while fetching Rent Free Quarter details.");
+            _logger.LogError(ex, "Error fetching Rent Free Quarter Allowance details.");
+            throw new Exception("An error occurred while fetching Rent Free Quarter Allowance details.");
         }
     }
+
+    public async Task<RentFreeQuarterAllowanceDto?> GetRentFreeQuarterAllowanceById(int id)
+    {
+        var query = new StringBuilder(@"
+SELECT 
+    r.IdRentFreeQuarterAllowance,
+    r.IdEmployee,
+    e.EmployeeCode,
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    d.DepartmentName,
+    des.DesignationName,
+    r.Duration,
+    r.FinancialYear,
+    r.AllottedSqft,
+    r.SqFtRate,
+    r.AnnualRFQAllowance,
+    r.TaxFreeAllowance,
+    r.TaxableAmount,
+    r.TaxAmount,
+    r.NetRFQAllowance,
+    fy.FinancialYearName,
+    r.CreatedDate,
+    r.UpdatedDate,
+    r.CreatedBy
+FROM RentFreeQuarterAllowance r
+INNER JOIN Employees e ON r.IdEmployee = e.IdEmployee
+INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+LEFT JOIN FinancialYears fy ON r.FinancialYear = fy.IdFinancialYear
+WHERE e.CurrentStatus = 'WORKING'
+  AND r.IdRentFreeQuarterAllowance = @Id
+");
+
+        var parameters = new DynamicParameters();
+        parameters.Add("Id", id);
+
+        try
+        {
+            using (var connection = _dbContext.Database.GetDbConnection())
+            {
+                if (connection.State == System.Data.ConnectionState.Closed)
+                    await connection.OpenAsync();
+
+                var result = await connection.QueryFirstOrDefaultAsync<RentFreeQuarterAllowanceDto>(query.ToString(), parameters);
+                return result;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error fetching Rent Free Quarter Allowance details for Id: {id}");
+            throw new Exception("An error occurred while fetching Rent Free Quarter Allowance details by Id.");
+        }
+    }
+
+    public async Task<RentFreeQuarterAllowanceAddOrUpdateDto?> AddRentFreeQuarterAllowance(RentFreeQuarterAllowanceAddOrUpdateDto dto, int IdEmployee)
+    {
+        try
+        {
+            var entity = new RentFreeQuarterAllowance
+            {
+                IdEmployee = dto.IdEmployee,
+                Duration = dto.Duration,
+                FinancialYear = dto.FinancialYear,
+                AllottedSqft = dto.AllottedSqFt,
+                SqFtRate = dto.SqFtRate,
+                AnnualRFQAllowance = dto.AnnualRFQAllowance,
+                TaxFreeAllowance = dto.TaxFreeAllowance,
+                TaxableAmount = dto.TaxableAmount,
+                TaxAmount = dto.TaxAmount,
+                NetRFQAllowance = dto.NetRFQAllowance,
+                CreatedDate = DateTime.Now,
+                CreatedBy = IdEmployee
+            };
+
+            await _dbContext.RentFreeQuarterAllowance.AddAsync(entity);
+            await _dbContext.SaveChangesAsync();
+
+            dto.IdRentFreeQuarterAllowance = entity.IdRentFreeQuarterAllowance;
+            return dto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding RentFreeQuarterAllowance: {@Dto}", dto);
+            return null;
+        }
+    }
+
+
+    public async Task<RentFreeQuarterAllowanceAddOrUpdateDto?> UpdateRentFreeQuarterAllowance(RentFreeQuarterAllowanceAddOrUpdateDto dto, int IdEmployee)
+    {
+        try
+        {
+            var entity = await _dbContext.RentFreeQuarterAllowance
+                .FirstOrDefaultAsync(x => x.IdRentFreeQuarterAllowance == dto.IdRentFreeQuarterAllowance);
+
+            if (entity == null)
+            {
+                _logger.LogWarning("RentFreeQuarterAllowance with ID {Id} not found for update.", dto.IdRentFreeQuarterAllowance);
+                return null;
+            }
+
+            entity.IdEmployee = dto.IdEmployee;
+            entity.Duration = dto.Duration;
+            entity.FinancialYear = dto.FinancialYear;
+            entity.AllottedSqft = dto.AllottedSqFt;
+            entity.SqFtRate = dto.SqFtRate;
+            entity.AnnualRFQAllowance = dto.AnnualRFQAllowance;
+            entity.TaxFreeAllowance = dto.TaxFreeAllowance;
+            entity.TaxableAmount = dto.TaxableAmount;
+            entity.TaxAmount = dto.TaxAmount;
+            entity.NetRFQAllowance = dto.NetRFQAllowance;
+            entity.UpdatedDate = DateTime.Now;
+            _dbContext.RentFreeQuarterAllowance.Update(entity);
+            await _dbContext.SaveChangesAsync();
+
+            return dto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating RentFreeQuarterAllowance with ID {Id}", dto.IdRentFreeQuarterAllowance);
+            return null;
+        }
+    }
+
+
 }

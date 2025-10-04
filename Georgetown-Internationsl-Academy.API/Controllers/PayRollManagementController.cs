@@ -990,6 +990,85 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetRentFreeQuarterAllowanceById")]
+        public async Task<IActionResult> GetRentFreeQuarterAllowanceById(int id)
+        {
+            try
+            {
+                var result = await _rentfreeservice.GetRentFreeQuarterAllowanceById(id);
+
+                if (result == null)
+                    return NotFound(ApiResponseDto<string>.CreateFailure($"No record found with Id {id}."));
+
+                return Ok(ApiResponseDto<RentFreeQuarterAllowanceDto>.CreateSuccess(result));
+            }
+            catch (Exception ex)
+            {
+              
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure("An error occurred while fetching record."));
+            }
+        }
+
+        [HttpPost("AddRentFreeQuarterAllowance")]
+        public async Task<IActionResult> AddRentFreeQuarterAllowance([FromBody] RentFreeQuarterAllowanceAddOrUpdateDto dto)
+        {
+            
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(IdEmployee))
+               return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+            //var screenCode = _configuration["ScreenCodes:RentFreeQuarterAllowance"];
+            //var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, "A");
+
+            //if (!hasPermission)
+            //    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+
+            try
+            {
+                var result = await _rentfreeservice.AddRentFreeQuarterAllowance(dto, int.Parse(IdEmployee));
+                if (result == null)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add Rent-Free Quarter Allowance."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Rent-Free Quarter Allowance added successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpPost("UpdateRentFreeQuarterAllowance")]
+        public async Task<IActionResult> UpdateRentFreeQuarterAllowance([FromBody] RentFreeQuarterAllowanceAddOrUpdateDto dto)
+        {
+           
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(IdEmployee))
+               return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+            //var screenCode = _configuration["ScreenCodes:RentFreeQuarterAllowance"];
+            //var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, "U");
+
+            //if (!hasPermission)
+            //    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+
+            try
+            {
+                var result = await _rentfreeservice.UpdateRentFreeQuarterAllowance(dto, int.Parse(IdEmployee));
+                if (result == null)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Rent-Free Quarter Allowance not found."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Rent-Free Quarter Allowance updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
 
         #endregion
 

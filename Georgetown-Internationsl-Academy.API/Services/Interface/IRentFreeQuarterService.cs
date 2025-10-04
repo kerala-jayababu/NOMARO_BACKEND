@@ -1,4 +1,5 @@
 ﻿using Georgetown_Internationsl_Academy.API.DTO;
+using iText.Layout.Properties;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Interface
 {
@@ -10,5 +11,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<RentFreeQuarterDto?> AddRentFreeQuarter(RentFreeQuarterDto dto);
         Task<RentFreeQuarterDto?> UpdateRentFreeQuarter(RentFreeQuarterDto dto);
         Task<IEnumerable<RentFreeQuarterAllowanceDto>> GetRentFreeQuarterAllowanceList(int? financialYear = null, string? searchString = null);
+        Task<RentFreeQuarterAllowanceDto?> GetRentFreeQuarterAllowanceById(int id);
+        Task<RentFreeQuarterAllowanceAddOrUpdateDto?> AddRentFreeQuarterAllowance(RentFreeQuarterAllowanceAddOrUpdateDto dto,int Idemployee);
+        Task<RentFreeQuarterAllowanceAddOrUpdateDto?> UpdateRentFreeQuarterAllowance(RentFreeQuarterAllowanceAddOrUpdateDto dto,int IdEmployee);
+
     }
 }

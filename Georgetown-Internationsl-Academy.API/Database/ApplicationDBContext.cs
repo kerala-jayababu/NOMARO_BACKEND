@@ -3,6 +3,7 @@ using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Bamboo_HR;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
+using Georgetown_Internationsl_Academy.API.Models.YourNamespace.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance.BambooHR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -65,6 +66,9 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<BankRemittance> BankRemittance { get; set; }
         public DbSet<BambooHRIntegrationLogs> BambooHRIntegrationLogs { get; set; }
         public DbSet<LeavePassageAmounts> LeavePassageAmounts { get; set; }
+        public DbSet<RentFreeQuarterAllowance> RentFreeQuarterAllowance { get; set; }
+
+        
 
         #region Time & Attendance
         public DbSet<ShiftDefinitionEntity> ShiftDefinitions { get; set; }
