@@ -208,6 +208,7 @@ builder.Services.AddScoped<IShiftScheduleService, ShiftScheduleService>();
 builder.Services.AddScoped<IShiftEmployeeService, ShiftEmployeeService>();
 builder.Services.AddScoped<IShiftAssignmentService, ShiftAssignmentService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
+builder.Services.AddScoped<ITaxReportService, TaxReportService>();
 
 var app = builder.Build();
 

@@ -12,6 +12,7 @@
         public decimal? TaxFreeAllowance { get; set; }
         public decimal? TaxableAmount { get; set; }
         public decimal? TaxAmount { get; set; }
+        public decimal? TaxRate {  get; set; }
         public decimal? NetRFQAllowance { get; set; }
     }
 }

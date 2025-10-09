@@ -36,6 +36,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<RentFreeQuarterDto> _rentfreevalidator;
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedService;
+        private readonly ITaxReportService _taxReportService;
 
         private readonly IApprovalWorkflowService _approvalWorkflowService;
         public PayRollManagementController(ICurrencyConversionService currencyConversionService, 
@@ -49,6 +50,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             IMaternityLeaveSalaryService maternityLeaveSalaryService, IValidator<MaternityLeaveSalaryDto> maternityLeaveSalaryValidator,
             IApprovalWorkflowService approvalWorkflowService,
               IConfiguration configuration, IRoleBasedScreenService roleBasedService,
+              ITaxReportService taxReportService,
             IRentFreeQuarterService rentfreeservice, IValidator<RentFreeQuarterDto> rentfreevalidator)
         {
             _currencyConversionService = currencyConversionService;
@@ -57,6 +59,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _overtimeTransactionService = overtimeTransactionService;
             _overtimeTransactionValidator = overtimeTransactionValidator;
             _salaryAdjustmentService = salaryAdjustmentService;
+            _taxReportService = taxReportService;
             _salaryAdjustmentvalidator = salaryAdjustmentvalidator;
             _ScheduledSalaryDeductionScheduledSalaryDeductionservice = ScheduledSalaryDeductionservice;
             _scheduledSalaryDeductionscheduledSalaryDeductionValidator = scheduledSalaryDeductionValidator;
@@ -1149,5 +1152,40 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region LeavePassageAmounts
 
         #endregion
+
+        [HttpGet("GenerateForm7B")]
+        public async Task<IActionResult> GenerateForm7B(string idEmployees, int financialYear)
+        {
+            if (string.IsNullOrWhiteSpace(idEmployees))
+                return BadRequest("Please provide Employee IDs.");
+
+            var employeeIdList = idEmployees
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(id => int.Parse(id.Trim()))
+                .ToList();
+
+            if (!employeeIdList.Any())
+                return BadRequest("Invalid Employee ID list.");
+
+            try
+            {
+                var fileBytes = await _taxReportService.GenerateTaxReportsAsync(employeeIdList, financialYear);
+
+                string fileName = employeeIdList.Count > 1
+                    ? $"TaxReports_{DateTime.Now:yyyyMMddHHmmss}.zip"
+                    : $"Form7B_{employeeIdList.First()}.pdf";
+
+                string contentType = employeeIdList.Count > 1
+                    ? "application/zip"
+                    : "application/pdf";
+
+                return File(fileBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error generating tax reports: {ex.Message}");
+            }
+        }
+
     }
 }

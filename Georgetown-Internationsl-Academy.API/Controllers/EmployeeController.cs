@@ -46,23 +46,23 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDto>>.CreateSuccess(Enumerable.Empty<EmployeeProfileDto>(), "No employees found."));
                 }
 
-                foreach (var employee in employeeList)
-                {
-                    string dbPath = employee.EmployeePhotoFilePath?.Trim();
+                //foreach (var employee in employeeList)
+                //{
+                //    string dbPath = employee.EmployeePhotoFilePath?.Trim();
 
 
-                    if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
-                    {
-                        employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
-                    }
+                //    if (!string.IsNullOrEmpty(dbPath) && System.IO.File.Exists(dbPath))
+                //    {
+                //        employee.AttachmentBlob = await System.IO.File.ReadAllBytesAsync(dbPath);
+                //    }
 
-                    if (!string.IsNullOrEmpty(employee.ChildCountDocumentFilePath) && System.IO.File.Exists(employee.ChildCountDocumentFilePath))
-                    {
-                        employee.AttachmentBlobForchildcount = await System.IO.File.ReadAllBytesAsync(employee.ChildCountDocumentFilePath);
-                        employee.ChildCountDocumentFilePath = Path.GetFileName(employee.ChildCountDocumentFilePath); 
+                //    if (!string.IsNullOrEmpty(employee.ChildCountDocumentFilePath) && System.IO.File.Exists(employee.ChildCountDocumentFilePath))
+                //    {
+                //        employee.AttachmentBlobForchildcount = await System.IO.File.ReadAllBytesAsync(employee.ChildCountDocumentFilePath);
+                //        employee.ChildCountDocumentFilePath = Path.GetFileName(employee.ChildCountDocumentFilePath); 
 
-                    }
-                }
+                //    }
+                //}
                 employeeList.First().ActiveEmployeeCount = employeeList.Count(e => e.CurrentStatus == "Working");
 
                 return Ok(ApiResponseDto<IEnumerable<EmployeeProfileDto>>.CreateSuccess(employeeList, "Employee list retrieved successfully."));

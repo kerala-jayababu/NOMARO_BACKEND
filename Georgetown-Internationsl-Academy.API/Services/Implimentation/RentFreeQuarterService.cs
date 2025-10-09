@@ -241,6 +241,7 @@ SELECT
     r.FinancialYear,
     r.AllottedSqft,
     r.SqFtRate,
+    r.TaxRate,
     r.AnnualRFQAllowance,
     r.TaxFreeAllowance,
     r.TaxableAmount,
@@ -312,6 +313,7 @@ SELECT
     r.FinancialYear,
     r.AllottedSqft,
     r.SqFtRate,
+    r.TaxRate,
     r.AnnualRFQAllowance,
     r.TaxFreeAllowance,
     r.TaxableAmount,
@@ -366,6 +368,7 @@ WHERE e.CurrentStatus = 'WORKING'
                 TaxFreeAllowance = dto.TaxFreeAllowance,
                 TaxableAmount = dto.TaxableAmount,
                 TaxAmount = dto.TaxAmount,
+                TaxRate = dto.TaxRate,
                 NetRFQAllowance = dto.NetRFQAllowance,
                 CreatedDate = DateTime.Now,
                 CreatedBy = IdEmployee
@@ -403,6 +406,7 @@ WHERE e.CurrentStatus = 'WORKING'
             entity.FinancialYear = dto.FinancialYear;
             entity.AllottedSqft = dto.AllottedSqFt;
             entity.SqFtRate = dto.SqFtRate;
+            entity.TaxRate = dto.TaxRate;
             entity.AnnualRFQAllowance = dto.AnnualRFQAllowance;
             entity.TaxFreeAllowance = dto.TaxFreeAllowance;
             entity.TaxableAmount = dto.TaxableAmount;
