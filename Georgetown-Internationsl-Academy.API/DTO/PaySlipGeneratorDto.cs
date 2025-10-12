@@ -31,6 +31,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         private iText.Kernel.Colors.Color bgGray;
         private iText.Kernel.Colors.Color bgYellow;
         private iText.Kernel.Colors.Color bgWhite;
+        private iText.Kernel.Colors.Color bgNetPay;
         private iText.Kernel.Colors.Color lineColor;
         int rowHeight = 14;
 
@@ -60,17 +61,26 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                 //document.Add(new Paragraph(""));
                 //document.Add(CreateSalaryTable(payslip.TaxDetails, "Income Tax Deductions"));
 
-                // Net Pay
-                decimal totalEarnings = payslip.Earnings.Sum(x => x.AmountG);
-                decimal totalDeductions = payslip.Deductions.Sum(x => x.AmountG);
-                decimal netPay = totalEarnings - totalDeductions;
-                PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+                // Calculate totals for all columns
+                decimal totalEarningsG = payslip.Earnings.Sum(x => x.AmountG);
+                decimal totalEarningsUS = payslip.Earnings.Sum(x => x.AmountUS);
+                decimal totalEarningsYTDG = payslip.Earnings.Sum(x => x.YTDAmountG);
+                decimal totalEarningsYTDUSD = payslip.Earnings.Sum(x => x.YTDAmountUSD);
 
-                float[] columnWidths = { 100f };
-                Table table = new Table(UnitValue.CreatePercentArray(columnWidths));
-                table.SetWidth(UnitValue.CreatePercentValue(100));
-                table.AddCell(CreateStyledCellNetSalary("Net Pay G$     " + netPay.ToString("N2"), lineColor, 1, bgGray, true, alignCenter).SetFontSize(13).SetHeight(rowHeight+2));
-                document.Add(table);
+                decimal totalDeductionsG = payslip.Deductions.Sum(x => x.AmountG);
+                decimal totalDeductionsUS = payslip.Deductions.Sum(x => x.AmountUS);
+                decimal totalDeductionsYTDG = payslip.Deductions.Sum(x => x.YTDAmountG);
+                decimal totalDeductionsYTDUSD = payslip.Deductions.Sum(x => x.YTDAmountUSD);
+
+                // Calculate net amounts (earnings - deductions)
+                decimal netPayG = totalEarningsG - totalDeductionsG;
+                decimal netPayUS = totalEarningsUS - totalDeductionsUS;
+                decimal netPayYTDG = totalEarningsYTDG - totalDeductionsYTDG;
+                decimal netPayYTDUSD = totalEarningsYTDUSD - totalDeductionsYTDUSD;
+
+                // Add Net Pay table with all 4 columns
+                document.Add(new Paragraph("").SetHeight(6));
+                document.Add(CreateNetPayTable(netPayG, netPayUS, netPayYTDG, netPayYTDUSD));
                 document.Add(new Paragraph("").SetHeight(6));
                 AddStamp(document,payslip.stamp,payslip.stampType);
                 document.Add(new Paragraph($"Payslip generated on: {payslip.PayslipGeneratedDate}").SetFontSize(9));
@@ -87,6 +97,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             bgGray = new iText.Kernel.Colors.DeviceRgb(240, 240, 240);
             bgYellow = new iText.Kernel.Colors.DeviceRgb(255, 255, 235);
             bgWhite = new iText.Kernel.Colors.DeviceRgb(255, 255, 255);
+            bgNetPay = new iText.Kernel.Colors.DeviceRgb(155, 178, 185);
             lineColor = new iText.Kernel.Colors.DeviceRgb(210, 210, 210);
         }
 
@@ -184,6 +195,22 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             table.AddCell(CreateStyledCell(totalUS.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
             table.AddCell(CreateStyledCell(totalYTDG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
             table.AddCell(CreateStyledCell(totalYTDUSD.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
+
+            return table;
+        }
+
+        Table CreateNetPayTable(decimal netPayG, decimal netPayUS, decimal netPayYTDG, decimal netPayYTDUSD)
+        {
+            float[] columnWidths = { 30f, 17.5f, 17.5f, 17.5f, 17.5f };
+            Table table = new Table(UnitValue.CreatePercentArray(columnWidths)).UseAllAvailableWidth();
+            float borderWidth = 0.5f;
+
+            // Single row with Net Pay label and values
+            table.AddCell(CreateStyledCell("Net Pay", lineColor, borderWidth, bgYellow, true, alignCenter).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(netPayG.ToString("N2"), lineColor, borderWidth, bgNetPay, true, alignRight).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(netPayUS.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(netPayYTDG.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
+            table.AddCell(CreateStyledCell(netPayYTDUSD.ToString("N2"), lineColor, borderWidth, bgYellow, true, alignRight).SetHeight(rowHeight));
 
             return table;
         }
