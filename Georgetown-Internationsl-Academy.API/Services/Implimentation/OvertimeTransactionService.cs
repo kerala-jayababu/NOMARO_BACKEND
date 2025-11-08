@@ -522,8 +522,8 @@ WHERE IdEmployee = @IdEmployee;
                 if (designationId.HasValue)
                 {
                     result = await _dbContext.Employees
-                        .Where(e => e.IdDesignation == designationId.Value)
-                        .Select(e => e.IdEmployee)
+                        .Where(e => e.IdDesignation == designationId.Value && e.IdEmployee.HasValue)
+                        .Select(e => e.IdEmployee.Value)
                         .ToListAsync();
                 }
             }
@@ -540,8 +540,8 @@ WHERE IdEmployee = @IdEmployee;
                 if (workflowConfigDetails.ApprovalAuthorityID.HasValue)
                 {
                     result = await _dbContext.Employees
-                        .Where(e => e.IdEmployee == workflowConfigDetails.ApprovalAuthorityID.Value)
-                        .Select(e => e.IdEmployee)
+                        .Where(e => e.IdEmployee == workflowConfigDetails.ApprovalAuthorityID.Value && e.IdEmployee.HasValue)
+                        .Select(e => e.IdEmployee.Value)
                         .ToListAsync();
                 }
             }

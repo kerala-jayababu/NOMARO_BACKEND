@@ -505,7 +505,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return new List<Dictionary<string, string>>();
 
             var empDataList = await _dbContext.Employees
-                .Where(e => employeeIds.Contains(e.IdEmployee))
+                .Where(e => employeeIds.Contains((int)e.IdEmployee))
                 .Select(e => new
                 {
                     FirstName = e.FirstName,
@@ -658,7 +658,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         /// <summary>
         /// Fetches target employees based on the approval authority type.
         /// </summary>
-        private async Task<List<int>> GetTargetEmployees(WorkFlowConfigDetails workflowConfigDetails,int loggedInEmployeeId)
+        private async Task<List<int>> GetTargetEmployees(WorkFlowConfigDetails workflowConfigDetails, int loggedInEmployeeId)
         {
             if (workflowConfigDetails == null)
                 return new List<int> { 0 };
@@ -671,8 +671,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (designationId.HasValue)
                 {
                     result = await _dbContext.Employees
-                        .Where(e => e.IdDesignation == designationId.Value)
-                        .Select(e => e.IdEmployee)
+                        .Where(e => e.IdDesignation == designationId.Value && e.IdEmployee.HasValue)
+                        .Select(e => e.IdEmployee.Value)
                         .ToListAsync();
                 }
             }
@@ -689,8 +689,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (workflowConfigDetails.ApprovalAuthorityID.HasValue)
                 {
                     result = await _dbContext.Employees
-                        .Where(e => e.IdEmployee == workflowConfigDetails.ApprovalAuthorityID.Value)
-                        .Select(e => e.IdEmployee)
+                        .Where(e => e.IdEmployee == workflowConfigDetails.ApprovalAuthorityID.Value && e.IdEmployee.HasValue)
+                        .Select(e => e.IdEmployee.Value)
                         .ToListAsync();
                 }
             }
@@ -701,6 +701,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return result;
         }
+
 
         public async Task<IEnumerable<ConfigApprovalsDto>> GetConfigApprovalsList(DateTime fromDate, string? actionStatus = null, string? entityCode = null, string? targetIdEmployee = null)
         {

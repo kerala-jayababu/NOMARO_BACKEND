@@ -840,7 +840,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var otpEntry = new LoginOTP
                 {
                     EmailID = emailID,
-                    IdEmployee = emp.IdEmployee,
+                    IdEmployee = (int)emp.IdEmployee,
                     OTP = generatedOtp,
                     OTPSentDate = DateTime.Now,
                     OTPLoginStatus = "PENDING"
@@ -861,7 +861,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await EmailService.SendMail(emailID, otpNotification.EmailSubject, emailContent);
                 }
 
-                otpDto.IdEmployee = emp.IdEmployee;
+                otpDto.IdEmployee = (int)emp.IdEmployee;
                 otpDto.OTP = string.Empty;
 
                 return otpDto;
@@ -984,6 +984,136 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             );
 
             return token;
+        }
+
+        public async Task<EmployeeEntityDto?> AddEmployee(EmployeeEntityDto dto)
+        {
+            try
+            {
+                // Unique EmployeeCode validation
+                var exists = await _dbContext.Employees.AnyAsync(e => e.EmployeeCode == dto.EmployeeCode);
+                if (exists)
+                {
+                    _logger.LogWarning("Duplicate EmployeeCode detected: {Code}", dto.EmployeeCode);
+                    throw new InvalidOperationException("Employee with the same code already exists.");
+                }
+
+                var entity = _mapper.Map<Employee>(dto);
+
+                // Handle photo upload
+                if (dto.EmployeePhoto != null)
+                {
+                   
+                    string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profileimages");
+                    Directory.CreateDirectory(folderPath);
+                    string fileName = $"{Guid.NewGuid()}_{dto.EmployeePhoto.FileName}";
+                    string filePath = Path.Combine(folderPath, fileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await dto.EmployeePhoto.CopyToAsync(stream);
+                    }
+                    string filePathname = Path.Combine(folderPath, fileName);
+                    entity.EmployeePhotoFilePath = filePathname;
+                }
+
+                var result = await _dbContext.Employees.AddAsync(entity);
+                await _dbContext.SaveChangesAsync();
+
+                return _mapper.Map<EmployeeEntityDto>(result.Entity);
+            }
+            catch (InvalidOperationException)
+            {
+                throw; // handled in controller
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding employee");
+                return null;
+            }
+        }
+
+
+        public async Task<EmployeeEntityDto?> UpdateEmployee(int id, EmployeeEntityDto dto)
+        {
+            try
+            {
+                var employee = await _dbContext.Employees.FindAsync(id);
+                if (employee == null)
+                {
+                    _logger.LogWarning("Employee not found for update. ID: {Id}", id);
+                    throw new KeyNotFoundException("Employee not found.");
+                }
+
+                // Validate unique EmployeeCode (exclude current employee)
+                var exists = await _dbContext.Employees
+                    .AnyAsync(e => e.EmployeeCode == dto.EmployeeCode && e.IdEmployee != id);
+                if (exists)
+                {
+                    _logger.LogWarning("Duplicate EmployeeCode detected during update: {Code}", dto.EmployeeCode);
+                    throw new InvalidOperationException("Another employee with the same code already exists.");
+                }
+
+                // Map updatable fields
+                employee.EmployeeCode = dto.EmployeeCode;
+                employee.FirstName = dto.FirstName;
+                employee.MiddleName = dto.MiddleName;
+                employee.LastName = dto.LastName;
+                employee.EmailID = dto.EmailID;
+                employee.PhoneNumber1 = dto.PhoneNumber1;
+                employee.IdDepartment = dto.IdDepartment;
+                employee.IdDesignation = dto.IdDesignation;
+                employee.JoiningDate = dto.JoiningDate;
+                employee.ZipCode = dto.ZipCode;
+                employee.DateOfBirth = dto.DateOfBirth;
+                employee.JoiningDate = dto.JoiningDate;
+                employee.ReportingTo = dto.ReportingTo;
+                employee.CurrentStatus = dto.CurrentStatus;
+                employee.LastWorkingDay = dto.LastWorkingDay;
+
+                // Handle photo upload (if new photo provided)
+                if (dto.EmployeePhoto != null)
+                {
+                    string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profileimages");
+                    Directory.CreateDirectory(folderPath);
+
+                    // Delete old photo if exists
+                    if (!string.IsNullOrEmpty(employee.EmployeePhotoFilePath) && File.Exists(employee.EmployeePhotoFilePath))
+                    {
+                        File.Delete(employee.EmployeePhotoFilePath);
+                    }
+
+                    // Save new photo
+                    string fileName = $"{Guid.NewGuid()}_{dto.EmployeePhoto.FileName}";
+                    string filePath = Path.Combine(folderPath, fileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await dto.EmployeePhoto.CopyToAsync(stream);
+                    }
+
+                    employee.EmployeePhotoFilePath = filePath;
+                }
+
+                _dbContext.Employees.Update(employee);
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("Employee updated successfully: {Id}", id);
+                return _mapper.Map<EmployeeEntityDto>(employee);
+            }
+            catch (KeyNotFoundException)
+            {
+                throw;
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating employee: {Id}", id);
+                return null;
+            }
         }
     }
 }

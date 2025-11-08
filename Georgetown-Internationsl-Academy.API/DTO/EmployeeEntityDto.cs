@@ -1,14 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Georgetown_Internationsl_Academy.API.Models
+﻿namespace Georgetown_Internationsl_Academy.API.DTO
 {
-    public class Employee
-    {
-        [Key]
-        public int? IdEmployee { get; set; }
+    public class EmployeeEntityDto
+    {      
         public string? EmployeeCode { get; set; }
-        public string FirstName { get; set; }
+        public string? FirstName { get; set; }
         public string? MiddleName { get; set; }
         public string? LastName { get; set; }
         public string? Gender { get; set; }
@@ -27,18 +22,17 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? State { get; set; }
         public string? ZipCode { get; set; }
         public DateTime? DateOfBirth { get; set; }
-        public string? ChildCountDocumentFilePath { get; set; }
-
         public DateTime? JoiningDate { get; set; }
         public int? ReportingTo { get; set; }
         public string? CurrentStatus { get; set; }
         public DateTime? LastWorkingDay { get; set; }
         public int? IdBudgetCode { get; set; }
         public int? ChildrenCount { get; set; }
-        public string? OverTimeAllowedStatus { get; set; }
-        public string? EmployeePhotoFilePath { get; set; }      
+        public string? EmployeePhotoFilePath { get; set; }
+        public string? ChildCountDocumentFilePath { get; set; }
+        public bool? OverTimeAllowedStatus { get; set; }
 
-        [NotMapped]
-        public byte[]? AttachmentBlob { get; set; }
+        // File Upload
+        public IFormFile? EmployeePhoto { get; set; }
     }
 }

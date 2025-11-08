@@ -623,7 +623,7 @@ namespace YourNamespace.Services.Implementation
 
                 // Fetch Employee Details
                 var employees = await _dbContext.Employees
-       .Where(e => employeeIdList.Contains(e.IdEmployee))
+       .Where(e => employeeIdList.Contains((int)e.IdEmployee))
        .Join(_dbContext.Designations,
            emp => emp.IdDesignation,
            des => des.IdDesignation,
@@ -962,7 +962,7 @@ namespace YourNamespace.Services.Implementation
 
                 // Fetch Employee Details
                 var employees = await _dbContext.Employees
-       .Where(e => employeeIdList.Contains(e.IdEmployee))
+       .Where(e => employeeIdList.Contains((int)e.IdEmployee))
        .Join(_dbContext.Designations,
            emp => emp.IdDesignation,
            des => des.IdDesignation,

@@ -5,7 +5,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
     public class EmployeeDto
     {
         [Key]
-        public int IdEmployee { get; set; }
+        public int? IdEmployee { get; set; }
         public string? EmployeeCode { get; set; }
         public string FirstName { get; set; }
         public string? MiddleName { get; set; }

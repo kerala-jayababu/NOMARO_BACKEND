@@ -20,6 +20,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<SalaryDetailsEmployeeDto>> GetSalaryDetailsEmployee(int IdEmployee, int IdSalaryMonthFrom, int IdSalaryMonthTo);
         Task<OTPDto> SetOTP(string EmailID);
         Task<OTPStatusDto>  ValidateOTP(string EmailID, string OTP);
-
+        Task<EmployeeEntityDto?> AddEmployee(EmployeeEntityDto dto);
+        Task<EmployeeEntityDto?> UpdateEmployee(int id, EmployeeEntityDto dto);
     }
 }

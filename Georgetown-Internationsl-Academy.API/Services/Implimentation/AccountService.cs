@@ -62,7 +62,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var userResponse = new UserResponseDto
             {
                 Name = user.FirstName + " " + user.MiddleName + " "+  user.LastName,
-                UserId = user.IdEmployee,
+                UserId = (int)user.IdEmployee,
                 Role = designation != null ? designation.DesignationName : string.Empty,
                 EmployeePhotoFilePath=user.EmployeePhotoFilePath,
                 AttachmentBlob = user.AttachmentBlob,
@@ -142,7 +142,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var userResponse = new UserResponseDto
             {
                 Name = user.FirstName + " " + user.MiddleName + " " + user.LastName,
-                UserId = user.IdEmployee,
+                UserId = (int)user.IdEmployee,
                 Email = user.EmailID,
                 Role = designation != null ? designation.DesignationName : string.Empty,
                 EmployeePhotoFilePath = user.EmployeePhotoFilePath,
@@ -225,7 +225,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 Name = $"{user.FirstName} {user.MiddleName} {user.LastName}",
                 IdEmployee = user.IdEmployee,
-                UserId = user.IdEmployee,
+                UserId = (int)user.IdEmployee,
                 Role = designation?.DesignationName ?? string.Empty,
                 EmployeePhotoFilePath = user.EmployeePhotoFilePath,
                 AttachmentBlob = user.AttachmentBlob,

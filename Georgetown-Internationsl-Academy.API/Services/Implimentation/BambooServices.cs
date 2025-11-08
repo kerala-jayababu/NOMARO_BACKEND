@@ -668,7 +668,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (empDetails != null)
                 {
                     ReportingTo = empDetails.FirstName;
-                    return empDetails.IdEmployee;
+                    return (int)empDetails.IdEmployee;
                 }
             }
             if (splitEName.Length == 2)
@@ -678,7 +678,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (empDetails != null)
                 {
                     ReportingTo = empDetails.FirstName;
-                    return empDetails.IdEmployee;
+                    return (int)empDetails.IdEmployee;
                 }
             }
             return -1;

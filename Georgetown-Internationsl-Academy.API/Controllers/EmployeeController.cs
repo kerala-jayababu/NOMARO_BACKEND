@@ -23,14 +23,16 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IValidator<List<EmployeeOvertimeConfigDtoList>> _employeeOverTimevalidator;
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedService;
+        private readonly IValidator<EmployeeEntityDto> _employeeEntityvalidator;
         public EmployeeController(IEmployeeServices employeeservice, IValidator<List<EmployeeBankAccountDtoList>> employeeBankAccountvalidator,
-    IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator)
+    IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator, IValidator<EmployeeEntityDto> employeeEntityvalidator)
         {
             _employeeservice = employeeservice;
             _employeeBankAccountvalidator = employeeBankAccountvalidator;
             _configuration = configuration;
             _roleBasedService = roleBasedService;
             _employeeOverTimevalidator = employeeOverTimevalidator;
+            _employeeEntityvalidator = employeeEntityvalidator;
         }
 
 
@@ -390,8 +392,62 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
- 
 
-      
+        [HttpPost("AddEmployee")]
+        public async Task<IActionResult> AddEmployee([FromForm] EmployeeEntityDto dto)
+        {
+            try
+            {
+                var validationResult = await _employeeEntityvalidator.ValidateAsync(dto);
+                if (!validationResult.IsValid)
+                {
+                    var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                    return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
+                }
+
+                var result = await _employeeservice.AddEmployee(dto);
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee added successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateEmployee")]
+        public async Task<IActionResult> UpdateEmployee(int id, [FromForm] EmployeeEntityDto dto)
+        {
+            try
+            {
+                var validation = await _employeeEntityvalidator.ValidateAsync(dto);
+                if (!validation.IsValid)
+                    return BadRequest(string.Join(", ", validation.Errors.Select(e => e.ErrorMessage)));
+
+                var result = await _employeeservice.UpdateEmployee(id, dto);
+                if (result == null)
+                    return NotFound(new { message = "Employee not found or update failed." });
+
+                return Ok(new { message = "Employee updated successfully", data = result });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {               
+                return StatusCode(500, new { message = "Internal server error." });
+            }
+        }
+
+
+
     }
 }

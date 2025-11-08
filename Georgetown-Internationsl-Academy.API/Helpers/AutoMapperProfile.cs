@@ -47,6 +47,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<LeavePassage, LeavePassageDto>().ReverseMap();
             CreateMap<Notification, NotificationDto>().ReverseMap();
             CreateMap<Holiday, HolidaysDto>().ReverseMap();
+            CreateMap<Employee, EmployeeEntityDto>().ReverseMap();
 
             #region Time & Attendance
             CreateMap<ShiftDefinitionEntity, ShiftDto>().ReverseMap();
