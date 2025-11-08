@@ -1060,6 +1060,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 employee.MiddleName = dto.MiddleName;
                 employee.LastName = dto.LastName;
                 employee.EmailID = dto.EmailID;
+                employee.Address1 = dto.Address1;
+                employee.Address2 = dto.Address2;
+                employee.Address3 = dto.Address3;
+                employee.TaxIdNumber = dto.TaxIdNumber;
+                employee.IdBudgetCode = dto.IdBudgetCode;
+                employee.City = dto.City;
+                employee.State = dto.State;
+                employee.ZipCode = dto.ZipCode;
                 employee.PhoneNumber1 = dto.PhoneNumber1;
                 employee.IdDepartment = dto.IdDepartment;
                 employee.IdDesignation = dto.IdDesignation;
