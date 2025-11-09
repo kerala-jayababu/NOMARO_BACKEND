@@ -26,8 +26,7 @@
         public int? ReportingTo { get; set; }
         public string? CurrentStatus { get; set; }
         public DateTime? LastWorkingDay { get; set; }
-        public int? IdBudgetCode { get; set; }
-        public int? ChildrenCount { get; set; }
+        public int? IdBudgetCode { get; set; }      
         public string? EmployeePhotoFilePath { get; set; }
         public string? ChildCountDocumentFilePath { get; set; }
         public bool? OverTimeAllowedStatus { get; set; }

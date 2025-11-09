@@ -64,6 +64,28 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+        public async Task<SystemParameterDto> GetSystemParameterByName(string name)
+        {
+            try
+            {
+                var parameter = await _dbContext.SystemParameters
+                    .FirstOrDefaultAsync(param => param.ParameterName == name);
+
+                if (parameter == null)
+                {
+                    _logger.LogWarning("No system parameter found for Name: {Name}", name);
+                    return null;
+                }
+
+                // Map entity to DTO
+                return _mapper.Map<SystemParameterDto>(parameter);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching system parameter for Name: {Name}", name);
+                throw;
+            }
+        }
 
         public async Task<bool> UpdateSystemParameter(SystemParameterDto dto)
         {

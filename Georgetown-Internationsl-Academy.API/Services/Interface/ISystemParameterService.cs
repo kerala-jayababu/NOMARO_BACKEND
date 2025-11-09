@@ -6,6 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
         Task<List<SystemParameterDto>> GetAllSystemParameters();
         Task<SystemParameterDto> GetSystemParameterById(int id);
+        Task<SystemParameterDto> GetSystemParameterByName(string name);
         Task<bool> UpdateSystemParameter(SystemParameterDto dto);
     }
 }

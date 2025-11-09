@@ -759,6 +759,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #endregion
 
         #region SystemParameters
+        [AllowAnonymous]
         [HttpGet("GetSystemParameters")]
         public async Task<IActionResult> GetSystemParameters()
         {
@@ -795,6 +796,31 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Ok(ApiResponseDto<SystemParameterDto>.CreateSuccess(null, $"System parameter not found for ID: {id}"));
                 }
+                return Ok(ApiResponseDto<SystemParameterDto>.CreateSuccess(parameter, "System parameter retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+     
+        [HttpGet("GetSystemParameterByName")]
+        public async Task<IActionResult> GetSystemParameterByName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid System Parameter Name."));
+            }
+
+            try
+            {
+                var parameter = await _systemParameterService.GetSystemParameterByName(name);
+
+                if (parameter == null)
+                {
+                    return Ok(ApiResponseDto<SystemParameterDto>.CreateSuccess(null, $"System parameter not found for Name: {name}"));
+                }
+
                 return Ok(ApiResponseDto<SystemParameterDto>.CreateSuccess(parameter, "System parameter retrieved successfully."));
             }
             catch (Exception ex)
