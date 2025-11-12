@@ -447,6 +447,35 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetEmployeeById")]
+        public async Task<IActionResult> GetEmployeeById(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new { message = "Invalid Employee ID." });
+            }
+
+            try
+            {
+                var employee = await _employeeservice.GetEmployeeById(id);
+
+                if (employee == null)
+                {
+                    return NotFound(new { message = "Employee not found." });
+                }
+
+                return Ok(new
+                {
+                    message = "Employee retrieved successfully.",
+                    data = employee
+                });
+            }
+            catch (Exception ex)
+            {
+               
+                return StatusCode(500, new { message = "Internal server error." });
+            }
+        }
 
 
     }

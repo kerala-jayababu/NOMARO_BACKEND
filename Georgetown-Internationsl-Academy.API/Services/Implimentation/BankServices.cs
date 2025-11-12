@@ -5,6 +5,7 @@ using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -124,7 +125,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (branchesToRemove.Any())
                 {
-                    _dbContext.BankBranches.RemoveRange(branchesToRemove);
+                    var branchIdsToRemove = branchesToRemove.Select(b => b.IdBankBranches).ToList();
+                    var blockedBranchIds = await _dbContext.EmployeeBankAccounts
+                      .Where(eba => branchIdsToRemove.Contains((int)eba.IdBankBranch))
+                      .Select(eba => eba.IdBankBranch)
+                      .Distinct()
+                      .ToListAsync();
+                    // Allowed to delete = branchesToRemove - blockedBranchIds
+                    var allowedToDelete = branchesToRemove
+                        .Where(b => !blockedBranchIds.Contains(b.IdBankBranches))
+                        .ToList();
+                    if (allowedToDelete.Any())
+                    {
+                        _dbContext.BankBranches.RemoveRange(allowedToDelete);
+                    }
+
+                  
                 }
 
                 await _dbContext.SaveChangesAsync();

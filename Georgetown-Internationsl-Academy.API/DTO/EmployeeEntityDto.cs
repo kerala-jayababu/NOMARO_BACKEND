@@ -29,7 +29,7 @@
         public int? IdBudgetCode { get; set; }      
         public string? EmployeePhotoFilePath { get; set; }
         public string? ChildCountDocumentFilePath { get; set; }
-        public bool? OverTimeAllowedStatus { get; set; }
+        public string? OverTimeAllowedStatus { get; set; }
 
         // File Upload
         public IFormFile? EmployeePhoto { get; set; }

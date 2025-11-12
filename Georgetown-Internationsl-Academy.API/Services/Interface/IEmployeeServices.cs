@@ -22,5 +22,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<OTPStatusDto>  ValidateOTP(string EmailID, string OTP);
         Task<EmployeeEntityDto?> AddEmployee(EmployeeEntityDto dto);
         Task<EmployeeEntityDto?> UpdateEmployee(int id, EmployeeEntityDto dto);
+        Task<EmployeeEntityDto?> GetEmployeeById(int id);
     }
 }

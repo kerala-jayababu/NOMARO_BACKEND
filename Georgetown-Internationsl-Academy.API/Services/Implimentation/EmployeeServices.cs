@@ -1059,25 +1059,27 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 employee.FirstName = dto.FirstName;
                 employee.MiddleName = dto.MiddleName;
                 employee.LastName = dto.LastName;
-                employee.EmailID = dto.EmailID;
+                employee.IdDepartment = dto.IdDepartment;
+                employee.IdDesignation = dto.IdDesignation;
+                employee.Gender=dto.Gender;
+                employee.PhoneNumber1 = dto.PhoneNumber1;
+                employee.WhatsAppNumber = dto.WhatsAppNumber;
                 employee.Address1 = dto.Address1;
                 employee.Address2 = dto.Address2;
                 employee.Address3 = dto.Address3;
-                employee.TaxIdNumber = dto.TaxIdNumber;
-                employee.IdBudgetCode = dto.IdBudgetCode;
+                employee.EmailID = dto.EmailID;
                 employee.City = dto.City;
                 employee.State = dto.State;
                 employee.ZipCode = dto.ZipCode;
-                employee.PhoneNumber1 = dto.PhoneNumber1;
-                employee.IdDepartment = dto.IdDepartment;
-                employee.IdDesignation = dto.IdDesignation;
+                employee.LastWorkingDay = dto.LastWorkingDay;
+                employee.TaxIdNumber = dto.TaxIdNumber;
+                employee.IdBudgetCode = dto.IdBudgetCode;
                 employee.JoiningDate = dto.JoiningDate;
-                employee.ZipCode = dto.ZipCode;
                 employee.DateOfBirth = dto.DateOfBirth;
                 employee.JoiningDate = dto.JoiningDate;
                 employee.ReportingTo = dto.ReportingTo;
                 employee.CurrentStatus = dto.CurrentStatus;
-                employee.LastWorkingDay = dto.LastWorkingDay;
+                employee.OverTimeAllowedStatus = dto.OverTimeAllowedStatus;
 
                 // Handle photo upload (if new photo provided)
                 if (dto.EmployeePhoto != null)
@@ -1123,5 +1125,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return null;
             }
         }
+
+        public async Task<EmployeeEntityDto?> GetEmployeeById(int id)
+        {
+            try
+            {
+                var entity = await _dbContext.Employees.FindAsync(id);
+                return entity == null ? null : _mapper.Map<EmployeeEntityDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee by ID {Id}", id);
+                throw;
+            }
+        }
+
     }
 }
