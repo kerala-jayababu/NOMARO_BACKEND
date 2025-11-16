@@ -430,20 +430,17 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 var result = await _employeeservice.UpdateEmployee(id, dto);
                 if (result == null)
                     return NotFound(new { message = "Employee not found or update failed." });
-
-                return Ok(new { message = "Employee updated successfully", data = result });
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee updated successfully."));
+             
             }
             catch (InvalidOperationException ex)
             {
-                return Conflict(new { message = ex.Message });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+                return Conflict(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }           
             catch (Exception ex)
-            {               
-                return StatusCode(500, new { message = "Internal server error." });
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+
             }
         }
 
