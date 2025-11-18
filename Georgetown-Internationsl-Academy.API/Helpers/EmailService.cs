@@ -13,6 +13,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             public string SmtpHost { get; set; }
             public int SmtpPort { get; set; }
             public bool EnableSsl { get; set; }
+            public string DisplayName { get; set; }
         }
         private static readonly EmailSettings _settings;
 
@@ -38,7 +39,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 
                     var mailMessage = new MailMessage
                     {
-                        From = new MailAddress(_settings.Email, "Georgetown International Academy"),
+                        From = new MailAddress(_settings.Email, _settings.DisplayName ?? _settings.Email),
                         Subject = subject,
                         Body = htmlBody,
                         IsBodyHtml = true
@@ -73,7 +74,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 
                 using var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(_settings.Email, "Georgetown International Academy"),
+                    From = new MailAddress(_settings.Email, _settings.DisplayName ?? _settings.Email),
                     Subject = subject,
                     Body = htmlBody,
                     IsBodyHtml = true

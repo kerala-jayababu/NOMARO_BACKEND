@@ -15,6 +15,7 @@ dist/
 
 # Log files
 *.log
+Georgetown-Internationsl-Academy.API/log-*.txt
 
 # Package files
 *.jar
