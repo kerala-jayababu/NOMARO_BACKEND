@@ -68,7 +68,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             try
             {
                 var effectiveDate = attendanceDate.Date.AddDays(-1);
-                var result = await _attendanceDashboardService.GetLiveDashboardAttendanceAsync(effectiveDate);
+                var result = await _attendanceDashboardService.GetLiveDashboardAttendanceAsync(attendanceDate);
 
                 if (result == null)
                     return Ok(ApiResponseDto<LiveDashboardAttendanceDto?>.CreateSuccess(null, "No attendance data found for the selected date."));
