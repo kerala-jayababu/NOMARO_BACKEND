@@ -94,7 +94,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             {
                 var normalizedDetailType = detailType.Trim();
                 var effectiveDate = attendanceDate.Date.AddDays(-1);
-                var results = await _attendanceDashboardService.GetLiveDashboardDetailsAsync(effectiveDate, normalizedDetailType);
+                var results = await _attendanceDashboardService.GetLiveDashboardDetailsAsync(attendanceDate, normalizedDetailType);
 
                 if (results == null || !results.Any())
                     return Ok(ApiResponseDto<IEnumerable<LiveDashboardDetailDto>>.CreateSuccess(Enumerable.Empty<LiveDashboardDetailDto>(), "No dashboard details found for the selected criteria."));
