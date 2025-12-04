@@ -20,7 +20,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
             _logger = logger;
         }
 
-        public async Task<LiveDashboardAttendanceDto?> GetLiveDashboardAttendanceAsync(DateTime attendanceDate)
+        public async Task<LiveDashboardAttendanceDto?> GetLiveDashboardAttendanceAsync(DateTime attendanceDate, int? idDepartment)
         {
             try
             {
@@ -33,6 +33,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
 
                 var parameters = new DynamicParameters();
                 parameters.Add("@AttendanceDate", attendanceDate, DbType.Date);
+                parameters.Add("@IdDepartment", idDepartment ?? 0, DbType.Int32);
 
                 var result = await connection.QueryAsync<LiveDashboardAttendanceDto>(
                     "LiveDashboard_Attendance",
@@ -48,7 +49,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
             }
         }
 
-        public async Task<IEnumerable<LiveDashboardDetailDto>> GetLiveDashboardDetailsAsync(DateTime attendanceDate, string detailType)
+        public async Task<IEnumerable<LiveDashboardDetailDto>> GetLiveDashboardDetailsAsync(DateTime attendanceDate, string detailType, int? idDepartment)
         {
             try
             {
@@ -62,6 +63,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
                 var parameters = new DynamicParameters();
                 parameters.Add("@AttendanceDate", attendanceDate, DbType.Date);
                 parameters.Add("@DetailType", detailType, DbType.String);
+                parameters.Add("@IdDepartment", idDepartment ?? 0, DbType.Int32);
 
                 var result = await connection.QueryAsync<LiveDashboardDetailDto>(
                     "GetLiveDashboardDetailData",

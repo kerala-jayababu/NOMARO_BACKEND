@@ -7,8 +7,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attenda
 {
     public interface IAttendanceDashboardService
     {
-        Task<LiveDashboardAttendanceDto?> GetLiveDashboardAttendanceAsync(DateTime attendanceDate);
-        Task<IEnumerable<LiveDashboardDetailDto>> GetLiveDashboardDetailsAsync(DateTime attendanceDate, string detailType);
+        Task<LiveDashboardAttendanceDto?> GetLiveDashboardAttendanceAsync(DateTime attendanceDate, int? idDepartment);
+        Task<IEnumerable<LiveDashboardDetailDto>> GetLiveDashboardDetailsAsync(DateTime attendanceDate, string detailType, int? idDepartment);
     }
 }
 
