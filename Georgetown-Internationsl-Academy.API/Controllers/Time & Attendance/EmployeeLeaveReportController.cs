@@ -68,7 +68,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             try
             {
                 var effectiveDate = attendanceDate.Date.AddDays(-1);
-                var result = await _attendanceDashboardService.GetLiveDashboardAttendanceAsync(effectiveDate, idDepartment);
+                var result = await _attendanceDashboardService.GetLiveDashboardAttendanceAsync(attendanceDate, idDepartment);
 
                 if (result == null)
                     return Ok(ApiResponseDto<LiveDashboardAttendanceDto?>.CreateSuccess(null, "No attendance data found for the selected date."));
@@ -94,7 +94,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             {
                 var normalizedDetailType = detailType.Trim();
                 var effectiveDate = attendanceDate.Date.AddDays(-1);
-                var results = await _attendanceDashboardService.GetLiveDashboardDetailsAsync(effectiveDate, normalizedDetailType, idDepartment);
+                var results = await _attendanceDashboardService.GetLiveDashboardDetailsAsync(attendanceDate, normalizedDetailType, idDepartment);
 
                 if (results == null || !results.Any())
                     return Ok(ApiResponseDto<IEnumerable<LiveDashboardDetailDto>>.CreateSuccess(Enumerable.Empty<LiveDashboardDetailDto>(), "No dashboard details found for the selected criteria."));
