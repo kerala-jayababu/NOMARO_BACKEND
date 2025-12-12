@@ -82,6 +82,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "https://payrollgia.com",
+            "http://217.216.50.125:8084",
             "https://payrollgia.com:8443",
             "http://localhost:5173"
         )
