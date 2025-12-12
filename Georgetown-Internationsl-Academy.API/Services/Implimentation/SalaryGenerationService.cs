@@ -514,7 +514,7 @@ namespace YourNamespace.Services.Implementation
                 {
                     var query = @"SELECT CASE WHEN EXISTS (
                             SELECT 1 
-                            FROM [UAT_GIAGY].[dbo].[CurrencyConversions]
+                            FROM [CurrencyConversions]
                             WHERE FromCurrency = 'USD'
                             AND ToCurrency = 'GYD'
                             AND RateDate >= DATEADD(DAY, -5, GETDATE())
