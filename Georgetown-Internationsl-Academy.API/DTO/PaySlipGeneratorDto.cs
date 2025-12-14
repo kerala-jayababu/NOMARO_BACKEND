@@ -101,19 +101,26 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             lineColor = new iText.Kernel.Colors.DeviceRgb(210, 210, 210);
         }
 
-        private void AddLogo(Document document,byte[] logo,string logotype)
+        private void AddLogo(Document document, byte[] logo, string logotype)
         {
             //byte[] fileBytes = ConvertHexStringToByteArray(logo);
             iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(logo));
             //iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(@"C:\Sandeep\Logo.png"));
             iText.Kernel.Geom.Rectangle pageSize = document.GetPdfDocument().GetDefaultPageSize();
             float leftMargin = 30;
-            float topMargin = 20;
-
-            // Position logo at top-left with margin
+            float topMargin = 10;
             float x = leftMargin;
-            float y = pageSize.GetHeight() - img.GetImageHeight() - topMargin;
+            float desiredHeight = 50;
 
+            float y = pageSize.GetHeight() - desiredHeight - topMargin;
+
+            float originalWidth = img.GetImageWidth();
+            float originalHeight = img.GetImageHeight();
+
+            float scaleFactor = desiredHeight / originalHeight;
+            float newWidth = originalWidth * scaleFactor;
+
+            img.ScaleAbsolute(newWidth, desiredHeight);
             img.SetFixedPosition(x, y);
             document.Add(img);
         }
@@ -137,7 +144,15 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(stamp));
             float y = document.GetRenderer().GetCurrentArea().GetBBox().GetY();
             float x = document.GetPdfDocument().GetDefaultPageSize().GetWidth() - img.GetImageScaledWidth() - 30;
-            img.SetFixedPosition(x, y-10);
+            float originalWidth = img.GetImageWidth();
+            float originalHeight = img.GetImageHeight();
+
+            float desiredHeight = 75;
+            float scaleFactor = desiredHeight / originalHeight;
+            float newWidth = originalWidth * scaleFactor;
+
+            img.ScaleAbsolute(newWidth, desiredHeight);
+            img.SetFixedPosition(x, y - 10);
             document.Add(img);
         }
         private Table CreateEmployeeDetails(Document document, EmployeePayslipDto payslip)
