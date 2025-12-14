@@ -44,7 +44,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             using (Document document = new Document(pdf))
             {
                 pdf.SetDefaultPageSize(PageSize.LETTER);
-                AddLogo(document,payslip.logo,payslip.logoType);
+                AddLogo(document,payslip.logo,payslip.logoType,payslip.LogoHeightInPayslip);
                 PdfFont boldFont1 = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
                 document.Add(new Paragraph("Payslip").SetFontSize(18).SetTextAlignment(alignRight).SetFont(boldFont1));
                 document.Add(new Paragraph($"Payslip for the period: {payslip.Period}\n").SetTextAlignment(alignRight));
@@ -82,7 +82,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                 document.Add(new Paragraph("").SetHeight(6));
                 document.Add(CreateNetPayTable(netPayG, netPayUS, netPayYTDG, netPayYTDUSD));
                 document.Add(new Paragraph("").SetHeight(6));
-                AddStamp(document,payslip.stamp,payslip.stampType);
+                AddStamp(document,payslip.stamp,payslip.stampType,payslip.StampHeightInPayslip);
                 document.Add(new Paragraph($"Payslip generated on: {payslip.PayslipGeneratedDate}").SetFontSize(9));
                 document.Close();
             }
@@ -101,7 +101,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             lineColor = new iText.Kernel.Colors.DeviceRgb(210, 210, 210);
         }
 
-        private void AddLogo(Document document, byte[] logo, string logotype)
+        private void AddLogo(Document document, byte[] logo, string logotype, float height)
         {
             //byte[] fileBytes = ConvertHexStringToByteArray(logo);
             iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(logo));
@@ -110,7 +110,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             float leftMargin = 30;
             float topMargin = 10;
             float x = leftMargin;
-            float desiredHeight = 50;
+
+
+            float desiredHeight = height;
 
             float y = pageSize.GetHeight() - desiredHeight - topMargin;
 
@@ -138,7 +140,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             return bytes;
         }
 
-        private void AddStamp(Document document, byte[] stamp, string stamptype)
+        private void AddStamp(Document document, byte[] stamp, string stamptype,float height)
         {
             //iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(@"C:\Sandeep\GIASeal.png"));
             iText.Layout.Element.Image img = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(stamp));
@@ -147,7 +149,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             float originalWidth = img.GetImageWidth();
             float originalHeight = img.GetImageHeight();
 
-            float desiredHeight = 75;
+            float desiredHeight = height;
             float scaleFactor = desiredHeight / originalHeight;
             float newWidth = originalWidth * scaleFactor;
 

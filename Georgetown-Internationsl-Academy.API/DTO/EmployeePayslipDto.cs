@@ -28,6 +28,12 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public byte[]? stamp { get; set; }
         [NotMapped]
         public string? stampType { get; set; }
+
+        [NotMapped]
+        public float LogoHeightInPayslip { get; set; } = 50f;
+
+        [NotMapped]
+        public float StampHeightInPayslip { get; set; } = 75f;
         //public List<EmployeeSalaryDetailsDto> TaxDetails { get; set; }
     }
 }

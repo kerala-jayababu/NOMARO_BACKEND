@@ -1,19 +1,20 @@
 ﻿using AutoMapper;
+using Dapper;
+using Georgetown_International_Academy.API.Database;
+using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
+using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Dapper;
-using Georgetown_International_Academy.API.Database;
-using Georgetown_Internationsl_Academy.API.DTO;
-using Georgetown_Internationsl_Academy.API.Services.Interface;
-using Microsoft.Data.SqlClient;
-using Georgetown_Internationsl_Academy.API.Models;
-using Georgetown_Internationsl_Academy.API.Services.Implimentation;
-using System.Data;
 
 namespace YourNamespace.Services.Implementation
 {
@@ -712,9 +713,26 @@ namespace YourNamespace.Services.Implementation
                         logoType = systemparamters.Where(x=>x.ParameterName == "CompanyLogo").Select(x => x.DataType).FirstOrDefault(),
                         stamp = systemparamters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.ParameterBinaryValue).FirstOrDefault(),
                         stampType = systemparamters.Where(x => x.ParameterName == "CompanySeal").Select(x => x.DataType).FirstOrDefault(),
-                    };
+                        LogoHeightInPayslip =
+                        float.TryParse(
+                            systemparamters.Where(x => x.ParameterName == "LogoHeightInPayslip")
+                                           .Select(x => x.ParameterValue)
+                                           .FirstOrDefault(),
+                            NumberStyles.Float,
+                            CultureInfo.InvariantCulture,
+                            out var lh) && lh > 0 ? lh : 50f,
 
-                    payslips.Add(payslip);
+                              StampHeightInPayslip =
+                        float.TryParse(
+                            systemparamters.Where(x => x.ParameterName == "StampHeightInPayslip")
+                                           .Select(x => x.ParameterValue)
+                                           .FirstOrDefault(),
+                            NumberStyles.Float,
+                            CultureInfo.InvariantCulture,
+                            out var sh) && sh > 0 ? sh : 75f
+                                        };
+
+                                        payslips.Add(payslip);
                 }
 
                 return payslips;
