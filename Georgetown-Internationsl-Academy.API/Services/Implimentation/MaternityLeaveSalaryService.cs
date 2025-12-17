@@ -27,40 +27,43 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
     public async Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries(string? searchText = null, DateTime? fromDate = null)
     {
         var query = new StringBuilder(@"
-        SELECT 
-            mls.IdMaternityLeaveSalary,
-            mls.IdEmployee,
-            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-            e.EmployeeCode,
-            e.IdDesignation,
-            des.DesignationName,
-            e.IdDepartment,
-            dept.DepartmentName,
-            e.JoiningDate,
-            e.Gender,
-            e.EmailID,
-            e.PhoneNumber1,
-            e.PhoneNumber2,
-            mls.IdSalaryMonthFrom,
-            smFrom.SalaryMonthText AS FromSalaryMonthText,
-            mls.IdSalaryMonthTo,
-            smTo.SalaryMonthText AS ToSalaryMonthText,
-            mls.MaternityLeaveFrom,
-            mls.MaternityLeaveTo,
-            mls.TotalEarnings ,
-            mls.DocumentFilePath,
-            mls.TotalDeductions ,
-            mls.MaternityLeaveNetSalary ,
-            esc.NetSalary AS DefaultNetSalary
-        FROM MaternityLeaveSalaries mls
-        INNER JOIN Employees e ON mls.IdEmployee = e.IdEmployee
-        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-        INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
-        LEFT JOIN SalaryMonths smFrom ON mls.IdSalaryMonthFrom = smFrom.IdSalaryMonth
-        LEFT JOIN SalaryMonths smTo ON mls.IdSalaryMonthTo = smTo.IdSalaryMonth
-        LEFT JOIN vw_LatestEmployeeSalaryConfig esc ON mls.IdEmployee = esc.IdEmployee
-        WHERE 1 = 1
-    ");
+    SELECT 
+        DISTINCT
+        mls.IdMaternityLeaveSalary,
+        mls.IdEmployee,
+        e.FirstName, -- Added to resolve ORDER BY error
+        e.LastName,  -- Added to resolve ORDER BY error
+        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+        e.EmployeeCode,
+        e.IdDesignation,
+        des.DesignationName,
+        e.IdDepartment,
+        dept.DepartmentName,
+        e.JoiningDate,
+        e.Gender,
+        e.EmailID,
+        e.PhoneNumber1,
+        e.PhoneNumber2,
+        mls.IdSalaryMonthFrom,
+        smFrom.SalaryMonthText AS FromSalaryMonthText,
+        mls.IdSalaryMonthTo,
+        smTo.SalaryMonthText AS ToSalaryMonthText,
+        mls.MaternityLeaveFrom,
+        mls.MaternityLeaveTo,
+        mls.TotalEarnings,
+        mls.DocumentFilePath,
+        mls.TotalDeductions,
+        mls.MaternityLeaveNetSalary,
+        esc.NetSalary AS DefaultNetSalary
+    FROM MaternityLeaveSalaries mls
+    INNER JOIN Employees e ON mls.IdEmployee = e.IdEmployee
+    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+    INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+    LEFT JOIN SalaryMonths smFrom ON mls.IdSalaryMonthFrom = smFrom.IdSalaryMonth
+    LEFT JOIN SalaryMonths smTo ON mls.IdSalaryMonthTo = smTo.IdSalaryMonth
+    LEFT JOIN vw_LatestEmployeeSalaryConfig esc ON mls.IdEmployee = esc.IdEmployee
+    WHERE 1 = 1
+");
 
         var parameters = new DynamicParameters();
 
@@ -68,13 +71,13 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
         if (!string.IsNullOrEmpty(searchText))
         {
             query.Append(@"
-            AND (
-                e.EmployeeCode LIKE @SearchText OR
-                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
-                des.DesignationName LIKE @SearchText OR
-                dept.DepartmentName LIKE @SearchText
-            )
-        ");
+        AND (
+            e.EmployeeCode LIKE @SearchText OR
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+            des.DesignationName LIKE @SearchText OR
+            dept.DepartmentName LIKE @SearchText
+        )
+    ");
             parameters.Add("SearchText", $"%{searchText}%");
         }
 
@@ -85,7 +88,12 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             parameters.Add("FromDate", fromDate.Value);
         }
 
-        query.Append(" ORDER BY e.FirstName, e.LastName;");
+        query.Append(@"
+    ORDER BY 
+        DefaultNetSalary DESC,
+        e.FirstName,
+        e.LastName
+");
 
         try
         {
@@ -94,6 +102,8 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                 if (connection.State == System.Data.ConnectionState.Closed)
                     await connection.OpenAsync();
 
+                // Dapper will automatically map e.FirstName and e.LastName 
+                // to your DTO if the properties exist; otherwise, it ignores them.
                 var maternityLeaveSalaries = await connection.QueryAsync<MaternityLeaveSalaryDto>(query.ToString(), parameters);
                 return maternityLeaveSalaries;
             }
@@ -104,7 +114,6 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             throw new Exception("An error occurred while fetching maternity leave salaries. Please try again later.");
         }
     }
-
 
     public async Task<MaternityLeaveSalaryDto?> GetMaternityLeaveSalaryById(int idMaternityLeaveSalary)
     {

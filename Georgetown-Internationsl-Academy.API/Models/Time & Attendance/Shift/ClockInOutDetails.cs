@@ -6,7 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift
     {
         [Key]
         public int IdClockDetails { get; set; }
-        public int IdUserDevice { get; set; }
+        public string DeviceUser { get; set; }
         public int IdEmployee { get; set; }
         public DateTime ClockDate { get; set; }
         public DateTime? INTime { get; set; }
