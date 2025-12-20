@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -36,7 +37,7 @@ builder.Logging.AddSerilog();
 
 // Add services to the container.
 builder.Services.AddControllers();
-
+builder.Services.AddHttpClient();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -77,15 +78,10 @@ builder.Services.AddDbContext<ApplicationDBContext>(options =>
 // CORS setup
 var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
-{
+{   
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-            "https://payrollgia.com",
-            "http://217.216.50.125:8084",
-            "https://payrollgia.com:8443",
-            "http://localhost:5173"
-        )
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -212,6 +208,7 @@ builder.Services.AddScoped<IShiftScheduleService, ShiftScheduleService>();
 builder.Services.AddScoped<IShiftEmployeeService, ShiftEmployeeService>();
 builder.Services.AddScoped<IShiftAssignmentService, ShiftAssignmentService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
+builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IAttendanceDashboardService, AttendanceDashboardService>();
 builder.Services.AddScoped<ITaxReportService, TaxReportService>();
 
