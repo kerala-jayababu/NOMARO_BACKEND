@@ -27,14 +27,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> AssignAsset(AssetAssignmentDto dto);
         Task<bool> UnassignAsset(int idAsset, int idEmployee);
 
-        Task<IEnumerable<EmployeeQualificationDto>> GetEmployeeQualifications(int idEmployee);
-        Task<bool> AddOrUpdateEmployeeQualifications(List<EmployeeQualificationDto> dtos);
+        Task<IEnumerable<EmployeeQualificationDto>> GetEmployeeQualifications(int idEmployee, int? idEmployeeQualification = null);
+
+        Task<bool> AddOrUpdateEmployeeQualifications(List<EmployeeQualificationDto> dtos, int loggedInEmployeeId);
+
         Task<bool> DeleteEmployeeQualification(int idEmployeeQualification);
         Task<IEnumerable<EmployeeExperienceDto>> GetEmployeeExperiences(int idEmployee);
-        Task<bool> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos);
+        Task<bool> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos, int loggedInEmployeeId);
         Task<bool> DeleteEmployeeExperience(int idEmployeeExperience);
         Task<IEnumerable<EmployeeActionDto>> GetEmployeeActions(string? searchText = null,string? actionType = null,DateTime dateFrom = default);
         Task<List<int>> PostEmployeeActions(List<EmployeeActionPostDto> dtoList, int loggedInEmployeeId);
+        Task<IEnumerable<EmployeeExperienceGetDto>> GetEmployeeExperiences(int idEmployee, int? idEmployeeExperience = null);
+
 
     }
 }

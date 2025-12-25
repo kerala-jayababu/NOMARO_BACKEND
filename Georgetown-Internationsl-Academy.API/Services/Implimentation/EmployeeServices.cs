@@ -1268,28 +1268,78 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<IEnumerable<EmployeeQualificationDto>> GetEmployeeQualifications(int idEmployee)
+        public async Task<IEnumerable<EmployeeQualificationDto>> GetEmployeeQualifications(int idEmployee, int? idEmployeeQualification = null)
         {
-           return await _dbContext.EmployeeQualifications
-        .Where(x => x.IdEmployee == idEmployee)
-        .OrderByDescending(x => x.YearOfCompletion)
-        .Select(x => new EmployeeQualificationDto
-        {
-            IdEmployeeQualification = x.IdEmployeeQualification,
-            IdEmployee = x.IdEmployee,
-            IdQualificationType = x.IdQualificationType,
-            QualificationTypeName = x.QualificationType.QualificationTypeName, // ✅
-            QualificationName = x.QualificationName,
-            Specialization = x.Specialization,
-            InstitutionName = x.InstitutionName,
-            IdCountry = x.IdCountry,
-            YearOfCompletion = x.YearOfCompletion,
-            GradeOrPercentage = x.GradeOrPercentage
-        })
-        .ToListAsync();
+            try
+            {
+                var query =
+                    from q in _dbContext.EmployeeQualifications
+                    join qt in _dbContext.QualificationTypes
+                        on q.IdQualificationType equals qt.IdQualificationType
+                    join emp in _dbContext.Employees
+                        on q.IdEmployee equals emp.IdEmployee
+                    where q.IdEmployee == idEmployee
+                    select new EmployeeQualificationDto
+                    {
+                        IdEmployeeQualification = q.IdEmployeeQualification,
+                        IdEmployee = q.IdEmployee,
+
+                        EmployeeCode = emp.EmployeeCode,
+                        EmployeeName = (emp.FirstName ?? "") + " " + (emp.MiddleName ?? "") + " " + (emp.LastName ?? ""),
+
+                        IdQualificationType = q.IdQualificationType,
+                        QualificationTypeName = qt.QualificationTypeName,
+
+                        QualificationName = q.QualificationName,
+                        Specialization = q.Specialization,
+                        InstitutionName = q.InstitutionName,
+                        IdCountry = q.IdCountry,
+                        YearOfCompletion = q.YearOfCompletion,
+                        GradeOrPercentage = q.GradeOrPercentage,
+
+                        CertificateDocumentPath = q.CertificateDocumentPath,
+                        CertificateFileName = null,
+                        CertificateBinary = null
+                    };
+
+                // ✅ If specific qualification requested
+                if (idEmployeeQualification.HasValue)
+                {
+                    query = query.Where(x => x.IdEmployeeQualification == idEmployeeQualification.Value);
+                }
+
+                var result = await query
+                    .OrderByDescending(x => x.YearOfCompletion)
+                    .ToListAsync();
+
+                // ✅ Attach file name + binary
+                foreach (var item in result)
+                {
+                    if (!string.IsNullOrWhiteSpace(item.CertificateDocumentPath))
+                    {
+                        item.CertificateFileName = GetOriginalFileName(item.CertificateDocumentPath);
+
+                        if (File.Exists(item.CertificateDocumentPath))
+                        {
+                            item.CertificateBinary = await File.ReadAllBytesAsync(item.CertificateDocumentPath);
+                        }
+                        else
+                        {
+                            item.CertificateBinary = null;
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee qualifications. IdEmployee: {IdEmployee}", idEmployee);
+                throw;
+            }
         }
 
-        public async Task<bool> AddOrUpdateEmployeeQualifications(List<EmployeeQualificationDto> dtos)
+        public async Task<bool> AddOrUpdateEmployeeQualifications(List<EmployeeQualificationDto> dtos, int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -1305,6 +1355,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (existing != null)
                     {
+                        // ✅ Update fields
                         existing.IdQualificationType = dto.IdQualificationType;
                         existing.QualificationName = dto.QualificationName;
                         existing.Specialization = dto.Specialization;
@@ -1312,12 +1363,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         existing.IdCountry = dto.IdCountry;
                         existing.YearOfCompletion = dto.YearOfCompletion;
                         existing.GradeOrPercentage = dto.GradeOrPercentage;
+
                         existing.UpdatedAt = DateTime.Now;
-                        existing.UpdatedBy = dto.CreatedBy;
+                        existing.UpdatedBy = loggedInEmployeeId;
+
+                        // ✅ File update (delete old + save new)
+                        existing.CertificateDocumentPath = await SaveQualificationCertificateAsync(
+                            dto.CertificateDocument,
+                            existing.CertificateDocumentPath
+                        );
+
+                        _dbContext.EmployeeQualifications.Update(existing);
                     }
                     else
                     {
-                        await _dbContext.EmployeeQualifications.AddAsync(new EmployeeQualifications
+                        // ✅ Insert new
+                        var newRecord = new EmployeeQualifications
                         {
                             IdEmployee = dto.IdEmployee,
                             IdQualificationType = dto.IdQualificationType,
@@ -1328,8 +1389,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             YearOfCompletion = dto.YearOfCompletion,
                             GradeOrPercentage = dto.GradeOrPercentage,
                             CreatedAt = DateTime.Now,
-                            CreatedBy = dto.CreatedBy
-                        });
+                            CreatedBy = loggedInEmployeeId
+                        };
+
+                        // ✅ Save file for new record
+                        newRecord.CertificateDocumentPath = await SaveQualificationCertificateAsync(dto.CertificateDocument);
+
+                        await _dbContext.EmployeeQualifications.AddAsync(newRecord);
                     }
                 }
 
@@ -1345,19 +1411,60 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        private async Task<string?> SaveQualificationCertificateAsync(IFormFile? file, string? oldFilePath = null)
+        {
+            if (file == null || file.Length == 0)
+                return oldFilePath; // no new file → keep old file
+
+            string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "qualificationcertificates");
+            Directory.CreateDirectory(folderPath);
+
+            // ✅ delete old file if exists
+            if (!string.IsNullOrWhiteSpace(oldFilePath) && System.IO.File.Exists(oldFilePath))
+            {
+                System.IO.File.Delete(oldFilePath);
+            }
+
+            string fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+            string filePath = Path.Combine(folderPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return filePath;
+        }
+
         public async Task<bool> DeleteEmployeeQualification(int idEmployeeQualification)
         {
-            var record = await _dbContext.EmployeeQualifications
-                .FirstOrDefaultAsync(x => x.IdEmployeeQualification == idEmployeeQualification);
+            try
+            {
+                var record = await _dbContext.EmployeeQualifications
+                    .FirstOrDefaultAsync(x => x.IdEmployeeQualification == idEmployeeQualification);
 
-            if (record == null)
-                throw new Exception("Qualification record not found.");
+                if (record == null)
+                    throw new Exception("Qualification record not found.");
 
-            _dbContext.EmployeeQualifications.Remove(record);
-            await _dbContext.SaveChangesAsync();
+                // ✅ Delete certificate file from system (if exists)
+                if (!string.IsNullOrWhiteSpace(record.CertificateDocumentPath) &&
+                    System.IO.File.Exists(record.CertificateDocumentPath))
+                {
+                    System.IO.File.Delete(record.CertificateDocumentPath);
+                }
 
-            return true;
+                _dbContext.EmployeeQualifications.Remove(record);
+                await _dbContext.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting employee qualification. IdEmployeeQualification: {IdEmployeeQualification}", idEmployeeQualification);
+                throw;
+            }
         }
+
 
 
         public async Task<IEnumerable<EmployeeExperienceDto>> GetEmployeeExperiences(int idEmployee)
@@ -1381,7 +1488,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 .ToListAsync();
         }
 
-        public async Task<bool> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos)
+        public async Task<bool> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos, int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -1389,6 +1496,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 foreach (var dto in dtos)
                 {
+                    dto.EmploymentType = dto.EmploymentType?.Trim();
+                    if (!string.IsNullOrEmpty(dto.EmploymentType))
+                    {
+                        var t = dto.EmploymentType.ToUpperInvariant();
+
+                        dto.EmploymentType = t switch
+                        {
+                            "FULLTIME" => "FullTime",
+                            "CONTRACT" => "Contract",
+                            "CONSULTANT" => "Consultant",
+                            _ => dto.EmploymentType
+                        };
+                    }
                     if (dto.ToDate < dto.FromDate)
                         throw new Exception("To Date cannot be earlier than From Date.");
 
@@ -1397,8 +1517,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (existing != null)
                     {
+                        // ✅ Update normal fields
                         existing.CompanyName = dto.CompanyName;
+                        existing.CompanyAddress = dto.CompanyAddress;
+                        existing.IdCountry = dto.IdCountry;
                         existing.Designation = dto.Designation;
+                        existing.ReasonForLeaving = dto.ReasonForLeaving;
                         existing.Department = dto.Department;
                         existing.EmploymentType = dto.EmploymentType;
                         existing.FromDate = dto.FromDate;
@@ -1406,13 +1530,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         existing.LastDrawnSalary = dto.LastDrawnSalary;
                         existing.ExperienceInYears = dto.ExperienceInYears;
                         existing.UpdatedAt = DateTime.Now;
-                        existing.UpdatedBy = dto.CreatedBy;
+                        existing.UpdatedBy = loggedInEmployeeId;
+
+                        // ✅ If file sent → delete old and save new
+                        existing.ExperienceCertificatePath = await SaveExperienceCertificateAsync(
+                            dto.ExperienceDocument,
+                            existing.ExperienceCertificatePath
+                        );
+
+                        _dbContext.EmployeeExperiences.Update(existing);
                     }
                     else
                     {
-                        await _dbContext.EmployeeExperiences.AddAsync(new EmployeeExperiences
+                        // ✅ Insert new
+                        var newEntity = new EmployeeExperiences
                         {
                             IdEmployee = dto.IdEmployee,
+                            CompanyAddress = dto.CompanyAddress,
+                            IdCountry = dto.IdCountry,
+                            ReasonForLeaving = dto.ReasonForLeaving,
                             CompanyName = dto.CompanyName,
                             Designation = dto.Designation,
                             Department = dto.Department,
@@ -1422,8 +1558,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             LastDrawnSalary = dto.LastDrawnSalary,
                             ExperienceInYears = dto.ExperienceInYears,
                             CreatedAt = DateTime.Now,
-                            CreatedBy = dto.CreatedBy
-                        });
+                            CreatedBy = loggedInEmployeeId
+                        };
+
+                        // ✅ Save file for new record (if provided)
+                        newEntity.ExperienceCertificatePath = await SaveExperienceCertificateAsync(dto.ExperienceDocument);
+
+                        await _dbContext.EmployeeExperiences.AddAsync(newEntity);
                     }
                 }
 
@@ -1439,19 +1580,63 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        private async Task<string?> SaveExperienceCertificateAsync(IFormFile? file, string? oldFilePath = null)
+        {
+            if (file == null || file.Length == 0)
+                return oldFilePath; // No new file → keep old
+
+            // ✅ Folder path
+            string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "experiencecertificates");
+            Directory.CreateDirectory(folderPath);
+
+            // ✅ Delete old file if exists
+            if (!string.IsNullOrEmpty(oldFilePath) && File.Exists(oldFilePath))
+            {
+                File.Delete(oldFilePath);
+            }
+
+            // ✅ Save new file
+            string fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+            string filePath = Path.Combine(folderPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return filePath;
+        }
+
+
         public async Task<bool> DeleteEmployeeExperience(int idEmployeeExperience)
         {
-            var record = await _dbContext.EmployeeExperiences
-                .FirstOrDefaultAsync(x => x.IdEmployeeExperience == idEmployeeExperience);
+            try
+            {
+                var record = await _dbContext.EmployeeExperiences
+                    .FirstOrDefaultAsync(x => x.IdEmployeeExperience == idEmployeeExperience);
 
-            if (record == null)
-                throw new Exception("Experience record not found.");
+                if (record == null)
+                    throw new Exception("Experience record not found.");
 
-            _dbContext.EmployeeExperiences.Remove(record);
-            await _dbContext.SaveChangesAsync();
+                // ✅ Delete file from system if exists
+                if (!string.IsNullOrWhiteSpace(record.ExperienceCertificatePath) &&
+                    System.IO.File.Exists(record.ExperienceCertificatePath))
+                {
+                    System.IO.File.Delete(record.ExperienceCertificatePath);
+                }
 
-            return true;
+                _dbContext.EmployeeExperiences.Remove(record);
+                await _dbContext.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting employee experience. IdEmployeeExperience: {IdEmployeeExperience}", idEmployeeExperience);
+                throw;
+            }
         }
+
 
         public async Task<IEnumerable<EmployeeActionDto>> GetEmployeeActions(string? searchText = null,string? actionType = null,DateTime dateFrom = default)
         {
@@ -1610,6 +1795,102 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+     
+
+        public async Task<IEnumerable<EmployeeExperienceGetDto>> GetEmployeeExperiences(int idEmployee, int? idEmployeeExperience = null)
+    {
+        try
+        {
+            var query = from exp in _dbContext.EmployeeExperiences
+                        join emp in _dbContext.Employees
+                            on exp.IdEmployee equals emp.IdEmployee
+                        where exp.IdEmployee == idEmployee
+                        select new EmployeeExperienceGetDto
+                        {
+                            IdEmployeeExperience = exp.IdEmployeeExperience,
+                            IdEmployee = exp.IdEmployee,
+
+                            EmployeeCode = emp.EmployeeCode,
+                            EmployeeName = (emp.FirstName ?? "") + " " + (emp.MiddleName ?? "") + " " + (emp.LastName ?? ""),
+
+                            CompanyName = exp.CompanyName,
+                            CompanyAddress = exp.CompanyAddress,
+                            IdCountry = exp.IdCountry,
+                            Designation = exp.Designation,
+                            ReasonForLeaving = exp.ReasonForLeaving,
+                            LastDrawnSalary = exp.LastDrawnSalary,
+                            ExperienceInYears = exp.ExperienceInYears,
+                            Department = exp.Department,
+                            EmploymentType = exp.EmploymentType,
+                            FromDate = exp.FromDate,
+                            ToDate = exp.ToDate,
+
+                            ExperienceCertificatePath = exp.ExperienceCertificatePath,
+                            CertificateFileName = null,
+                            CertificateBinary = null
+                        };
+
+            // ✅ If specific record requested
+            if (idEmployeeExperience.HasValue)
+            {
+                query = query.Where(x => x.IdEmployeeExperience == idEmployeeExperience.Value);
+            }
+
+            var result = await query
+                .OrderByDescending(x => x.FromDate)
+                .ToListAsync();
+
+            // ✅ Attach file name + binary
+            foreach (var item in result)
+            {
+                if (!string.IsNullOrWhiteSpace(item.ExperienceCertificatePath))
+                {
+                        item.CertificateFileName = GetOriginalFileName(item.ExperienceCertificatePath);
+
+                        if (File.Exists(item.ExperienceCertificatePath))
+                    {
+                        item.CertificateBinary = await File.ReadAllBytesAsync(item.ExperienceCertificatePath);
+                    }
+                    else
+                    {
+                        item.CertificateBinary = null;
+                    }
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching employee experiences.");
+            throw;
+        }
+    }
+        private string? GetOriginalFileName(string? storedFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(storedFilePath))
+                return null;
+
+            var fileName = Path.GetFileName(storedFilePath);
+
+            // If file format is: GUID_originalname.ext
+            var underscoreIndex = fileName.IndexOf('_');
+
+            if (underscoreIndex > 0)
+            {
+                // Validate first part is GUID
+                var prefix = fileName.Substring(0, underscoreIndex);
+
+                if (Guid.TryParse(prefix, out _))
+                {
+                    return fileName.Substring(underscoreIndex + 1);
+                }
+            }
+
+            return fileName; // If no GUID prefix, return as it is
+        }
+
+
 
     }
 }

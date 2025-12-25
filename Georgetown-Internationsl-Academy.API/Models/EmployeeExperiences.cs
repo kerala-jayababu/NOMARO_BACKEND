@@ -9,6 +9,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int IdEmployeeExperience { get; set; }
         public int IdEmployee { get; set; }
         public string? CompanyName { get; set; }
+        public string? CompanyAddress { get; set; }
+        public int? IdCountry { get; set; }
         public string? Designation { get; set; }
         public string? Department { get; set; }
         public string? EmploymentType { get; set; }

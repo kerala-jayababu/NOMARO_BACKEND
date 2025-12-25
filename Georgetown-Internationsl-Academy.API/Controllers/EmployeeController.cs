@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
 using System.Security.Claims;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Model;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -26,9 +27,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedService;
         private readonly IValidator<EmployeeEntityDto> _employeeEntityvalidator;
+        private readonly IValidator<List<EmployeeExperienceDto>> _employeeExperienceValidator;
         public EmployeeController(IEmployeeServices employeeservice, IValidator<List<EmployeeBankAccountDtoList>> employeeBankAccountvalidator,
     IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator,
-    IValidator<EmployeeEntityDto> employeeEntityvalidator, IValidator<List<EmployeeActionPostDto>> employeeActionValidator)
+    IValidator<EmployeeEntityDto> employeeEntityvalidator, IValidator<List<EmployeeActionPostDto>> employeeActionValidator, IValidator<List<EmployeeExperienceDto>> employeeExperienceValidator)
         {
             _employeeservice = employeeservice;
             _employeeBankAccountvalidator = employeeBankAccountvalidator;
@@ -37,6 +39,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _employeeOverTimevalidator = employeeOverTimevalidator;
             _employeeEntityvalidator = employeeEntityvalidator;
             _employeeActionValidator = employeeActionValidator;
+            _employeeExperienceValidator = employeeExperienceValidator;
         }
 
 
@@ -537,57 +540,128 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpGet("GetEmployeeQualifications")]
-        public async Task<IActionResult> GetEmployeeQualifications(int idEmployee)
+        public async Task<IActionResult> GetEmployeeQualifications(int idEmployee, int? idEmployeeQualification)
         {
-            var data = await _employeeservice.GetEmployeeQualifications(idEmployee);
+            try
+            {
+                if (idEmployee <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee is mandatory."));
 
-            return Ok(ApiResponseDto<IEnumerable<EmployeeQualificationDto>>
-                .CreateSuccess(data, "Qualifications retrieved successfully."));
+                var data = await _employeeservice.GetEmployeeQualifications(idEmployee, idEmployeeQualification);
+
+                if (data == null || !data.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeQualificationDto>>
+                        .CreateSuccess(Enumerable.Empty<EmployeeQualificationDto>(), "No qualifications found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeQualificationDto>>
+                    .CreateSuccess(data, "Qualifications retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
         }
+        [HttpDelete("DeleteEmployeeQualification")]
+        public async Task<IActionResult> DeleteEmployeeQualification(int idEmployeeQualification)
+        {
+            try
+            {
+                if (idEmployeeQualification <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployeeQualification is required."));
+
+                // ✅ Get logged-in employee id
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                // ✅ Permission check
+                var screenCode = _configuration["ScreenCodes:EmployeeQualifications"];
+
+                if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "D"))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+
+                var result = await _employeeservice.DeleteEmployeeQualification(idEmployeeQualification);
+
+                if (!result)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to delete employee qualification."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee qualification deleted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
 
         [HttpPost("AddOrUpdateEmployeeQualifications")]
-        public async Task<IActionResult> AddOrUpdateEmployeeQualifications(List<EmployeeQualificationDto> dtos)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> AddOrUpdateEmployeeQualifications([FromForm] List<EmployeeQualificationDto> dtos)
         {
-            var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
+            try
+            {
+                if (dtos == null || !dtos.Any())
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Qualification list cannot be empty."));
 
-            var screenCode = _configuration["ScreenCodes:EmployeeQualifications"];
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
 
-            if (!await _roleBasedService.CheckEmployeePermission(int.Parse(userId), screenCode, "A"))
-                return StatusCode(403);
+                int loggedInEmployeeId = int.Parse(userId);
 
-            await _employeeservice.AddOrUpdateEmployeeQualifications(dtos);
+                var screenCode = _configuration["ScreenCodes:EmployeeQualifications"];
 
-            return Ok(ApiResponseDto<string>
-                .CreateSuccess("Employee qualifications saved successfully."));
+                if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A"))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+
+                var result = await _employeeservice.AddOrUpdateEmployeeQualifications(dtos, loggedInEmployeeId);
+
+                if (!result)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to save employee qualifications."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee qualifications saved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
         }
 
-        [HttpGet("GetEmployeeExperiences")]
-        public async Task<IActionResult> GetEmployeeExperiences(int idEmployee)
-        {
-            var data = await _employeeservice.GetEmployeeExperiences(idEmployee);
 
-            return Ok(ApiResponseDto<IEnumerable<EmployeeExperienceDto>>
-                .CreateSuccess(data, "Experiences retrieved successfully."));
-        }
 
         [HttpPost("AddOrUpdateEmployeeExperiences")]
-        public async Task<IActionResult> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos)
+        public async Task<IActionResult> AddOrUpdateEmployeeExperiences([FromForm] List<EmployeeExperienceDto> dtos)
         {
-            var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+                var validationResult = await _employeeExperienceValidator.ValidateAsync(dtos);
+                if (!validationResult.IsValid)
+                    return BadRequest(string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
+                int loggedInEmployeeId = int.Parse(userId);
 
-            var screenCode = _configuration["ScreenCodes:EmployeeExperiences"];
+                var screenCode = _configuration["ScreenCodes:EmployeeExperiences"];
 
-            if (!await _roleBasedService.CheckEmployeePermission(int.Parse(userId), screenCode, "A"))
-                return StatusCode(403);
+                if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A"))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
 
-            await _employeeservice.AddOrUpdateEmployeeExperiences(dtos);
+                var result = await _employeeservice.AddOrUpdateEmployeeExperiences(dtos, loggedInEmployeeId);
 
-            return Ok(ApiResponseDto<string>
-                .CreateSuccess("Employee experiences saved successfully."));
+                if (!result)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to save employee experiences."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee experiences saved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
         }
         [HttpGet("GetEmployeeActions")]
         public async Task<IActionResult> GetEmployeeActions(string? searchText, string? actionType, string? dateFrom)
@@ -660,6 +734,67 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+
+
+        [HttpGet("GetEmployeeExperiences")]
+        public async Task<IActionResult> GetEmployeeExperiences(int idEmployee, int? idEmployeeExperience)
+        {
+            try
+            {
+                if (idEmployee <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee is mandatory."));
+
+                var data = await _employeeservice.GetEmployeeExperiences(idEmployee, idEmployeeExperience);
+
+                if (data == null || !data.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeExperienceGetDto>>
+                        .CreateSuccess(Enumerable.Empty<EmployeeExperienceGetDto>(), "No employee experiences found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeExperienceGetDto>>
+                    .CreateSuccess(data, "Employee experiences retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        [HttpDelete("DeleteEmployeeExperience")]
+        public async Task<IActionResult> DeleteEmployeeExperience(int idEmployeeExperience)
+        {
+            try
+            {
+                if (idEmployeeExperience <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployeeExperience is required."));
+
+                // ✅ Get logged-in employee id
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                // ✅ Permission check
+                var screenCode = _configuration["ScreenCodes:EmployeeExperiences"];
+                if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "D"))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+
+                var result = await _employeeservice.DeleteEmployeeExperience(idEmployeeExperience);
+
+                if (!result)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to delete employee experience."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee experience deleted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
 
     }
 }
