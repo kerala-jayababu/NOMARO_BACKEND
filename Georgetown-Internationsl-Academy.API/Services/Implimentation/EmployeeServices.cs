@@ -1890,6 +1890,168 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return fileName; // If no GUID prefix, return as it is
         }
 
+        public async Task<IEnumerable<EmployeeDocumentDto>> GetEmployeeDocuments(int idEmployee, int? idEmployeeDocument = null)
+        {
+            try
+            {
+                var query =
+                    from doc in _dbContext.EmployeeDocuments
+                    join dt in _dbContext.DocumentTypes
+                        on doc.IdDocumentType equals dt.IdDocumentType
+                    where doc.IdEmployee == idEmployee
+                    select new EmployeeDocumentDto
+                    {
+                        IdEmployeeDocument = doc.IdEmployeeDocument,
+                        IdEmployee = doc.IdEmployee,
+
+                        IdDocumentType = doc.IdDocumentType,
+                        DocumentTypeName = dt.DocumentTypeName,
+
+                        Remarks = doc.Remarks,
+                        DocumentFilePath = doc.DocumentFilePath,
+
+                        CreatedAt = doc.CreatedAt,
+                        UpdatedAt = doc.UpdatedAt,
+
+                        FileName = null,
+                        DocumentBinary = null
+                    };
+
+                // ✅ If specific document requested
+                if (idEmployeeDocument.HasValue)
+                {
+                    query = query.Where(x => x.IdEmployeeDocument == idEmployeeDocument.Value);
+                }
+
+                var result = await query
+                    .OrderByDescending(x => x.CreatedAt)
+                    .ToListAsync();
+
+                // ✅ Include binary only if IdEmployeeDocument is specified
+                if (idEmployeeDocument.HasValue)
+                {
+                    foreach (var item in result)
+                    {
+                        if (!string.IsNullOrWhiteSpace(item.DocumentFilePath))
+                        {
+                            item.FileName = GetOriginalFileName(item.DocumentFilePath);
+
+                            if (File.Exists(item.DocumentFilePath))
+                            {
+                                item.DocumentBinary = await File.ReadAllBytesAsync(item.DocumentFilePath);
+                            }
+                            else
+                            {
+                                item.DocumentBinary = null;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // ✅ When returning all docs, return file name only (no binary)
+                    foreach (var item in result)
+                    {
+                        if (!string.IsNullOrWhiteSpace(item.DocumentFilePath))
+                        {
+                            item.FileName = GetOriginalFileName(item.DocumentFilePath);
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee documents. IdEmployee: {IdEmployee}", idEmployee);
+                throw;
+            }
+        }
+        public async Task<bool> PostEmployeeDocuments(List<EmployeeDocumentPostDto> dtos, int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                foreach (var dto in dtos)
+                {
+                    var existing = await _dbContext.EmployeeDocuments
+                        .FirstOrDefaultAsync(x => x.IdEmployeeDocument == dto.IdEmployeeDocument);
+
+                    if (dto.IdEmployeeDocument > 0 && existing == null)
+                        throw new Exception($"Document record not found. IdEmployeeDocument = {dto.IdEmployeeDocument}");
+
+                    if (existing != null)
+                    {
+                        // ✅ Update fields
+                        existing.IdDocumentType = dto.IdDocumentType;
+                        existing.Remarks = dto.Remarks;
+                        existing.UpdatedAt = DateTime.Now;
+                        existing.UpdatedBy = loggedInEmployeeId;
+
+                        // ✅ Replace file if new file provided
+                        existing.DocumentFilePath = await SaveEmployeeDocumentFileAsync(
+                            dto.DocumentFile,
+                            existing.DocumentFilePath
+                        );
+
+                        _dbContext.EmployeeDocuments.Update(existing);
+                    }
+                    else
+                    {
+                        // ✅ Insert
+                        var newEntity = new EmployeeDocuments
+                        {
+                            IdEmployee = dto.IdEmployee,
+                            IdDocumentType = dto.IdDocumentType,
+                            Remarks = dto.Remarks,
+                            CreatedAt = DateTime.Now,
+                            CreatedBy = loggedInEmployeeId,
+                        };
+
+                        // ✅ Save file path
+                        newEntity.DocumentFilePath = await SaveEmployeeDocumentFileAsync(dto.DocumentFile);
+
+                        await _dbContext.EmployeeDocuments.AddAsync(newEntity);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error saving employee documents.");
+                throw;
+            }
+        }
+        private async Task<string?> SaveEmployeeDocumentFileAsync(IFormFile? file, string? oldFilePath = null)
+        {
+            if (file == null || file.Length == 0)
+                return oldFilePath; // ✅ no new file → keep existing
+
+            string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "employeedocuments");
+            Directory.CreateDirectory(folderPath);
+
+            // ✅ delete old file if exists
+            if (!string.IsNullOrWhiteSpace(oldFilePath) && File.Exists(oldFilePath))
+            {
+                File.Delete(oldFilePath);
+            }
+
+            // ✅ save new file
+            string fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+            string filePath = Path.Combine(folderPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return filePath;
+        }
 
 
     }

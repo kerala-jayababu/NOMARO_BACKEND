@@ -245,6 +245,28 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+        [HttpGet("GetDocumentTypes")]
+        public async Task<IActionResult> GetDocumentTypes()
+        {
+            try
+            {
+                var data = await _optionService.GetDocumentTypes();
+
+                if (data == null || !data.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<DocumentTypeDto>>
+                        .CreateSuccess(Enumerable.Empty<DocumentTypeDto>(), "No document types found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<DocumentTypeDto>>
+                    .CreateSuccess(data, "Document types retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
 
     }
 }

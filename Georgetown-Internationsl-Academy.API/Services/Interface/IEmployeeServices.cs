@@ -38,6 +38,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<EmployeeActionDto>> GetEmployeeActions(string? searchText = null,string? actionType = null,DateTime dateFrom = default);
         Task<List<int>> PostEmployeeActions(List<EmployeeActionPostDto> dtoList, int loggedInEmployeeId);
         Task<IEnumerable<EmployeeExperienceGetDto>> GetEmployeeExperiences(int idEmployee, int? idEmployeeExperience = null);
+        Task<IEnumerable<EmployeeDocumentDto>> GetEmployeeDocuments(int idEmployee, int? idEmployeeDocument = null);
+        Task<bool> PostEmployeeDocuments(List<EmployeeDocumentPostDto> dtos, int loggedInEmployeeId);
 
 
     }

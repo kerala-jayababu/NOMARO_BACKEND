@@ -417,6 +417,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+        public async Task<IEnumerable<DocumentTypeDto>> GetDocumentTypes()
+        {
+            try
+            {
+                return await _dbContext.DocumentTypes
+                    .OrderBy(x => x.DocumentTypeName)
+                    .Select(x => new DocumentTypeDto
+                    {
+                        IdDocumentType = x.IdDocumentType,
+                        DocumentTypeName = x.DocumentTypeName
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Document Types.");
+                throw;
+            }
+        }
 
 
 

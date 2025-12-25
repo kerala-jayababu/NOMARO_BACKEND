@@ -794,6 +794,64 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetEmployeeDocuments")]
+        public async Task<IActionResult> GetEmployeeDocuments(int idEmployee, int? idEmployeeDocument)
+        {
+            try
+            {
+                if (idEmployee <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee is mandatory."));
+
+                var data = await _employeeservice.GetEmployeeDocuments(idEmployee, idEmployeeDocument);
+
+                if (data == null || !data.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeDocumentDto>>
+                        .CreateSuccess(Enumerable.Empty<EmployeeDocumentDto>(), "No employee documents found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeDocumentDto>>
+                    .CreateSuccess(data, "Employee documents retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        [HttpPost("PostEmployeeDocuments")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> PostEmployeeDocuments([FromForm] List<EmployeeDocumentPostDto> dtos)
+        {
+            try
+            {
+                if (dtos == null || !dtos.Any())
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Employee document list cannot be empty."));
+
+                // ✅ Get logged-in employee id
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                // ✅ Permission check
+                var screenCode = _configuration["ScreenCodes:EmployeeDocuments"];
+                if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A"))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+
+                var result = await _employeeservice.PostEmployeeDocuments(dtos, loggedInEmployeeId);
+
+                if (!result)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to save employee documents."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee documents saved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
 
 
     }
