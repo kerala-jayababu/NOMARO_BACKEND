@@ -75,6 +75,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<EmployeeExperiences> EmployeeExperiences { get; set; }
         public DbSet<QualificationTypes> QualificationTypes { get; set; }
         public DbSet<EmployeeActions> EmployeeActions { get; set; }
+        public DbSet<Countries> Countries { get; set; }
 
         
 

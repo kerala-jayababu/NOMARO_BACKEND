@@ -230,7 +230,21 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
-   
+        [HttpGet("GetCountries")]
+        public async Task<IActionResult> GetCountries()
+        {
+            try
+            {
+                var data = await _optionService.GetCountries();
+
+                return Ok(ApiResponseDto<IEnumerable<CountryDto>>
+                    .CreateSuccess(data, "Countries retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
     }
 }

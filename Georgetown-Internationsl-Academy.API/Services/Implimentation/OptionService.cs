@@ -397,7 +397,26 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return null;
             }
         }
-
+        public async Task<IEnumerable<CountryDto>> GetCountries()
+        {
+            try
+            {
+                return await _dbContext.Countries
+                    .OrderBy(x => x.CountryName)
+                    .Select(x => new CountryDto
+                    {
+                        IdCountry = x.IdCountry,
+                        CountryCode = x.CountryCode,
+                        CountryName = x.CountryName
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching countries list.");
+                throw;
+            }
+        }
 
 
 
