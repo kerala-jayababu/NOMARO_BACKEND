@@ -7,6 +7,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Globalization;
 using System.Security.Claims;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -21,11 +22,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IEmployeeServices _employeeservice;
         private readonly IValidator<List<EmployeeBankAccountDtoList>> _employeeBankAccountvalidator;
         private readonly IValidator<List<EmployeeOvertimeConfigDtoList>> _employeeOverTimevalidator;
+        private readonly IValidator<List<EmployeeActionPostDto>> _employeeActionValidator;
         private readonly IConfiguration _configuration;
         private readonly IRoleBasedScreenService _roleBasedService;
         private readonly IValidator<EmployeeEntityDto> _employeeEntityvalidator;
         public EmployeeController(IEmployeeServices employeeservice, IValidator<List<EmployeeBankAccountDtoList>> employeeBankAccountvalidator,
-    IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator, IValidator<EmployeeEntityDto> employeeEntityvalidator)
+    IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator,
+    IValidator<EmployeeEntityDto> employeeEntityvalidator, IValidator<List<EmployeeActionPostDto>> employeeActionValidator)
         {
             _employeeservice = employeeservice;
             _employeeBankAccountvalidator = employeeBankAccountvalidator;
@@ -33,6 +36,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _roleBasedService = roleBasedService;
             _employeeOverTimevalidator = employeeOverTimevalidator;
             _employeeEntityvalidator = employeeEntityvalidator;
+            _employeeActionValidator = employeeActionValidator;
         }
 
 
@@ -479,7 +483,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         {
             var data = await _employeeservice.GetAssetAssignments(idEmployee, idAsset);
 
-            return Ok(ApiResponseDto<IEnumerable<AssetAssignmentDto>>
+            return Ok(ApiResponseDto<IEnumerable<AssetAssignmentFullDto>>
                 .CreateSuccess(data, "Asset assignments retrieved successfully."));
         }
 
@@ -585,5 +589,77 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             return Ok(ApiResponseDto<string>
                 .CreateSuccess("Employee experiences saved successfully."));
         }
+        [HttpGet("GetEmployeeActions")]
+        public async Task<IActionResult> GetEmployeeActions(string? searchText, string? actionType, string? dateFrom)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dateFrom))
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("DateFrom is mandatory."));
+                if (!DateTime.TryParseExact(dateFrom, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+               DateTimeStyles.None, out DateTime parsedDate))
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid DateFrom format. Use yyyy-MM-dd."));
+                }
+                var actions = await _employeeservice.GetEmployeeActions(searchText, actionType, parsedDate);
+
+                if (actions == null || !actions.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeActionDto>>
+                        .CreateSuccess(Enumerable.Empty<EmployeeActionDto>(), "No employee actions found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeActionDto>>
+                    .CreateSuccess(actions, "Employee actions retrieved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("PostEmployeeActions")]
+        public async Task<IActionResult> PostEmployeeActions([FromBody] List<EmployeeActionPostDto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee action list cannot be empty."));
+
+            // ✅ Get logged-in employee id from token
+            var loggedInEmployeeIdStr = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(loggedInEmployeeIdStr))
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+            int loggedInEmployeeId = int.Parse(loggedInEmployeeIdStr);
+           
+
+            // ✅ Fluent Validation
+            var validationResult = await _employeeActionValidator.ValidateAsync(dtoList);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.Errors.Select(e => e.ErrorMessage).Distinct().ToList();
+                var errorMessage = string.Join(" | ", errors);
+                return BadRequest(ApiResponseDto<string>.CreateFailure(errorMessage));
+            }
+
+            try
+            {
+                var ids = await _employeeservice.PostEmployeeActions(dtoList, loggedInEmployeeId);
+
+                return Ok(ApiResponseDto<List<int>>.CreateSuccess(ids, "Employee actions saved successfully."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
     }
 }

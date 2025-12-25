@@ -1,4 +1,5 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Georgetown_Internationsl_Academy.API.Models
 {
@@ -13,5 +14,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? AssetWorkingStatus { get; set; }
         public int? DefaultDurationOfAssignment { get; set; }
         public bool IsAllocated { get; set; }
+        // ✅ Navigation Property
+        [ForeignKey("IdAssetType")]
+        public virtual AssetTypes AssetType { get; set; }
     }
 }

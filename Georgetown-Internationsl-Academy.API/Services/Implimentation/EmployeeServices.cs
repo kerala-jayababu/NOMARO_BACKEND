@@ -1140,28 +1140,47 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<IEnumerable<AssetAssignmentDto>> GetAssetAssignments(int? idEmployee, int? idAsset)
+        public async Task<IEnumerable<AssetAssignmentFullDto>> GetAssetAssignments(int? idEmployee, int? idAsset)
+{
+    var query = _dbContext.AssetAssignments
+        .Include(x => x.Asset)
+            .ThenInclude(a => a.AssetType)
+        .AsQueryable();
+
+    if (idEmployee.HasValue)
+        query = query.Where(x => x.IdEmployee == idEmployee.Value);
+
+    if (idAsset.HasValue)
+        query = query.Where(x => x.IdAsset == idAsset.Value);
+
+    return await query
+        .OrderByDescending(x => x.AssignedDateTime)
+        .Select(x => new AssetAssignmentFullDto
         {
-            var query = _dbContext.AssetAssignments.AsQueryable();
+            IdAssetAssignment = x.IdAssetAssignment,
+            IdAsset = x.IdAsset,
+            IdEmployee = x.IdEmployee,
+            AssignedDate = x.AssignedDate,
+            AssignedTillDate = x.AssignedTillDate,
+            Remarks = x.Remarks,
+            AssignedBy = x.AssignedBy,
+            AssignedDateTime = x.AssignedDateTime,
 
-            if (idEmployee.HasValue)
-                query = query.Where(x => x.IdEmployee == idEmployee.Value);
+            // ✅ Asset Data
+            AssetSerialNumber = x.Asset.AssetSerialNumber,
+            AssetDetails = x.Asset.AssetDetails,
+            AverageCost = x.Asset.AverageCost,
+            AssetWorkingStatus = x.Asset.AssetWorkingStatus,
+            IsAllocated = x.Asset.IsAllocated,
+            DefaultDurationOfAssignment= x.Asset.DefaultDurationOfAssignment,
+            IdAssetType = x.Asset.IdAssetType,
 
-            if (idAsset.HasValue)
-                query = query.Where(x => x.IdAsset == idAsset.Value);
+            // ✅ AssetType Data
+            AssetTypeName = x.Asset.AssetType.AssetTypeName
+        })
+        .ToListAsync();
+}
 
-            return await query
-                .OrderByDescending(x => x.AssignedDateTime)
-                .Select(x => new AssetAssignmentDto
-                {
-                    IdAsset = x.IdAsset,
-                    IdEmployee = x.IdEmployee,
-                    AssignedDate = x.AssignedDate,
-                    AssignedTillDate = x.AssignedTillDate,
-                    Remarks = x.Remarks
-                })
-                .ToListAsync();
-        }
 
         public async Task<bool> AssignAsset(AssetAssignmentDto dto)
         {
@@ -1433,5 +1452,164 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return true;
         }
+
+        public async Task<IEnumerable<EmployeeActionDto>> GetEmployeeActions(string? searchText = null,string? actionType = null,DateTime dateFrom = default)
+        {
+            if (dateFrom == default)
+                throw new ArgumentException("DateFrom is mandatory.");
+
+            var query = new StringBuilder(@"
+        SELECT 
+            ea.IdEmployeeAction,
+            ea.IdEmployee,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            d.DepartmentName,
+            des.DesignationName,
+            ea.ActionType,
+            ea.ActionDescription,
+            ea.ActionSeverity,
+            ea.Remarks,
+            ea.EffectiveFromDate,
+            ea.EffectiveToDate,
+            ea.Status,
+            ea.CreatedBy,
+            ea.CreatedDate,
+            ea.ApprovedBy,
+            ea.ApprovedDate
+        FROM EmployeeActions ea
+        INNER JOIN Employees e ON ea.IdEmployee = e.IdEmployee
+        INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        WHERE 1=1
+    ");
+
+            var parameters = new DynamicParameters();
+
+            // ✅ Mandatory DateFrom filter
+            query.Append(@"
+        AND @DateFrom >= ea.EffectiveFromDate
+        AND (@DateFrom <= ea.EffectiveToDate OR ea.EffectiveToDate IS NULL)
+    ");
+            parameters.Add("DateFrom", dateFrom.Date);
+
+            // ✅ Search filter (department / designation / employee name)
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                query.Append(@"
+            AND (
+                d.DepartmentName LIKE @SearchText
+                OR des.DesignationName LIKE @SearchText
+                OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
+                OR e.EmployeeCode LIKE @SearchText
+            )
+        ");
+                parameters.Add("SearchText", $"%{searchText}%");
+            }
+
+            // ✅ Optional ActionType filter
+            if (!string.IsNullOrWhiteSpace(actionType))
+            {
+                query.Append(" AND ea.ActionType = @ActionType ");
+                parameters.Add("ActionType", actionType.Trim());
+            }
+
+            query.Append(" ORDER BY ea.CreatedDate DESC; ");
+
+            try
+            {
+                _logger.LogInformation("Fetching Employee actions list with filters using Dapper.");
+
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var result = await connection.QueryAsync<EmployeeActionDto>(query.ToString(), parameters);
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Employee actions list using Dapper.");
+                throw;
+            }
+        }
+        public async Task<List<int>> PostEmployeeActions(List<EmployeeActionPostDto> dtoList, int loggedInEmployeeId)
+        {
+            if (dtoList == null || !dtoList.Any())
+                throw new ArgumentException("Employee actions list cannot be null or empty.");
+
+            var insertedOrUpdatedIds = new List<int>();
+
+            try
+            {
+                foreach (var dto in dtoList)
+                {
+                    // Normalize values
+                    dto.ActionType = dto.ActionType?.Trim().ToUpperInvariant();
+                    dto.ActionSeverity = dto.ActionSeverity?.Trim().ToUpperInvariant();
+                    dto.Status = dto.Status?.Trim().ToUpperInvariant();
+
+                    if (dto.IdEmployeeAction == 0)
+                    {
+                        // ✅ INSERT
+                        var entity = new EmployeeActions
+                        {
+                            IdEmployee = dto.IdEmployee,
+                            ActionType = dto.ActionType,
+                            ActionDescription = dto.ActionDescription,
+                            ActionSeverity = dto.ActionSeverity,
+                            Remarks = dto.Remarks,
+                            EffectiveFromDate = dto.EffectiveFromDate,
+                            EffectiveToDate = dto.EffectiveToDate,
+                            Status = dto.Status,
+                            CreatedBy = loggedInEmployeeId,
+                            CreatedDate = DateTime.Now
+                        };
+
+                        await _dbContext.EmployeeActions.AddAsync(entity);
+                        await _dbContext.SaveChangesAsync();
+
+                        insertedOrUpdatedIds.Add(entity.IdEmployeeAction);
+                    }
+                    else
+                    {
+                        // ✅ UPDATE
+                        var existing = await _dbContext.EmployeeActions
+                            .FirstOrDefaultAsync(x => x.IdEmployeeAction == dto.IdEmployeeAction);
+
+                        if (existing == null)
+                            throw new KeyNotFoundException($"Employee action record not found. IdEmployeeAction = {dto.IdEmployeeAction}");
+
+                        existing.IdEmployee = dto.IdEmployee;
+                        existing.ActionType = dto.ActionType;
+                        existing.ActionDescription = dto.ActionDescription;
+                        existing.ActionSeverity = dto.ActionSeverity;
+                        existing.Remarks = dto.Remarks;
+                        existing.EffectiveFromDate = dto.EffectiveFromDate;
+                        existing.EffectiveToDate = dto.EffectiveToDate;
+                        existing.Status = dto.Status;
+
+                        // If you have Updated columns, set here
+                         existing.UpdatedBy = loggedInEmployeeId;
+                         existing.UpdatedDate = DateTime.Now;
+
+                        _dbContext.EmployeeActions.Update(existing);
+                        await _dbContext.SaveChangesAsync();
+
+                        insertedOrUpdatedIds.Add(existing.IdEmployeeAction);
+                    }
+                }
+
+                return insertedOrUpdatedIds;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inserting/updating employee actions.");
+                throw;
+            }
+        }
+
     }
 }

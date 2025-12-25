@@ -23,7 +23,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<EmployeeEntityDto?> AddEmployee(EmployeeEntityDto dto);
         Task<EmployeeEntityDto?> UpdateEmployee(int id, EmployeeEntityDto dto);
         Task<EmployeeEntityDto?> GetEmployeeById(int id);
-        Task<IEnumerable<AssetAssignmentDto>> GetAssetAssignments(int? idEmployee, int? idAsset);
+        Task<IEnumerable<AssetAssignmentFullDto>> GetAssetAssignments(int? idEmployee, int? idAsset);
         Task<bool> AssignAsset(AssetAssignmentDto dto);
         Task<bool> UnassignAsset(int idAsset, int idEmployee);
 
@@ -33,6 +33,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<EmployeeExperienceDto>> GetEmployeeExperiences(int idEmployee);
         Task<bool> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos);
         Task<bool> DeleteEmployeeExperience(int idEmployeeExperience);
+        Task<IEnumerable<EmployeeActionDto>> GetEmployeeActions(string? searchText = null,string? actionType = null,DateTime dateFrom = default);
+        Task<List<int>> PostEmployeeActions(List<EmployeeActionPostDto> dtoList, int loggedInEmployeeId);
 
     }
 }
