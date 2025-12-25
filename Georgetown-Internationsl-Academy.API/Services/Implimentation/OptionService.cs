@@ -291,6 +291,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<List<QualificationTypesDto>> GetQualificationTypes()
+        {
+            try
+            {
+                var qualificationTypes = await _dbContext.QualificationTypes.ToListAsync();
+                return _mapper.Map<List<QualificationTypesDto>>(qualificationTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all QualificationTypes.");
+                throw;
+            }
+        }
+
         public async Task<List<NotificationDto>> GetEmployeeNotification(int employeeID)
         {
             try

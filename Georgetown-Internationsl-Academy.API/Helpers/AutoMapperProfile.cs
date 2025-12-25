@@ -48,6 +48,8 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<Notification, NotificationDto>().ReverseMap();
             CreateMap<Holiday, HolidaysDto>().ReverseMap();
             CreateMap<Employee, EmployeeEntityDto>().ReverseMap();
+            CreateMap<AssetTypes, AssetTypeDto>().ReverseMap();
+            CreateMap<Assets, AssetDto>().ReverseMap();
 
             #region Time & Attendance
             CreateMap<ShiftDefinitionEntity, ShiftDto>().ReverseMap();

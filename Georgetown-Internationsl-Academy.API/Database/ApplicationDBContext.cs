@@ -68,6 +68,13 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<LeavePassageAmounts> LeavePassageAmounts { get; set; }
         public DbSet<RentFreeQuarterAllowance> RentFreeQuarterAllowance { get; set; }
 
+        public DbSet<AssetTypes> AssetTypes { get; set; }
+        public DbSet<Assets> Assets { get; set; }
+        public DbSet<AssetAssignments> AssetAssignments { get; set; }
+        public DbSet<EmployeeQualifications> EmployeeQualifications { get; set; }
+        public DbSet<EmployeeExperiences> EmployeeExperiences { get; set; }
+        public DbSet<QualificationTypes> QualificationTypes { get; set; }
+
         
 
         #region Time & Attendance

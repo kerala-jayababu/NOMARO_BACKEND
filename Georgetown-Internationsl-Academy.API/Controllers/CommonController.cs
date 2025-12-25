@@ -87,6 +87,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             return Ok(result);
         }
 
+        [HttpGet("GetQualificationTypes")]
+        public async Task<IActionResult> GetQualificationTypes()
+        {
+            var result = await _optionService.GetQualificationTypes();
+            return Ok(result);
+        }
+
 
         [HttpGet("GetEmployeeLatestSalaryStructure")]
         public async Task<IActionResult> GetEmployeeLatestSalaryStructure()
@@ -221,6 +228,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             return false; 
         }
+
 
    
 

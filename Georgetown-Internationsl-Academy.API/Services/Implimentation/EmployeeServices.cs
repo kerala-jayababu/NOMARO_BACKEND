@@ -1140,5 +1140,298 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<IEnumerable<AssetAssignmentDto>> GetAssetAssignments(int? idEmployee, int? idAsset)
+        {
+            var query = _dbContext.AssetAssignments.AsQueryable();
+
+            if (idEmployee.HasValue)
+                query = query.Where(x => x.IdEmployee == idEmployee.Value);
+
+            if (idAsset.HasValue)
+                query = query.Where(x => x.IdAsset == idAsset.Value);
+
+            return await query
+                .OrderByDescending(x => x.AssignedDateTime)
+                .Select(x => new AssetAssignmentDto
+                {
+                    IdAsset = x.IdAsset,
+                    IdEmployee = x.IdEmployee,
+                    AssignedDate = x.AssignedDate,
+                    AssignedTillDate = x.AssignedTillDate,
+                    Remarks = x.Remarks
+                })
+                .ToListAsync();
+        }
+
+        public async Task<bool> AssignAsset(AssetAssignmentDto dto)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // ✅ Validation 1: AssignedDate must be <= current date
+                if (dto.AssignedDate.Date > DateTime.Now.Date)
+                    throw new Exception("Assigned date cannot be in the future.");
+
+                // ✅ Validation 2: Asset must exist
+                var asset = await _dbContext.Assets
+                    .FirstOrDefaultAsync(a => a.IdAsset == dto.IdAsset);
+
+                if (asset == null)
+                    throw new Exception("Asset not found.");
+
+                // ✅ Validation 3: Asset already assigned?
+                if (asset.IsAllocated)
+                    throw new Exception("Asset is already assigned to another employee.");
+
+                // ✅ Create assignment
+                var assignment = new AssetAssignments
+                {
+                    IdAsset = dto.IdAsset,
+                    IdEmployee = dto.IdEmployee,
+                    AssignedDate = dto.AssignedDate,
+                    AssignedTillDate = dto.AssignedTillDate,
+                    Remarks = dto.Remarks,
+                    AssignedBy = dto.AssignedBy,
+                    AssignedDateTime = DateTime.Now
+                };
+
+                await _dbContext.AssetAssignments.AddAsync(assignment);
+
+                // ✅ Mark asset as allocated
+                asset.IsAllocated = true;
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error assigning asset.");
+                throw;
+            }
+        }
+
+        public async Task<bool> UnassignAsset(int idAsset, int idEmployee)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var assignment = await _dbContext.AssetAssignments
+                    .FirstOrDefaultAsync(x =>
+                        x.IdAsset == idAsset &&
+                        x.IdEmployee == idEmployee);
+
+                if (assignment == null)
+                    throw new Exception("Asset assignment not found.");
+
+                _dbContext.AssetAssignments.Remove(assignment);
+
+                var asset = await _dbContext.Assets
+                    .FirstOrDefaultAsync(a => a.IdAsset == idAsset);
+
+                if (asset != null)
+                    asset.IsAllocated = false;
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error unassigning asset.");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<EmployeeQualificationDto>> GetEmployeeQualifications(int idEmployee)
+        {
+           return await _dbContext.EmployeeQualifications
+        .Where(x => x.IdEmployee == idEmployee)
+        .OrderByDescending(x => x.YearOfCompletion)
+        .Select(x => new EmployeeQualificationDto
+        {
+            IdEmployeeQualification = x.IdEmployeeQualification,
+            IdEmployee = x.IdEmployee,
+            IdQualificationType = x.IdQualificationType,
+            QualificationTypeName = x.QualificationType.QualificationTypeName, // ✅
+            QualificationName = x.QualificationName,
+            Specialization = x.Specialization,
+            InstitutionName = x.InstitutionName,
+            IdCountry = x.IdCountry,
+            YearOfCompletion = x.YearOfCompletion,
+            GradeOrPercentage = x.GradeOrPercentage
+        })
+        .ToListAsync();
+        }
+
+        public async Task<bool> AddOrUpdateEmployeeQualifications(List<EmployeeQualificationDto> dtos)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                foreach (var dto in dtos)
+                {
+                    if (dto.YearOfCompletion > DateTime.Now.Year)
+                        throw new Exception("Year of completion cannot be in the future.");
+
+                    var existing = await _dbContext.EmployeeQualifications
+                        .FirstOrDefaultAsync(x => x.IdEmployeeQualification == dto.IdEmployeeQualification);
+
+                    if (existing != null)
+                    {
+                        existing.IdQualificationType = dto.IdQualificationType;
+                        existing.QualificationName = dto.QualificationName;
+                        existing.Specialization = dto.Specialization;
+                        existing.InstitutionName = dto.InstitutionName;
+                        existing.IdCountry = dto.IdCountry;
+                        existing.YearOfCompletion = dto.YearOfCompletion;
+                        existing.GradeOrPercentage = dto.GradeOrPercentage;
+                        existing.UpdatedAt = DateTime.Now;
+                        existing.UpdatedBy = dto.CreatedBy;
+                    }
+                    else
+                    {
+                        await _dbContext.EmployeeQualifications.AddAsync(new EmployeeQualifications
+                        {
+                            IdEmployee = dto.IdEmployee,
+                            IdQualificationType = dto.IdQualificationType,
+                            QualificationName = dto.QualificationName,
+                            Specialization = dto.Specialization,
+                            InstitutionName = dto.InstitutionName,
+                            IdCountry = dto.IdCountry,
+                            YearOfCompletion = dto.YearOfCompletion,
+                            GradeOrPercentage = dto.GradeOrPercentage,
+                            CreatedAt = DateTime.Now,
+                            CreatedBy = dto.CreatedBy
+                        });
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error saving employee qualifications.");
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteEmployeeQualification(int idEmployeeQualification)
+        {
+            var record = await _dbContext.EmployeeQualifications
+                .FirstOrDefaultAsync(x => x.IdEmployeeQualification == idEmployeeQualification);
+
+            if (record == null)
+                throw new Exception("Qualification record not found.");
+
+            _dbContext.EmployeeQualifications.Remove(record);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+
+
+        public async Task<IEnumerable<EmployeeExperienceDto>> GetEmployeeExperiences(int idEmployee)
+        {
+            return await _dbContext.EmployeeExperiences
+                .Where(x => x.IdEmployee == idEmployee)
+                .OrderByDescending(x => x.FromDate)
+                .Select(x => new EmployeeExperienceDto
+                {
+                    IdEmployeeExperience = x.IdEmployeeExperience,
+                    IdEmployee = x.IdEmployee,
+                    CompanyName = x.CompanyName,
+                    Designation = x.Designation,
+                    Department = x.Department,
+                    EmploymentType = x.EmploymentType,
+                    FromDate = x.FromDate,
+                    ToDate = x.ToDate,
+                    LastDrawnSalary = x.LastDrawnSalary,
+                    ExperienceInYears = x.ExperienceInYears
+                })
+                .ToListAsync();
+        }
+
+        public async Task<bool> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                foreach (var dto in dtos)
+                {
+                    if (dto.ToDate < dto.FromDate)
+                        throw new Exception("To Date cannot be earlier than From Date.");
+
+                    var existing = await _dbContext.EmployeeExperiences
+                        .FirstOrDefaultAsync(x => x.IdEmployeeExperience == dto.IdEmployeeExperience);
+
+                    if (existing != null)
+                    {
+                        existing.CompanyName = dto.CompanyName;
+                        existing.Designation = dto.Designation;
+                        existing.Department = dto.Department;
+                        existing.EmploymentType = dto.EmploymentType;
+                        existing.FromDate = dto.FromDate;
+                        existing.ToDate = dto.ToDate;
+                        existing.LastDrawnSalary = dto.LastDrawnSalary;
+                        existing.ExperienceInYears = dto.ExperienceInYears;
+                        existing.UpdatedAt = DateTime.Now;
+                        existing.UpdatedBy = dto.CreatedBy;
+                    }
+                    else
+                    {
+                        await _dbContext.EmployeeExperiences.AddAsync(new EmployeeExperiences
+                        {
+                            IdEmployee = dto.IdEmployee,
+                            CompanyName = dto.CompanyName,
+                            Designation = dto.Designation,
+                            Department = dto.Department,
+                            EmploymentType = dto.EmploymentType,
+                            FromDate = dto.FromDate,
+                            ToDate = dto.ToDate,
+                            LastDrawnSalary = dto.LastDrawnSalary,
+                            ExperienceInYears = dto.ExperienceInYears,
+                            CreatedAt = DateTime.Now,
+                            CreatedBy = dto.CreatedBy
+                        });
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error saving employee experiences.");
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteEmployeeExperience(int idEmployeeExperience)
+        {
+            var record = await _dbContext.EmployeeExperiences
+                .FirstOrDefaultAsync(x => x.IdEmployeeExperience == idEmployeeExperience);
+
+            if (record == null)
+                throw new Exception("Experience record not found.");
+
+            _dbContext.EmployeeExperiences.Remove(record);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
     }
 }

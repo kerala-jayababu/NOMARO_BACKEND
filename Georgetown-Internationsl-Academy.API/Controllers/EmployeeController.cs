@@ -474,6 +474,116 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetAssetAssignments")]
+        public async Task<IActionResult> GetAssetAssignments(int? idEmployee, int? idAsset)
+        {
+            var data = await _employeeservice.GetAssetAssignments(idEmployee, idAsset);
 
+            return Ok(ApiResponseDto<IEnumerable<AssetAssignmentDto>>
+                .CreateSuccess(data, "Asset assignments retrieved successfully."));
+        }
+
+        [HttpPost("AssignAsset")]
+        public async Task<IActionResult> AssignAsset(AssetAssignmentDto dto)
+        {
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+            try
+            {
+                var screenCode = _configuration["ScreenCodes:AssetAssignments"];
+                var actionType = "A";
+
+                var hasPermission = await _roleBasedService
+                    .CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+                if (!hasPermission)
+                    return StatusCode(403,
+                        ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                var success = await _employeeservice.AssignAsset(dto);
+
+                return Ok(ApiResponseDto<string>
+                    .CreateSuccess("Asset assigned successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+        }
+
+        [HttpPost("UnassignAsset")]
+        public async Task<IActionResult> UnassignAsset(int idAsset, int idEmployee)
+        {
+            try
+            {
+                var success = await _employeeservice.UnassignAsset(idAsset, idEmployee);
+
+                return Ok(ApiResponseDto<string>
+                    .CreateSuccess("Asset unassigned successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+        }
+
+        [HttpGet("GetEmployeeQualifications")]
+        public async Task<IActionResult> GetEmployeeQualifications(int idEmployee)
+        {
+            var data = await _employeeservice.GetEmployeeQualifications(idEmployee);
+
+            return Ok(ApiResponseDto<IEnumerable<EmployeeQualificationDto>>
+                .CreateSuccess(data, "Qualifications retrieved successfully."));
+        }
+
+        [HttpPost("AddOrUpdateEmployeeQualifications")]
+        public async Task<IActionResult> AddOrUpdateEmployeeQualifications(List<EmployeeQualificationDto> dtos)
+        {
+            var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var screenCode = _configuration["ScreenCodes:EmployeeQualifications"];
+
+            if (!await _roleBasedService.CheckEmployeePermission(int.Parse(userId), screenCode, "A"))
+                return StatusCode(403);
+
+            await _employeeservice.AddOrUpdateEmployeeQualifications(dtos);
+
+            return Ok(ApiResponseDto<string>
+                .CreateSuccess("Employee qualifications saved successfully."));
+        }
+
+        [HttpGet("GetEmployeeExperiences")]
+        public async Task<IActionResult> GetEmployeeExperiences(int idEmployee)
+        {
+            var data = await _employeeservice.GetEmployeeExperiences(idEmployee);
+
+            return Ok(ApiResponseDto<IEnumerable<EmployeeExperienceDto>>
+                .CreateSuccess(data, "Experiences retrieved successfully."));
+        }
+
+        [HttpPost("AddOrUpdateEmployeeExperiences")]
+        public async Task<IActionResult> AddOrUpdateEmployeeExperiences(List<EmployeeExperienceDto> dtos)
+        {
+            var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var screenCode = _configuration["ScreenCodes:EmployeeExperiences"];
+
+            if (!await _roleBasedService.CheckEmployeePermission(int.Parse(userId), screenCode, "A"))
+                return StatusCode(403);
+
+            await _employeeservice.AddOrUpdateEmployeeExperiences(dtos);
+
+            return Ok(ApiResponseDto<string>
+                .CreateSuccess("Employee experiences saved successfully."));
+        }
     }
 }
