@@ -24,13 +24,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IMapper _mapper;
         private readonly ILogger<EmployeeServices> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IApprovalWorkflowService _approvalWorkflowService;
         private readonly IConfiguration _configuration;
 
-        public EmployeeServices(ApplicationDBContext dbContext, IWebHostEnvironment webHostEnvironment, IMapper mapper, ILogger<EmployeeServices> logger, IConfiguration configuration)
+        public EmployeeServices(ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, IWebHostEnvironment webHostEnvironment, IMapper mapper, ILogger<EmployeeServices> logger, IConfiguration configuration)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _webHostEnvironment = webHostEnvironment;
+            _approvalWorkflowService = approveWorkflowService;
             _logger = logger;
             _configuration = configuration;
         }
@@ -1725,21 +1727,23 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (dtoList == null || !dtoList.Any())
                 throw new ArgumentException("Employee actions list cannot be null or empty.");
 
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             var insertedOrUpdatedIds = new List<int>();
 
             try
             {
                 foreach (var dto in dtoList)
                 {
-                    // Normalize values
                     dto.ActionType = dto.ActionType?.Trim().ToUpperInvariant();
                     dto.ActionSeverity = dto.ActionSeverity?.Trim().ToUpperInvariant();
                     dto.Status = dto.Status?.Trim().ToUpperInvariant();
 
+                    EmployeeActions entity;
+
                     if (dto.IdEmployeeAction == 0)
                     {
-                        // ✅ INSERT
-                        var entity = new EmployeeActions
+                        // INSERT
+                        entity = new EmployeeActions
                         {
                             IdEmployee = dto.IdEmployee,
                             ActionType = dto.ActionType,
@@ -1755,47 +1759,53 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                         await _dbContext.EmployeeActions.AddAsync(entity);
                         await _dbContext.SaveChangesAsync();
-
-                        insertedOrUpdatedIds.Add(entity.IdEmployeeAction);
                     }
                     else
                     {
-                        // ✅ UPDATE
-                        var existing = await _dbContext.EmployeeActions
+                        // UPDATE
+                        entity = await _dbContext.EmployeeActions
                             .FirstOrDefaultAsync(x => x.IdEmployeeAction == dto.IdEmployeeAction);
 
-                        if (existing == null)
-                            throw new KeyNotFoundException($"Employee action record not found. IdEmployeeAction = {dto.IdEmployeeAction}");
+                        if (entity == null)
+                            throw new KeyNotFoundException($"Employee action not found (Id = {dto.IdEmployeeAction}).");
 
-                        existing.IdEmployee = dto.IdEmployee;
-                        existing.ActionType = dto.ActionType;
-                        existing.ActionDescription = dto.ActionDescription;
-                        existing.ActionSeverity = dto.ActionSeverity;
-                        existing.Remarks = dto.Remarks;
-                        existing.EffectiveFromDate = dto.EffectiveFromDate;
-                        existing.EffectiveToDate = dto.EffectiveToDate;
-                        existing.Status = dto.Status;
+                        entity.IdEmployee = dto.IdEmployee;
+                        entity.ActionType = dto.ActionType;
+                        entity.ActionDescription = dto.ActionDescription;
+                        entity.ActionSeverity = dto.ActionSeverity;
+                        entity.Remarks = dto.Remarks;
+                        entity.EffectiveFromDate = dto.EffectiveFromDate;
+                        entity.EffectiveToDate = dto.EffectiveToDate;
+                        entity.Status = dto.Status;
+                        entity.UpdatedBy = loggedInEmployeeId;
+                        entity.UpdatedDate = DateTime.Now;
 
-                        // If you have Updated columns, set here
-                         existing.UpdatedBy = loggedInEmployeeId;
-                         existing.UpdatedDate = DateTime.Now;
-
-                        _dbContext.EmployeeActions.Update(existing);
+                        _dbContext.EmployeeActions.Update(entity);
                         await _dbContext.SaveChangesAsync();
-
-                        insertedOrUpdatedIds.Add(existing.IdEmployeeAction);
                     }
+
+                    insertedOrUpdatedIds.Add(entity.IdEmployeeAction);
+
+                    // 🔁 Call workflow for each record or single call based on requirement
+                    var entityCode = _configuration["WorkflowEntityCodes:EmployeeAction"];
+                    var workflowResult = await _approvalWorkflowService
+                        .InitiateApprovalWorkflow(entity.IdEmployeeAction, entityCode, loggedInEmployeeId, "SUBMITTED", null, null);
+
+                    if (workflowResult != "Approval workflow initiated.")
+                        throw new Exception(workflowResult);
                 }
 
+                await transaction.CommitAsync();
                 return insertedOrUpdatedIds;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error inserting/updating employee actions.");
-                throw;
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error inserting/updating employee actions workflow.");
+                throw new Exception("Error processing employee actions, transaction rolled back.");
             }
         }
-     
+
 
         public async Task<IEnumerable<EmployeeExperienceGetDto>> GetEmployeeExperiences(int idEmployee, int? idEmployeeExperience = null)
     {

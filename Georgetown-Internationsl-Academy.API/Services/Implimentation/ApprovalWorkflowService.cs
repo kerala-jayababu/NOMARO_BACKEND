@@ -495,6 +495,55 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
               
 
             }
+            else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeAction"])
+            {
+                var entity = await _dbContext.EmployeeActions.FindAsync(entityTablePrimaryKeyID);
+
+                if (entity != null)
+                {
+                    entity.ApprovalStatus = finalStatus;
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                if (finalStatus == "REJECTED" || nextLevelNumber == 99)
+                    targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
+
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
+                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                var employees = await GetEmployeesByIds(employeeIdList);
+                var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+                var notificationConfig = await GetNotificationConfigForEntity(entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
+
+                foreach (var emp in employees)
+                {
+                    var toEmail = emp["Email"];
+                    if (!string.IsNullOrWhiteSpace(toEmail))
+                        EmailService.SendMail(toEmail, notificationConfig.EmailSubject, notificationConfig.EmailContent);
+
+                    var employeeDetails = await _dbContext.Employees.FirstOrDefaultAsync(x => x.EmailID == toEmail);
+                    if (employeeDetails != null)
+                    {
+                        await _dbContext.Notifications.AddAsync(new Notification
+                        {
+                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                            NotificationType = notificationConfig.NotificationType,
+                            SentByIdEmployee = loggedInEmployeeId,
+                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            AppNotificationText = notificationConfig.AppNotificationText,
+                            EmailSubject = notificationConfig.EmailSubject,
+                            EmailContent = notificationConfig.EmailContent,
+                            EmailSentStatus = "SENT",
+                            IsReadAppNotification = false,
+                            CreatedAt = DateTime.Now,
+                            Status = "SENT",
+                            RelatedRecordID = entityTablePrimaryKeyID,
+                            RelatedRecordType = entityCode
+                        });
+
+                        await _dbContext.SaveChangesAsync();
+                    }
+                }
+            }
         }
 
 
