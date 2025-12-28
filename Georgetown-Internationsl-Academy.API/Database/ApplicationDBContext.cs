@@ -92,6 +92,27 @@ namespace Georgetown_International_Academy.API.Database
 
         #endregion
 
+        #region
+        // Leave Master
+        public DbSet<LeaveTypes> LeaveTypes { get; set; }
+
+        // Annual Leave Configuration
+        public DbSet<AnnualLeaveTypeConfig> AnnualLeaveTypeConfig { get; set; }
+
+        // Leave Templates
+        public DbSet<LeaveTemplates> LeaveTemplates { get; set; }
+        public DbSet<LeaveTemplateDetails> LeaveTemplateDetails { get; set; }
+
+        // Employee Leave Configuration
+        public DbSet<EmployeeLeaveConfigs> EmployeeLeaveConfigs { get; set; }
+        public DbSet<EmployeeLeaveConfigDetails> EmployeeLeaveConfigDetails { get; set; }
+
+        // Leave Applications
+        public DbSet<LeaveApplications> LeaveApplications { get; set; }
+        public DbSet<LeaveApplicationDocuments> LeaveApplicationDocuments { get; set; }
+
+        #endregion
+
         #region BambooHR
         public DbSet<EmployeeLeave> EmployeeLeaves { get; set; }
         public DbSet<EmployeeLeaveDetail> EmployeeLeaveDetails { get; set; }
