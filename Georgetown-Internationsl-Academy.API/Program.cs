@@ -212,6 +212,7 @@ builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IAttendanceDashboardService, AttendanceDashboardService>();
 builder.Services.AddScoped<ITaxReportService, TaxReportService>();
 builder.Services.AddScoped<IAssetServices, AssetServices>();
+builder.Services.AddScoped<ILeaveManaementServices, LeaveManaementServices>();
 
 
 var app = builder.Build();

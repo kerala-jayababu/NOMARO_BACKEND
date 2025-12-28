@@ -8,7 +8,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int IdLeaveTemplateDetails { get; set; }
         public int IdLeaveTemplate { get; set; }
         public int IdLeaveType { get; set; }
-        public int IdAnnualLeaveTypeConfig { get; set; }
+        public int? IdAnnualLeaveTypeConfig { get; set; }
         public int NoOfDaysInYear { get; set; }
+        public AnnualLeaveTypeConfigDto? AnnualLeaveTypeConfig { get; set; }
     }
 }
