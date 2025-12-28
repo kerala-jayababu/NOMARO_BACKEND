@@ -902,6 +902,813 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
         #endregion
+
+        #region EmployeeLeaveManagement
+        public async Task<EmployeeLeaveSetupDto> GetEmployeeLeaveSetup(int idEmployee, DateTime? activeOnDate = null)
+        {
+            try
+            {
+                if (idEmployee <= 0)
+                    throw new ArgumentException("IdEmployee is required.");
+
+                var date = (activeOnDate ?? DateTime.Now).Date;
+
+                // ✅ Find active config
+                var config = await _dbContext.EmployeeLeaveConfigs
+                    .Where(x => x.IdEmployee == idEmployee
+                             && x.EffectiveFrom.Date <= date
+                             && (x.EffectiveTo == null || x.EffectiveTo.Value.Date >= date))
+                    .OrderByDescending(x => x.EffectiveFrom) // latest active assignment
+                    .FirstOrDefaultAsync();
+
+                if (config == null)
+                    throw new ArgumentException("No active leave setup found for this employee.");
+
+                // ✅ Load Details
+                var details = await (
+                    from d in _dbContext.EmployeeLeaveConfigDetails
+                    where d.IdEmployeeLeaveConfig == config.IdEmployeeLeaveConfig
+                    join lt in _dbContext.LeaveTypes on d.IdLeaveType equals lt.IdLeaveType into lts
+                    from leaveType in lts.DefaultIfEmpty()
+                    orderby d.IdLeaveType
+                    select new EmployeeLeaveSetupDetailDto
+                    {
+                        IdEmployeeLeaveConfigDetail = d.IdEmployeeLeaveConfigDetail,
+                        IdEmployeeLeaveConfig = d.IdEmployeeLeaveConfig,
+                        IdLeaveType = d.IdLeaveType,
+                        AllocatedDays = d.AllocatedDays,
+                        UsedLeaveDays = d.UsedLeaveDays,
+                        BalanceLeaveDays = d.BalanceLeaveDays,
+
+                        LeaveTypeName = leaveType != null ? leaveType.LeaveTypeName : null,
+                        LeaveCode = leaveType != null ? leaveType.LeaveCode : null
+                    }
+                ).ToListAsync();
+
+                return new EmployeeLeaveSetupDto
+                {
+                    IdEmployeeLeaveConfig = config.IdEmployeeLeaveConfig,
+                    IdEmployee = config.IdEmployee,
+                    IdLeaveTemplate = config.IdLeaveTemplate,
+                    EffectiveFrom = config.EffectiveFrom,
+                    EffectiveTo = config.EffectiveTo,
+                    CreatedBy = config.CreatedBy,
+                    CreatedAt = config.CreatedAt,
+                    UpdatedBy = config.UpdatedBy,
+                    UpdatedAt = config.UpdatedAt,
+                    Details = details
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee leave setup. IdEmployee={IdEmployee}", idEmployee);
+                throw;
+            }
+        }
+        public async Task<int> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigPostDto dto, int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // ✅ Basic validations
+                if (dto.IdEmployee <= 0)
+                    throw new ArgumentException("IdEmployee is required.");
+
+                if (dto.IdLeaveTemplate <= 0)
+                    throw new ArgumentException("IdLeaveTemplate is required.");
+
+                if (dto.EffectiveTo.HasValue && dto.EffectiveTo.Value.Date < dto.EffectiveFrom.Date)
+                    throw new ArgumentException("EffectiveTo cannot be earlier than EffectiveFrom.");
+
+                // ✅ (1) Validate employee exists
+                bool employeeExists = await _dbContext.Employees.AnyAsync(e => e.IdEmployee == dto.IdEmployee);
+                if (!employeeExists)
+                    throw new ArgumentException("Employee not found.");
+
+                // ✅ (2) Validate template exists and is active
+                var template = await _dbContext.LeaveTemplates
+                    .FirstOrDefaultAsync(t => t.IdLeaveTemplate == dto.IdLeaveTemplate);
+
+                if (template == null)
+                    throw new ArgumentException("Leave template not found.");
+
+                if (!template.IsActive)
+                    throw new ArgumentException("Leave template is not active.");
+
+                // ✅ (3) Validate NO overlapping assignments for employee
+                DateTime newFrom = dto.EffectiveFrom.Date;
+                DateTime newTo = dto.EffectiveTo?.Date ?? DateTime.MaxValue.Date;
+
+                bool isOverlapping = await _dbContext.EmployeeLeaveConfigs.AnyAsync(x =>
+                    x.IdEmployee == dto.IdEmployee
+                    && x.IdEmployeeLeaveConfig != dto.IdEmployeeLeaveConfig
+                    && x.EffectiveFrom.Date <= newTo
+                    && (x.EffectiveTo == null || x.EffectiveTo.Value.Date >= newFrom));
+
+                if (isOverlapping)
+                    throw new ArgumentException("Overlapping leave template assignment exists for this employee.");
+
+                EmployeeLeaveConfigs configEntity;
+
+                // ✅ (4) Insert / Update header
+                if (dto.IdEmployeeLeaveConfig > 0)
+                {
+                    configEntity = await _dbContext.EmployeeLeaveConfigs
+                        .FirstOrDefaultAsync(x => x.IdEmployeeLeaveConfig == dto.IdEmployeeLeaveConfig);
+
+                    if (configEntity == null)
+                        throw new ArgumentException("Employee leave config not found.");
+
+                    configEntity.IdLeaveTemplate = dto.IdLeaveTemplate;
+                    configEntity.EffectiveFrom = dto.EffectiveFrom;
+                    configEntity.EffectiveTo = dto.EffectiveTo;
+                    configEntity.UpdatedAt = DateTime.Now;
+                    configEntity.UpdatedBy = loggedInEmployeeId;
+
+                    _dbContext.EmployeeLeaveConfigs.Update(configEntity);
+
+                    // ✅ Default Rule: Reset balances on update
+                    var oldDetails = await _dbContext.EmployeeLeaveConfigDetails
+                        .Where(d => d.IdEmployeeLeaveConfig == configEntity.IdEmployeeLeaveConfig)
+                        .ToListAsync();
+
+                    _dbContext.EmployeeLeaveConfigDetails.RemoveRange(oldDetails);
+                    await _dbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    configEntity = new EmployeeLeaveConfigs
+                    {
+                        IdEmployee = dto.IdEmployee,
+                        IdLeaveTemplate = dto.IdLeaveTemplate,
+                        EffectiveFrom = dto.EffectiveFrom,
+                        EffectiveTo = dto.EffectiveTo,
+                        CreatedAt = DateTime.Now,
+                        CreatedBy = loggedInEmployeeId
+                    };
+
+                    await _dbContext.EmployeeLeaveConfigs.AddAsync(configEntity);
+                    await _dbContext.SaveChangesAsync(); // ✅ Generate ID
+                }
+
+                int configId = configEntity.IdEmployeeLeaveConfig;
+
+                // ✅ (5) Initialize details from template details
+                var templateDetails = await _dbContext.LeaveTemplateDetails
+                    .Where(d => d.IdLeaveTemplate == dto.IdLeaveTemplate)
+                    .ToListAsync();
+
+                if (templateDetails == null || !templateDetails.Any())
+                    throw new ArgumentException("Leave template does not contain any leave types.");
+
+                var newDetails = templateDetails.Select(td => new EmployeeLeaveConfigDetails
+                {
+                    IdEmployeeLeaveConfig = configId,
+                    IdLeaveType = td.IdLeaveType,
+                    AllocatedDays = td.NoOfDaysInYear,
+                    UsedLeaveDays = 0,
+                    BalanceLeaveDays = td.NoOfDaysInYear
+                }).ToList();
+
+                await _dbContext.EmployeeLeaveConfigDetails.AddRangeAsync(newDetails);
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return configId;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding/updating EmployeeLeaveConfig.");
+                throw;
+            }
+        }
+
+
+        #endregion
+
+        #region LeaveApplications
+        public async Task<PagedResultDto<LeaveApplicationListDto>> GetLeaveApplications(
+    int loggedInEmployeeId,
+    int? idEmployee,
+    string? approvalStatus,
+    string? applicationStatus,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int? idLeaveType,
+    PagingRequestDto paging)
+        {
+            try
+            {
+                if (paging.PageNumber <= 0) paging.PageNumber = 1;
+                if (paging.PageSize <= 0) paging.PageSize = 10;
+
+                // ✅ Permission logic:
+                // Default employee can only see own leave applications.
+                // If Manager/HR permission exists → allow seeing others.
+
+                bool canViewAll = false;
+
+                // Example permission:
+                //var screenCode = _configuration["ScreenCodes:LeaveApplications"];
+                // canViewAll = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "V");
+
+                // ✅ if no permission → force employee scope
+                if (!canViewAll)
+                {
+                    idEmployee = loggedInEmployeeId;
+                }
+
+                var query = _dbContext.LeaveApplications.AsQueryable();
+
+                if (idEmployee.HasValue && idEmployee.Value > 0)
+                    query = query.Where(x => x.IdEmployee == idEmployee.Value);
+
+                if (idLeaveType.HasValue && idLeaveType.Value > 0)
+                    query = query.Where(x => x.IdLeaveType == idLeaveType.Value);
+
+                if (!string.IsNullOrWhiteSpace(approvalStatus))
+                    query = query.Where(x => x.ApprovalStatus == approvalStatus.Trim());
+
+                if (!string.IsNullOrWhiteSpace(applicationStatus))
+                    query = query.Where(x => x.ApplicationStatus == applicationStatus.Trim());
+
+                if (fromDate.HasValue)
+                    query = query.Where(x => x.FromDate.Date >= fromDate.Value.Date);
+
+                if (toDate.HasValue)
+                    query = query.Where(x => x.ToDate.Date <= toDate.Value.Date);
+
+                int totalRecords = await query.CountAsync();
+
+                // ✅ Sorting
+                bool isDesc = paging.SortOrder?.ToUpper() != "ASC";
+
+                query = paging.SortBy?.ToUpper() switch
+                {
+                    "FROMDATE" => isDesc ? query.OrderByDescending(x => x.FromDate) : query.OrderBy(x => x.FromDate),
+                    "TODATE" => isDesc ? query.OrderByDescending(x => x.ToDate) : query.OrderBy(x => x.ToDate),
+                    _ => isDesc ? query.OrderByDescending(x => x.AppliedOn) : query.OrderBy(x => x.AppliedOn)
+                };
+
+                // ✅ Paging
+                int skip = (paging.PageNumber - 1) * paging.PageSize;
+
+                var data = await query
+                    .Skip(skip)
+                    .Take(paging.PageSize)
+                    .Select(x => new LeaveApplicationListDto
+                    {
+                        IdLeaveApplication = x.IdLeaveApplication,
+                        IdEmployee = x.IdEmployee,
+                        IdLeaveType = x.IdLeaveType,
+                        LeaveTypeName = x.LeaveTypeName,
+                        FromDate = x.FromDate,
+                        ToDate = x.ToDate,
+                        TotalLeaveDays = x.TotalLeaveDays,
+                        ApprovalStatus = x.ApprovalStatus,
+                        ApplicationStatus = x.ApplicationStatus,
+                        AppliedOn = x.AppliedOn
+                    })
+                    .ToListAsync();
+
+                return new PagedResultDto<LeaveApplicationListDto>
+                {
+                    TotalRecords = totalRecords,
+                    PageNumber = paging.PageNumber,
+                    PageSize = paging.PageSize,
+                    Data = data
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave Applications.");
+                throw;
+            }
+        }
+
+        public async Task<LeaveApplicationDetailsDto> GetLeaveApplication(int idLeaveApplication)
+        {
+            try
+            {
+                if (idLeaveApplication <= 0)
+                    throw new ArgumentException("IdLeaveApplication is required.");
+
+                var application = await _dbContext.LeaveApplications
+                    .Where(x => x.IdLeaveApplication == idLeaveApplication)
+                    .Select(x => new LeaveApplicationDetailsDto
+                    {
+                        IdLeaveApplication = x.IdLeaveApplication,
+                        IdEmployee = x.IdEmployee,
+                        IdLeaveType = x.IdLeaveType,
+                        LeaveTypeName = x.LeaveTypeName,
+                        FromDate = x.FromDate,
+                        ToDate = x.ToDate,
+                        IsHalfDay = x.IsHalfDay,
+                        HalfDayType = x.HalfDayType,
+                        TotalLeaveDays = x.TotalLeaveDays,
+                        Reason = x.Reason,
+                        AppliedOn = x.AppliedOn,
+                        ApplicationStatus = x.ApplicationStatus,
+                        CancelledDate = x.CancelledDate,
+                        ReasonForCancellation = x.ReasonForCancellation,
+                        ApprovalStatus = x.ApprovalStatus,
+                        ApprovedBy = x.ApprovedBy,
+                        IsSalaryDeducted = x.IsSalaryDeducted,
+                        IdEmployeeSalary = x.IdEmployeeSalary,
+                        IdSalaryMonth = x.IdSalaryMonth,
+                        DeductedAmount = x.DeductedAmount
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (application == null)
+                    throw new ArgumentException("Leave application not found.");
+
+                var documents = await _dbContext.LeaveApplicationDocuments
+                    .Where(d => d.IdLeaveApplication == idLeaveApplication)
+                    .OrderByDescending(d => d.UploadedAt)
+                    .Select(d => new LeaveApplicationDocumentDetailsDto
+                    {
+                        IdLeaveApplicationDocument = d.IdLeaveApplicationDocument,
+                        IdLeaveApplication = d.IdLeaveApplication,
+                        FileType = d.FileType,
+                        StoredFilePath = d.FilePath,
+                        UploadedAt = d.UploadedAt,
+                        FileName = null,
+                        FileBinary = null
+                    })
+                    .ToListAsync();
+
+                foreach (var doc in documents)
+                {
+                    if (!string.IsNullOrWhiteSpace(doc.StoredFilePath))
+                    {
+                        doc.FileName = GetOriginalFileName(doc.StoredFilePath);
+
+                        if (File.Exists(doc.StoredFilePath))
+                        {
+                            doc.FileBinary = await File.ReadAllBytesAsync(doc.StoredFilePath);
+                        }
+                    }
+                }
+
+                application.Documents = documents;
+                return application;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching leave application. IdLeaveApplication: {Id}", idLeaveApplication);
+                throw;
+            }
+        }
+        private string? GetOriginalFileName(string? storedFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(storedFilePath))
+                return null;
+
+            var fileName = Path.GetFileName(storedFilePath);
+
+            // GUID_originalname.ext
+            var underscoreIndex = fileName.IndexOf('_');
+
+            if (underscoreIndex > 0)
+            {
+                var prefix = fileName.Substring(0, underscoreIndex);
+
+                if (Guid.TryParse(prefix, out _))
+                {
+                    return fileName.Substring(underscoreIndex + 1);
+                }
+            }
+
+            return fileName;
+        }
+        public async Task<LeaveApplicationSaveResultDto> AddUpdateLeaveApplication(
+    LeaveApplicationPostDto dto,
+    int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // ✅ Basic validations
+                if (dto.IdEmployee <= 0)
+                    throw new ArgumentException("IdEmployee is required.");
+
+                if (dto.IdLeaveType <= 0)
+                    throw new ArgumentException("IdLeaveType is required.");
+
+                if (string.IsNullOrWhiteSpace(dto.Reason))
+                    throw new ArgumentException("Reason is required.");
+
+                if (dto.ToDate.Date < dto.FromDate.Date)
+                    throw new ArgumentException("ToDate cannot be earlier than FromDate.");
+
+                // ✅ Employee exists
+                bool empExists = await _dbContext.Employees.AnyAsync(e => e.IdEmployee == dto.IdEmployee);
+                if (!empExists)
+                    throw new ArgumentException("Employee not found.");
+
+                var today = DateTime.Now.Date;
+
+                // ✅ (1) Confirm employee has active template assignment on FromDate
+                var activeConfig = await _dbContext.EmployeeLeaveConfigs
+                    .Where(x => x.IdEmployee == dto.IdEmployee
+                             && x.EffectiveFrom.Date <= dto.FromDate.Date
+                             && (x.EffectiveTo == null || x.EffectiveTo.Value.Date >= dto.FromDate.Date))
+                    .OrderByDescending(x => x.EffectiveFrom)
+                    .FirstOrDefaultAsync();
+
+                if (activeConfig == null)
+                    throw new ArgumentException("Employee does not have an active leave setup.");
+
+                // ✅ Get employee balance row for this leave type
+                var balanceRow = await _dbContext.EmployeeLeaveConfigDetails
+                    .FirstOrDefaultAsync(x =>
+                        x.IdEmployeeLeaveConfig == activeConfig.IdEmployeeLeaveConfig
+                        && x.IdLeaveType == dto.IdLeaveType);
+
+                if (balanceRow == null)
+                    throw new ArgumentException("Leave type is not configured for this employee.");
+
+                // ✅ (2) Fetch annual leave policy (AnnualLeaveTypeConfig) for the leave type + year
+                int year = dto.FromDate.Year;
+
+                var annualPolicy = await _dbContext.AnnualLeaveTypeConfig
+                    .Where(x => x.IdLeaveType == dto.IdLeaveType
+                             && x.IdYear == year
+                             && x.IsActive == true)
+                    .FirstOrDefaultAsync();
+
+                if (annualPolicy == null)
+                    throw new ArgumentException("Annual leave policy not configured for this LeaveType and Year.");
+
+                // ✅ (3) Validate date range within policy effective window
+                if (dto.FromDate.Date < annualPolicy.EffectiveFrom.Date || dto.ToDate.Date > annualPolicy.EffectiveTo.Date)
+                    throw new ArgumentException("Leave dates are outside the configured policy effective period.");
+
+                // ✅ (4) Half-day rules
+                if (dto.IsHalfDay)
+                {
+                    if (dto.FromDate.Date != dto.ToDate.Date)
+                        throw new ArgumentException("Half day leave must be for a single day only.");
+
+                    if (!annualPolicy.AllowHalfDay)
+                        throw new ArgumentException("Half day is not allowed for this leave type.");
+
+                    if (string.IsNullOrWhiteSpace(dto.HalfDayType))
+                        throw new ArgumentException("HalfDayType is mandatory when IsHalfDay is true.");
+
+                    var halfType = dto.HalfDayType.Trim().ToUpperInvariant();
+                    if (halfType != "FIRSTHALF" && halfType != "SECONDHALF" && halfType != "AM" && halfType != "PM")
+                        throw new ArgumentException("HalfDayType must be one of: FirstHalf, SecondHalf, AM, PM.");
+                }
+                else
+                {
+                    dto.HalfDayType = null;
+                }
+
+                // ✅ (5) Check overlap with existing Pending/Approved leaves
+                bool hasOverlap = await _dbContext.LeaveApplications.AnyAsync(x =>
+                    x.IdEmployee == dto.IdEmployee
+                    && x.IdLeaveApplication != dto.IdLeaveApplication
+                    && (x.ApplicationStatus == "Submitted" || x.ApplicationStatus == "Approved" || x.ApprovalStatus == "Pending" || x.ApprovalStatus == "Approved")
+                    && x.FromDate.Date <= dto.ToDate.Date
+                    && x.ToDate.Date >= dto.FromDate.Date
+                );
+
+                if (hasOverlap)
+                    throw new ArgumentException("Leave application overlaps with existing pending/approved leave.");
+
+                // ✅ (6) Compute TotalLeaveDays
+                decimal totalLeaveDays = CalculateLeaveDays(dto.FromDate.Date, dto.ToDate.Date, dto.IsHalfDay);
+
+                if (totalLeaveDays <= 0)
+                    throw new ArgumentException("TotalLeaveDays is invalid after calculation.");
+
+                // ✅ (7) Check balance (no negative allowed here)
+                if (balanceRow.BalanceLeaveDays < totalLeaveDays)
+                    throw new ArgumentException("Insufficient leave balance.");
+
+                // ✅ (8) Backdate rule
+                if (dto.FromDate.Date < today)
+                {
+                    if (!annualPolicy.AllowBackdatedLeave)
+                        throw new ArgumentException("Backdated leave is not allowed for this leave type.");
+
+                    if (annualPolicy.BackdateLimitDays.HasValue)
+                    {
+                        var daysBack = (today - dto.FromDate.Date).Days;
+                        if (daysBack > annualPolicy.BackdateLimitDays.Value)
+                            throw new ArgumentException($"Backdated leave allowed only up to {annualPolicy.BackdateLimitDays.Value} days.");
+                    }
+                }
+
+                // ✅ (9) Document Rule
+                if (annualPolicy.RequiresDocument
+                    && annualPolicy.DocumentRequiredAfterDays.HasValue
+                    && totalLeaveDays > annualPolicy.DocumentRequiredAfterDays.Value)
+                {
+                    // ✅ If UPDATE, check existing docs + newly uploaded docs
+                    if (dto.IdLeaveApplication > 0)
+                    {
+                        bool hasExistingDoc = await _dbContext.LeaveApplicationDocuments
+                            .AnyAsync(d => d.IdLeaveApplication == dto.IdLeaveApplication);
+
+                        bool hasNewDoc = dto.Documents != null && dto.Documents.Any(f => f != null && f.Length > 0);
+
+                        if (!hasExistingDoc && !hasNewDoc)
+                            throw new ArgumentException("Document is required for this leave duration. Please upload document.");
+                    }
+                    else
+                    {
+                        // ✅ If NEW application → must upload documents in same request
+                        bool hasNewDoc = dto.Documents != null && dto.Documents.Any(f => f != null && f.Length > 0);
+
+                        if (!hasNewDoc)
+                            throw new ArgumentException("Document is required for this leave duration. Please upload document.");
+                    }
+                }
+
+
+                // ✅ (10) Create / Update application
+                LeaveApplications entity;
+
+                if (dto.IdLeaveApplication > 0)
+                {
+                    entity = await _dbContext.LeaveApplications
+                        .FirstOrDefaultAsync(x => x.IdLeaveApplication == dto.IdLeaveApplication);
+
+                    if (entity == null)
+                        throw new ArgumentException("Leave application not found.");
+
+                    // ✅ Only allow update if still pending
+                    if (entity.ApprovalStatus != "Pending")
+                        throw new ArgumentException("Only pending leave applications can be updated.");
+
+                    entity.IdLeaveType = dto.IdLeaveType;
+                    entity.LeaveTypeName = annualPolicy.LeaveTypeName;
+                    entity.FromDate = dto.FromDate.Date;
+                    entity.ToDate = dto.ToDate.Date;
+                    entity.IsHalfDay = dto.IsHalfDay;
+                    entity.HalfDayType = dto.HalfDayType;
+                    entity.TotalLeaveDays = totalLeaveDays;
+                    entity.Reason = dto.Reason.Trim();
+
+                    // keep statuses same
+                }
+                else
+                {
+                    entity = new LeaveApplications
+                    {
+                        IdEmployee = dto.IdEmployee,
+                        IdLeaveType = dto.IdLeaveType,
+                        LeaveTypeName = annualPolicy.LeaveTypeName,
+                        FromDate = dto.FromDate.Date,
+                        ToDate = dto.ToDate.Date,
+                        IsHalfDay = dto.IsHalfDay,
+                        HalfDayType = dto.HalfDayType,
+                        TotalLeaveDays = totalLeaveDays,
+                        Reason = dto.Reason.Trim(),
+
+                        AppliedOn = DateTime.Now,
+                        ApprovalStatus = "Pending",
+                        ApplicationStatus = "Submitted"
+                    };
+
+                    await _dbContext.LeaveApplications.AddAsync(entity);
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                // ✅ Save documents if provided
+                if (dto.Documents != null && dto.Documents.Any(f => f != null && f.Length > 0))
+                {
+                    if (dto.IdLeaveApplication > 0)
+                    {
+                        var existingDocs = await _dbContext.LeaveApplicationDocuments
+                            .Where(x => x.IdLeaveApplication == dto.IdLeaveApplication)
+                            .ToListAsync();
+
+                        foreach (var doc in existingDocs)
+                        {
+                            if (!string.IsNullOrWhiteSpace(doc.FilePath) && File.Exists(doc.FilePath))
+                                File.Delete(doc.FilePath);
+                        }
+
+                        _dbContext.LeaveApplicationDocuments.RemoveRange(existingDocs);
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    foreach (var file in dto.Documents)
+                    {
+                        if (file == null || file.Length == 0) continue;
+
+                        var savedPath = await SaveLeaveApplicationFileAsync(file);
+
+                        var docEntity = new LeaveApplicationDocuments
+                        {
+                            IdLeaveApplication = entity.IdLeaveApplication,
+                            FileType = Path.GetExtension(file.FileName).Replace(".", "").ToUpperInvariant(),
+                            FileName = file.FileName,  // ✅ original file name
+                            FilePath = savedPath,
+                            UploadedAt = DateTime.Now
+                        };
+
+                        await _dbContext.LeaveApplicationDocuments.AddAsync(docEntity);
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+                return new LeaveApplicationSaveResultDto
+                {
+                    SuccessFlag = true,
+                    Message = "Leave application saved successfully.",
+                    IdLeaveApplication = entity.IdLeaveApplication,
+                    TotalLeaveDays = entity.TotalLeaveDays,
+                    ApprovalStatus = entity.ApprovalStatus,
+                    ApplicationStatus = entity.ApplicationStatus,
+                    AppliedOn = entity.AppliedOn
+                };
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteLeaveApplicationDocument(
+    int idLeaveApplicationDocument,
+    int loggedInEmployeeId,
+    bool isHrOverride)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var doc = await _dbContext.LeaveApplicationDocuments
+                    .FirstOrDefaultAsync(x => x.IdLeaveApplicationDocument == idLeaveApplicationDocument);
+
+                if (doc == null)
+                    throw new ArgumentException("Leave application document not found.");
+
+                var application = await _dbContext.LeaveApplications
+                    .FirstOrDefaultAsync(x => x.IdLeaveApplication == doc.IdLeaveApplication);
+
+                if (application == null)
+                    throw new ArgumentException("Leave application not found.");
+
+                // ✅ Rule: allow delete only when Pending or SentBack
+                // ✅ If Approved → allow only HR override
+                var approval = application.ApprovalStatus?.Trim().ToUpperInvariant();
+                var appStatus = application.ApplicationStatus?.Trim().ToUpperInvariant();
+
+                bool isPending = approval == "PENDING";
+                bool isSentBack = appStatus == "SENTBACK" || approval == "SENTBACK";
+                bool isApproved = approval == "APPROVED";
+
+                if (isApproved && !isHrOverride)
+                    throw new ArgumentException("Document cannot be deleted after approval. HR override required.");
+
+                if (!isApproved && !isPending && !isSentBack)
+                    throw new ArgumentException("Document can be deleted only when application is Pending or SentBack.");
+
+                // ✅ Delete physical file
+                if (!string.IsNullOrWhiteSpace(doc.FilePath) && File.Exists(doc.FilePath))
+                {
+                    File.Delete(doc.FilePath);
+                }
+
+                // ✅ Remove DB record
+                _dbContext.LeaveApplicationDocuments.Remove(doc);
+                await _dbContext.SaveChangesAsync();
+
+                // ✅ Audit Log (recommended)
+                // await _auditService.LogAsync("LeaveDocumentDeleted", loggedInEmployeeId, ...);
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private async Task<string> SaveLeaveApplicationFileAsync(IFormFile file, string? oldFilePath = null)
+        {
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("Invalid file.");
+
+            string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "leaveapplications");
+            Directory.CreateDirectory(folderPath);
+
+            // ✅ delete old file if exists (optional)
+            if (!string.IsNullOrWhiteSpace(oldFilePath) && File.Exists(oldFilePath))
+            {
+                File.Delete(oldFilePath);
+            }
+
+            string fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+            string filePath = Path.Combine(folderPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return filePath;
+        }
+
+        private decimal CalculateLeaveDays(DateTime fromDate, DateTime toDate, bool isHalfDay)
+        {
+            if (isHalfDay)
+                return 0.5m;
+
+            int count = 0;
+            for (var date = fromDate.Date; date <= toDate.Date; date = date.AddDays(1))
+            {
+                // ✅ exclude weekend
+                if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+                    continue;
+
+                count++;
+            }
+
+            return count;
+        }
+        public async Task<CancelLeaveApplicationResultDto> CancelLeaveApplication(
+    int idLeaveApplication,
+    string? cancelReason,
+    int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var application = await _dbContext.LeaveApplications
+                    .FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
+
+                if (application == null)
+                    throw new ArgumentException("Leave application not found.");
+
+                // ✅ Employee can cancel only own leave (unless HR override is handled in controller)
+                if (application.IdEmployee != loggedInEmployeeId)
+                    throw new ArgumentException("You can cancel only your own leave application.");
+
+                var approvalStatus = application.ApprovalStatus?.Trim().ToUpperInvariant();
+                var appStatus = application.ApplicationStatus?.Trim().ToUpperInvariant();
+
+                // ✅ Block cancel if already approved
+                if (approvalStatus == "APPROVED")
+                    throw new ArgumentException("Approved leave cannot be cancelled. Please contact HR.");
+
+                // ✅ Allow cancel only if Pending/Submitted/SentBack
+                bool canCancel =
+                    approvalStatus == "PENDING" ||
+                    appStatus == "SUBMITTED" ||
+                    appStatus == "SENTBACK" ||
+                    approvalStatus == "SENTBACK";
+
+                if (!canCancel)
+                    throw new ArgumentException("This leave application cannot be cancelled.");
+
+                // ✅ Cancel the leave
+                application.ApplicationStatus = "Cancelled";
+                application.CancelledDate = DateTime.Now;
+                application.ReasonForCancellation = string.IsNullOrWhiteSpace(cancelReason)
+                    ? "Cancelled by employee"
+                    : cancelReason.Trim();
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return new CancelLeaveApplicationResultDto
+                {
+                    SuccessFlag = true,
+                    Message = "Leave application cancelled successfully.",
+                    IdLeaveApplication = application.IdLeaveApplication,
+                    ApplicationStatus = application.ApplicationStatus,
+                    CancelledDate = application.CancelledDate,
+                    ReasonForCancellation = application.ReasonForCancellation
+                };
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+
+
+        #endregion
     }
 
 }
