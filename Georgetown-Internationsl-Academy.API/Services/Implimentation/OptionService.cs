@@ -296,7 +296,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             try
             {
                 var qualificationTypes = await _dbContext.QualificationTypes.ToListAsync();
-                return _mapper.Map<List<QualificationTypesDto>>(qualificationTypes);
+                var result = qualificationTypes.Select(q => new QualificationTypesDto
+                {
+                    IdQualificationType = q.IdQualificationType,
+                    QualificationTypeName = q.QualificationTypeName
+                }).ToList();
+                return result;
             }
             catch (Exception ex)
             {
