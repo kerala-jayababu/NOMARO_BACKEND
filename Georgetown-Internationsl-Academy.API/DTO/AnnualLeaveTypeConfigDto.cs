@@ -33,5 +33,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public DateTime CreatedAt { get; set; }
         public int? UpdatedBy { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public List<LeaveWorkFlowDetailDto> wfDetails { get; set; }
     }
 }

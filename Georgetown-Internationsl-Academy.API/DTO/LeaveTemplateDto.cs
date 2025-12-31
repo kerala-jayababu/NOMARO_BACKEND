@@ -4,6 +4,8 @@
     {
         public int IdLeaveTemplate { get; set; }
         public string LeaveTemplateName { get; set; } = string.Empty;
+        public string LeaveTemplateDesc { get; set; } = string.Empty;
+
         public int? IdAnnualLeaveTypeConfig { get; set; }
         public bool IsActive { get; set; }
         public int CreatedBy { get; set; }

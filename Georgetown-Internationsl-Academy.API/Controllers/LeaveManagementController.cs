@@ -2,6 +2,7 @@
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using System.Security.Claims;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -53,9 +54,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddOrUpdateLeaveTypes")]
-        public async Task<IActionResult> AddOrUpdateLeaveTypes([FromBody] List<LeaveTypesDto> leaveTypeDtos)
+        public async Task<IActionResult> AddOrUpdateLeaveTypes([FromBody] LeaveTypesDto leaveTypeDto)
         {
-            if (leaveTypeDtos == null || !leaveTypeDtos.Any())
+            if (leaveTypeDto == null )
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input."));
 
             var idEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -72,7 +73,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!hasPermission)
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
 
-                var success = await _leaveService.AddOrUpdateLeaveTypes(leaveTypeDtos);
+                var success = await _leaveService.AddOrUpdateLeaveTypes(leaveTypeDto);
 
                 if (!success)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to save leave types."));
@@ -122,9 +123,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddUpdateAnnualLeaveTypeConfig")]
-        public async Task<IActionResult> AddUpdateAnnualLeaveTypeConfig([FromBody] List<AnnualLeaveTypeConfigDto> configDtos)
+        public async Task<IActionResult> AddUpdateAnnualLeaveTypeConfig([FromBody] AnnualLeaveTypeConfigDto configDto)
         {
-            if (configDtos == null || !configDtos.Any())
+            if (configDto == null )
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input."));
 
             var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -141,7 +142,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!hasPermission)
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
 
-                var ids = await _leaveService.AddUpdateAnnualLeaveTypeConfig(configDtos, loggedInEmployeeId);
+                var ids = await _leaveService.AddUpdateAnnualLeaveTypeConfig(configDto, loggedInEmployeeId);
 
                 return Ok(ApiResponseDto<object>.CreateSuccess(new
                 {
@@ -159,7 +160,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-[HttpPost("DeactivateAnnualLeaveTypeConfig")]
+
+        [HttpPost("DeactivateAnnualLeaveTypeConfig")]
         public async Task<IActionResult> DeactivateAnnualLeaveTypeConfig(int idAnnualLeaveTypeConfig)
         {
             try

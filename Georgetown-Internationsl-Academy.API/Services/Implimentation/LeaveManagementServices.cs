@@ -2,12 +2,15 @@
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using static iText.StyledXmlParser.Jsoup.Select.Evaluator;
+using static Org.BouncyCastle.Math.EC.ECCurve;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -50,104 +53,96 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-        public async Task<bool> AddOrUpdateLeaveTypes(List<LeaveTypesDto> leaveTypeDtoList)
+        public async Task<bool> AddOrUpdateLeaveTypes(LeaveTypesDto leaveTypedto)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
-                // ✅ Validation: duplicates in request itself
-                var duplicateCodes = leaveTypeDtoList
-                    .Where(x => !string.IsNullOrWhiteSpace(x.LeaveCode))
-                    .GroupBy(x => x.LeaveCode.Trim().ToUpper())
-                    .Where(g => g.Count() > 1)
-                    .Select(g => g.Key)
-                    .ToList();
+                var conflicts = await _dbContext.LeaveTypes
+                    .Where(t=>t.LeaveCode.ToUpper() == leaveTypedto.LeaveCode.ToUpper() || t.LeaveTypeName.ToUpper() == leaveTypedto.LeaveTypeName.ToUpper())
+                    .Select(db => new
+                    {
+                        db.IdLeaveType,
+                        Code = db.LeaveCode.Trim().ToUpper(),
+                        Name = db.LeaveTypeName.Trim().ToUpper()
+                    })
+                    .ToListAsync();
 
-                if (duplicateCodes.Any())
-                    throw new ArgumentException($"Duplicate LeaveCode found in request: {string.Join(", ", duplicateCodes)}");
+                var errors = new List<string>();
 
-                var duplicateNames = leaveTypeDtoList
-                    .Where(x => !string.IsNullOrWhiteSpace(x.LeaveTypeName))
-                    .GroupBy(x => x.LeaveTypeName.Trim().ToUpper())
-                    .Where(g => g.Count() > 1)
-                    .Select(g => g.Key)
-                    .ToList();
+                if (conflicts.Any())
+                    errors.Add($"LeaveCode or Name already exists");
 
-                if (duplicateNames.Any())
-                    throw new ArgumentException($"Duplicate LeaveTypeName found in request: {string.Join(", ", duplicateNames)}");
 
-                foreach (var dto in leaveTypeDtoList)
+                if (string.IsNullOrWhiteSpace(leaveTypedto.LeaveCode))
+                    throw new ArgumentException("LeaveCode is required.");
+
+                if (string.IsNullOrWhiteSpace(leaveTypedto.LeaveTypeName))
+                    throw new ArgumentException("LeaveTypeName is required.");
+
+                // ✅ normalize
+                leaveTypedto.LeaveCode = leaveTypedto.LeaveCode.Trim().ToUpper();
+                leaveTypedto.LeaveTypeName = leaveTypedto.LeaveTypeName.Trim();
+
+                // ✅ Update
+                if (leaveTypedto.IdLeaveType > 0)
                 {
-                    if (string.IsNullOrWhiteSpace(dto.LeaveCode))
-                        throw new ArgumentException("LeaveCode is required.");
+                    var existing = await _dbContext.LeaveTypes
+                        .FirstOrDefaultAsync(x => x.IdLeaveType == leaveTypedto.IdLeaveType);
 
-                    if (string.IsNullOrWhiteSpace(dto.LeaveTypeName))
-                        throw new ArgumentException("LeaveTypeName is required.");
+                    if (existing == null)
+                        throw new ArgumentException($"LeaveType not found. IdLeaveType = {leaveTypedto.IdLeaveType}");
 
-                    // ✅ normalize
-                    dto.LeaveCode = dto.LeaveCode.Trim();
-                    dto.LeaveTypeName = dto.LeaveTypeName.Trim();
+                    // ✅ Uniqueness check in DB (LeaveCode)
+                    bool codeExists = await _dbContext.LeaveTypes.AnyAsync(x =>
+                        x.LeaveCode == leaveTypedto.LeaveCode &&
+                        x.IdLeaveType != leaveTypedto.IdLeaveType);
 
-                    // ✅ Update
-                    if (dto.IdLeaveType > 0)
-                    {
-                        var existing = await _dbContext.LeaveTypes
-                            .FirstOrDefaultAsync(x => x.IdLeaveType == dto.IdLeaveType);
+                    if (codeExists)
+                        throw new ArgumentException($"LeaveCode '{leaveTypedto.LeaveCode}' already exists.");
 
-                        if (existing == null)
-                            throw new ArgumentException($"LeaveType not found. IdLeaveType = {dto.IdLeaveType}");
+                    // ✅ Uniqueness check in DB (LeaveTypeName)
+                    bool nameExists = await _dbContext.LeaveTypes.AnyAsync(x =>
+                        x.LeaveTypeName == leaveTypedto.LeaveTypeName &&
+                        x.IdLeaveType != leaveTypedto.IdLeaveType);
 
-                        // ✅ Uniqueness check in DB (LeaveCode)
-                        bool codeExists = await _dbContext.LeaveTypes.AnyAsync(x =>
-                            x.LeaveCode == dto.LeaveCode &&
-                            x.IdLeaveType != dto.IdLeaveType);
+                    if (nameExists)
+                        throw new ArgumentException($"LeaveTypeName '{leaveTypedto.LeaveTypeName}' already exists.");
 
-                        if (codeExists)
-                            throw new ArgumentException($"LeaveCode '{dto.LeaveCode}' already exists.");
+                    existing.LeaveCode = leaveTypedto.LeaveCode;
+                    existing.LeaveTypeName = leaveTypedto.LeaveTypeName;
 
-                        // ✅ Uniqueness check in DB (LeaveTypeName)
-                        bool nameExists = await _dbContext.LeaveTypes.AnyAsync(x =>
-                            x.LeaveTypeName == dto.LeaveTypeName &&
-                            x.IdLeaveType != dto.IdLeaveType);
+                    // ✅ if your LeaveTypes table has UpdatedAt/UpdatedBy columns
+                    // existing.UpdatedAt = DateTime.Now;
+                    // existing.UpdatedBy = loggedInEmployeeId;
 
-                        if (nameExists)
-                            throw new ArgumentException($"LeaveTypeName '{dto.LeaveTypeName}' already exists.");
-
-                        existing.LeaveCode = dto.LeaveCode;
-                        existing.LeaveTypeName = dto.LeaveTypeName;
-
-                        // ✅ if your LeaveTypes table has UpdatedAt/UpdatedBy columns
-                        // existing.UpdatedAt = DateTime.Now;
-                        // existing.UpdatedBy = loggedInEmployeeId;
-
-                        _dbContext.LeaveTypes.Update(existing);
-                    }
-                    else
-                    {
-                        // ✅ Insert uniqueness check
-                        bool codeExists = await _dbContext.LeaveTypes.AnyAsync(x => x.LeaveCode == dto.LeaveCode);
-                        if (codeExists)
-                            throw new ArgumentException($"LeaveCode '{dto.LeaveCode}' already exists.");
-
-                        bool nameExists = await _dbContext.LeaveTypes.AnyAsync(x => x.LeaveTypeName == dto.LeaveTypeName);
-                        if (nameExists)
-                            throw new ArgumentException($"LeaveTypeName '{dto.LeaveTypeName}' already exists.");
-
-                        var newLeaveType = new LeaveTypes
-                        {
-                            LeaveCode = dto.LeaveCode,
-                            LeaveTypeName = dto.LeaveTypeName,
-                        };
-
-                        // ✅ if your LeaveTypes table has CreatedAt/CreatedBy columns
-                        // newLeaveType.CreatedAt = DateTime.Now;
-                        // newLeaveType.CreatedBy = loggedInEmployeeId;
-
-                        await _dbContext.LeaveTypes.AddAsync(newLeaveType);
-                    }
+                    _dbContext.LeaveTypes.Update(existing);
                 }
+                else
+                {
+                    // ✅ Insert uniqueness check
+                    bool codeExists = await _dbContext.LeaveTypes.AnyAsync(x => x.LeaveCode == leaveTypedto.LeaveCode);
+                    if (codeExists)
+                        throw new ArgumentException($"LeaveCode '{leaveTypedto.LeaveCode}' already exists.");
 
+                    bool nameExists = await _dbContext.LeaveTypes.AnyAsync(x => x.LeaveTypeName == leaveTypedto.LeaveTypeName);
+                    if (nameExists)
+                        throw new ArgumentException($"LeaveTypeName '{leaveTypedto.LeaveTypeName}' already exists.");
+
+                    var newLeaveType = new LeaveTypes
+                    {
+                        LeaveCode = leaveTypedto.LeaveCode,
+                        LeaveTypeName = leaveTypedto.LeaveTypeName,
+                    };
+
+                    // ✅ if your LeaveTypes table has CreatedAt/CreatedBy columns
+                    // newLeaveType.CreatedAt = DateTime.Now;
+                    // newLeaveType.CreatedBy = loggedInEmployeeId;
+
+                    await _dbContext.LeaveTypes.AddAsync(newLeaveType);
+                }
+            
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -233,39 +228,33 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-        public async Task<List<int>> AddUpdateAnnualLeaveTypeConfig(
-     List<AnnualLeaveTypeConfigDto> configDtoList,
-     int loggedInEmployeeId)
+        public async Task<bool> AddUpdateAnnualLeaveTypeConfig(AnnualLeaveTypeConfigDto configDto, int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
-                var savedIds = new List<int>();
-
-                foreach (var dto in configDtoList)
-                {
                     // ✅ VALIDATIONS
-                    if (dto.SalaryDeductionPercent < 0 || dto.SalaryDeductionPercent > 100)
-                        throw new ArgumentException("SalaryDeductionPercent must be between 0 and 100.");
+                    if (configDto.SalaryDeductionPercent < 0 || configDto.SalaryDeductionPercent > 100)
+                        throw new ArgumentException("Salary DeductionPercent must be between 0 and 100.");
 
-                    if (dto.EffectiveFrom > dto.EffectiveTo)
-                        throw new ArgumentException("EffectiveFrom cannot be greater than EffectiveTo.");
+                    if (configDto.EffectiveFrom > configDto.EffectiveTo)
+                        throw new ArgumentException("Effective From cannot be greater than EffectiveTo.");
 
-                    if (dto.RequiresDocument && (!dto.DocumentRequiredAfterDays.HasValue || dto.DocumentRequiredAfterDays.Value < 0))
-                        throw new ArgumentException("DocumentRequiredAfterDays must be >= 0 when RequiresDocument is enabled.");
+                    if (configDto.RequiresDocument && (!configDto.DocumentRequiredAfterDays.HasValue || configDto.DocumentRequiredAfterDays.Value < 0))
+                        throw new ArgumentException("Document Required AfterDays must be >= 0 when RequiresDocument is enabled.");
 
-                    if (dto.IsPaid && dto.SalaryDeductionPercent != 0)
-                        throw new ArgumentException("SalaryDeductionPercent must be 0 when IsPaid is true.");
+                    if (configDto.IsPaid && configDto.SalaryDeductionPercent != 0)
+                        throw new ArgumentException("Salary Deduction Percent must be 0 when IsPaid is true.");
 
                     // ✅ One Active Config per (IdLeaveType, IdYear)
-                    if (dto.IsActive)
+                    if (configDto.IsActive)
                     {
                         bool activeExists = await _dbContext.AnnualLeaveTypeConfig.AnyAsync(x =>
-                            x.IdLeaveType == dto.IdLeaveType &&
-                            x.IdYear == dto.IdYear &&
+                            x.IdLeaveType == configDto.IdLeaveType &&
+                            x.IdYear == configDto.IdYear &&
                             x.IsActive == true &&
-                            x.IdAnnualLeaveTypeConfig != dto.IdAnnualLeaveTypeConfig
+                            x.IdAnnualLeaveTypeConfig != configDto.IdAnnualLeaveTypeConfig
                         );
 
                         if (activeExists)
@@ -273,89 +262,87 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
 
                     // ✅ Update
-                    if (dto.IdAnnualLeaveTypeConfig > 0)
+                    if (configDto.IdAnnualLeaveTypeConfig > 0)
                     {
                         var existing = await _dbContext.AnnualLeaveTypeConfig
-                            .FirstOrDefaultAsync(x => x.IdAnnualLeaveTypeConfig == dto.IdAnnualLeaveTypeConfig);
+                            .FirstOrDefaultAsync(x => x.IdAnnualLeaveTypeConfig == configDto.IdAnnualLeaveTypeConfig);
 
                         if (existing == null)
-                            throw new ArgumentException($"Config not found. IdAnnualLeaveTypeConfig = {dto.IdAnnualLeaveTypeConfig}");
+                            throw new ArgumentException($"Config not found. IdAnnualLeaveTypeConfig = {configDto.IdAnnualLeaveTypeConfig}");
 
-                        existing.IdLeaveType = dto.IdLeaveType;
-                        existing.LeaveTypeName = dto.LeaveTypeName;
-                        existing.LeaveCode = dto.LeaveCode;
-                        existing.IdYear = dto.IdYear;
+                        existing.IdLeaveType = configDto.IdLeaveType;
+                        existing.LeaveTypeName = configDto.LeaveTypeName;
+                        existing.LeaveCode = configDto.LeaveCode;
+                        existing.IdYear = configDto.IdYear;
 
-                        existing.EffectiveFrom = dto.EffectiveFrom;
-                        existing.EffectiveTo = dto.EffectiveTo;
+                        existing.EffectiveFrom = configDto.EffectiveFrom;
+                        existing.EffectiveTo = configDto.EffectiveTo;
 
-                        existing.IsPaid = dto.IsPaid;
-                        existing.SalaryDeductionPercent = dto.SalaryDeductionPercent;
+                        existing.IsPaid = configDto.IsPaid;
+                        existing.SalaryDeductionPercent = configDto.SalaryDeductionPercent;
 
-                        existing.AllowHalfDay = dto.AllowHalfDay;
-                        existing.RequiresApproval = dto.RequiresApproval;
-                        existing.RequiredApprovalLevel = dto.RequiredApprovalLevel;
+                        existing.AllowHalfDay = configDto.AllowHalfDay;
+                        existing.RequiresApproval = configDto.RequiresApproval;
+                        existing.RequiredApprovalLevel = configDto.RequiredApprovalLevel;
 
-                        existing.RequiresDocument = dto.RequiresDocument;
-                        existing.DocumentRequiredAfterDays = dto.DocumentRequiredAfterDays;
+                        existing.RequiresDocument = configDto.RequiresDocument;
+                        existing.DocumentRequiredAfterDays = configDto.DocumentRequiredAfterDays;
 
-                        existing.IsCarryForwardAllowed = dto.IsCarryForwardAllowed;
-                        existing.MaxCarryForwardDays = dto.MaxCarryForwardDays;
+                        existing.IsCarryForwardAllowed = configDto.IsCarryForwardAllowed;
+                        existing.MaxCarryForwardDays = configDto.MaxCarryForwardDays;
 
-                        existing.ApplicableGender = dto.ApplicableGender;
-                        existing.IsActive = dto.IsActive;
+                        existing.ApplicableGender = configDto.ApplicableGender;
+                        existing.IsActive = configDto.IsActive;
 
-                        existing.IncludeHolidaysBetween = dto.IncludeHolidaysBetween;
+                        existing.IncludeHolidaysBetween = configDto.IncludeHolidaysBetween;
 
-                        existing.MaxLeavesPerYear = dto.MaxLeavesPerYear;
-                        existing.MaxLeavesPerMonth = dto.MaxLeavesPerMonth;
+                        existing.MaxLeavesPerYear = configDto.MaxLeavesPerYear;
+                        existing.MaxLeavesPerMonth = configDto.MaxLeavesPerMonth;
 
-                        existing.AllowBackdatedLeave = dto.AllowBackdatedLeave;
-                        existing.BackdateLimitDays = dto.BackdateLimitDays;
+                        existing.AllowBackdatedLeave = configDto.AllowBackdatedLeave;
+                        existing.BackdateLimitDays = configDto.BackdateLimitDays;
 
                         existing.UpdatedBy = loggedInEmployeeId;
                         existing.UpdatedAt = DateTime.Now;
 
                         _dbContext.AnnualLeaveTypeConfig.Update(existing);
-
-                        savedIds.Add(existing.IdAnnualLeaveTypeConfig);
                     }
                     else
                     {
                         // ✅ Insert new
                         var newConfig = new AnnualLeaveTypeConfig
                         {
-                            IdLeaveType = dto.IdLeaveType,
-                            LeaveTypeName = dto.LeaveTypeName,
-                            LeaveCode = dto.LeaveCode,
-                            IdYear = dto.IdYear,
+                            IdLeaveType = configDto.IdLeaveType,
+                            LeaveTypeName = configDto.LeaveTypeName,
+                            LeaveCode = configDto.LeaveCode,
+                            IdYear = configDto.IdYear,
 
-                            EffectiveFrom = dto.EffectiveFrom,
-                            EffectiveTo = dto.EffectiveTo,
+                            EffectiveFrom = configDto.EffectiveFrom,
+                            EffectiveTo = configDto.EffectiveTo,
 
-                            IsPaid = dto.IsPaid,
-                            SalaryDeductionPercent = dto.SalaryDeductionPercent,
+                            IsPaid = configDto.IsPaid,
+                            SalaryDeductionPercent = configDto.SalaryDeductionPercent,
 
-                            AllowHalfDay = dto.AllowHalfDay,
-                            RequiresApproval = dto.RequiresApproval,
-                            RequiredApprovalLevel = dto.RequiredApprovalLevel,
+                            AllowHalfDay = configDto.AllowHalfDay,
+                            RequiresApproval = configDto.RequiresApproval,
+                            RequiredApprovalLevel = configDto.RequiredApprovalLevel,
 
-                            RequiresDocument = dto.RequiresDocument,
-                            DocumentRequiredAfterDays = dto.DocumentRequiredAfterDays,
+                            RequiresDocument = configDto.RequiresDocument,
+                            DocumentRequiredAfterDays = configDto.DocumentRequiredAfterDays,
 
-                            IsCarryForwardAllowed = dto.IsCarryForwardAllowed,
-                            MaxCarryForwardDays = dto.MaxCarryForwardDays,
+                            IsCarryForwardAllowed = configDto.IsCarryForwardAllowed,
+                            MaxCarryForwardDays = configDto.MaxCarryForwardDays,
 
-                            ApplicableGender = dto.ApplicableGender,
-                            IsActive = dto.IsActive,
+                            ApplicableGender = configDto.ApplicableGender,
+                            IsActive = configDto.IsActive,
 
-                            IncludeHolidaysBetween = dto.IncludeHolidaysBetween,
+                            IncludeHolidaysBetween = configDto.IncludeHolidaysBetween,
 
-                            MaxLeavesPerYear = dto.MaxLeavesPerYear,
-                            MaxLeavesPerMonth = dto.MaxLeavesPerMonth,
+                            MaxLeavesPerYear = configDto.MaxLeavesPerYear,
+                            MaxLeavesPerMonth = configDto.MaxLeavesPerMonth,
 
-                            AllowBackdatedLeave = dto.AllowBackdatedLeave,
-                            BackdateLimitDays = dto.BackdateLimitDays,
+                            AllowBackdatedLeave = configDto.AllowBackdatedLeave,
+                            BackdateLimitDays = configDto.BackdateLimitDays,
 
                             CreatedBy = loggedInEmployeeId,
                             CreatedAt = DateTime.Now
@@ -365,13 +352,74 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                         // SaveChanges required to generate ID
                         await _dbContext.SaveChangesAsync();
-
-                        savedIds.Add(newConfig.IdAnnualLeaveTypeConfig);
                     }
+
+
+                // ================= SAVE WORKFLOW =================
+                List<LeaveWorkFlowDetailDto> wfDto = configDto.wfDetails;
+                if (wfDto != null && wfDto.Any())
+                {
+                    int? idWorkflow = wfDto[0].IdWorkFlowConfig;
+                    if (idWorkflow > 0)
+                    {
+                        var wfConfig = await _dbContext.WorkFlowConfig
+                            .FirstOrDefaultAsync(x => x.IdWorkFlowConfig == idWorkflow);
+
+                        if (wfConfig != null)
+                        {
+                            _dbContext.WorkFlowConfig.Remove(wfConfig);
+                            await _dbContext.SaveChangesAsync();
+                        }
+                    }
+                    //Insert into WorkFlowConfig Table
+
+                    string entityCode = "LEAVE" + "_" + configDto.LeaveCode + "_" + configDto.IdYear.ToString();
+
+                    var workflowConfig = new WorkFlowConfig
+                    {
+                        EntityCode = entityCode,
+                        EntityName = "Leave Approval Workflow - " + configDto.LeaveTypeName,
+                        ApprovalCycleCount = wfDto.Count,
+                        MainTableName = "LeaveApplications",
+                        MainColumnName = "IdEmployee"
+                    };
+
+                    _dbContext.WorkFlowConfig.Add(workflowConfig);
+                    await _dbContext.SaveChangesAsync();
+
+                    var wfConfig1 = await _dbContext.WorkFlowConfig
+                           .FirstOrDefaultAsync(x => x.EntityCode == entityCode);
+
+                    int InsertedIdWorkFlowConfig = 0;
+                    if (wfConfig1 != null)
+                        InsertedIdWorkFlowConfig = wfConfig1.IdWorkFlowConfig;
+                    else
+                        return false;
+
+                    // remove existing workflow
+                    var existingWorkflow = await _dbContext.WorkFlowConfigDetails
+                        .Where(x => x.IdWorkFlowConfigDetail == x.IdWorkFlowConfigDetail)
+                        .ToListAsync();
+
+                    if (existingWorkflow.Any())
+                        _dbContext.WorkFlowConfigDetails.RemoveRange(existingWorkflow);
+
+                    // insert new workflow
+                    var workflowEntities = wfDto.Select(w => new WorkFlowConfigDetails
+                    {
+                        ApprovalStatusName = w.ApprovalStatusName,
+                        ApprovalAuthorityID = w.ApprovalAuthorityID,
+                        ApprovalAuthorityType = w.ApprovalAuthorityType,
+                        LevelNumber = w.LevelNumber,
+                        IdWorkFlowConfig = InsertedIdWorkFlowConfig
+                    }).ToList();
+
+                    await _dbContext.WorkFlowConfigDetails.AddRangeAsync(workflowEntities);
                 }
 
+                await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
-                return savedIds;
+                return true;
             }
             catch (Exception ex)
             {
@@ -1056,14 +1104,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         #region LeaveApplications
         public async Task<PagedResultDto<LeaveApplicationListDto>> GetLeaveApplications(
-    int loggedInEmployeeId,
-    int? idEmployee,
-    string? approvalStatus,
-    string? applicationStatus,
-    DateTime? fromDate,
-    DateTime? toDate,
-    int? idLeaveType,
-    PagingRequestDto paging)
+                int loggedInEmployeeId,
+                int? idEmployee,
+                string? approvalStatus,
+                string? applicationStatus,
+                DateTime? fromDate,
+                DateTime? toDate,
+                int? idLeaveType,
+                PagingRequestDto paging)
         {
             try
             {
@@ -1309,6 +1357,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                              && x.IdYear == year
                              && x.IsActive == true)
                     .FirstOrDefaultAsync();
+
 
                 if (annualPolicy == null)
                     throw new ArgumentException("Annual leave policy not configured for this LeaveType and Year.");
