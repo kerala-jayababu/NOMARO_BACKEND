@@ -455,78 +455,43 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         #region LeaveTemplates
         public async Task<IEnumerable<LeaveTemplateDto>> GetLeaveTemplates(
-      int? idLeaveTemplate = null,
-      bool? isActive = null,
-      string? searchText = null)
+     int? idLeaveTemplate = null,
+     bool? isActive = null,
+     string? searchText = null)
         {
             try
             {
-                var templatesQuery = _dbContext.LeaveTemplates.AsQueryable();
+                var query = _dbContext.LeaveTemplates.AsQueryable();
 
                 if (idLeaveTemplate.HasValue)
-                    templatesQuery = templatesQuery.Where(x => x.IdLeaveTemplate == idLeaveTemplate.Value);
+                    query = query.Where(x => x.IdLeaveTemplate == idLeaveTemplate.Value);
 
                 if (isActive.HasValue)
-                    templatesQuery = templatesQuery.Where(x => x.IsActive == isActive.Value);
+                    query = query.Where(x => x.IsActive == isActive.Value);
 
                 if (!string.IsNullOrWhiteSpace(searchText))
                 {
                     var text = searchText.Trim();
-                    templatesQuery = templatesQuery.Where(x =>
+                    query = query.Where(x =>
                         x.LeaveTemplateName.Contains(text) ||
                         (x.LeaveTemplateDesc != null && x.LeaveTemplateDesc.Contains(text)));
                 }
 
-                var result = await (
-                    from t in templatesQuery
-                    join c in _dbContext.AnnualLeaveTypeConfig
-                        on t.IdAnnualLeaveTypeConfig equals c.IdAnnualLeaveTypeConfig into cfg
-                    from config in cfg.DefaultIfEmpty()
-                    orderby t.LeaveTemplateName
-                    select new LeaveTemplateDto
+                var result = await query
+                    .OrderBy(x => x.LeaveTemplateName)
+                    .Select(t => new LeaveTemplateDto
                     {
                         IdLeaveTemplate = t.IdLeaveTemplate,
                         LeaveTemplateName = t.LeaveTemplateName,
-                        IdAnnualLeaveTypeConfig = t.IdAnnualLeaveTypeConfig,
-
-                        AnnualLeaveTypeConfig = config == null ? null : new AnnualLeaveTypeConfigDto
-                        {
-                            IdAnnualLeaveTypeConfig = config.IdAnnualLeaveTypeConfig,
-                            IdLeaveType = config.IdLeaveType,
-                            LeaveTypeName = config.LeaveTypeName,
-                            LeaveCode = config.LeaveCode,
-                            IdYear = config.IdYear,
-                            EffectiveFrom = config.EffectiveFrom,
-                            EffectiveTo = config.EffectiveTo,
-                            IsPaid = config.IsPaid,
-                            SalaryDeductionPercent = config.SalaryDeductionPercent,
-                            AllowHalfDay = config.AllowHalfDay,
-                            RequiresApproval = config.RequiresApproval,
-                            RequiredApprovalLevel = config.RequiredApprovalLevel,
-                            RequiresDocument = config.RequiresDocument,
-                            DocumentRequiredAfterDays = config.DocumentRequiredAfterDays,
-                            IsCarryForwardAllowed = config.IsCarryForwardAllowed,
-                            MaxCarryForwardDays = config.MaxCarryForwardDays,
-                            ApplicableGender = config.ApplicableGender,
-                            IsActive = config.IsActive,
-                            IncludeHolidaysBetween = config.IncludeHolidaysBetween,
-                            MaxLeavesPerYear = config.MaxLeavesPerYear,
-                            MaxLeavesPerMonth = config.MaxLeavesPerMonth,
-                            AllowBackdatedLeave = config.AllowBackdatedLeave,
-                            BackdateLimitDays = config.BackdateLimitDays,
-                            CreatedBy = config.CreatedBy,
-                            CreatedAt = config.CreatedAt,
-                            UpdatedBy = config.UpdatedBy,
-                            UpdatedAt = config.UpdatedAt
-                        },
+                        IdAnnualLeaveTypeConfig = t.IdAnnualLeaveTypeConfig,  // ✅ optional, keep if you want
 
                         IsActive = t.IsActive,
                         CreatedBy = t.CreatedBy,
                         CreatedAt = t.CreatedAt,
                         UpdatedBy = t.UpdatedBy,
                         UpdatedAt = t.UpdatedAt
-                    }
-                ).ToListAsync();
+                    })
+                    .ToListAsync();
 
                 return result ?? new List<LeaveTemplateDto>();
             }
@@ -1305,6 +1270,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (dto.ToDate.Date < dto.FromDate.Date)
                     throw new ArgumentException("ToDate cannot be earlier than FromDate.");
+                // ✅ Leave cannot span across years
+                if (dto.FromDate.Year != dto.ToDate.Year)
+                    throw new ArgumentException("Leave FromDate and ToDate must be within the same year.");
 
                 // ✅ Employee exists
                 bool empExists = await _dbContext.Employees.AnyAsync(e => e.IdEmployee == dto.IdEmployee);
@@ -1358,12 +1326,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (!annualPolicy.AllowHalfDay)
                         throw new ArgumentException("Half day is not allowed for this leave type.");
 
-                    if (string.IsNullOrWhiteSpace(dto.HalfDayType))
+                    if (!dto.HalfDayType.HasValue)
                         throw new ArgumentException("HalfDayType is mandatory when IsHalfDay is true.");
 
-                    var halfType = dto.HalfDayType.Trim().ToUpperInvariant();
-                    if (halfType != "FIRSTHALF" && halfType != "SECONDHALF" && halfType != "AM" && halfType != "PM")
-                        throw new ArgumentException("HalfDayType must be one of: FirstHalf, SecondHalf, AM, PM.");
+                    var halfType = char.ToUpperInvariant(dto.HalfDayType.Value);
+
+                    if (halfType != 'F' && halfType != 'S')
+                        throw new ArgumentException("HalfDayType must be one of: F (FirstHalf), S (SecondHalf)");
                 }
                 else
                 {
@@ -1383,7 +1352,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     throw new ArgumentException("Leave application overlaps with existing pending/approved leave.");
 
                 // ✅ (6) Compute TotalLeaveDays
-                decimal totalLeaveDays = CalculateLeaveDays(dto.FromDate.Date, dto.ToDate.Date, dto.IsHalfDay);
+                decimal totalLeaveDays = await CalculateLeaveDaysAsync(dto.FromDate.Date, dto.ToDate.Date, dto.IsHalfDay);
+
 
                 if (totalLeaveDays <= 0)
                     throw new ArgumentException("TotalLeaveDays is invalid after calculation.");
@@ -1535,10 +1505,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     AppliedOn = entity.AppliedOn
                 };
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                throw;
+                throw ex;
             }
         }
 
@@ -1569,14 +1539,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var appStatus = application.ApplicationStatus?.Trim().ToUpperInvariant();
 
                 bool isPending = approval == "PENDING";
-                bool isSentBack = appStatus == "SENTBACK" || approval == "SENTBACK";
+                bool isSentBack = appStatus == "REJECTED" ;
                 bool isApproved = approval == "APPROVED";
 
                 if (isApproved && !isHrOverride)
                     throw new ArgumentException("Document cannot be deleted after approval. HR override required.");
 
                 if (!isApproved && !isPending && !isSentBack)
-                    throw new ArgumentException("Document can be deleted only when application is Pending or SentBack.");
+                    throw new ArgumentException("Document can be deleted only when application is Pending or Rejected.");
 
                 // ✅ Delete physical file
                 if (!string.IsNullOrWhiteSpace(doc.FilePath) && File.Exists(doc.FilePath))
@@ -1626,16 +1596,29 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return filePath;
         }
 
-        private decimal CalculateLeaveDays(DateTime fromDate, DateTime toDate, bool isHalfDay)
+        private async Task<decimal> CalculateLeaveDaysAsync(DateTime fromDate, DateTime toDate, bool isHalfDay)
         {
             if (isHalfDay)
                 return 0.5m;
 
+            // ✅ Fetch holidays only once
+            var holidayDates = await _dbContext.Holidays
+                .Where(h => h.HolidayDate.Date >= fromDate.Date && h.HolidayDate.Date <= toDate.Date)
+                .Select(h => h.HolidayDate.Date)
+                .ToListAsync();
+
+            var holidaySet = new HashSet<DateTime>(holidayDates);
+
             int count = 0;
+
             for (var date = fromDate.Date; date <= toDate.Date; date = date.AddDays(1))
             {
-                // ✅ exclude weekend
-                if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+                //// ✅ exclude weekend
+                //if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+                //    continue;
+
+                // ✅ exclude holiday
+                if (holidaySet.Contains(date))
                     continue;
 
                 count++;
@@ -1643,6 +1626,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return count;
         }
+
         public async Task<CancelLeaveApplicationResultDto> CancelLeaveApplication(
     int idLeaveApplication,
     string? cancelReason,

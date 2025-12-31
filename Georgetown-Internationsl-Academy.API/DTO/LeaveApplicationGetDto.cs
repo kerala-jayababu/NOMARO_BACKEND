@@ -15,7 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public DateTime ToDate { get; set; }
 
         public bool IsHalfDay { get; set; }
-        public string? HalfDayType { get; set; }
+        public char? HalfDayType { get; set; }
 
         public decimal TotalLeaveDays { get; set; }
         public string? Reason { get; set; }

@@ -11,7 +11,7 @@
         public DateTime ToDate { get; set; }
 
         public bool IsHalfDay { get; set; }
-        public string? HalfDayType { get; set; }   // FirstHalf / SecondHalf (or AM/PM)
+        public char? HalfDayType { get; set; }   // FirstHalf / SecondHalf (or AM/PM)
 
         public string Reason { get; set; } = string.Empty;
         public List<IFormFile>? Documents { get; set; }

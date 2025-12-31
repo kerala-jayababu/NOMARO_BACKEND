@@ -456,7 +456,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         [HttpPost("AddUpdateLeaveApplication")]
-        public async Task<IActionResult> AddUpdateLeaveApplication([FromBody] LeaveApplicationPostDto dto)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> AddUpdateLeaveApplication([FromForm] LeaveApplicationPostDto dto)
         {
             try
             {
