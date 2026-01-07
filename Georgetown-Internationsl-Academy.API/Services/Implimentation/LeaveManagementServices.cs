@@ -161,14 +161,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         #endregion
 
         #region LeaveTemplates
-        public async Task<IEnumerable<LeaveTemplateDto>> GetLeaveTemplates(int? idLeaveTemplate = null,bool? isActive = null,string? searchText = null)
+        public async Task<IEnumerable<LeaveTemplateDto>> GetLeaveTemplates(int? IdYear,string Status, string? searchText = null)
         {
             try
             {
                 var query = _dbContext.LeaveTemplates.AsQueryable();
 
-                if (idLeaveTemplate.HasValue)
-                    query = query.Where(x => x.IdLeaveTemplate == idLeaveTemplate.Value);
+                if (IdYear.HasValue)
+                    query = query.Where(x => x.IdYear == IdYear.Value);
+                if (Status.ToUpper() != "ALL")
+                    query = query.Where(x => x.ApprovlStatus == Status);
 
                 if (!string.IsNullOrWhiteSpace(searchText))
                 {
@@ -201,7 +203,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<LeaveTemplateDto> GetLeaveTemplate(int idLeaveTemplate)
+        public async Task<LeaveTemplateDto> GetLeaveTemplateByID(int idLeaveTemplate)
         {
             try
             {
@@ -852,7 +854,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         LeaveTypeName = x.ltd.LeaveTypeName,
                         LeaveCode =  x.ltd.LeaveCode,
                         AllocatedDaysInYear = x.elc.AllocatedDaysInYear,
-                       CarryForwardDays = x.elc.CarryForwardDays,
+                        CarryForwardDays = x.elc.CarryForwardDays,
                         TotalAllocatedDays = x.elc.TotalAllocatedDays,
                         UsedLeaveDays = x.elc.UsedLeaveDays,
                         BalanceLeaveDays = x.elc.BalanceLeaveDays,

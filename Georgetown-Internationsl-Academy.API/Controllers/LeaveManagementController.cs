@@ -95,11 +95,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
    
         #region Leave Template
         [HttpGet("GetLeaveTemplates")]
-        public async Task<IActionResult> GetLeaveTemplates(int? idLeaveTemplate, bool? isActive, string? searchText)
+        public async Task<IActionResult> GetLeaveTemplates(int? IdYear, string Status, string? searchText = null)
         {
             try
             {
-                var result = await _leaveService.GetLeaveTemplates(idLeaveTemplate, isActive, searchText);
+                var result = await _leaveService.GetLeaveTemplates(IdYear, Status, searchText);
 
                 if (result == null || !result.Any())
                 {
@@ -116,15 +116,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-        [HttpGet("GetLeaveTemplate")]
-        public async Task<IActionResult> GetLeaveTemplate(int idLeaveTemplate)
+        [HttpGet("GetLeaveTemplateByID")]
+        public async Task<IActionResult> GetLeaveTemplateByID(int idLeaveTemplate)
         {
             try
             {
                 if (idLeaveTemplate <= 0)
                     return BadRequest(ApiResponseDto<string>.CreateFailure("IdLeaveTemplate is required."));
 
-                var result = await _leaveService.GetLeaveTemplate(idLeaveTemplate);
+                var result = await _leaveService.GetLeaveTemplateByID(idLeaveTemplate);
 
                 return Ok(ApiResponseDto<LeaveTemplateDto>
                     .CreateSuccess(result, "Leave template retrieved successfully."));
