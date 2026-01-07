@@ -92,116 +92,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #endregion
 
-        #region Annual Leave Config
-
-        [HttpGet("GetAnnualLeaveTypeConfigs")]
-        public async Task<IActionResult> GetAnnualLeaveTypeConfigs(int? idAnnualLeaveTypeConfig,int? idLeaveType,int? idYear,bool? isActive)
-        {
-            try
-            {
-                var result = await _leaveService.GetAnnualLeaveTypeConfigs(
-                    idAnnualLeaveTypeConfig,
-                    idLeaveType,
-                    idYear,
-                    isActive
-                );
-
-                if (result == null || !result.Any())
-                {
-                    return Ok(ApiResponseDto<IEnumerable<AnnualLeaveTypeConfigDto>>
-                        .CreateSuccess(Enumerable.Empty<AnnualLeaveTypeConfigDto>(), "No annual leave configs found."));
-                }
-
-                return Ok(ApiResponseDto<IEnumerable<AnnualLeaveTypeConfigDto>>
-                    .CreateSuccess(result, "Annual leave configuration retrieved."));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500,
-                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
-
-        [HttpPost("AddUpdateAnnualLeaveTypeConfig")]
-        public async Task<IActionResult> AddUpdateAnnualLeaveTypeConfig([FromBody] AnnualLeaveTypeConfigDto configDto)
-        {
-            if (configDto == null )
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input."));
-
-            var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
-
-            int loggedInEmployeeId = int.Parse(userId);
-
-            try
-            {
-                var screenCode = _configuration["ScreenCodes:AnnualLeaveConfig"];
-                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
-
-                if (!hasPermission)
-                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
-
-                var ids = await _leaveService.AddUpdateAnnualLeaveTypeConfig(configDto, loggedInEmployeeId);
-
-                return Ok(ApiResponseDto<object>.CreateSuccess(new
-                {
-                    SuccessFlag = true,        
-                    Message = "Annual leave configuration saved successfully.",
-                    IdAnnualLeaveTypeConfig = ids
-                }, "Annual leave configuration saved successfully."));
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
-
-        [HttpPost("DeactivateAnnualLeaveTypeConfig")]
-        public async Task<IActionResult> DeactivateAnnualLeaveTypeConfig(int idAnnualLeaveTypeConfig)
-        {
-            try
-            {
-                if (idAnnualLeaveTypeConfig <= 0)
-                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdAnnualLeaveTypeConfig is required."));
-
-                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
-
-                int loggedInEmployeeId = int.Parse(userId);
-
-                // ✅ Permission check
-                var screenCode = _configuration["ScreenCodes:AnnualLeaveConfig"];
-                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "D");
-
-                if (!hasPermission)
-                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
-
-                var result = await _leaveService.DeactivateAnnualLeaveTypeConfig(idAnnualLeaveTypeConfig, loggedInEmployeeId);
-
-                if (!result)
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to deactivate annual leave configuration."));
-
-                return Ok(ApiResponseDto<string>.CreateSuccess("Annual leave configuration deactivated successfully."));
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
-
-
-        #endregion
-
+   
         #region Leave Template
         [HttpGet("GetLeaveTemplates")]
         public async Task<IActionResult> GetLeaveTemplates(int? idLeaveTemplate, bool? isActive, string? searchText)
@@ -235,7 +126,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 var result = await _leaveService.GetLeaveTemplate(idLeaveTemplate);
 
-                return Ok(ApiResponseDto<LeaveTemplateWithDetailsDto>
+                return Ok(ApiResponseDto<LeaveTemplateDto>
                     .CreateSuccess(result, "Leave template retrieved successfully."));
             }
             catch (ArgumentException ex)
@@ -249,7 +140,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         [HttpPost("AddUpdateLeaveTemplate")]
-        public async Task<IActionResult> AddUpdateLeaveTemplate([FromBody] LeaveTemplatePostDto dto)
+        public async Task<IActionResult> AddUpdateLeaveTemplate([FromBody] LeaveTemplateDto dto)
         {
             try
             {
@@ -266,9 +157,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
 
                 var result = await _leaveService.AddUpdateLeaveTemplate(dto, loggedInEmployeeId);
-
-                return Ok(ApiResponseDto<LeaveTemplateSaveResponseDto>
-                    .CreateSuccess(result, result.Message));
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave types saved successfully."));
             }
             catch (ArgumentException ex)
             {
@@ -280,33 +169,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-        [HttpPost("DeactivateLeaveTemplate")]
-        public async Task<IActionResult> DeactivateLeaveTemplate(int idLeaveTemplate)
+
+        [HttpGet("GetLeaveTemplateDetailById/{idLeaveTemplateDetails}")]
+        public async Task<IActionResult> GetLeaveTemplateDetailById(int idLeaveTemplateDetails)
         {
             try
             {
-                if (idLeaveTemplate <= 0)
-                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdLeaveTemplate is required."));
-
                 var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
 
                 int loggedInEmployeeId = int.Parse(userId);
 
-                // ✅ Permission check
                 var screenCode = _configuration["ScreenCodes:LeaveTemplates"];
-                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "D");
+                var hasPermission = await _roleBasedService
+                    .CheckEmployeePermission(loggedInEmployeeId, screenCode, "V"); // View
 
                 if (!hasPermission)
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
 
-                var success = await _leaveService.DeactivateLeaveTemplate(idLeaveTemplate, loggedInEmployeeId);
+                var result = await _leaveService.GetLeaveTemplateDetailById(idLeaveTemplateDetails);
 
-                if (!success)
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to deactivate leave template."));
-
-                return Ok(ApiResponseDto<string>.CreateSuccess("Leave template deactivated successfully."));
+                return Ok(ApiResponseDto<LeaveTemplateDetailsDto>
+                    .CreateSuccess(result, "Leave template detail retrieved successfully."));
             }
             catch (ArgumentException ex)
             {
@@ -314,24 +199,79 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
 
+        [HttpPost("AddOrUpdateLeaveTemplateDetails")]
+        public async Task<IActionResult> AddOrUpdateLeaveTemplateDetails([FromBody] EmployeeLeaveConfigDetailsPostDto dto)
+        {
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var screenCode = _configuration["ScreenCodes:LeaveTemplates"];
+                var hasPermission = await _roleBasedService
+                    .CheckEmployeePermission(loggedInEmployeeId, screenCode, "A"); // Add/Update
+
+                if (!hasPermission)
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                var result = await _leaveService
+                    .AddUpdateEmployeeLeaveConfigDetails(dto, loggedInEmployeeId);
+
+                return Ok(ApiResponseDto<string>
+                    .CreateSuccess("Leave template details saved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
 
         #endregion
 
         #region EmployeeLeaveManagement
         [HttpGet("GetEmployeeLeaveSetup")]
-        public async Task<IActionResult> GetEmployeeLeaveSetup(int idEmployee, DateTime? activeOnDate)
+        public async Task<IActionResult> GetEmployeeLeaveSetup(string searchText, int? idYear)
         {
             try
             {
-                if (idEmployee <= 0)
-                    return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee is mandatory."));
 
-                var result = await _leaveService.GetEmployeeLeaveSetup(idEmployee, activeOnDate);
+                var result = await _leaveService.GetEmployeesLeaveSetup(searchText, idYear);
+
+                return Ok(ApiResponseDto<List<EmployeeLeaveSetupDto>>
+                    .CreateSuccess(result, "Employee leave setup retrieved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>
+                    .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetLeaveSetupOfAnEmployee")]
+        public async Task<IActionResult> GetLeaveSetupOfAnEmployee(int IdEmployee, int idYear)
+        {
+            try
+            {
+
+                var result = await _leaveService.GetLeaveSetupOfAnEmployee(IdEmployee, idYear);
 
                 return Ok(ApiResponseDto<EmployeeLeaveSetupDto>
                     .CreateSuccess(result, "Employee leave setup retrieved successfully."));
@@ -347,7 +287,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         [HttpPost("AddUpdateEmployeeLeaveConfig")]
-        public async Task<IActionResult> AddUpdateEmployeeLeaveConfig([FromBody] EmployeeLeaveConfigPostDto dto)
+        public async Task<IActionResult> AddUpdateEmployeeLeaveConfig([FromBody] EmployeeLeaveConfigsPostDto dto)
         {
             try
             {
@@ -385,6 +325,48 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpPost("AddOrUpdateEmployeeLeaveConfigDetails")]
+        public async Task<IActionResult> AddOrUpdateEmployeeLeaveConfigDetails([FromBody] EmployeeLeaveConfigDetailsPostDto dto)
+        {
+            try
+            {
+                // 🔐 Get logged-in user
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>
+                        .CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                // 🔐 Permission check
+                var screenCode = _configuration["ScreenCodes:EmployeeLeaveConfig"];
+                var hasPermission = await _roleBasedService
+                    .CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
+
+                if (!hasPermission)
+                    return StatusCode(403,
+                        ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                // ✅ Call service
+                await _leaveService.AddUpdateEmployeeLeaveConfigDetails(dto, loggedInEmployeeId);
+
+                return Ok(ApiResponseDto<string>
+                    .CreateSuccess("Employee leave balance updated successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>
+                    .CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure(
+                        "An error occurred while saving employee leave balance."));
+            }
+        }
+
         #endregion
 
 
@@ -397,6 +379,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             DateTime? fromDate,
             DateTime? toDate,
             int? idLeaveType,
+            string? SearchText,
             int pageNumber = 1,
             int pageSize = 10,
             string sortBy = "AppliedOn",
@@ -426,6 +409,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     fromDate,
                     toDate,
                     idLeaveType,
+                    SearchText,
                     paging);
 
                 return Ok(ApiResponseDto<PagedResultDto<LeaveApplicationListDto>>

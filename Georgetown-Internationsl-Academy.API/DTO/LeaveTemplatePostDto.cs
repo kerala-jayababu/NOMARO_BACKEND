@@ -6,7 +6,7 @@
         public int IdLeaveTemplate { get; set; }          // 0 = insert, >0 = update
         public string LeaveTemplateName { get; set; } = string.Empty;
         public string? LeaveTemplateDesc { get; set; }
-
+        public int IdYear { get; set; }
         public int? IdAnnualLeaveTypeConfig { get; set; } // optional
         public bool IsActive { get; set; }
 

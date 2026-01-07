@@ -6,6 +6,8 @@
         public int IdEmployee { get; set; }
 
         public string? EmployeeName { get; set; } // optional
+        public string? DepartmentName { get; set; } // optional
+        public string? DesignationName { get; set; } // optional
         public int IdLeaveType { get; set; }
         public string? LeaveTypeName { get; set; }
 

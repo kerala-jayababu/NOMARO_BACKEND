@@ -110,7 +110,9 @@ namespace Georgetown_International_Academy.API.Database
         // Leave Applications
         public DbSet<LeaveApplications> LeaveApplications { get; set; }
         public DbSet<LeaveApplicationDocuments> LeaveApplicationDocuments { get; set; }
+        public DbSet<EmployeeServiceChanges> EmployeeServiceChanges { get; set; }
 
+        
         #endregion
 
         #region BambooHR

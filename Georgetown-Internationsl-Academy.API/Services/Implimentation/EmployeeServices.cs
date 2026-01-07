@@ -2063,6 +2063,189 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return filePath;
         }
 
+        public async Task<IEnumerable<EmployeeServiceChangeListDto>> GetEmployeeServiceChanges(DateTime dateFrom, string changeType, int idEmployee)
+        {
+            var query =
+                  from esc in _dbContext.EmployeeServiceChanges.AsNoTracking()
+                  join emp in _dbContext.Employees.AsNoTracking()
+                    on esc.IdEmployee equals emp.IdEmployee
+                   join chng in _dbContext.Employees.AsNoTracking()
+                   on esc.ChangedBy equals chng.IdEmployee
+                  select new { esc, emp, chng };
+
+            if (idEmployee > 0)
+                query = query.Where(x => x.esc.IdEmployee== idEmployee);
+
+            // Date filter (from date)
+            if (dateFrom.Year >= 2020)
+                query = query.Where(x => x.esc.ChangeValidFrom >= dateFrom.Date);
+
+            if (!string.IsNullOrEmpty(changeType) && changeType != "ALL")
+                query = query.Where(x => x.esc.ChangeType == changeType);
+
+            var data = await query
+                .OrderByDescending(x => x.esc.ChangeValidFrom)
+                .Select(x => new EmployeeServiceChangeListDto
+                {
+                    IdEmployeeServiceChange = x.esc.IdEmployeeServiceChange,
+                    IdEmployee = x.esc.IdEmployee,
+                    EmployeeName = (x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? ""),
+                    ChangeType = x.esc.ChangeType,
+                    ChangeDescription = x.esc.ChangeDescription,
+                    FromValue = x.esc.FromValue,
+                    ToValue = x.esc.ToValue,
+                    FromValueID = x.esc.FromValueID,
+                    ToValueID = x.esc.ToValueID,
+                    ChangeValidFrom = x.esc.ChangeValidFrom,
+                    Remarks = x.esc.Remarks,
+                    ApprovalStatus = x.esc.ApprovalStatus,
+                    ChangedByEmployeeName = (x.chng.FirstName ?? "") + " " + (x.chng.LastName ?? ""),
+                    CreatedAt = x.esc.CreatedAt,
+                    CreatedBy = x.esc.CreatedBy,
+                    UpdatedBy = x.esc.UpdatedBy,
+                    UpdatedAt = x.esc.UpdatedAt
+                }).ToListAsync();
+
+            return data;
+        }
+
+        #region ADD / UPDATE
+
+        public async Task<bool> AddUpdateEmployeeServiceChanges(EmployeeServiceChangeDto dto,int loggedInEmployeeId)
+        {
+            if (!new[] { "DESIGNATION", "DEPARTMENT", "REPOFFICER","EMPLOYMENTTYPE" }
+                .Contains(dto.ChangeType))
+                throw new Exception("Invalid ChangeType.");
+
+            if (dto.FromValue == dto.ToValue)
+                throw new Exception("FromValue and ToValue cannot be the same.");
+
+            var fiveDaysAgo = DateTime.Now.AddDays(-5);
+
+            bool duplicateExists = await _dbContext.EmployeeServiceChanges.AnyAsync(x =>
+                x.IdEmployee == dto.IdEmployee &&
+                x.ChangeType == dto.ChangeType &&
+                x.ApprovalStatus == "SUBMITTED" &&
+                x.ChangeValidFrom >= fiveDaysAgo &&
+                x.IdEmployeeServiceChange != dto.IdEmployeeServiceChange);
+
+            if (duplicateExists)
+                throw new Exception("Duplicate SUBMITTED request exists within last 5 days.");
+
+            if (dto.IdEmployeeServiceChange == 0)
+            {
+                // INSERT
+                var entity = new EmployeeServiceChanges
+                {
+                    IdEmployee = dto.IdEmployee,
+                    ChangeType = dto.ChangeType,
+                    ChangeDescription = dto.ChangeDescription,
+                    FromValue = dto.FromValue,
+                    ToValue = dto.ToValue,
+                    FromValueID =dto.FromValueID,
+                    ToValueID = dto.ToValueID,
+                    ChangeValidFrom = DateTime.Now,
+                    ChangedBy = loggedInEmployeeId,
+                    Remarks = dto.Remarks,
+                    ApprovalStatus = "SUBMITTED",
+                    CreatedBy = loggedInEmployeeId,
+                    CreatedAt = DateTime.Now
+                };
+
+                await _dbContext.EmployeeServiceChanges.AddAsync(entity);
+            }
+            else
+            {
+                // UPDATE
+                var entity = await _dbContext.EmployeeServiceChanges
+                    .FirstOrDefaultAsync(x => x.IdEmployeeServiceChange == dto.IdEmployeeServiceChange);
+
+                if (entity == null)
+                    throw new Exception("Service change record not found.");
+
+                if (entity.ApprovalStatus != "SUBMITTED")
+                    throw new Exception("Only SUBMITTED records can be updated.");
+
+                entity.ChangeDescription = dto.ChangeDescription;
+                entity.FromValue = dto.FromValue;
+                entity.ToValue = dto.ToValue;
+                entity.Remarks = dto.Remarks;
+                entity.FromValueID = dto.FromValueID;
+                entity.ToValueID = dto.ToValueID;
+                entity.ChangeValidFrom = DateTime.Now;
+                entity.ChangedBy = loggedInEmployeeId;
+                entity.UpdatedBy = loggedInEmployeeId;
+                entity.UpdatedAt = DateTime.Now;
+            }
+
+            //TO BE MOVED TO APPROVAL SCREEN
+            /*
+            if(dto.ChangeValidFrom <= DateTime.Now.AddDays(5))
+            {
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.IdEmployee == dto.IdEmployee);
+
+                if (employee == null)
+                    throw new Exception("Employee not found.");
+
+                switch (dto.ChangeType)
+                {
+                    case "DESIGNATION":
+                        employee.IdDesignation = dto.ToValueID;
+                        break;
+
+                    case "DEPARTMENT":
+                        employee.IdDepartment = dto.ToValueID;
+                        break;
+
+                    case "REPOFFICER":
+                        employee.ReportingTo = dto.ToValueID;
+                        break;
+
+                    case "EMPLOYMENTTYPE":
+                        employee.EM = dto.ToValue; // string-based
+                        break;
+                    
+                    default:
+                        throw new Exception("Unsupported ChangeType.");
+                }
+        
+            }
+            */
+            await _dbContext.SaveChangesAsync();
+            return true;
+        }
+
+        #endregion
+
+        #region DELETE
+
+        public async Task<bool> DeleteEmployeeServiceChanges(
+            int idEmployeeServiceChange,
+            int loggedInEmployeeId,
+            bool isHrManager)
+        {
+            if (!isHrManager)
+                throw new Exception("Only HR Manager can delete service changes.");
+
+            var entity = await _dbContext.EmployeeServiceChanges
+                .FirstOrDefaultAsync(x => x.IdEmployeeServiceChange == idEmployeeServiceChange);
+
+            if (entity == null)
+                throw new Exception("Service change record not found.");
+
+            if (!(entity.ApprovalStatus == "SUBMITTED" ||
+                  entity.ApprovalStatus == "REJECTED"))
+                throw new Exception("Approved records cannot be deleted.");
+
+            _dbContext.EmployeeServiceChanges.Remove(entity);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+
+        #endregion
+
+
 
     }
 }

@@ -7,14 +7,11 @@
         public string LeaveTemplateName { get; set; } = string.Empty;
         public string? LeaveTemplateDesc { get; set; }
         public bool IsActive { get; set; }
-        public int? IdAnnualLeaveTypeConfig { get; set; }
+        public int IdYear { get; set; }
         public int CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; }
-
         public int? UpdatedBy { get; set; }
         public DateTime? UpdatedAt { get; set; }
-        public AnnualLeaveTypeConfigDto? AnnualLeaveTypeConfig { get; set; }
-        // ✅ Details List
         public List<LeaveTemplateDetailsDto> Details { get; set; } = new();
     }
    

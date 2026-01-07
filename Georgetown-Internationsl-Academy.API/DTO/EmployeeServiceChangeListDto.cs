@@ -4,11 +4,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Georgetown_Internationsl_Academy.API.DTO
 {
-    public class EmployeeServiceChangeDto
+    public class EmployeeServiceChangeListDto
     {
         [Key]
         public int IdEmployeeServiceChange { get; set; }
         public int IdEmployee { get; set; }
+        public string EmployeeName { get; set; }
         public string? ChangeType { get; set; }
         public string? ChangeDescription { get; set; }
         public string? FromValue { get; set; }
@@ -18,6 +19,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
                     
         public DateTime ChangeValidFrom { get; set; }
         public int ChangedBy { get; set; }
+        public string ChangedByEmployeeName { get; set; }
         public string? Remarks {  get; set; }
         public string? ApprovalStatus { get; set; }
         public int? ApprovedBy { get; set; }

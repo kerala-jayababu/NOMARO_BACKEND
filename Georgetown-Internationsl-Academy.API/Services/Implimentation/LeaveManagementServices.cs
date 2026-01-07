@@ -160,352 +160,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         #endregion
 
-        #region AnnualLeaveTypeConfig
-
-        public async Task<IEnumerable<AnnualLeaveTypeConfigDto>> GetAnnualLeaveTypeConfigs(
-         int? idAnnualLeaveTypeConfig = null,
-         int? idLeaveType = null,
-         int? idYear = null,
-         bool? isActive = null)
-        {
-            try
-            {
-                var query = _dbContext.AnnualLeaveTypeConfig.AsQueryable();
-
-                if (idAnnualLeaveTypeConfig.HasValue)
-                    query = query.Where(x => x.IdAnnualLeaveTypeConfig == idAnnualLeaveTypeConfig.Value);
-
-                if (idLeaveType.HasValue)
-                    query = query.Where(x => x.IdLeaveType == idLeaveType.Value);
-
-                if (idYear.HasValue)
-                    query = query.Where(x => x.IdYear == idYear.Value);
-
-                if (isActive.HasValue)
-                    query = query.Where(x => x.IsActive == isActive.Value);
-
-                var result = await query
-                    .OrderBy(x => x.LeaveTypeName)
-                    .Select(x => new AnnualLeaveTypeConfigDto
-                    {
-                        IdAnnualLeaveTypeConfig = x.IdAnnualLeaveTypeConfig,
-                        IdLeaveType = x.IdLeaveType,
-                        LeaveTypeName = x.LeaveTypeName,
-                        LeaveCode = x.LeaveCode,
-                        IdYear = x.IdYear,
-                        EffectiveFrom = x.EffectiveFrom,
-                        EffectiveTo = x.EffectiveTo,
-                        IsPaid = x.IsPaid,
-                        SalaryDeductionPercent = x.SalaryDeductionPercent,
-                        AllowHalfDay = x.AllowHalfDay,
-                        RequiresApproval = x.RequiresApproval,
-                        RequiredApprovalLevel = x.RequiredApprovalLevel,
-                        RequiresDocument = x.RequiresDocument,
-                        DocumentRequiredAfterDays = x.DocumentRequiredAfterDays,
-                        IsCarryForwardAllowed = x.IsCarryForwardAllowed,
-                        MaxCarryForwardDays = x.MaxCarryForwardDays,
-                        ApplicableGender = x.ApplicableGender,
-                        IsActive = x.IsActive,
-                        IncludeHolidaysBetween = x.IncludeHolidaysBetween,
-                        MaxLeavesPerYear = x.MaxLeavesPerYear,
-                        MaxLeavesPerMonth = x.MaxLeavesPerMonth,
-                        AllowBackdatedLeave = x.AllowBackdatedLeave,
-                        BackdateLimitDays = x.BackdateLimitDays,
-                        CreatedBy = x.CreatedBy,
-                        CreatedAt = x.CreatedAt,
-                        UpdatedBy = x.UpdatedBy,
-                        UpdatedAt = x.UpdatedAt
-                    })
-                    .ToListAsync();
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching AnnualLeaveTypeConfigs.");
-                throw;
-            }
-        }
-
-
-        public async Task<bool> AddUpdateAnnualLeaveTypeConfig(AnnualLeaveTypeConfigDto configDto, int loggedInEmployeeId)
-        {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
-
-            try
-            {
-                    // ✅ VALIDATIONS
-                    if (configDto.SalaryDeductionPercent < 0 || configDto.SalaryDeductionPercent > 100)
-                        throw new ArgumentException("Salary DeductionPercent must be between 0 and 100.");
-
-                    if (configDto.EffectiveFrom > configDto.EffectiveTo)
-                        throw new ArgumentException("Effective From cannot be greater than EffectiveTo.");
-
-                    if (configDto.RequiresDocument && (!configDto.DocumentRequiredAfterDays.HasValue || configDto.DocumentRequiredAfterDays.Value < 0))
-                        throw new ArgumentException("Document Required AfterDays must be >= 0 when RequiresDocument is enabled.");
-
-                    if (configDto.IsPaid && configDto.SalaryDeductionPercent != 0)
-                        throw new ArgumentException("Salary Deduction Percent must be 0 when IsPaid is true.");
-
-                    // ✅ One Active Config per (IdLeaveType, IdYear)
-                    if (configDto.IsActive)
-                    {
-                        bool activeExists = await _dbContext.AnnualLeaveTypeConfig.AnyAsync(x =>
-                            x.IdLeaveType == configDto.IdLeaveType &&
-                            x.IdYear == configDto.IdYear &&
-                            x.IsActive == true &&
-                            x.IdAnnualLeaveTypeConfig != configDto.IdAnnualLeaveTypeConfig
-                        );
-
-                        if (activeExists)
-                            throw new ArgumentException("Only one active config is allowed for the selected LeaveType and Year.");
-                    }
-
-                    // ✅ Update
-                    if (configDto.IdAnnualLeaveTypeConfig > 0)
-                    {
-                        var existing = await _dbContext.AnnualLeaveTypeConfig
-                            .FirstOrDefaultAsync(x => x.IdAnnualLeaveTypeConfig == configDto.IdAnnualLeaveTypeConfig);
-
-                        if (existing == null)
-                            throw new ArgumentException($"Config not found. IdAnnualLeaveTypeConfig = {configDto.IdAnnualLeaveTypeConfig}");
-
-                        existing.IdLeaveType = configDto.IdLeaveType;
-                        existing.LeaveTypeName = configDto.LeaveTypeName;
-                        existing.LeaveCode = configDto.LeaveCode;
-                        existing.IdYear = configDto.IdYear;
-
-                        existing.EffectiveFrom = configDto.EffectiveFrom;
-                        existing.EffectiveTo = configDto.EffectiveTo;
-
-                        existing.IsPaid = configDto.IsPaid;
-                        existing.SalaryDeductionPercent = configDto.SalaryDeductionPercent;
-
-                        existing.AllowHalfDay = configDto.AllowHalfDay;
-                        existing.RequiresApproval = configDto.RequiresApproval;
-                        existing.RequiredApprovalLevel = configDto.RequiredApprovalLevel;
-
-                        existing.RequiresDocument = configDto.RequiresDocument;
-                        existing.DocumentRequiredAfterDays = configDto.DocumentRequiredAfterDays;
-
-                        existing.IsCarryForwardAllowed = configDto.IsCarryForwardAllowed;
-                        existing.MaxCarryForwardDays = configDto.MaxCarryForwardDays;
-
-                        existing.ApplicableGender = configDto.ApplicableGender;
-                        existing.IsActive = configDto.IsActive;
-
-                        existing.IncludeHolidaysBetween = configDto.IncludeHolidaysBetween;
-
-                        existing.MaxLeavesPerYear = configDto.MaxLeavesPerYear;
-                        existing.MaxLeavesPerMonth = configDto.MaxLeavesPerMonth;
-
-                        existing.AllowBackdatedLeave = configDto.AllowBackdatedLeave;
-                        existing.BackdateLimitDays = configDto.BackdateLimitDays;
-
-                        existing.UpdatedBy = loggedInEmployeeId;
-                        existing.UpdatedAt = DateTime.Now;
-
-                        _dbContext.AnnualLeaveTypeConfig.Update(existing);
-                    }
-                    else
-                    {
-                        // ✅ Insert new
-                        var newConfig = new AnnualLeaveTypeConfig
-                        {
-                            IdLeaveType = configDto.IdLeaveType,
-                            LeaveTypeName = configDto.LeaveTypeName,
-                            LeaveCode = configDto.LeaveCode,
-                            IdYear = configDto.IdYear,
-
-                            EffectiveFrom = configDto.EffectiveFrom,
-                            EffectiveTo = configDto.EffectiveTo,
-
-                            IsPaid = configDto.IsPaid,
-                            SalaryDeductionPercent = configDto.SalaryDeductionPercent,
-
-                            AllowHalfDay = configDto.AllowHalfDay,
-                            RequiresApproval = configDto.RequiresApproval,
-                            RequiredApprovalLevel = configDto.RequiredApprovalLevel,
-
-                            RequiresDocument = configDto.RequiresDocument,
-                            DocumentRequiredAfterDays = configDto.DocumentRequiredAfterDays,
-
-                            IsCarryForwardAllowed = configDto.IsCarryForwardAllowed,
-                            MaxCarryForwardDays = configDto.MaxCarryForwardDays,
-
-                            ApplicableGender = configDto.ApplicableGender,
-                            IsActive = configDto.IsActive,
-
-                            IncludeHolidaysBetween = configDto.IncludeHolidaysBetween,
-
-                            MaxLeavesPerYear = configDto.MaxLeavesPerYear,
-                            MaxLeavesPerMonth = configDto.MaxLeavesPerMonth,
-
-                            AllowBackdatedLeave = configDto.AllowBackdatedLeave,
-                            BackdateLimitDays = configDto.BackdateLimitDays,
-
-                            CreatedBy = loggedInEmployeeId,
-                            CreatedAt = DateTime.Now
-                        };
-
-                        await _dbContext.AnnualLeaveTypeConfig.AddAsync(newConfig);
-
-                        // SaveChanges required to generate ID
-                        await _dbContext.SaveChangesAsync();
-                    }
-
-
-                // ================= SAVE WORKFLOW =================
-                List<LeaveWorkFlowDetailDto> wfDto = configDto.wfDetails;
-                if (wfDto != null && wfDto.Any())
-                {
-                    int? idWorkflow = wfDto[0].IdWorkFlowConfig;
-                    if (idWorkflow > 0)
-                    {
-                        var wfConfig = await _dbContext.WorkFlowConfig
-                            .FirstOrDefaultAsync(x => x.IdWorkFlowConfig == idWorkflow);
-
-                        if (wfConfig != null)
-                        {
-                            _dbContext.WorkFlowConfig.Remove(wfConfig);
-                            await _dbContext.SaveChangesAsync();
-                        }
-                    }
-                    //Insert into WorkFlowConfig Table
-
-                    string entityCode = "LEAVE" + "_" + configDto.LeaveCode + "_" + configDto.IdYear.ToString();
-
-                    var workflowConfig = new WorkFlowConfig
-                    {
-                        EntityCode = entityCode,
-                        EntityName = "Leave Approval Workflow - " + configDto.LeaveTypeName,
-                        ApprovalCycleCount = wfDto.Count,
-                        MainTableName = "LeaveApplications",
-                        MainColumnName = "IdEmployee"
-                    };
-
-                    _dbContext.WorkFlowConfig.Add(workflowConfig);
-                    await _dbContext.SaveChangesAsync();
-
-                    var wfConfig1 = await _dbContext.WorkFlowConfig
-                           .FirstOrDefaultAsync(x => x.EntityCode == entityCode);
-
-                    int InsertedIdWorkFlowConfig = 0;
-                    if (wfConfig1 != null)
-                        InsertedIdWorkFlowConfig = wfConfig1.IdWorkFlowConfig;
-                    else
-                        return false;
-
-                    // remove existing workflow
-                    var existingWorkflow = await _dbContext.WorkFlowConfigDetails
-                        .Where(x => x.IdWorkFlowConfigDetail == x.IdWorkFlowConfigDetail)
-                        .ToListAsync();
-
-                    if (existingWorkflow.Any())
-                        _dbContext.WorkFlowConfigDetails.RemoveRange(existingWorkflow);
-
-                    // insert new workflow
-                    var workflowEntities = wfDto.Select(w => new WorkFlowConfigDetails
-                    {
-                        ApprovalStatusName = w.ApprovalStatusName,
-                        ApprovalAuthorityID = w.ApprovalAuthorityID,
-                        ApprovalAuthorityType = w.ApprovalAuthorityType,
-                        LevelNumber = w.LevelNumber,
-                        IdWorkFlowConfig = InsertedIdWorkFlowConfig
-                    }).ToList();
-
-                    await _dbContext.WorkFlowConfigDetails.AddRangeAsync(workflowEntities);
-                }
-
-                await _dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error adding or updating AnnualLeaveTypeConfig.");
-                throw;
-            }
-        }
-        public async Task<bool> DeactivateAnnualLeaveTypeConfig(int idAnnualLeaveTypeConfig, int loggedInEmployeeId)
-        {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
-
-            try
-            {
-                var config = await _dbContext.AnnualLeaveTypeConfig
-                    .FirstOrDefaultAsync(x => x.IdAnnualLeaveTypeConfig == idAnnualLeaveTypeConfig);
-
-                if (config == null)
-                    throw new ArgumentException("Annual leave configuration record not found.");
-
-                if (!config.IsActive)
-                    throw new ArgumentException("Annual leave configuration is already inactive.");
-
-                // ✅ Block if referenced by active templates / assignments
-                // ⚠️ Replace these checks with your actual tables
-
-                bool isUsedInActiveTemplates = false; // Example: await _dbContext.LeaveTemplates.AnyAsync(...)
-                bool isUsedInEmployeeAssignments = false; // Example: await _dbContext.EmployeeLeaveAssignments.AnyAsync(...)
-
-                if (isUsedInActiveTemplates || isUsedInEmployeeAssignments)
-                {
-                    // ✅ If referenced, allow only end-date (EffectiveTo) and require replacement exists
-                    // Placeholder replacement logic
-                    bool replacementExists = await _dbContext.AnnualLeaveTypeConfig.AnyAsync(x =>
-                        x.IdLeaveType == config.IdLeaveType &&
-                        x.IdYear == config.IdYear &&
-                        x.IsActive == true &&
-                        x.IdAnnualLeaveTypeConfig != config.IdAnnualLeaveTypeConfig
-                    );
-
-                    if (!replacementExists)
-                    {
-                        throw new ArgumentException(
-                            "Cannot deactivate this config because it is referenced by active templates/assignments and no active replacement exists.");
-                    }
-
-                    // ✅ End-date instead of deactivating immediately
-                    config.EffectiveTo = DateTime.Today;
-                    config.IsActive = false;
-                }
-                else
-                {
-                    // ✅ Normal soft delete
-                    config.IsActive = false;
-
-                    // Optional: End-date it to today
-                    if (config.EffectiveTo > DateTime.Today)
-                        config.EffectiveTo = DateTime.Today;
-                }
-
-                config.UpdatedBy = loggedInEmployeeId;
-                config.UpdatedAt = DateTime.Now;
-
-                _dbContext.AnnualLeaveTypeConfig.Update(config);
-
-                await _dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error deactivating annual leave config. IdAnnualLeaveTypeConfig: {Id}", idAnnualLeaveTypeConfig);
-                throw;
-            }
-        }
-
-
-        #endregion
-
         #region LeaveTemplates
-        public async Task<IEnumerable<LeaveTemplateDto>> GetLeaveTemplates(
-     int? idLeaveTemplate = null,
-     bool? isActive = null,
-     string? searchText = null)
+        public async Task<IEnumerable<LeaveTemplateDto>> GetLeaveTemplates(int? idLeaveTemplate = null,bool? isActive = null,string? searchText = null)
         {
             try
             {
@@ -513,9 +169,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (idLeaveTemplate.HasValue)
                     query = query.Where(x => x.IdLeaveTemplate == idLeaveTemplate.Value);
-
-                if (isActive.HasValue)
-                    query = query.Where(x => x.IsActive == isActive.Value);
 
                 if (!string.IsNullOrWhiteSpace(searchText))
                 {
@@ -531,9 +184,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         IdLeaveTemplate = t.IdLeaveTemplate,
                         LeaveTemplateName = t.LeaveTemplateName,
-                        IdAnnualLeaveTypeConfig = t.IdAnnualLeaveTypeConfig,  // ✅ optional, keep if you want
-
-                        IsActive = t.IsActive,
+                        IdYear = t.IdYear,
                         CreatedBy = t.CreatedBy,
                         CreatedAt = t.CreatedAt,
                         UpdatedBy = t.UpdatedBy,
@@ -550,7 +201,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<LeaveTemplateWithDetailsDto> GetLeaveTemplate(int idLeaveTemplate)
+        public async Task<LeaveTemplateDto> GetLeaveTemplate(int idLeaveTemplate)
         {
             try
             {
@@ -559,46 +210,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (header == null)
                     throw new ArgumentException("Leave template not found.");
-
-                // ✅ Load Header Config (if present)
-                AnnualLeaveTypeConfigDto? headerConfig = null;
-
-                if (header.IdAnnualLeaveTypeConfig.HasValue && header.IdAnnualLeaveTypeConfig.Value > 0)
-                {
-                    headerConfig = await _dbContext.AnnualLeaveTypeConfig
-                        .Where(c => c.IdAnnualLeaveTypeConfig == header.IdAnnualLeaveTypeConfig.Value)
-                        .Select(c => new AnnualLeaveTypeConfigDto
-                        {
-                            IdAnnualLeaveTypeConfig = c.IdAnnualLeaveTypeConfig,
-                            IdLeaveType = c.IdLeaveType,
-                            LeaveTypeName = c.LeaveTypeName,
-                            LeaveCode = c.LeaveCode,
-                            IdYear = c.IdYear,
-                            EffectiveFrom = c.EffectiveFrom,
-                            EffectiveTo = c.EffectiveTo,
-                            IsPaid = c.IsPaid,
-                            SalaryDeductionPercent = c.SalaryDeductionPercent,
-                            AllowHalfDay = c.AllowHalfDay,
-                            RequiresApproval = c.RequiresApproval,
-                            RequiredApprovalLevel = c.RequiredApprovalLevel,
-                            RequiresDocument = c.RequiresDocument,
-                            DocumentRequiredAfterDays = c.DocumentRequiredAfterDays,
-                            IsCarryForwardAllowed = c.IsCarryForwardAllowed,
-                            MaxCarryForwardDays = c.MaxCarryForwardDays,
-                            ApplicableGender = c.ApplicableGender,
-                            IsActive = c.IsActive,
-                            IncludeHolidaysBetween = c.IncludeHolidaysBetween,
-                            MaxLeavesPerYear = c.MaxLeavesPerYear,
-                            MaxLeavesPerMonth = c.MaxLeavesPerMonth,
-                            AllowBackdatedLeave = c.AllowBackdatedLeave,
-                            BackdateLimitDays = c.BackdateLimitDays,
-                            CreatedBy = c.CreatedBy,
-                            CreatedAt = c.CreatedAt,
-                            UpdatedBy = c.UpdatedBy,
-                            UpdatedAt = c.UpdatedAt
-                        })
-                        .FirstOrDefaultAsync();
-                }
 
                 // ✅ Load details
                 var details = await _dbContext.LeaveTemplateDetails
@@ -609,78 +220,48 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         IdLeaveTemplateDetails = x.IdLeaveTemplateDetails,
                         IdLeaveTemplate = x.IdLeaveTemplate,
                         IdLeaveType = x.IdLeaveType,
-                        IdAnnualLeaveTypeConfig = x.IdAnnualLeaveTypeConfig,
-                        NoOfDaysInYear = x.NoOfDaysInYear
+                        LeaveTypeName = x.LeaveTypeName,
+                        LeaveCode = x.LeaveCode,
+                        IdYear = x.IdYear,
+
+                        EffectiveFrom = x.EffectiveFrom,
+                        EffectiveTo = x.EffectiveTo,
+
+                        ApplicableGender = x.ApplicableGender,
+                        IsPaid = x.IsPaid,
+                        SalaryDeductionPercent = x.SalaryDeductionPercent,
+
+                        AllowHalfDay = x.AllowHalfDay,
+                        RequiresApproval = x.RequiresApproval,
+                        RequiredApprovalLevel = x.RequiredApprovalLevel,
+
+                        RequiresDocument = x.RequiresDocument,
+                        DocumentRequiredAfterDays = x.DocumentRequiredAfterDays,
+
+                        IsCarryForwardAllowed = x.IsCarryForwardAllowed,
+                        MaxCarryForwardDays = x.MaxCarryForwardDays,
+
+                        IncludeHolidaysBetween = x.IncludeHolidaysBetween,
+
+                        MaxLeavesPerYear = x.MaxLeavesPerYear,
+                        MaxLeavesPerMonth = x.MaxLeavesPerMonth,
+
+                        AllowBackdatedLeave = x.AllowBackdatedLeave,
+                        BackdateLimitDays = x.BackdateLimitDays
                     })
                     .ToListAsync();
-
-                // ✅ Fetch configs for details only once
-                var configIds = details
-                    .Where(d => d.IdAnnualLeaveTypeConfig.HasValue && d.IdAnnualLeaveTypeConfig.Value > 0)
-                    .Select(d => d.IdAnnualLeaveTypeConfig.Value)
-                    .Distinct()
-                    .ToList();
-
-                var configs = await _dbContext.AnnualLeaveTypeConfig
-                    .Where(c => configIds.Contains(c.IdAnnualLeaveTypeConfig))
-                    .Select(c => new AnnualLeaveTypeConfigDto
-                    {
-                        IdAnnualLeaveTypeConfig = c.IdAnnualLeaveTypeConfig,
-                        IdLeaveType = c.IdLeaveType,
-                        LeaveTypeName = c.LeaveTypeName,
-                        LeaveCode = c.LeaveCode,
-                        IdYear = c.IdYear,
-                        EffectiveFrom = c.EffectiveFrom,
-                        EffectiveTo = c.EffectiveTo,
-                        IsPaid = c.IsPaid,
-                        SalaryDeductionPercent = c.SalaryDeductionPercent,
-                        AllowHalfDay = c.AllowHalfDay,
-                        RequiresApproval = c.RequiresApproval,
-                        RequiredApprovalLevel = c.RequiredApprovalLevel,
-                        RequiresDocument = c.RequiresDocument,
-                        DocumentRequiredAfterDays = c.DocumentRequiredAfterDays,
-                        IsCarryForwardAllowed = c.IsCarryForwardAllowed,
-                        MaxCarryForwardDays = c.MaxCarryForwardDays,
-                        ApplicableGender = c.ApplicableGender,
-                        IsActive = c.IsActive,
-                        IncludeHolidaysBetween = c.IncludeHolidaysBetween,
-                        MaxLeavesPerYear = c.MaxLeavesPerYear,
-                        MaxLeavesPerMonth = c.MaxLeavesPerMonth,
-                        AllowBackdatedLeave = c.AllowBackdatedLeave,
-                        BackdateLimitDays = c.BackdateLimitDays,
-                        CreatedBy = c.CreatedBy,
-                        CreatedAt = c.CreatedAt,
-                        UpdatedBy = c.UpdatedBy,
-                        UpdatedAt = c.UpdatedAt
-                    })
-                    .ToListAsync();
-
-                // ✅ Attach config object to each detail
-                foreach (var d in details)
-                {
-                    if (d.IdAnnualLeaveTypeConfig.HasValue && d.IdAnnualLeaveTypeConfig.Value > 0)
-                    {
-                        d.AnnualLeaveTypeConfig = configs
-                            .FirstOrDefault(c => c.IdAnnualLeaveTypeConfig == d.IdAnnualLeaveTypeConfig.Value);
-                    }
-                }
-
-                return new LeaveTemplateWithDetailsDto
+              
+                return new LeaveTemplateDto
                 {
                     IdLeaveTemplate = header.IdLeaveTemplate,
                     LeaveTemplateName = header.LeaveTemplateName,
                     LeaveTemplateDesc = header.LeaveTemplateDesc,
-                    IdAnnualLeaveTypeConfig = header.IdAnnualLeaveTypeConfig,
-
-                    AnnualLeaveTypeConfig = headerConfig,   // ✅ Header Config object
-
-                    IsActive = header.IsActive,
+                    IdYear = header.IdYear,
                     CreatedBy = header.CreatedBy,
                     CreatedAt = header.CreatedAt,
                     UpdatedBy = header.UpdatedBy,
                     UpdatedAt = header.UpdatedAt,
-
-                    Details = details
+                    LeaveTemplateDetails = details
                 };
             }
             catch (Exception ex)
@@ -690,7 +271,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<LeaveTemplateSaveResponseDto> AddUpdateLeaveTemplate(LeaveTemplatePostDto dto, int loggedInEmployeeId)
+        public async Task<bool> AddUpdateLeaveTemplate(LeaveTemplateDto dto, int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -709,14 +290,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (nameExists)
                     throw new ArgumentException($"LeaveTemplateName '{dto.LeaveTemplateName}' already exists.");
 
-                // ✅ (2) If IsActive = true -> at least 1 detail row required
-                if (dto.IsActive && (dto.Details == null || !dto.Details.Any()))
-                    throw new ArgumentException("At least one detail row is required when template is active.");
-
                 // ✅ (3) No duplicate LeaveType within template
-                if (dto.Details != null && dto.Details.Any())
+                if (dto.LeaveTemplateDetails != null && dto.LeaveTemplateDetails.Any())
                 {
-                    var duplicateLeaveTypes = dto.Details
+                    var duplicateLeaveTypes = dto.LeaveTemplateDetails
                         .GroupBy(x => x.IdLeaveType)
                         .Where(g => g.Count() > 1)
                         .Select(g => g.Key)
@@ -739,18 +316,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     headerEntity.LeaveTemplateName = dto.LeaveTemplateName;
                     headerEntity.LeaveTemplateDesc = dto.LeaveTemplateDesc;
-                    headerEntity.IsActive = dto.IsActive;
-
-                    // If you have this column in DB:
-                    if (dto.IdAnnualLeaveTypeConfig.HasValue)
-                    {
-                        headerEntity.IdAnnualLeaveTypeConfig = dto.IdAnnualLeaveTypeConfig.Value;
-                    }
-
+                    headerEntity.IdYear = dto.IdYear;
                     headerEntity.UpdatedAt = DateTime.Now;
                     headerEntity.UpdatedBy = loggedInEmployeeId;
-
                     _dbContext.LeaveTemplates.Update(headerEntity);
+                    await _dbContext.SaveChangesAsync();
                 }
                 else
                 {
@@ -758,109 +328,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         LeaveTemplateName = dto.LeaveTemplateName,
                         LeaveTemplateDesc = dto.LeaveTemplateDesc,
-                        IsActive = dto.IsActive,
+                        IdYear = dto.IdYear,
+                        ApprovlStatus = "DRAFT",
                         CreatedAt = DateTime.Now,
                         CreatedBy = loggedInEmployeeId
                     };
-
-                    if (dto.IdAnnualLeaveTypeConfig.HasValue)
-                    {
-                        headerEntity.IdAnnualLeaveTypeConfig = dto.IdAnnualLeaveTypeConfig.Value;
-                    }
-
                     await _dbContext.LeaveTemplates.AddAsync(headerEntity);
                     await _dbContext.SaveChangesAsync(); // ✅ generate header ID
+
                 }
-
-                int templateId = headerEntity.IdLeaveTemplate;
-
-                // ✅ (5) Upsert Details
-                var existingDetails = await _dbContext.LeaveTemplateDetails
-                    .Where(x => x.IdLeaveTemplate == templateId)
-                    .ToListAsync();
-
-                // ✅ OPTIONAL RESTRICTION: If template is assigned, block delete removed leave types
-                bool isTemplateAssigned = false;
-
-                // ✅ Example: Replace with your actual assignment table
-                //isTemplateAssigned = await _dbContext.EmployeeLeaveTemplateAssignments
-                //     .AnyAsync(x => x.IdLeaveTemplate == templateId && x.IsActive == true);
-
-                // Keep list of detail IDs coming in request
-                var detailIdsInRequest = dto.Details
-                    .Where(x => x.IdLeaveTemplateDetails > 0)
-                    .Select(x => x.IdLeaveTemplateDetails)
-                    .ToList();
-
-                // ✅ Delete removed details (if allowed)
-                var detailsToDelete = existingDetails
-                    .Where(x => !detailIdsInRequest.Contains(x.IdLeaveTemplateDetails))
-                    .ToList();
-
-                if (detailsToDelete.Any())
-                {
-                    if (isTemplateAssigned)
-                    {
-                        throw new ArgumentException("Cannot remove leave types because this template is assigned to employees. End-date or migrate instead.");
-                    }
-
-                    _dbContext.LeaveTemplateDetails.RemoveRange(detailsToDelete);
-                }
-
-                // ✅ Insert or Update details
-                foreach (var detailDto in dto.Details)
-                {
-                    if (detailDto.NoOfDaysInYear <= 0)
-                        throw new ArgumentException("NoOfDaysInYear must be greater than 0.");
-
-                    var existing = existingDetails
-                        .FirstOrDefault(x => x.IdLeaveTemplateDetails == detailDto.IdLeaveTemplateDetails);
-
-                    if (existing != null)
-                    {
-                        existing.IdLeaveType = detailDto.IdLeaveType;
-
-                        // if column exists:
-                        if (detailDto.IdAnnualLeaveTypeConfig.HasValue)
-                            existing.IdAnnualLeaveTypeConfig = detailDto.IdAnnualLeaveTypeConfig.Value;
-
-                        existing.NoOfDaysInYear = detailDto.NoOfDaysInYear;
-
-                        _dbContext.LeaveTemplateDetails.Update(existing);
-                    }
-                    else
-                    {
-                        var newDetail = new LeaveTemplateDetails
-                        {
-                            IdLeaveTemplate = templateId,
-                            IdLeaveType = detailDto.IdLeaveType,
-                            NoOfDaysInYear = detailDto.NoOfDaysInYear
-                        };
-
-                        if (detailDto.IdAnnualLeaveTypeConfig.HasValue)
-                            newDetail.IdAnnualLeaveTypeConfig = detailDto.IdAnnualLeaveTypeConfig.Value;
-
-                        await _dbContext.LeaveTemplateDetails.AddAsync(newDetail);
-                    }
-                }
-
-                await _dbContext.SaveChangesAsync();
-
-                // ✅ (6) Audit log (optional)
-                // await _auditService.Log(...)
-
                 await transaction.CommitAsync();
 
-                // ✅ Return full template after save
-                var savedTemplate = await GetLeaveTemplate(templateId);
 
-                return new LeaveTemplateSaveResponseDto
-                {
-                    SuccessFlag = true,
-                    Message = "Leave template saved successfully.",
-                    IdLeaveTemplate = templateId,
-                    Template = savedTemplate
-                };
+                return true;
             }
             catch (Exception ex)
             {
@@ -869,122 +349,551 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-        public async Task<bool> DeactivateLeaveTemplate(int idLeaveTemplate, int loggedInEmployeeId)
-        {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
-
-            try
-            {
-                var template = await _dbContext.LeaveTemplates
-                    .FirstOrDefaultAsync(x => x.IdLeaveTemplate == idLeaveTemplate);
-
-                if (template == null)
-                    throw new ArgumentException("Leave template not found.");
-
-                if (!template.IsActive)
-                    throw new ArgumentException("Leave template is already inactive.");
-
-                // ✅ Block if template has active employee assignments
-                // ⚠️ Replace this with your actual assignment table check
-                bool hasActiveAssignments = false;
-
-                // Example:
-                // hasActiveAssignments = await _dbContext.EmployeeLeaveTemplateAssignments.AnyAsync(x =>
-                //     x.IdLeaveTemplate == idLeaveTemplate && x.IsActive == true);
-
-                if (hasActiveAssignments)
-                    throw new ArgumentException("Cannot deactivate template because it has active employee assignments. End-date assignments first.");
-
-                // ✅ Soft delete
-                template.IsActive = false;
-                template.UpdatedAt = DateTime.Now;
-                template.UpdatedBy = loggedInEmployeeId;
-
-                _dbContext.LeaveTemplates.Update(template);
-                await _dbContext.SaveChangesAsync();
-
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        }
-
 
         #endregion
 
-        #region EmployeeLeaveManagement
-        public async Task<EmployeeLeaveSetupDto> GetEmployeeLeaveSetup(int idEmployee, DateTime? activeOnDate = null)
-        {
-            try
-            {
-                if (idEmployee <= 0)
-                    throw new ArgumentException("IdEmployee is required.");
-
-                var date = (activeOnDate ?? DateTime.Now).Date;
-
-                // ✅ Find active config
-                var config = await _dbContext.EmployeeLeaveConfigs
-                    .Where(x => x.IdEmployee == idEmployee
-                             && x.EffectiveFrom.Date <= date
-                             && (x.EffectiveTo == null || x.EffectiveTo.Value.Date >= date))
-                    .OrderByDescending(x => x.EffectiveFrom) // latest active assignment
-                    .FirstOrDefaultAsync();
-
-                if (config == null)
-                    throw new ArgumentException("No active leave setup found for this employee.");
-
-                // ✅ Load Details
-                var details = await (
-                    from d in _dbContext.EmployeeLeaveConfigDetails
-                    where d.IdEmployeeLeaveConfig == config.IdEmployeeLeaveConfig
-                    join lt in _dbContext.LeaveTypes on d.IdLeaveType equals lt.IdLeaveType into lts
-                    from leaveType in lts.DefaultIfEmpty()
-                    orderby d.IdLeaveType
-                    select new EmployeeLeaveSetupDetailDto
-                    {
-                        IdEmployeeLeaveConfigDetail = d.IdEmployeeLeaveConfigDetail,
-                        IdEmployeeLeaveConfig = d.IdEmployeeLeaveConfig,
-                        IdLeaveType = d.IdLeaveType,
-                        AllocatedDays = d.AllocatedDays,
-                        UsedLeaveDays = d.UsedLeaveDays,
-                        BalanceLeaveDays = d.BalanceLeaveDays,
-
-                        LeaveTypeName = leaveType != null ? leaveType.LeaveTypeName : null,
-                        LeaveCode = leaveType != null ? leaveType.LeaveCode : null
-                    }
-                ).ToListAsync();
-
-                return new EmployeeLeaveSetupDto
-                {
-                    IdEmployeeLeaveConfig = config.IdEmployeeLeaveConfig,
-                    IdEmployee = config.IdEmployee,
-                    IdLeaveTemplate = config.IdLeaveTemplate,
-                    EffectiveFrom = config.EffectiveFrom,
-                    EffectiveTo = config.EffectiveTo,
-                    CreatedBy = config.CreatedBy,
-                    CreatedAt = config.CreatedAt,
-                    UpdatedBy = config.UpdatedBy,
-                    UpdatedAt = config.UpdatedAt,
-                    Details = details
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching employee leave setup. IdEmployee={IdEmployee}", idEmployee);
-                throw;
-            }
-        }
-        public async Task<int> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigPostDto dto, int loggedInEmployeeId)
+        public async Task<bool> AddOrUpdateLeaveTemplateDetails(LeaveTemplateDetailsDto dto,int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
-                // ✅ Basic validations
+                // ============================
+                // 1️⃣ Mandatory validations
+                // ============================
+
+                if (dto.IdLeaveTemplate <= 0)
+                    throw new ArgumentException("Leave Template is required.");
+
+                if (dto.IdLeaveType <= 0)
+                    throw new ArgumentException("Leave Type is required.");
+
+                if (string.IsNullOrWhiteSpace(dto.LeaveTypeName))
+                    throw new ArgumentException("Leave Type Name is required.");
+
+                if (string.IsNullOrWhiteSpace(dto.LeaveCode))
+                    throw new ArgumentException("Leave Code is required.");
+
+                if (dto.IdYear <= 0)
+                    throw new ArgumentException("Year is required.");
+
+                if (dto.EffectiveFrom == DateTime.MinValue || dto.EffectiveTo == DateTime.MinValue)
+                    throw new ArgumentException("Effective dates are required.");
+
+                if (dto.EffectiveFrom > dto.EffectiveTo)
+                    throw new ArgumentException("EffectiveFrom cannot be greater than EffectiveTo.");
+
+                if (dto.MaxLeavesPerYear <= 0)
+                    throw new ArgumentException("MaxLeavesPerYear must be greater than zero.");
+
+                // ============================
+                // 2️⃣ Normalize
+                // ============================
+
+                dto.LeaveCode = dto.LeaveCode.Trim().ToUpper();
+                dto.LeaveTypeName = dto.LeaveTypeName.Trim();
+                dto.ApplicableGender = (dto.ApplicableGender ?? "BOTH").ToUpper();
+
+                // ============================
+                // 3️⃣ LeaveCode uniqueness
+                // ============================
+
+                bool codeExists = await _dbContext.LeaveTemplateDetails.AnyAsync(x =>
+                    x.LeaveCode == dto.LeaveCode &&
+                    x.IdLeaveTemplate == dto.IdLeaveTemplate &&
+                    x.IdYear == dto.IdYear &&
+                    x.IdLeaveTemplateDetails != dto.IdLeaveTemplateDetails);
+
+                if (codeExists)
+                    throw new ArgumentException($"LeaveCode '{dto.LeaveCode}' already exists.");
+
+                // ============================
+                // 4️⃣ Gender validation
+                // ============================
+
+                if (!new[] { "MALE", "FEMALE", "BOTH" }.Contains(dto.ApplicableGender))
+                    throw new ArgumentException("ApplicableGender must be MALE, FEMALE or BOTH.");
+
+                // ============================
+                // 5️⃣ Paid / Unpaid rules
+                // ============================
+
+                if (dto.IsPaid && (dto.SalaryDeductionPercent ?? 0) > 0)
+                    throw new ArgumentException("Paid leave cannot have salary deduction.");
+
+                if (!dto.IsPaid &&
+                    ((dto.SalaryDeductionPercent ?? 0) < 0 ||
+                     (dto.SalaryDeductionPercent ?? 0) > 100))
+                    throw new ArgumentException("SalaryDeductionPercent must be between 0 and 100.");
+
+                // ============================
+                // 6️⃣ Approval rules
+                // ============================
+
+                if (dto.RequiresApproval &&
+                    (!dto.RequiredApprovalLevel.HasValue || dto.RequiredApprovalLevel <= 0))
+                    throw new ArgumentException("Approval level is required.");
+
+                if (!dto.RequiresApproval)
+                    dto.RequiredApprovalLevel = 0;
+
+                // ============================
+                // 7️⃣ Document rules
+                // ============================
+
+                if (dto.RequiresDocument &&
+                    (!dto.DocumentRequiredAfterDays.HasValue || dto.DocumentRequiredAfterDays <= 0))
+                    throw new ArgumentException("DocumentRequiredAfterDays must be greater than zero.");
+
+                if (!dto.RequiresDocument)
+                    dto.DocumentRequiredAfterDays = 0;
+
+                // ============================
+                // 8️⃣ Carry forward rules
+                // ============================
+
+                if (dto.IsCarryForwardAllowed &&
+                    (!dto.MaxCarryForwardDays.HasValue || dto.MaxCarryForwardDays <= 0))
+                    throw new ArgumentException("MaxCarryForwardDays must be greater than zero.");
+
+                if (!dto.IsCarryForwardAllowed)
+                    dto.MaxCarryForwardDays = 0;
+
+                // ============================
+                // 9️⃣ Monthly / Yearly cap
+                // ============================
+
+                if (dto.MaxLeavesPerMonth.HasValue &&
+                    dto.MaxLeavesPerMonth > dto.MaxLeavesPerYear && dto.MaxLeavesPerMonth > 31)
+                    throw new ArgumentException("MaxLeavesPerMonth cannot exceed MaxLeavesPerYear or Number of days in a month.");
+
+                // ============================
+                // 🔟 Backdated leave rules
+                // ============================
+
+                if (dto.AllowBackdatedLeave &&
+                    (!dto.BackdateLimitDays.HasValue || dto.BackdateLimitDays <= 0))
+                    throw new ArgumentException("BackdateLimitDays must be greater than zero.");
+
+                if (!dto.AllowBackdatedLeave)
+                    dto.BackdateLimitDays = 0;
+
+                // ============================
+                // 1️⃣1️⃣ Insert / Update
+                // ============================
+
+                if (dto.IdLeaveTemplateDetails > 0)
+                {
+                    // 🔹 Update
+                    var entity = await _dbContext.LeaveTemplateDetails
+                        .FirstOrDefaultAsync(x => x.IdLeaveTemplateDetails == dto.IdLeaveTemplateDetails);
+
+                    if (entity == null)
+                        throw new ArgumentException("LeaveTemplateDetails not found.");
+
+                    entity.IdLeaveType = dto.IdLeaveType;
+                    entity.LeaveTypeName = dto.LeaveTypeName;
+                    entity.LeaveCode = dto.LeaveCode;
+                    entity.IdYear = dto.IdYear;
+                    entity.EffectiveFrom = dto.EffectiveFrom;
+                    entity.EffectiveTo = dto.EffectiveTo;
+                    entity.ApplicableGender = dto.ApplicableGender;
+                    entity.IsPaid = dto.IsPaid;
+                    entity.SalaryDeductionPercent = dto.SalaryDeductionPercent;
+                    entity.AllowHalfDay = dto.AllowHalfDay;
+                    entity.RequiresApproval = dto.RequiresApproval;
+                    entity.RequiredApprovalLevel = dto.RequiredApprovalLevel;
+                    entity.RequiresDocument = dto.RequiresDocument;
+                    entity.DocumentRequiredAfterDays = dto.DocumentRequiredAfterDays;
+                    entity.IsCarryForwardAllowed = dto.IsCarryForwardAllowed;
+                    entity.MaxCarryForwardDays = dto.MaxCarryForwardDays;
+                    entity.IncludeHolidaysBetween = dto.IncludeHolidaysBetween;
+                    entity.MaxLeavesPerYear = dto.MaxLeavesPerYear;
+                    entity.MaxLeavesPerMonth = dto.MaxLeavesPerMonth;
+                    entity.AllowBackdatedLeave = dto.AllowBackdatedLeave;
+                    entity.BackdateLimitDays = dto.BackdateLimitDays;
+                }
+                else
+                {
+                    // 🔹 Insert
+                    var entity = new LeaveTemplateDetails
+                    {
+                        IdLeaveTemplate = dto.IdLeaveTemplate,
+                        IdLeaveType = dto.IdLeaveType,
+                        LeaveTypeName = dto.LeaveTypeName,
+                        LeaveCode = dto.LeaveCode,
+                        IdYear = dto.IdYear,
+                        EffectiveFrom = dto.EffectiveFrom,
+                        EffectiveTo = dto.EffectiveTo,
+                        ApplicableGender = dto.ApplicableGender,
+                        IsPaid = dto.IsPaid,
+                        SalaryDeductionPercent = dto.SalaryDeductionPercent,
+                        AllowHalfDay = dto.AllowHalfDay,
+                        RequiresApproval = dto.RequiresApproval,
+                        RequiredApprovalLevel = dto.RequiredApprovalLevel,
+                        RequiresDocument = dto.RequiresDocument,
+                        DocumentRequiredAfterDays = dto.DocumentRequiredAfterDays,
+                        IsCarryForwardAllowed = dto.IsCarryForwardAllowed,
+                        MaxCarryForwardDays = dto.MaxCarryForwardDays,
+                        IncludeHolidaysBetween = dto.IncludeHolidaysBetween,
+                        MaxLeavesPerYear = dto.MaxLeavesPerYear,
+                        MaxLeavesPerMonth = dto.MaxLeavesPerMonth,
+                        AllowBackdatedLeave = dto.AllowBackdatedLeave,
+                        BackdateLimitDays = dto.BackdateLimitDays
+                    };
+
+                    await _dbContext.LeaveTemplateDetails.AddAsync(entity);
+                }
+
+                // ================= SAVE WORKFLOW =================
+                List<LeaveWorkFlowDetailDto> wfDto = dto.leaveWorkFlowDetails;
+                if (wfDto != null && wfDto.Any())
+                {
+                    int? idWorkflow = wfDto[0].IdWorkFlowConfig;
+                    if (idWorkflow > 0)
+                    {
+                        var wfConfig = await _dbContext.WorkFlowConfig
+                            .FirstOrDefaultAsync(x => x.IdWorkFlowConfig == idWorkflow);
+
+                        if (wfConfig != null)
+                        {
+                            _dbContext.WorkFlowConfig.Remove(wfConfig);
+                            await _dbContext.SaveChangesAsync();
+                        }
+                    }
+                    //Insert into WorkFlowConfig Table
+
+                    string entityCode = dto.IdLeaveTemplate.ToString() + "_" + "LEAVE" + "_" + dto.IdLeaveType.ToString() + "_" + dto.IdYear.ToString();
+                    if(dto.IdLeaveTemplateDetails > 0)
+                    {
+                        var existingWorkflowConfig = await _dbContext.WorkFlowConfig.FirstOrDefaultAsync(x => x.EntityCode == entityCode);
+
+                        if (existingWorkflowConfig != null)
+                        {
+                            // 🔹 Remove workflow details FIRST
+                            var existingDetails = await _dbContext.WorkFlowConfigDetails
+                                .Where(x => x.IdWorkFlowConfig == existingWorkflowConfig.IdWorkFlowConfig)
+                                .ToListAsync();
+
+                            if (existingDetails.Any())
+                                _dbContext.WorkFlowConfigDetails.RemoveRange(existingDetails);
+
+                            // 🔹 Remove workflow header
+                            _dbContext.WorkFlowConfig.Remove(existingWorkflowConfig);
+                            await _dbContext.SaveChangesAsync();
+                        }
+                    }
+
+                    var workflowConfig = new WorkFlowConfig
+                    {
+                        EntityCode = entityCode,
+                        EntityName = "Leave Approval Workflow - " + dto.LeaveTypeName,
+                        ApprovalCycleCount = wfDto.Count,
+                        MainTableName = "LeaveApplications",
+                        MainColumnName = "IdEmployee"
+                    };
+
+                    _dbContext.WorkFlowConfig.Add(workflowConfig);
+                    await _dbContext.SaveChangesAsync();
+
+                    var wfConfig1 = await _dbContext.WorkFlowConfig
+                           .FirstOrDefaultAsync(x => x.EntityCode == entityCode);
+
+                    int InsertedIdWorkFlowConfig = 0;
+                    if (wfConfig1 != null)
+                        InsertedIdWorkFlowConfig = wfConfig1.IdWorkFlowConfig;
+                    else
+                        return false;
+
+                    // remove existing workflow
+                    var existingWorkflow = await _dbContext.WorkFlowConfigDetails
+                        .Where(x => x.IdWorkFlowConfig == InsertedIdWorkFlowConfig)
+                        .ToListAsync();
+
+                    if (existingWorkflow.Any())
+                        _dbContext.WorkFlowConfigDetails.RemoveRange(existingWorkflow);
+
+                    // insert new workflow
+                    var workflowEntities = wfDto.Select(w => new WorkFlowConfigDetails
+                    {
+                        ApprovalStatusName = w.ApprovalStatusName,
+                        ApprovalAuthorityID = w.ApprovalAuthorityID,
+                        ApprovalAuthorityType = w.ApprovalAuthorityType,
+                        LevelNumber = w.LevelNumber,
+                        IdWorkFlowConfig = InsertedIdWorkFlowConfig
+                    }).ToList();
+
+                    await _dbContext.WorkFlowConfigDetails.AddRangeAsync(workflowEntities);
+                }
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error saving LeaveTemplateDetails");
+                throw;
+            }
+        }
+
+        public async Task<LeaveTemplateDetailsDto> GetLeaveTemplateDetailById(int idLeaveTemplateDetails)
+        {
+            try
+            {
+                if (idLeaveTemplateDetails <= 0)
+                    throw new ArgumentException("Invalid LeaveTemplateDetail Id.");
+
+                var detail = await _dbContext.LeaveTemplateDetails
+                    .AsNoTracking()
+                    .Where(x => x.IdLeaveTemplateDetails == idLeaveTemplateDetails)
+                    .Select(x => new LeaveTemplateDetailsDto
+                    {
+                        IdLeaveTemplateDetails = x.IdLeaveTemplateDetails,
+                        IdLeaveTemplate = x.IdLeaveTemplate,
+                        IdLeaveType = x.IdLeaveType,
+                        LeaveTypeName = x.LeaveTypeName,
+                        LeaveCode = x.LeaveCode,
+                        IdYear = x.IdYear,
+
+                        EffectiveFrom = x.EffectiveFrom,
+                        EffectiveTo = x.EffectiveTo,
+
+                        ApplicableGender = x.ApplicableGender,
+                        IsPaid = x.IsPaid,
+                        SalaryDeductionPercent = x.SalaryDeductionPercent,
+
+                        AllowHalfDay = x.AllowHalfDay,
+                        RequiresApproval = x.RequiresApproval,
+                        RequiredApprovalLevel = x.RequiredApprovalLevel,
+
+                        RequiresDocument = x.RequiresDocument,
+                        DocumentRequiredAfterDays = x.DocumentRequiredAfterDays,
+
+                        IsCarryForwardAllowed = x.IsCarryForwardAllowed,
+                        MaxCarryForwardDays = x.MaxCarryForwardDays,
+
+                        IncludeHolidaysBetween = x.IncludeHolidaysBetween,
+
+                        MaxLeavesPerYear = x.MaxLeavesPerYear,
+                        MaxLeavesPerMonth = x.MaxLeavesPerMonth,
+
+                        AllowBackdatedLeave = x.AllowBackdatedLeave,
+                        BackdateLimitDays = x.BackdateLimitDays
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (detail == null)
+                    throw new ArgumentException("LeaveTemplateDetail not found.");
+
+                return detail;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error fetching LeaveTemplateDetail. IdLeaveTemplateDetails={IdLeaveTemplateDetails}",
+                    idLeaveTemplateDetails);
+                throw;
+            }
+        }
+
+
+        #region EmployeeLeaveManagement
+        public async Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string searchText, int? idYear)
+        {
+            try
+            {
+                searchText = searchText?.Trim();
+
+                var query =
+                    from elc in _dbContext.EmployeeLeaveConfigs
+                    join emp in _dbContext.Employees
+                        on elc.IdEmployee equals emp.IdEmployee
+                    join dept in _dbContext.Departments
+                        on emp.IdDepartment equals dept.IdDepartment
+                    join desig in _dbContext.Designations
+                        on emp.IdDesignation equals desig.IdDesignation
+                    join lt in _dbContext.LeaveTemplates
+                        on elc.IdLeaveTemplate equals lt.IdLeaveTemplate
+                    select new
+                    {
+                        elc,
+                        emp,
+                        dept,
+                        desig,
+                        lt
+                    };
+
+                // 🔍 SearchText filter (optional)
+                if (!string.IsNullOrWhiteSpace(searchText))
+                {
+                    query = query.Where(x =>
+                        x.emp.FirstName.Contains(searchText) ||
+                        x.emp.LastName.Contains(searchText) ||
+                        x.dept.DepartmentName.Contains(searchText) ||
+                        x.desig.DesignationName.Contains(searchText)
+                    );
+                }
+
+                // 📅 Year filter (optional)
+                if (idYear > 0)
+                {
+                    query = query.Where(x => x.lt.IdYear == idYear);
+                }
+
+                var configs = await query
+                    .OrderByDescending(x => x.elc.EffectiveFrom)
+                    .Select(x => new EmployeeLeaveSetupDto
+                    {
+                        // 🔹 Employee Leave Config
+                        IdEmployeeLeaveConfig = x.elc.IdEmployeeLeaveConfig,
+                        IdEmployee = x.elc.IdEmployee,
+                        IdLeaveTemplate = x.elc.IdLeaveTemplate,
+                        LeaveTemplateName = x.lt.LeaveTemplateName,
+                        IdYear = x.lt.IdYear,
+
+                        EffectiveFrom = x.elc.EffectiveFrom,
+                        EffectiveTo = x.elc.EffectiveTo,
+
+                        CreatedBy = x.elc.CreatedBy,
+                        CreatedAt = x.elc.CreatedAt,
+                        UpdatedBy = x.elc.UpdatedBy,
+                        UpdatedAt = x.elc.UpdatedAt,
+
+                        // 🔹 Employee Details
+                        EmployeeName = ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
+                        JoingDate = x.emp.JoiningDate ?? DateTime.MinValue,
+                        DepartmentName = x.dept.DepartmentName,
+                        DesignationName = x.desig.DesignationName
+                    })
+                    .AsNoTracking().ToListAsync();
+
+                return configs;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee leave setup. SearchText={SearchText}, IdYear={IdYear}", searchText, idYear);
+                throw;
+            }
+        }
+
+
+        public async Task<EmployeeLeaveSetupDto> GetLeaveSetupOfAnEmployee(int IdEmployee, int idYear)
+        {
+            try
+            {
+     
+                var query =
+                    from elc in _dbContext.EmployeeLeaveConfigs
+                    where elc.IdEmployee == IdEmployee
+                    join emp in _dbContext.Employees
+                        on elc.IdEmployee equals emp.IdEmployee
+                    join dept in _dbContext.Departments
+                        on emp.IdDepartment equals dept.IdDepartment
+                    join desig in _dbContext.Designations
+                        on emp.IdDesignation equals desig.IdDesignation
+                    join lt in _dbContext.LeaveTemplates
+                        on elc.IdLeaveTemplate equals lt.IdLeaveTemplate
+                    where lt.IdYear == idYear
+                    select new
+                    {
+                        elc,
+                        emp,
+                        dept,
+                        desig,
+                        lt
+                    };
+
+                var configs = await query
+                    .OrderByDescending(x => x.elc.EffectiveFrom)
+                    .Select(x => new EmployeeLeaveSetupDto
+                    {
+                        // 🔹 Employee Leave Config
+                        IdEmployeeLeaveConfig = x.elc.IdEmployeeLeaveConfig,
+                        IdEmployee = x.elc.IdEmployee,
+                        IdLeaveTemplate = x.elc.IdLeaveTemplate,
+                        LeaveTemplateName = x.lt.LeaveTemplateName,
+                        IdYear = x.lt.IdYear,
+
+                        EffectiveFrom = x.elc.EffectiveFrom,
+                        EffectiveTo = x.elc.EffectiveTo,
+
+                        CreatedBy = x.elc.CreatedBy,
+                        CreatedAt = x.elc.CreatedAt,
+                        UpdatedBy = x.elc.UpdatedBy,
+                        UpdatedAt = x.elc.UpdatedAt,
+
+                        // 🔹 Employee Details
+                        EmployeeName = ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
+                        JoingDate = x.emp.JoiningDate ?? DateTime.MinValue,
+                        DepartmentName = x.dept.DepartmentName,
+                        DesignationName = x.desig.DesignationName
+                    })
+                    .AsNoTracking().FirstOrDefaultAsync();
+
+                    //Get Employee Leave Details
+                     var DetailsQuery =
+                     from elc in _dbContext.EmployeeLeaveConfigDetails
+                     where elc.IdEmployeeLeaveConfig == configs.IdEmployeeLeaveConfig
+                     join ltd in _dbContext.LeaveTemplateDetails
+                         on elc.IdLeaveTemplateDetail equals ltd.IdLeaveTemplateDetails
+                     select new
+                     {
+                         elc,
+                         ltd
+                     };
+
+                var Detailconfigs = await DetailsQuery
+                   .Select(x => new EmployeeLeaveSetupDetailDto
+                   {
+                       IdEmployeeLeaveConfigDetail = x.elc.IdEmployeeLeaveConfigDetails,
+                        IdEmployeeLeaveConfig = x.elc.IdEmployeeLeaveConfig,
+                       IdLeaveType = x.elc.IdLeaveType,
+                        LeaveTypeName = x.ltd.LeaveTypeName,
+                        LeaveCode =  x.ltd.LeaveCode,
+                        AllocatedDaysInYear = x.elc.AllocatedDaysInYear,
+                       CarryForwardDays = x.elc.CarryForwardDays,
+                        TotalAllocatedDays = x.elc.TotalAllocatedDays,
+                        UsedLeaveDays = x.elc.UsedLeaveDays,
+                        BalanceLeaveDays = x.elc.BalanceLeaveDays,
+                        ApplicableGender = x.ltd.ApplicableGender,
+                        IsPaid = x.ltd.IsPaid,
+                        SalaryDeductionPercent = x.ltd.SalaryDeductionPercent,
+                        AllowHalfDay = x.ltd.AllowHalfDay,
+                        RequiresApproval = x.ltd.RequiresApproval,
+                        RequiredApprovalLevel = x.ltd.RequiredApprovalLevel,
+                        RequiresDocument = x.ltd.RequiresDocument,
+                        DocumentRequiredAfterDays = x.ltd.DocumentRequiredAfterDays,
+                        IsCarryForwardAllowed = x.ltd.IsCarryForwardAllowed,
+                        MaxCarryForwardDays = x.ltd.MaxCarryForwardDays,
+                        IncludeHolidaysBetween = x.ltd.IncludeHolidaysBetween,
+                        MaxLeavesPerYear = x.ltd.MaxLeavesPerYear,
+                        MaxLeavesPerMonth = x.ltd.MaxLeavesPerMonth,
+                        AllowBackdatedLeave = x.ltd.AllowBackdatedLeave,
+                        BackdateLimitDays = x.ltd.BackdateLimitDays
+                   })
+                   .AsNoTracking().ToListAsync();
+               
+                configs.Details = Detailconfigs;
+
+                return configs;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee leave setup");
+                throw;
+            }
+        }
+        public async Task<bool> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigsPostDto dto,int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // ============================
+                // 1️⃣ Basic validations
+                // ============================
+
                 if (dto.IdEmployee <= 0)
                     throw new ArgumentException("IdEmployee is required.");
 
@@ -994,64 +903,67 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (dto.EffectiveTo.HasValue && dto.EffectiveTo.Value.Date < dto.EffectiveFrom.Date)
                     throw new ArgumentException("EffectiveTo cannot be earlier than EffectiveFrom.");
 
-                // ✅ (1) Validate employee exists
-                bool employeeExists = await _dbContext.Employees.AnyAsync(e => e.IdEmployee == dto.IdEmployee);
+                // ============================
+                // 2️⃣ Validate employee exists
+                // ============================
+
+                bool employeeExists = await _dbContext.Employees
+                    .AnyAsync(e => e.IdEmployee == dto.IdEmployee);
+
                 if (!employeeExists)
                     throw new ArgumentException("Employee not found.");
 
-                // ✅ (2) Validate template exists and is active
-                var template = await _dbContext.LeaveTemplates
-                    .FirstOrDefaultAsync(t => t.IdLeaveTemplate == dto.IdLeaveTemplate);
+                // ============================
+                // 3️⃣ Validate template exists
+                // ============================
 
-                if (template == null)
+                bool templateExists = await _dbContext.LeaveTemplates
+                    .AnyAsync(t => t.IdLeaveTemplate == dto.IdLeaveTemplate);
+
+                if (!templateExists)
                     throw new ArgumentException("Leave template not found.");
 
-                if (!template.IsActive)
-                    throw new ArgumentException("Leave template is not active.");
+                // ============================
+                // 4️⃣ Prevent overlapping assignments
+                // ============================
 
-                // ✅ (3) Validate NO overlapping assignments for employee
                 DateTime newFrom = dto.EffectiveFrom.Date;
                 DateTime newTo = dto.EffectiveTo?.Date ?? DateTime.MaxValue.Date;
 
                 bool isOverlapping = await _dbContext.EmployeeLeaveConfigs.AnyAsync(x =>
-                    x.IdEmployee == dto.IdEmployee
-                    && x.IdEmployeeLeaveConfig != dto.IdEmployeeLeaveConfig
-                    && x.EffectiveFrom.Date <= newTo
-                    && (x.EffectiveTo == null || x.EffectiveTo.Value.Date >= newFrom));
+                    x.IdEmployee == dto.IdEmployee &&
+                    x.IdEmployeeLeaveConfig != dto.IdEmployeeLeaveConfig &&
+                    x.EffectiveFrom <= newTo &&
+                    (x.EffectiveTo == null || x.EffectiveTo >= newFrom));
 
                 if (isOverlapping)
-                    throw new ArgumentException("Overlapping leave template assignment exists for this employee.");
+                    throw new ArgumentException("Overlapping leave template assignment exists.");
 
-                EmployeeLeaveConfigs configEntity;
+                EmployeeLeaveConfigs entity;
 
-                // ✅ (4) Insert / Update header
+                // ============================
+                // 5️⃣ Insert / Update
+                // ============================
+
                 if (dto.IdEmployeeLeaveConfig > 0)
                 {
-                    configEntity = await _dbContext.EmployeeLeaveConfigs
+                    entity = await _dbContext.EmployeeLeaveConfigs
                         .FirstOrDefaultAsync(x => x.IdEmployeeLeaveConfig == dto.IdEmployeeLeaveConfig);
 
-                    if (configEntity == null)
+                    if (entity == null)
                         throw new ArgumentException("Employee leave config not found.");
 
-                    configEntity.IdLeaveTemplate = dto.IdLeaveTemplate;
-                    configEntity.EffectiveFrom = dto.EffectiveFrom;
-                    configEntity.EffectiveTo = dto.EffectiveTo;
-                    configEntity.UpdatedAt = DateTime.Now;
-                    configEntity.UpdatedBy = loggedInEmployeeId;
-
-                    _dbContext.EmployeeLeaveConfigs.Update(configEntity);
-
-                    // ✅ Default Rule: Reset balances on update
-                    var oldDetails = await _dbContext.EmployeeLeaveConfigDetails
-                        .Where(d => d.IdEmployeeLeaveConfig == configEntity.IdEmployeeLeaveConfig)
-                        .ToListAsync();
-
-                    _dbContext.EmployeeLeaveConfigDetails.RemoveRange(oldDetails);
+                    entity.IdLeaveTemplate = dto.IdLeaveTemplate;
+                    entity.EffectiveFrom = dto.EffectiveFrom;
+                    entity.EffectiveTo = dto.EffectiveTo;
+                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedBy = loggedInEmployeeId;
                     await _dbContext.SaveChangesAsync();
+
                 }
                 else
                 {
-                    configEntity = new EmployeeLeaveConfigs
+                    entity = new EmployeeLeaveConfigs
                     {
                         IdEmployee = dto.IdEmployee,
                         IdLeaveTemplate = dto.IdLeaveTemplate,
@@ -1060,41 +972,142 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         CreatedAt = DateTime.Now,
                         CreatedBy = loggedInEmployeeId
                     };
-
-                    await _dbContext.EmployeeLeaveConfigs.AddAsync(configEntity);
-                    await _dbContext.SaveChangesAsync(); // ✅ Generate ID
+                    await _dbContext.EmployeeLeaveConfigs.AddAsync(entity);
+                    await _dbContext.SaveChangesAsync();
+                    int configId = entity.IdEmployeeLeaveConfig;
+                    //Insert into Employee Leave Config Details from the leave template details.
+                    var templateDetails = await _dbContext.LeaveTemplateDetails.Where(x => x.IdLeaveTemplate == dto.IdLeaveTemplate).AsNoTracking().ToListAsync();
+                    var detailEntities = templateDetails.Select(td => new EmployeeLeaveConfigDetails
+                    {
+                        IdEmployeeLeaveConfig = configId,
+                        IdLeaveTemplateDetail = td.IdLeaveTemplateDetails,
+                        IdLeaveType = td.IdLeaveType,
+                        AllocatedDaysInYear = td.MaxLeavesPerYear,
+                        CarryForwardDays = 0,
+                        TotalAllocatedDays = td.MaxLeavesPerYear,
+                        UsedLeaveDays = 0,
+                        BalanceLeaveDays = td.MaxLeavesPerYear
+                    }).ToList();
+                    await _dbContext.EmployeeLeaveConfigDetails.AddRangeAsync(detailEntities);
+                    await _dbContext.SaveChangesAsync();
                 }
 
-                int configId = configEntity.IdEmployeeLeaveConfig;
+                await transaction.CommitAsync();
 
-                // ✅ (5) Initialize details from template details
-                var templateDetails = await _dbContext.LeaveTemplateDetails
-                    .Where(d => d.IdLeaveTemplate == dto.IdLeaveTemplate)
-                    .ToListAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
 
-                if (templateDetails == null || !templateDetails.Any())
-                    throw new ArgumentException("Leave template does not contain any leave types.");
+        public async Task<bool> AddUpdateEmployeeLeaveConfigDetails(EmployeeLeaveConfigDetailsPostDto dto,int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-                var newDetails = templateDetails.Select(td => new EmployeeLeaveConfigDetails
+            try
+            {
+                // ============================
+                // 1️⃣ Mandatory validations
+                // ============================
+
+                if (dto.IdEmployeeLeaveConfig <= 0)
+                    throw new ArgumentException("EmployeeLeaveConfig is required.");
+
+                if (dto.IdLeaveTemplateDetail <= 0)
+                    throw new ArgumentException("LeaveTemplateDetail is required.");
+
+                if (dto.IdLeaveType <= 0)
+                    throw new ArgumentException("LeaveType is required.");
+
+                if (dto.AllocatedDaysInYear < 0)
+                    throw new ArgumentException("AllocatedDaysInYear cannot be negative.");
+
+                // ============================
+                // 2️⃣ Validate master exists
+                // ============================
+
+                bool configExists = await _dbContext.EmployeeLeaveConfigs
+                    .AnyAsync(x => x.IdEmployeeLeaveConfig == dto.IdEmployeeLeaveConfig);
+
+                if (!configExists)
+                    throw new ArgumentException("EmployeeLeaveConfig not found.");
+
+                // ============================
+                // 3️⃣ Prevent duplicate LeaveType
+                // ============================
+
+                bool duplicateLeaveType = await _dbContext.EmployeeLeaveConfigDetails.AnyAsync(x =>
+                    x.IdEmployeeLeaveConfig == dto.IdEmployeeLeaveConfig &&
+                    x.IdLeaveType == dto.IdLeaveType &&
+                    x.IdEmployeeLeaveConfigDetails != dto.IdEmployeeLeaveConfigDetails);
+
+                if (duplicateLeaveType)
+                    throw new ArgumentException("LeaveType already exists for this employee.");
+
+                // ============================
+                // 5️⃣ Insert / Update
+                // ============================
+
+                if (dto.IdEmployeeLeaveConfigDetails > 0)
                 {
-                    IdEmployeeLeaveConfig = configId,
-                    IdLeaveType = td.IdLeaveType,
-                    AllocatedDays = td.NoOfDaysInYear,
-                    UsedLeaveDays = 0,
-                    BalanceLeaveDays = td.NoOfDaysInYear
-                }).ToList();
+                    // 🔹 Update (preserve CF & Used)
+                    var entity = await _dbContext.EmployeeLeaveConfigDetails
+                        .FirstOrDefaultAsync(x =>x.IdEmployeeLeaveConfigDetails == dto.IdEmployeeLeaveConfigDetails);
 
-                await _dbContext.EmployeeLeaveConfigDetails.AddRangeAsync(newDetails);
+                    if (entity == null)
+                        throw new ArgumentException("EmployeeLeaveConfigDetails not found.");
+
+                    // 🔒 Preserve existing values
+                    int existingCarryForward = entity.CarryForwardDays;
+                    int existingUsedDays = entity.UsedLeaveDays;
+
+                    // 🔄 Recalculate totals using NEW allocation + EXISTING usage
+                    int totalAllocated = dto.AllocatedDaysInYear + existingCarryForward;
+
+                    if (existingUsedDays > totalAllocated)
+                        throw new ArgumentException(
+                            "Used leave days exceed total allocated days after update.");
+
+                    int balance = totalAllocated - existingUsedDays;
+
+                    // ✅ Update only allowed fields
+                    entity.AllocatedDaysInYear = dto.AllocatedDaysInYear;
+                    entity.TotalAllocatedDays = totalAllocated;
+                    entity.BalanceLeaveDays = balance;
+
+
+                }
+
+                else
+                {
+                    // 🔹 Insert
+                    var entity = new EmployeeLeaveConfigDetails
+                    {
+                        IdEmployeeLeaveConfig = dto.IdEmployeeLeaveConfig,
+                        IdLeaveTemplateDetail = dto.IdLeaveTemplateDetail,
+                        IdLeaveType = dto.IdLeaveType,
+                        AllocatedDaysInYear = dto.AllocatedDaysInYear,
+                        TotalAllocatedDays = dto.AllocatedDaysInYear,
+                        CarryForwardDays = 0,
+                        UsedLeaveDays = 0
+                };
+
+                    await _dbContext.EmployeeLeaveConfigDetails.AddAsync(entity);
+                }
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
-
-                return configId;
+                return true;
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error adding/updating EmployeeLeaveConfig.");
+                _logger.LogError(ex,
+                    "Error saving EmployeeLeaveConfigDetails. IdEmployeeLeaveConfig={IdEmployeeLeaveConfig}",
+                    dto.IdEmployeeLeaveConfig);
                 throw;
             }
         }
@@ -1111,6 +1124,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 DateTime? fromDate,
                 DateTime? toDate,
                 int? idLeaveType,
+                string? SearchText,
                 PagingRequestDto paging)
         {
             try
@@ -1134,25 +1148,42 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     idEmployee = loggedInEmployeeId;
                 }
 
-                var query = _dbContext.LeaveApplications.AsQueryable();
+                var query = from la in _dbContext.LeaveApplications
+                join emp in _dbContext.Employees on la.IdEmployee equals emp.IdEmployee
+                join dept in _dbContext.Departments on emp.IdDepartment equals dept.IdDepartment
+                join desig in _dbContext.Designations on emp.IdDesignation equals desig.IdDesignation
+                select new
+                {
+                    la,
+                    emp,
+                    dept,
+                    desig
+                };
 
                 if (idEmployee.HasValue && idEmployee.Value > 0)
-                    query = query.Where(x => x.IdEmployee == idEmployee.Value);
+                    query = query.Where(x => x.la.IdEmployee == idEmployee.Value);
 
                 if (idLeaveType.HasValue && idLeaveType.Value > 0)
-                    query = query.Where(x => x.IdLeaveType == idLeaveType.Value);
+                    query = query.Where(x => x.la.IdLeaveType == idLeaveType.Value);
 
                 if (!string.IsNullOrWhiteSpace(approvalStatus))
-                    query = query.Where(x => x.ApprovalStatus == approvalStatus.Trim());
+                    query = query.Where(x => x.la.ApprovalStatus == approvalStatus.Trim());
 
                 if (!string.IsNullOrWhiteSpace(applicationStatus))
-                    query = query.Where(x => x.ApplicationStatus == applicationStatus.Trim());
+                    query = query.Where(x => x.la.ApplicationStatus == applicationStatus.Trim());
+
+                query = query.Where(x =>
+                   (x.emp.FirstName ?? "").ToUpper().Contains(SearchText) ||
+                   (x.emp.LastName ?? "").ToUpper().Contains(SearchText) ||
+                   (x.desig.DesignationName ?? "").ToUpper().Contains(SearchText) ||
+                   (x.dept.DepartmentName ?? "").ToUpper().Contains(SearchText)
+                    );
 
                 if (fromDate.HasValue)
-                    query = query.Where(x => x.FromDate.Date >= fromDate.Value.Date);
+                    query = query.Where(x => x.la.FromDate.Date >= fromDate.Value.Date);
 
                 if (toDate.HasValue)
-                    query = query.Where(x => x.ToDate.Date <= toDate.Value.Date);
+                    query = query.Where(x => x.la.ToDate.Date <= toDate.Value.Date);
 
                 int totalRecords = await query.CountAsync();
 
@@ -1161,9 +1192,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 query = paging.SortBy?.ToUpper() switch
                 {
-                    "FROMDATE" => isDesc ? query.OrderByDescending(x => x.FromDate) : query.OrderBy(x => x.FromDate),
-                    "TODATE" => isDesc ? query.OrderByDescending(x => x.ToDate) : query.OrderBy(x => x.ToDate),
-                    _ => isDesc ? query.OrderByDescending(x => x.AppliedOn) : query.OrderBy(x => x.AppliedOn)
+                    "FROMDATE" => isDesc ? query.OrderByDescending(x => x.la.FromDate) : query.OrderBy(x => x.la.FromDate),
+                    "TODATE" => isDesc ? query.OrderByDescending(x => x.la.ToDate) : query.OrderBy(x => x.la.ToDate),
+                    _ => isDesc ? query.OrderByDescending(x => x.la.AppliedOn) : query.OrderBy(x => x.la.AppliedOn)
                 };
 
                 // ✅ Paging
@@ -1174,16 +1205,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Take(paging.PageSize)
                     .Select(x => new LeaveApplicationListDto
                     {
-                        IdLeaveApplication = x.IdLeaveApplication,
-                        IdEmployee = x.IdEmployee,
-                        IdLeaveType = x.IdLeaveType,
-                        LeaveTypeName = x.LeaveTypeName,
-                        FromDate = x.FromDate,
-                        ToDate = x.ToDate,
-                        TotalLeaveDays = x.TotalLeaveDays,
-                        ApprovalStatus = x.ApprovalStatus,
-                        ApplicationStatus = x.ApplicationStatus,
-                        AppliedOn = x.AppliedOn
+                        IdLeaveApplication = x.la.IdLeaveApplication,
+                        IdEmployee = x.la.IdEmployee,
+                        IdLeaveType = x.la.IdLeaveType,
+                        LeaveTypeName = x.la.LeaveTypeName,
+                        FromDate = x.la.FromDate,
+                        ToDate = x.la.ToDate,
+                        TotalLeaveDays = x.la.TotalLeaveDays,
+                        ApprovalStatus = x.la.ApprovalStatus,
+                        ApplicationStatus = x.la.ApplicationStatus,
+                        AppliedOn = x.la.AppliedOn,
+                        EmployeeName = x.emp.FirstName + " " + x.emp.LastName,
+                        DesignationName = x.desig.DesignationName,
+                        DepartmentName = x.dept.DepartmentName
                     })
                     .ToListAsync();
 
@@ -1298,9 +1332,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return fileName;
         }
-        public async Task<LeaveApplicationSaveResultDto> AddUpdateLeaveApplication(
-    LeaveApplicationPostDto dto,
-    int loggedInEmployeeId)
+        public async Task<LeaveApplicationSaveResultDto> AddUpdateLeaveApplication(LeaveApplicationPostDto dto,int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -1322,49 +1354,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (dto.FromDate.Year != dto.ToDate.Year)
                     throw new ArgumentException("Leave FromDate and ToDate must be within the same year.");
 
-                // ✅ Employee exists
-                bool empExists = await _dbContext.Employees.AnyAsync(e => e.IdEmployee == dto.IdEmployee);
-                if (!empExists)
-                    throw new ArgumentException("Employee not found.");
 
                 var today = DateTime.Now.Date;
 
-                // ✅ (1) Confirm employee has active template assignment on FromDate
-                var activeConfig = await _dbContext.EmployeeLeaveConfigs
-                    .Where(x => x.IdEmployee == dto.IdEmployee
-                             && x.EffectiveFrom.Date <= dto.FromDate.Date
-                             && (x.EffectiveTo == null || x.EffectiveTo.Value.Date >= dto.FromDate.Date))
-                    .OrderByDescending(x => x.EffectiveFrom)
-                    .FirstOrDefaultAsync();
+                var empLeaveConfigDetails = await GetLeaveSetupOfAnEmployee(dto.IdEmployee, dto.ToDate.Year);
+                var empLeaveTypeConfig = empLeaveConfigDetails.Details.Where(el => el.IdLeaveType == dto.IdLeaveType).FirstOrDefault();
 
-                if (activeConfig == null)
+                if (empLeaveConfigDetails == null)
                     throw new ArgumentException("Employee does not have an active leave setup.");
 
-                // ✅ Get employee balance row for this leave type
-                var balanceRow = await _dbContext.EmployeeLeaveConfigDetails
-                    .FirstOrDefaultAsync(x =>
-                        x.IdEmployeeLeaveConfig == activeConfig.IdEmployeeLeaveConfig
-                        && x.IdLeaveType == dto.IdLeaveType);
-
-                if (balanceRow == null)
+                if (empLeaveTypeConfig == null)
                     throw new ArgumentException("Leave type is not configured for this employee.");
-
-                // ✅ (2) Fetch annual leave policy (AnnualLeaveTypeConfig) for the leave type + year
-                int year = dto.FromDate.Year;
-
-                var annualPolicy = await _dbContext.AnnualLeaveTypeConfig
-                    .Where(x => x.IdLeaveType == dto.IdLeaveType
-                             && x.IdYear == year
-                             && x.IsActive == true)
-                    .FirstOrDefaultAsync();
-
-
-                if (annualPolicy == null)
-                    throw new ArgumentException("Annual leave policy not configured for this LeaveType and Year.");
-
-                // ✅ (3) Validate date range within policy effective window
-                if (dto.FromDate.Date < annualPolicy.EffectiveFrom.Date || dto.ToDate.Date > annualPolicy.EffectiveTo.Date)
-                    throw new ArgumentException("Leave dates are outside the configured policy effective period.");
 
                 // ✅ (4) Half-day rules
                 if (dto.IsHalfDay)
@@ -1372,7 +1372,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (dto.FromDate.Date != dto.ToDate.Date)
                         throw new ArgumentException("Half day leave must be for a single day only.");
 
-                    if (!annualPolicy.AllowHalfDay)
+                    if (!empLeaveTypeConfig.AllowHalfDay)
                         throw new ArgumentException("Half day is not allowed for this leave type.");
 
                     if (!dto.HalfDayType.HasValue)
@@ -1392,7 +1392,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 bool hasOverlap = await _dbContext.LeaveApplications.AnyAsync(x =>
                     x.IdEmployee == dto.IdEmployee
                     && x.IdLeaveApplication != dto.IdLeaveApplication
-                    && (x.ApplicationStatus == "Submitted" || x.ApplicationStatus == "Approved" || x.ApprovalStatus == "Pending" || x.ApprovalStatus == "Approved")
+                    && (x.ApplicationStatus == "SUBMITTED" || x.ApplicationStatus == "APPROVED")
                     && x.FromDate.Date <= dto.ToDate.Date
                     && x.ToDate.Date >= dto.FromDate.Date
                 );
@@ -1403,32 +1403,27 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // ✅ (6) Compute TotalLeaveDays
                 decimal totalLeaveDays = await CalculateLeaveDaysAsync(dto.FromDate.Date, dto.ToDate.Date, dto.IsHalfDay);
 
-
                 if (totalLeaveDays <= 0)
                     throw new ArgumentException("TotalLeaveDays is invalid after calculation.");
-
-                // ✅ (7) Check balance (no negative allowed here)
-                if (balanceRow.BalanceLeaveDays < totalLeaveDays)
-                    throw new ArgumentException("Insufficient leave balance.");
 
                 // ✅ (8) Backdate rule
                 if (dto.FromDate.Date < today)
                 {
-                    if (!annualPolicy.AllowBackdatedLeave)
+                    if (!empLeaveTypeConfig.AllowBackdatedLeave)
                         throw new ArgumentException("Backdated leave is not allowed for this leave type.");
 
-                    if (annualPolicy.BackdateLimitDays.HasValue)
+                    if (empLeaveTypeConfig.BackdateLimitDays.HasValue)
                     {
                         var daysBack = (today - dto.FromDate.Date).Days;
-                        if (daysBack > annualPolicy.BackdateLimitDays.Value)
-                            throw new ArgumentException($"Backdated leave allowed only up to {annualPolicy.BackdateLimitDays.Value} days.");
+                        if (daysBack > empLeaveTypeConfig.BackdateLimitDays.Value)
+                            throw new ArgumentException($"Backdated leave allowed only up to {empLeaveTypeConfig.BackdateLimitDays.Value} days.");
                     }
                 }
 
                 // ✅ (9) Document Rule
-                if (annualPolicy.RequiresDocument
-                    && annualPolicy.DocumentRequiredAfterDays.HasValue
-                    && totalLeaveDays > annualPolicy.DocumentRequiredAfterDays.Value)
+                if (empLeaveTypeConfig.RequiresDocument
+                    && empLeaveTypeConfig.DocumentRequiredAfterDays.HasValue
+                    && totalLeaveDays > empLeaveTypeConfig.DocumentRequiredAfterDays.Value)
                 {
                     // ✅ If UPDATE, check existing docs + newly uploaded docs
                     if (dto.IdLeaveApplication > 0)
@@ -1451,32 +1446,40 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
 
+                //Leave availability check
+                if (empLeaveTypeConfig.BalanceLeaveDays == 0 && dto.IdLeaveApplication == 0)
+                    throw new ArgumentException("Insufficient leave balance for leave type." + empLeaveTypeConfig.LeaveTypeName);
+                decimal currentAppliedCount = 0;
+                decimal differenceCount = 0;
 
-                // ✅ (10) Create / Update application
-                LeaveApplications entity;
-
+                LeaveApplications entity = new LeaveApplications();
                 if (dto.IdLeaveApplication > 0)
                 {
-                    entity = await _dbContext.LeaveApplications
-                        .FirstOrDefaultAsync(x => x.IdLeaveApplication == dto.IdLeaveApplication);
 
-                    if (entity == null)
-                        throw new ArgumentException("Leave application not found.");
+                    entity = await _dbContext.LeaveApplications.FirstOrDefaultAsync(x => x.IdLeaveApplication == dto.IdLeaveApplication);
+                    if (entity.ApprovalStatus != "SUBMITTED" || entity.ApplicationStatus != "REJECTED")
+                        throw new ArgumentException("Only Submitted/Rejected leave applications can be updated.");
 
-                    // ✅ Only allow update if still pending
-                    if (entity.ApprovalStatus != "Pending")
-                        throw new ArgumentException("Only pending leave applications can be updated.");
+                    currentAppliedCount = entity.TotalLeaveDays;
+                    differenceCount = dto.TotalNoOfDays - currentAppliedCount;
+                }
 
+
+                //Create / Update application
+                
+                //EmployeeLeaveConfigDetails empLeaveConfig = _dbContext.EmployeeLeaveConfigDetails.Where(e=>e.IdEmployeeLeaveConfig )
+                
+                if (dto.IdLeaveApplication > 0)
+                {
                     entity.IdLeaveType = dto.IdLeaveType;
-                    entity.LeaveTypeName = annualPolicy.LeaveTypeName;
+                    entity.LeaveTypeName = dto.LeaveTypeName;
                     entity.FromDate = dto.FromDate.Date;
                     entity.ToDate = dto.ToDate.Date;
                     entity.IsHalfDay = dto.IsHalfDay;
                     entity.HalfDayType = dto.HalfDayType;
                     entity.TotalLeaveDays = totalLeaveDays;
                     entity.Reason = dto.Reason.Trim();
-
-                    // keep statuses same
+                    entity.ApprovalStatus = "SUBMITTED";
                 }
                 else
                 {
@@ -1484,7 +1487,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         IdEmployee = dto.IdEmployee,
                         IdLeaveType = dto.IdLeaveType,
-                        LeaveTypeName = annualPolicy.LeaveTypeName,
+                        LeaveTypeName = dto.LeaveTypeName,
                         FromDate = dto.FromDate.Date,
                         ToDate = dto.ToDate.Date,
                         IsHalfDay = dto.IsHalfDay,
@@ -1493,7 +1496,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         Reason = dto.Reason.Trim(),
 
                         AppliedOn = DateTime.Now,
-                        ApprovalStatus = "Pending",
+                        ApprovalStatus = "SUBMITTED",
                         ApplicationStatus = "Submitted"
                     };
 
@@ -1561,10 +1564,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<bool> DeleteLeaveApplicationDocument(
-    int idLeaveApplicationDocument,
-    int loggedInEmployeeId,
-    bool isHrOverride)
+        public async Task<bool> DeleteLeaveApplicationDocument(int idLeaveApplicationDocument,int loggedInEmployeeId,bool isHrOverride)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -1645,7 +1645,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return filePath;
         }
 
-        private async Task<decimal> CalculateLeaveDaysAsync(DateTime fromDate, DateTime toDate, bool isHalfDay)
+        public async Task<decimal> CalculateLeaveDaysAsync(DateTime fromDate, DateTime toDate, bool isHalfDay)
         {
             if (isHalfDay)
                 return 0.5m;
@@ -1676,10 +1676,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return count;
         }
 
-        public async Task<CancelLeaveApplicationResultDto> CancelLeaveApplication(
-    int idLeaveApplication,
-    string? cancelReason,
-    int loggedInEmployeeId)
+        public async Task<CancelLeaveApplicationResultDto> CancelLeaveApplication(int idLeaveApplication,string? cancelReason,int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -1704,12 +1701,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 // ✅ Allow cancel only if Pending/Submitted/SentBack
                 bool canCancel =
-                    approvalStatus == "PENDING" ||
+                    approvalStatus == "APPROVED" ||
                     appStatus == "SUBMITTED" ||
-                    appStatus == "SENTBACK" ||
-                    approvalStatus == "SENTBACK";
-
-                if (!canCancel)
+                    appStatus == "REJECTED";
+         
+                if (!canCancel || application.FromDate < DateTime.Now)
                     throw new ArgumentException("This leave application cannot be cancelled.");
 
                 // ✅ Cancel the leave
@@ -1738,9 +1734,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-
-
-
         #endregion
     }
 

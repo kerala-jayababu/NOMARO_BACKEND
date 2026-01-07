@@ -7,6 +7,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Claims;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Model;
@@ -852,7 +853,62 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        #region EMPLOYEE SERVICE CHANGES
 
+        [HttpGet("GetEmployeeServiceChanges")]
+        public async Task<IActionResult> GetEmployeeServiceChanges(DateTime dateFrom, string? changeType, int IdEmployee)
+        {
+            var result = await _employeeservice.GetEmployeeServiceChanges(dateFrom, changeType, IdEmployee);
+            return
+                Ok(ApiResponseDto<IEnumerable<EmployeeServiceChangeListDto>>
+                      .CreateSuccess(result, "Employee Service changes retrieved successfully."));
+        }
+
+
+        [HttpPost("AddUpdateEmployeeServiceChanges")]
+        public async Task<IActionResult> AddUpdateEmployeeServiceChanges([FromBody] EmployeeServiceChangeDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest(ApiResponseDto<string>
+                    .CreateFailure("Invalid input."));
+            }
+
+            var idEmployee =
+                int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            var screenCode = _configuration["ScreenCodes:EmployeeServiceChanges"];
+
+            var hasPermission = await _roleBasedService
+                .CheckEmployeePermission(idEmployee, screenCode, "A");
+
+            if (!hasPermission)
+            {
+                return StatusCode(403,
+                    ApiResponseDto<string>.CreateFailure("Permission denied."));
+            }
+
+            await _employeeservice.AddUpdateEmployeeServiceChanges(dto, idEmployee);
+
+            return Ok(ApiResponseDto<string>
+                .CreateSuccess("Employee service change saved successfully."));
+        }
+
+        [HttpDelete("DeleteEmployeeServiceChanges/{id}")]
+        public async Task<IActionResult> DeleteEmployeeServiceChanges(int id)
+        {
+            var idEmployee =
+                int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            bool isHrManager = User.IsInRole("HR_MANAGER");
+
+            await _employeeservice.DeleteEmployeeServiceChanges(id, idEmployee, isHrManager);
+
+            return Ok(ApiResponseDto<string>
+                .CreateSuccess("Employee service change deleted successfully."));
+        }
+
+        #endregion
 
     }
 }

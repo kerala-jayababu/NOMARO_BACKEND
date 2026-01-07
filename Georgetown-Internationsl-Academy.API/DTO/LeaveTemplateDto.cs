@@ -1,17 +1,45 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class LeaveTemplateDto
     {
+        [Key]
         public int IdLeaveTemplate { get; set; }
-        public string LeaveTemplateName { get; set; } = string.Empty;
-        public string LeaveTemplateDesc { get; set; } = string.Empty;
 
-        public int? IdAnnualLeaveTypeConfig { get; set; }
-        public bool IsActive { get; set; }
+        /// <summary>
+        /// Policy / Template name
+        /// </summary>
+        public string? LeaveTemplateName { get; set; }
+
+        /// <summary>
+        /// Template description
+        /// </summary>
+        public string? LeaveTemplateDesc { get; set; }
+
+        /// <summary>
+        /// Applicable year
+        /// </summary>
+        public int IdYear { get; set; }
+
+        /// <summary>
+        /// Audit fields
+        /// </summary>
         public int CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; }
+
         public int? UpdatedBy { get; set; }
         public DateTime? UpdatedAt { get; set; }
-        public AnnualLeaveTypeConfigDto? AnnualLeaveTypeConfig { get; set; }
+
+        /// <summary>
+        /// SUBMITTED / APPROVED / REJECTED
+        /// </summary>
+        public string ApprovlStatus { get; set; }
+
+        /// <summary>
+        /// User who approved the template
+        /// </summary>
+        public int? IdApprovedBy { get; set; }
+        public List<LeaveTemplateDetailsDto> LeaveTemplateDetails { get; set; }
     }
 }
