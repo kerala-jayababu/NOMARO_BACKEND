@@ -866,7 +866,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
 
         [HttpPost("AddUpdateEmployeeServiceChanges")]
-        public async Task<IActionResult> AddUpdateEmployeeServiceChanges([FromBody] EmployeeServiceChangeDto dto)
+        public async Task<IActionResult> AddUpdateEmployeeServiceChange([FromBody] EmployeeServiceChangeDto dto)
         {
             if (dto == null)
             {
@@ -888,7 +888,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure("Permission denied."));
             }
 
-            await _employeeservice.AddUpdateEmployeeServiceChanges(dto, idEmployee);
+            await _employeeservice.AddUpdateEmployeeServiceChange(dto, idEmployee);
 
             return Ok(ApiResponseDto<string>
                 .CreateSuccess("Employee service change saved successfully."));

@@ -205,7 +205,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("AddOrUpdateLeaveTemplateDetails")]
-        public async Task<IActionResult> AddOrUpdateLeaveTemplateDetails([FromBody] EmployeeLeaveConfigDetailsPostDto dto)
+        public async Task<IActionResult> AddOrUpdateLeaveTemplateDetails([FromBody] LeaveTemplateDetailsDto dto)
         {
             try
             {
@@ -223,7 +223,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
 
                 var result = await _leaveService
-                    .AddUpdateEmployeeLeaveConfigDetails(dto, loggedInEmployeeId);
+                    .AddOrUpdateLeaveTemplateDetails(dto, loggedInEmployeeId);
 
                 return Ok(ApiResponseDto<string>
                     .CreateSuccess("Leave template details saved successfully."));
