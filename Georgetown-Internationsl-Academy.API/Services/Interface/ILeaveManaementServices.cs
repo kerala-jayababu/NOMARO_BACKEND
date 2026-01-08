@@ -8,7 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> AddOrUpdateLeaveTypes(LeaveTypesDto leaveTypeDto);
         Task<IEnumerable<LeaveTemplateDto>> GetLeaveTemplates(int? IdYear, string Status, string? searchText = null);
         Task<LeaveTemplateDto> GetLeaveTemplateByID(int idLeaveTemplate);
-        Task<bool> AddUpdateLeaveTemplate(LeaveTemplateDto dto, int loggedInEmployeeId);
+        Task<bool> AddUpdateLeaveTemplate(LeaveTemplatePostDto dto, int loggedInEmployeeId);
 
         Task<bool> AddOrUpdateLeaveTemplateDetails(LeaveTemplateDetailsDto dto, int loggedInEmployeeId);
         Task<LeaveTemplateDetailsDto> GetLeaveTemplateDetailById(int idLeaveTemplateDetails);

@@ -42,4 +42,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? IdApprovedBy { get; set; }
         public List<LeaveTemplateDetailsDto> LeaveTemplateDetails { get; set; }
     }
+
+
 }

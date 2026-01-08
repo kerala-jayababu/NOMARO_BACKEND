@@ -44,6 +44,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<EmployeeServiceChangeListDto>> GetEmployeeServiceChanges(DateTime DateFrom, string? ChangeType, int IdEmployee);
 
         Task<bool> AddUpdateEmployeeServiceChange(EmployeeServiceChangeDto dto, int loggedInEmployeeId);
+        Task<bool> AddUpdateEmployeeServiceChanges(List<EmployeeServiceChangeDto> dtos, int loggedInEmployeeId);
 
         Task<bool> DeleteEmployeeServiceChanges(int idEmployeeServiceChange, int loggedInEmployeeId, bool isHrManager);
     }

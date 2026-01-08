@@ -139,8 +139,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     .CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+       
         [HttpPost("AddUpdateLeaveTemplate")]
-        public async Task<IActionResult> AddUpdateLeaveTemplate([FromBody] LeaveTemplateDto dto)
+        public async Task<IActionResult> AddUpdateLeaveTemplate([FromBody] LeaveTemplatePostDto dto)
         {
             try
             {

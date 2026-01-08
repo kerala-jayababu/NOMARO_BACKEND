@@ -1,24 +1,44 @@
-﻿namespace Georgetown_Internationsl_Academy.API.DTO
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class LeaveTemplatePostDto
     {
-        // Header
-        public int IdLeaveTemplate { get; set; }          // 0 = insert, >0 = update
-        public string LeaveTemplateName { get; set; } = string.Empty;
+        [Key]
+        public int IdLeaveTemplate { get; set; }
+
+        /// <summary>
+        /// Policy / Template name
+        /// </summary>
+        public string? LeaveTemplateName { get; set; }
+
+        /// <summary>
+        /// Template description
+        /// </summary>
         public string? LeaveTemplateDesc { get; set; }
+
+        /// <summary>
+        /// Applicable year
+        /// </summary>
         public int IdYear { get; set; }
-        public int? IdAnnualLeaveTypeConfig { get; set; } // optional
-        public bool IsActive { get; set; }
 
-        // Detail Lines
-        public List<LeaveTemplateDetailPostDto> Details { get; set; } = new();
-    }
+        /// <summary>
+        /// Audit fields
+        /// </summary>
+        public int CreatedBy { get; set; }
+        public DateTime CreatedAt { get; set; }
 
-    public class LeaveTemplateDetailPostDto
-    {
-        public int IdLeaveTemplateDetails { get; set; }   // 0 = insert, >0 = update
-        public int IdLeaveType { get; set; }
-        public int? IdAnnualLeaveTypeConfig { get; set; } // optional
-        public int NoOfDaysInYear { get; set; }
+        public int? UpdatedBy { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        /// <summary>
+        /// SUBMITTED / APPROVED / REJECTED
+        /// </summary>
+        public string ApprovlStatus { get; set; }
+
+        /// <summary>
+        /// User who approved the template
+        /// </summary>
+        public int? IdApprovedBy { get; set; }
     }
 }

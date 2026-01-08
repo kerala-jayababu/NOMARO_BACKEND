@@ -273,7 +273,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<bool> AddUpdateLeaveTemplate(LeaveTemplateDto dto, int loggedInEmployeeId)
+        public async Task<bool> AddUpdateLeaveTemplate(LeaveTemplatePostDto dto, int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -292,22 +292,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (nameExists)
                     throw new ArgumentException($"LeaveTemplateName '{dto.LeaveTemplateName}' already exists.");
 
-                // ✅ (3) No duplicate LeaveType within template
-                if (dto.LeaveTemplateDetails != null && dto.LeaveTemplateDetails.Any())
-                {
-                    var duplicateLeaveTypes = dto.LeaveTemplateDetails
-                        .GroupBy(x => x.IdLeaveType)
-                        .Where(g => g.Count() > 1)
-                        .Select(g => g.Key)
-                        .ToList();
-
-                    if (duplicateLeaveTypes.Any())
-                        throw new ArgumentException($"Duplicate LeaveType found in template: {string.Join(", ", duplicateLeaveTypes)}");
-                }
-
-                // ✅ (4) Insert/Update Header
                 LeaveTemplates headerEntity;
-
                 if (dto.IdLeaveTemplate > 0)
                 {
                     headerEntity = await _dbContext.LeaveTemplates
@@ -336,7 +321,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         CreatedBy = loggedInEmployeeId
                     };
                     await _dbContext.LeaveTemplates.AddAsync(headerEntity);
-                    await _dbContext.SaveChangesAsync(); // ✅ generate header ID
+                    await _dbContext.SaveChangesAsync();
 
                 }
                 await transaction.CommitAsync();

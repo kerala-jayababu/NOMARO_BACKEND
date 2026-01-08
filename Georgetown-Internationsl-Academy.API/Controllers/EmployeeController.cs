@@ -865,7 +865,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
-        [HttpPost("AddUpdateEmployeeServiceChanges")]
+        [HttpPost("AddUpdateEmployeeServiceChange")]
         public async Task<IActionResult> AddUpdateEmployeeServiceChange([FromBody] EmployeeServiceChangeDto dto)
         {
             if (dto == null)
@@ -892,6 +892,36 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             return Ok(ApiResponseDto<string>
                 .CreateSuccess("Employee service change saved successfully."));
+        }
+
+
+        [HttpPost("AddUpdateEmployeeServiceChanges")]
+        public async Task<IActionResult> AddUpdateEmployeeServiceChanges([FromBody] List<EmployeeServiceChangeDto> dtos)
+        {
+            if (dtos == null)
+            {
+                return BadRequest(ApiResponseDto<string>
+                    .CreateFailure("Invalid input."));
+            }
+
+            var idEmployee =
+                int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            var screenCode = _configuration["ScreenCodes:EmployeeServiceChanges"];
+
+            var hasPermission = await _roleBasedService
+                .CheckEmployeePermission(idEmployee, screenCode, "A");
+
+            if (!hasPermission)
+            {
+                return StatusCode(403,
+                    ApiResponseDto<string>.CreateFailure("Permission denied."));
+            }
+
+            await _employeeservice.AddUpdateEmployeeServiceChanges(dtos, idEmployee);
+
+            return Ok(ApiResponseDto<string>
+                .CreateSuccess("Employee service changes saved successfully."));
         }
 
         [HttpDelete("DeleteEmployeeServiceChanges/{id}")]
