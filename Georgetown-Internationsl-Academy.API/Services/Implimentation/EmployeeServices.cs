@@ -2159,106 +2159,130 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return data;
         }
-
-        public async Task<bool> AddUpdateEmployeeServiceChange(EmployeeServiceChangeDto dto,int loggedInEmployeeId)
+        public async Task<bool> AddUpdateEmployeeServiceChange(EmployeeServiceChangeDto dto, int loggedInEmployeeId)
         {
-            if (!new[] { "DESIGNATION", "DEPARTMENT", "REPOFFICER","EMPLOYMENTTYPE" }
-                .Contains(dto.ChangeType))
-                throw new Exception("Invalid ChangeType.");
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-            if (dto.FromValue == dto.ToValue)
-                throw new Exception("FromValue and ToValue cannot be the same.");
-
-            var fiveDaysAgo = DateTime.Now.AddDays(-5);
-
-            bool duplicateExists = await _dbContext.EmployeeServiceChanges.AnyAsync(x =>
-                x.IdEmployee == dto.IdEmployee &&
-                x.ChangeType == dto.ChangeType &&
-                x.ApprovalStatus == "SUBMITTED" &&
-                x.ChangeValidFrom >= fiveDaysAgo &&
-                x.IdEmployeeServiceChange != dto.IdEmployeeServiceChange);
-
-            if (duplicateExists)
-                throw new Exception("Duplicate SUBMITTED request exists within last 5 days.");
-
-            if (dto.IdEmployeeServiceChange == 0)
+            try
             {
-                // INSERT
-                var entity = new EmployeeServiceChanges
+                if (!new[] { "DESIGNATION", "DEPARTMENT", "REPOFFICER", "EMPLOYMENTTYPE" }
+                    .Contains(dto.ChangeType))
+                    throw new Exception("Invalid ChangeType.");
+
+                if (dto.FromValue == dto.ToValue)
+                    throw new Exception("FromValue and ToValue cannot be the same.");
+
+                var fiveDaysAgo = DateTime.Now.AddDays(-5);
+
+                bool duplicateExists = await _dbContext.EmployeeServiceChanges.AnyAsync(x =>
+                    x.IdEmployee == dto.IdEmployee &&
+                    x.ChangeType == dto.ChangeType &&
+                    x.ApprovalStatus == "SUBMITTED" &&
+                    x.ChangeValidFrom >= fiveDaysAgo &&
+                    x.IdEmployeeServiceChange != dto.IdEmployeeServiceChange);
+
+                if (duplicateExists)
+                    throw new Exception("Duplicate SUBMITTED request exists within last 5 days.");
+
+                EmployeeServiceChanges entity;
+
+                if (dto.IdEmployeeServiceChange == 0)
                 {
-                    IdEmployee = dto.IdEmployee,
-                    ChangeType = dto.ChangeType,
-                    ChangeDescription = dto.ChangeDescription,
-                    FromValue = dto.FromValue,
-                    ToValue = dto.ToValue,
-                    FromValueID =dto.FromValueID,
-                    ToValueID = dto.ToValueID,
-                    ChangeValidFrom = DateTime.Now,
-                    ChangedBy = loggedInEmployeeId,
-                    Remarks = dto.Remarks,
-                    ApprovalStatus = "SUBMITTED",
-                    CreatedBy = loggedInEmployeeId,
-                    CreatedAt = DateTime.Now
-                };
+                    // INSERT
+                    entity = new EmployeeServiceChanges
+                    {
+                        IdEmployee = dto.IdEmployee,
+                        ChangeType = dto.ChangeType,
+                        ChangeDescription = dto.ChangeDescription,
+                        FromValue = dto.FromValue,
+                        ToValue = dto.ToValue,
+                        FromValueID = dto.FromValueID,
+                        ToValueID = dto.ToValueID,
+                        ChangeValidFrom = DateTime.Now,
+                        ChangedBy = loggedInEmployeeId,
+                        Remarks = dto.Remarks,
+                        ApprovalStatus = "SUBMITTED",
+                        CreatedBy = loggedInEmployeeId,
+                        CreatedAt = DateTime.Now
+                    };
 
-                await _dbContext.EmployeeServiceChanges.AddAsync(entity);
+                    await _dbContext.EmployeeServiceChanges.AddAsync(entity);
+                }
+                else
+                {
+                    // UPDATE
+                    entity = await _dbContext.EmployeeServiceChanges
+                        .FirstOrDefaultAsync(x => x.IdEmployeeServiceChange == dto.IdEmployeeServiceChange);
+
+                    if (entity == null)
+                        throw new Exception("Service change record not found.");
+
+                    if (entity.ApprovalStatus != "SUBMITTED")
+                        throw new Exception("Only SUBMITTED records can be updated.");
+
+                    entity.ChangeDescription = dto.ChangeDescription;
+                    entity.FromValue = dto.FromValue;
+                    entity.ToValue = dto.ToValue;
+                    entity.Remarks = dto.Remarks;
+                    entity.FromValueID = dto.FromValueID;
+                    entity.ToValueID = dto.ToValueID;
+                    entity.ChangeValidFrom = DateTime.Now;
+                    entity.ChangedBy = loggedInEmployeeId;
+                    entity.UpdatedBy = loggedInEmployeeId;
+                    entity.UpdatedAt = DateTime.Now;
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                // ✅ Initiate Approval Workflow (same pattern as AddConfig)
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeServiceChange"];
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    entity.IdEmployeeServiceChange,
+                    entityCode,
+                    loggedInEmployeeId,
+                    "SUBMITTED",
+                    null,
+                    null
+                );
+
+                // ✅ OPTIONAL: If you want to fail and rollback when workflow fails
+                 if (approvalResult != "Approval workflow initiated.")
+                    throw new Exception(approvalResult);
+
+                await transaction.CommitAsync();
+                return true;
             }
-            else
+            catch (Exception ex)
             {
-                // UPDATE
-                var entity = await _dbContext.EmployeeServiceChanges
-                    .FirstOrDefaultAsync(x => x.IdEmployeeServiceChange == dto.IdEmployeeServiceChange);
-
-                if (entity == null)
-                    throw new Exception("Service change record not found.");
-
-                if (entity.ApprovalStatus != "SUBMITTED")
-                    throw new Exception("Only SUBMITTED records can be updated.");
-
-                entity.ChangeDescription = dto.ChangeDescription;
-                entity.FromValue = dto.FromValue;
-                entity.ToValue = dto.ToValue;
-                entity.Remarks = dto.Remarks;
-                entity.FromValueID = dto.FromValueID;
-                entity.ToValueID = dto.ToValueID;
-                entity.ChangeValidFrom = DateTime.Now;
-                entity.ChangedBy = loggedInEmployeeId;
-                entity.UpdatedBy = loggedInEmployeeId;
-                entity.UpdatedAt = DateTime.Now;
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding/updating Employee Service Change.");
+                throw new Exception("An error occurred while saving the service change. Please try again later.");
             }
-
-           
-            await _dbContext.SaveChangesAsync();
-            return true;
         }
 
-        public async Task<bool> AddUpdateEmployeeServiceChanges(List<EmployeeServiceChangeDto> dtos,int loggedInEmployeeId)
+        public async Task<bool> AddUpdateEmployeeServiceChanges(List<EmployeeServiceChangeDto> dtos, int loggedInEmployeeId)
         {
             if (dtos == null || !dtos.Any())
                 throw new Exception("No service change records provided.");
 
-            var validChangeTypes = new[]
-            {
-                    "DESIGNATION",
-                    "DEPARTMENT",
-                    "REPOFFICER",
-                    "EMPLOYMENTTYPE"
-                };
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
+            try
+            {
+                var validChangeTypes = new[] { "DESIGNATION", "DEPARTMENT", "REPOFFICER", "EMPLOYMENTTYPE" };
                 var fiveDaysAgo = DateTime.Now.AddDays(-5);
+
+                // Track which entities we need to initiate workflow for
+                var entitiesToInitiateWorkflow = new List<EmployeeServiceChanges>();
 
                 foreach (var dto in dtos)
                 {
-                    // ===========================
-                    // 1️⃣ BASIC VALIDATIONS
-                    // ===========================
-
+                    // 1) Validations
                     if (!validChangeTypes.Contains(dto.ChangeType))
                         throw new Exception($"Invalid ChangeType: {dto.ChangeType}");
 
                     if (dto.FromValue == dto.ToValue)
-                        throw new Exception(
-                            $"FromValue and ToValue cannot be the same for {dto.ChangeType}");
+                        throw new Exception($"FromValue and ToValue cannot be the same for {dto.ChangeType}");
 
                     if (dto.IdEmployee <= 0)
                         throw new Exception("IdEmployee is required.");
@@ -2266,10 +2290,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (dto.ChangeValidFrom == DateTime.MinValue)
                         throw new Exception("ChangeValidFrom is required.");
 
-                    // ===========================
-                    // 2️⃣ DUPLICATE CHECK
-                    // ===========================
-
+                    // 2) Duplicate check
                     bool duplicateExists = await _dbContext.EmployeeServiceChanges.AnyAsync(x =>
                         x.IdEmployee == dto.IdEmployee &&
                         x.ChangeType == dto.ChangeType &&
@@ -2278,16 +2299,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         x.IdEmployeeServiceChange != dto.IdEmployeeServiceChange);
 
                     if (duplicateExists)
-                        throw new Exception(
-                            $"Duplicate SUBMITTED request exists within last 5 days for {dto.ChangeType}");
+                        throw new Exception($"Duplicate SUBMITTED request exists within last 5 days for {dto.ChangeType}");
 
-                    // ===========================
-                    // 3️⃣ INSERT / UPDATE
-                    // ===========================
-
+                    // 3) Insert / Update
                     if (dto.IdEmployeeServiceChange == 0)
                     {
-                        // 🔹 INSERT
                         var entity = new EmployeeServiceChanges
                         {
                             IdEmployee = dto.IdEmployee,
@@ -2306,21 +2322,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         };
 
                         await _dbContext.EmployeeServiceChanges.AddAsync(entity);
+
+                        // after SaveChanges, entity.IdEmployeeServiceChange will be available
+                        entitiesToInitiateWorkflow.Add(entity);
                     }
                     else
                     {
-                        // 🔹 UPDATE
                         var entity = await _dbContext.EmployeeServiceChanges
-                            .FirstOrDefaultAsync(x =>
-                                x.IdEmployeeServiceChange == dto.IdEmployeeServiceChange);
+                            .FirstOrDefaultAsync(x => x.IdEmployeeServiceChange == dto.IdEmployeeServiceChange);
 
                         if (entity == null)
-                            throw new Exception(
-                                $"Service change record not found. Id={dto.IdEmployeeServiceChange}");
+                            throw new Exception($"Service change record not found. Id={dto.IdEmployeeServiceChange}");
 
                         if (entity.ApprovalStatus != "SUBMITTED")
-                            throw new Exception(
-                                $"Only SUBMITTED records can be updated. Id={dto.IdEmployeeServiceChange}");
+                            throw new Exception($"Only SUBMITTED records can be updated. Id={dto.IdEmployeeServiceChange}");
 
                         entity.ChangeDescription = dto.ChangeDescription;
                         entity.FromValue = dto.FromValue;
@@ -2332,12 +2347,44 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         entity.ChangedBy = loggedInEmployeeId;
                         entity.UpdatedBy = loggedInEmployeeId;
                         entity.UpdatedAt = DateTime.Now;
-                    }
-            }
 
-            await _dbContext.SaveChangesAsync();
-            return true;
+                        // If you also want workflow initiation on UPDATE, add it too:
+                        entitiesToInitiateWorkflow.Add(entity);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                // ✅ Initiate workflow for each record
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeServiceChange"];
+
+                foreach (var entity in entitiesToInitiateWorkflow)
+                {
+                    var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                        entity.IdEmployeeServiceChange,
+                        entityCode,
+                        loggedInEmployeeId,
+                        "SUBMITTED",
+                        null,
+                        null
+                    );
+
+                    // Optional strict check: rollback if workflow fails
+                    if (result != "Approval workflow initiated.")
+                          throw new Exception(result);
+                }
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding/updating Employee Service Changes (bulk).");
+                throw new Exception("An error occurred while saving service change records. Please try again later.");
+            }
         }
+
 
         public void ApproveServiceChanges()
         {

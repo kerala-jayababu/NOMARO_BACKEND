@@ -360,6 +360,47 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
             }
+            else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeServiceChange"])
+            {
+                var entity = await _dbContext.EmployeeServiceChanges.FindAsync(entityTablePrimaryKeyID);
+
+                if (entity == null)
+                    return;
+
+                // If rejected or completed, route back to requester (optional)
+                if (finalStatus == "REJECTED" || nextLevelNumber == 99)
+                {
+                    // if you want, you can ensure the record is considered back to creator/requester
+                    // targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
+                }
+
+                entity.ApprovalStatus = finalStatus;
+
+                // Set "approved" info only when final approval is reached.
+                // Adjust conditions if your system uses "FINAL APPROVED" / "APPROVED" differently.
+                bool isFinalApproved =
+                    finalStatus == "FINAL APPROVED" ||
+                    finalStatus == "APPROVED" ||
+                    nextLevelNumber == 99;
+
+                if (isFinalApproved)
+                {
+                    entity.ApprovedBy = loggedInEmployeeId;
+                    entity.ApprovedDate = DateTime.Now;
+                }
+                else if (finalStatus == "REJECTED")
+                {
+                    // optional: clear approval info on rejection
+                    entity.ApprovedBy = null;
+                    entity.ApprovedDate = null;
+                }
+
+                // optional: always track update
+                entity.UpdatedBy = loggedInEmployeeId;
+                entity.UpdatedAt = DateTime.Now;
+
+                await _dbContext.SaveChangesAsync();
+            }
             else if (entityCode == _configuration["WorkflowEntityCodes:LEAVEPASS"])
             {
                 var entity = await _dbContext.LeavePassages.FindAsync(entityTablePrimaryKeyID);
