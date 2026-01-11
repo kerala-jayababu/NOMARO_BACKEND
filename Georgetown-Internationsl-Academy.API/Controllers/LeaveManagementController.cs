@@ -332,7 +332,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 int loggedInEmployeeId = int.Parse(userId);
 
-                var screenCode = _configuration["ScreenCodes:EmployeeLeaveSetup"];
+                var screenCode = _configuration["ScreenCodes:EmployeeLeaveConfig"];
                 var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
 
                 if (!hasPermission)

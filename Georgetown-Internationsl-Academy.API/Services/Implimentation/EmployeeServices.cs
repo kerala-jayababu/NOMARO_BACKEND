@@ -89,7 +89,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-
         public async Task<IEnumerable<EmployeeProfileDto>> GetEmployeeList(string? searchText = null, DateTime? dateFilter = null) 
         {
                         var query = new StringBuilder(@"
@@ -297,8 +296,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-
-
 
         public async Task<IEnumerable<EmployeeBankAccountDto>> GetEmployeeBankAccountsByID(int Id)
         {
@@ -2162,9 +2159,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return data;
         }
-
-
-
 
         public async Task<bool> AddUpdateEmployeeServiceChange(EmployeeServiceChangeDto dto,int loggedInEmployeeId)
         {

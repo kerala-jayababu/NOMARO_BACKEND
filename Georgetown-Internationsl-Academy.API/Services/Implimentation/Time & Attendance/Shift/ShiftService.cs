@@ -123,6 +123,7 @@ public class ShiftService : IShiftService
             throw new Exception("An error occurred while retrieving clock-in/out details. Please try again later.");
         }
     }
+
     public async Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
     DateTime dateFrom,
     DateTime dateTo,
