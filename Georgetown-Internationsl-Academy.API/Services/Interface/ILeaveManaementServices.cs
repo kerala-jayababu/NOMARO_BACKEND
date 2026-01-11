@@ -10,6 +10,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<LeaveTemplateDto> GetLeaveTemplateByID(int idLeaveTemplate);
         Task<bool> AddUpdateLeaveTemplate(LeaveTemplatePostDto dto, int loggedInEmployeeId);
 
+        Task<bool> SubmitLeaveTemplateForApproval(int idLeaveTemplate, int loggedInEmployeeId);
+
         Task<bool> AddOrUpdateLeaveTemplateDetails(LeaveTemplateDetailsDto dto, int loggedInEmployeeId);
         Task<LeaveTemplateDetailsDto> GetLeaveTemplateDetailById(int idLeaveTemplateDetails);
 

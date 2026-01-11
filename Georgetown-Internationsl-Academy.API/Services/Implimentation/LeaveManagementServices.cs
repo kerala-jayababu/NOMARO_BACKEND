@@ -337,6 +337,49 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<bool> SubmitLeaveTemplateForApproval(int idLeaveTemplate,int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                if (idLeaveTemplate <= 0)
+                    throw new ArgumentException("IdLeaveTemplate is required.");
+
+                var template = await _dbContext.LeaveTemplates
+                    .FirstOrDefaultAsync(x => x.IdLeaveTemplate == idLeaveTemplate);
+
+                if (template == null)
+                    throw new ArgumentException("Leave template not found.");
+
+                // ✅ Allow submit only from DRAFT or REJECTED
+                if (template.ApprovlStatus == "SUBMITTED")
+                    throw new ArgumentException("Leave template is already submitted.");
+
+                if (template.ApprovlStatus == "APPROVED")
+                    throw new ArgumentException("Approved template cannot be resubmitted.");
+
+                // ✅ Update approval status
+                template.ApprovlStatus = "SUBMITTED";
+                template.UpdatedBy = loggedInEmployeeId;
+                template.UpdatedAt = DateTime.Now;
+
+                _dbContext.LeaveTemplates.Update(template);
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex,
+                    "Error submitting LeaveTemplate for approval. IdLeaveTemplate={Id}",
+                    idLeaveTemplate);
+                throw;
+            }
+        }
+
         #endregion
 
         public async Task<bool> AddOrUpdateLeaveTemplateDetails(LeaveTemplateDetailsDto dto,int loggedInEmployeeId)

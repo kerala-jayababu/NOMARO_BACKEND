@@ -158,7 +158,38 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
 
                 var result = await _leaveService.AddUpdateLeaveTemplate(dto, loggedInEmployeeId);
-                return Ok(ApiResponseDto<string>.CreateSuccess("Leave types saved successfully."));
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave Template saved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("SubmitLeaveTemplateForApproval")]
+        public async Task<IActionResult> SubmitLeaveTemplateForApproval(int idLeaveTemplate)
+        {
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var screenCode = _configuration["ScreenCodes:LeaveTemplates"];
+                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
+
+                if (!hasPermission)
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                var result = await _leaveService.SubmitLeaveTemplateForApproval(idLeaveTemplate, loggedInEmployeeId);
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave Template Submitted for Approval."));
             }
             catch (ArgumentException ex)
             {
@@ -443,7 +474,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         [HttpPost("AddUpdateLeaveApplication")]
-        [Consumes("multipart/form-data")]
         public async Task<IActionResult> AddUpdateLeaveApplication([FromForm] LeaveApplicationPostDto dto)
         {
             try

@@ -42,7 +42,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> PostEmployeeDocuments(List<EmployeeDocumentPostDto> dtos, int loggedInEmployeeId);
 
         Task<IEnumerable<EmployeeServiceChangeListDto>> GetEmployeeServiceChanges(DateTime DateFrom, string? ChangeType, int IdEmployee);
-
+        Task<IEnumerable<EmployeeServiceChangeListForApprovalDto>> GetEmployeeServiceChangesForApproval(
+            string Status, string ChangeType, DateTime DateFrom, string? SearchText);
         Task<bool> AddUpdateEmployeeServiceChange(EmployeeServiceChangeDto dto, int loggedInEmployeeId);
         Task<bool> AddUpdateEmployeeServiceChanges(List<EmployeeServiceChangeDto> dtos, int loggedInEmployeeId);
 

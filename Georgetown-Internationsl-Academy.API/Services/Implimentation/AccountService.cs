@@ -103,9 +103,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return token;
         }
 
-
-
-
         public async Task<UserResponseDto> LoginForMail(int EmployeeId)
         {
             var user = _dbContext.Employees.FirstOrDefault(x => x.IdEmployee == EmployeeId);
@@ -113,8 +110,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 return null;
             }
-
-           
 
             var designation = await _dbContext.Designations.FirstOrDefaultAsync(x => x.IdDesignation == user.IdDesignation);
 

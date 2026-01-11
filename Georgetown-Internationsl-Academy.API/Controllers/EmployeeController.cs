@@ -864,6 +864,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                       .CreateSuccess(result, "Employee Service changes retrieved successfully."));
         }
 
+        [HttpGet("GetEmployeeServiceChangesForApproval")]
+        public async Task<IActionResult> GetEmployeeServiceChangesForApproval(string Status, string ChangeType, DateTime DateFrom, string? SearchText)
+        {
+            var result = await _employeeservice.GetEmployeeServiceChangesForApproval(Status, ChangeType, DateFrom, SearchText);
+            return
+                Ok(ApiResponseDto<IEnumerable<EmployeeServiceChangeListForApprovalDto>>
+                      .CreateSuccess(result, "Employee Service changes retrieved successfully."));
+        }
 
         [HttpPost("AddUpdateEmployeeServiceChange")]
         public async Task<IActionResult> AddUpdateEmployeeServiceChange([FromBody] EmployeeServiceChangeDto dto)

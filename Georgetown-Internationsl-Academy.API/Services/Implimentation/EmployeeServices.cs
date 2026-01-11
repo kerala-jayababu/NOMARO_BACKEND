@@ -2062,6 +2062,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return filePath;
         }
+
+        #region EMPLOYEE SERVICE CHANGES
         public async Task<IEnumerable<EmployeeServiceChangeListDto>> GetEmployeeServiceChanges(DateTime DateFrom, string? changeType, int idEmployee)
         {
             var query =
@@ -2108,7 +2110,61 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return data;
         }
 
-        #region ADD / UPDATE
+        public async Task<IEnumerable<EmployeeServiceChangeListForApprovalDto>> GetEmployeeServiceChangesForApproval(
+            string Status, string ChangeType, DateTime DateFrom, string? SearchText)
+        {
+            var query =
+                  from esc in _dbContext.EmployeeServiceChanges.AsNoTracking()
+                  join emp in _dbContext.Employees.AsNoTracking()
+                    on esc.IdEmployee equals emp.IdEmployee
+                  join chng in _dbContext.Employees.AsNoTracking()
+                  on esc.ChangedBy equals chng.IdEmployee
+                  select new { esc, emp, chng };
+
+            // Date filter (from date)
+            if (DateFrom.Year >= 2020)
+                query = query.Where(x => x.esc.ChangeValidFrom >= DateFrom.Date);
+
+            if (!string.IsNullOrEmpty(ChangeType) && ChangeType != "ALL")
+                query = query.Where(x => x.esc.ChangeType == ChangeType);
+
+            if (!string.IsNullOrEmpty(Status) && Status != "ALL")
+                query = query.Where(x => x.esc.ApprovalStatus == Status);
+            if (!string.IsNullOrEmpty(SearchText))
+                query = query.Where(x => x.emp.FirstName.Contains(SearchText) 
+                || x.emp.LastName.Contains(SearchText)
+                || x.esc.FromValue.Contains(SearchText)
+                || x.esc.ToValue.Contains(SearchText));
+
+            var data = await query
+                .OrderByDescending(x => x.esc.ChangeValidFrom)
+                .Select(x => new EmployeeServiceChangeListForApprovalDto
+                {
+                    IdEmployeeServiceChange = x.esc.IdEmployeeServiceChange,
+                    IdEmployee = x.esc.IdEmployee,
+                    EmployeeCode = x.emp.EmployeeCode,
+                    EmployeeName = (x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? ""),
+                    ChangeType = x.esc.ChangeType,
+                    ChangeDescription = x.esc.ChangeDescription,
+                    FromValue = x.esc.FromValue,
+                    ToValue = x.esc.ToValue,
+                    FromValueID = x.esc.FromValueID,
+                    ToValueID = x.esc.ToValueID,
+                    ChangeValidFrom = x.esc.ChangeValidFrom,
+                    Remarks = x.esc.Remarks,
+                    ApprovalStatus = x.esc.ApprovalStatus,
+                    ChangedByEmployeeName = (x.chng.FirstName ?? "") + " " + (x.chng.LastName ?? ""),
+                    CreatedAt = x.esc.CreatedAt,
+                    CreatedBy = x.esc.CreatedBy,
+                    UpdatedBy = x.esc.UpdatedBy,
+                    UpdatedAt = x.esc.UpdatedAt
+                }).ToListAsync();
+
+            return data;
+        }
+
+
+
 
         public async Task<bool> AddUpdateEmployeeServiceChange(EmployeeServiceChangeDto dto,int loggedInEmployeeId)
         {
@@ -2327,8 +2383,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
         #endregion
 
-        #region DELETE
-
         public async Task<bool> DeleteEmployeeServiceChanges(
             int idEmployeeServiceChange,
             int loggedInEmployeeId,
@@ -2352,9 +2406,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return true;
         }
-
-        #endregion
-
 
 
     }
