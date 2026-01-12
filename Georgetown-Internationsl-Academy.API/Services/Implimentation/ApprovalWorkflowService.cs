@@ -103,9 +103,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     return "Approval workflow initiated.";
                 }
 
-
-
-
                 // Step 3: Validate logged-in employee
                 if (currentRecord.TargetIdEmployee == null ||
                     !currentRecord.TargetIdEmployee.Split(',').Contains(loggedInEmployeeId.ToString()))

@@ -276,7 +276,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #region EmployeeLeaveManagement
         [HttpGet("GetEmployeeLeaveSetup")]
-        public async Task<IActionResult> GetEmployeeLeaveSetup(string searchText, int? idYear)
+        public async Task<IActionResult> GetEmployeeLeaveSetup(string? searchText, int? idYear)
         {
             try
             {

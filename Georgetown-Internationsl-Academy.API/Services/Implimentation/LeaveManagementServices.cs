@@ -186,11 +186,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         IdLeaveTemplate = t.IdLeaveTemplate,
                         LeaveTemplateName = t.LeaveTemplateName,
+                        ApprovlStatus = t.ApprovlStatus,
+                        LeaveTemplateDesc = t.LeaveTemplateDesc,
                         IdYear = t.IdYear,
                         CreatedBy = t.CreatedBy,
                         CreatedAt = t.CreatedAt,
                         UpdatedBy = t.UpdatedBy,
-                        UpdatedAt = t.UpdatedAt
+                        UpdatedAt = t.UpdatedAt,
+                        IdApprovedBy = t.IdApprovedBy
                     })
                     .ToListAsync();
 
@@ -250,14 +253,36 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                         AllowBackdatedLeave = x.AllowBackdatedLeave,
                         BackdateLimitDays = x.BackdateLimitDays
-                    })
-                    .ToListAsync();
-              
+                    }).ToListAsync();
+
+                foreach(var det in details)
+                {
+                    det.leaveWorkFlowDetails = await
+                        (
+                            from wfd in _dbContext.WorkFlowConfigDetails
+                            join wf in _dbContext.WorkFlowConfig
+                                on wfd.IdWorkFlowConfig equals wf.IdWorkFlowConfig
+                            where wf.EntityCode == "LEAVE_" + det.IdLeaveTemplateDetails.ToString()
+                            select new LeaveWorkFlowDetailDto
+                            {
+                                IdWorkFlowConfigDetail = wfd.IdWorkFlowConfigDetail,
+                                IdWorkFlowConfig = wfd.IdWorkFlowConfig,
+                                LevelNumber = wfd.LevelNumber,
+                                ApprovalAuthorityType = wfd.ApprovalAuthorityType,
+                                ApprovalStatusName = wfd.ApprovalStatusName,
+                                ApprovalAuthorityID = wfd.ApprovalAuthorityID
+                            }
+                        ).ToListAsync();
+
+                }
+
                 return new LeaveTemplateDto
                 {
                     IdLeaveTemplate = header.IdLeaveTemplate,
                     LeaveTemplateName = header.LeaveTemplateName,
                     LeaveTemplateDesc = header.LeaveTemplateDesc,
+                    ApprovlStatus = header.ApprovlStatus,
+                    IdApprovedBy = header.IdApprovedBy,
                     IdYear = header.IdYear,
                     CreatedBy = header.CreatedBy,
                     CreatedAt = header.CreatedAt,
@@ -716,6 +741,23 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (detail == null)
                     throw new ArgumentException("LeaveTemplateDetail not found.");
 
+                detail.leaveWorkFlowDetails = await
+                        (
+                            from wfd in _dbContext.WorkFlowConfigDetails
+                            join wf in _dbContext.WorkFlowConfig
+                                on wfd.IdWorkFlowConfig equals wf.IdWorkFlowConfig
+                            where wf.EntityCode == "LEAVE_" + detail.IdLeaveTemplateDetails.ToString()
+                            select new LeaveWorkFlowDetailDto
+                            {
+                                IdWorkFlowConfigDetail = wfd.IdWorkFlowConfigDetail,
+                                IdWorkFlowConfig = wfd.IdWorkFlowConfig,
+                                LevelNumber = wfd.LevelNumber,
+                                ApprovalAuthorityType = wfd.ApprovalAuthorityType,
+                                ApprovalStatusName = wfd.ApprovalStatusName,
+                                ApprovalAuthorityID = wfd.ApprovalAuthorityID
+                            }
+                        ).ToListAsync();
+
                 return detail;
             }
             catch (Exception ex)
@@ -729,7 +771,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
         #region EmployeeLeaveManagement
-        public async Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string searchText, int? idYear)
+        public async Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? idYear)
         {
             try
             {
