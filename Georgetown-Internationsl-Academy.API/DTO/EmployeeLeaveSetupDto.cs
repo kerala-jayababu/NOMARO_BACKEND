@@ -27,6 +27,7 @@
     {
         public int IdEmployeeLeaveConfigDetail { get; set; }
         public int IdEmployeeLeaveConfig { get; set; }
+        public int IdLeaveTemplateDetail { get; set; }
         public int IdLeaveType { get; set; }
         public string? LeaveTypeName { get; set; }
         public string? LeaveCode { get; set; }
@@ -52,6 +53,5 @@
         public int? MaxLeavesPerMonth { get; set; }
         public bool AllowBackdatedLeave { get; set; } = true;
         public int? BackdateLimitDays { get; set; }
-
     }
 }

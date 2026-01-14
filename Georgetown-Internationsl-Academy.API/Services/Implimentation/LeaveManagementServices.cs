@@ -19,6 +19,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IConfiguration _configuration;
         private readonly ApplicationDBContext _dbContext;
         private readonly ILogger<NotificationConfigService> _logger;
+        private readonly IApprovalWorkflowService _approvalWorkflowService;
+
 
         public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, ILogger<NotificationConfigService> logger)
         {
@@ -155,7 +157,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-
 
 
         #endregion
@@ -392,6 +393,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 _dbContext.LeaveTemplates.Update(template);
                 await _dbContext.SaveChangesAsync();
 
+                // ✅ Initiate workflow for each record
+                var entityCode = _configuration["WorkflowEntityCodes:LeaveTemplate"];
+
+                var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    idLeaveTemplate,
+                    entityCode,
+                    loggedInEmployeeId,
+                    "SUBMITTED",
+                    null,
+                    null);
+
+                    // Optional strict check: rollback if workflow fails
+                    if (result != "Approval workflow initiated.")
+                        throw new Exception(result);
                 await transaction.CommitAsync();
                 return true;
             }
@@ -536,7 +551,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // ============================
                 // 1️⃣1️⃣ Insert / Update
                 // ============================
-
+                int IdLeaveTemplateInsUpdate = 0;
                 if (dto.IdLeaveTemplateDetails > 0)
                 {
                     // 🔹 Update
@@ -545,7 +560,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (entity == null)
                         throw new ArgumentException("LeaveTemplateDetails not found.");
-
+                    IdLeaveTemplateInsUpdate = dto.IdLeaveTemplateDetails;
                     entity.IdLeaveType = dto.IdLeaveType;
                     entity.LeaveTypeName = dto.LeaveTypeName;
                     entity.LeaveCode = dto.LeaveCode;
@@ -567,6 +582,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.MaxLeavesPerMonth = dto.MaxLeavesPerMonth;
                     entity.AllowBackdatedLeave = dto.AllowBackdatedLeave;
                     entity.BackdateLimitDays = dto.BackdateLimitDays;
+                    await _dbContext.SaveChangesAsync();
+
                 }
                 else
                 {
@@ -598,6 +615,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
 
                     await _dbContext.LeaveTemplateDetails.AddAsync(entity);
+                    await _dbContext.SaveChangesAsync();
+                    IdLeaveTemplateInsUpdate = entity.IdLeaveTemplateDetails;
+
                 }
 
                 // ================= SAVE WORKFLOW =================
@@ -618,7 +638,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                     //Insert into WorkFlowConfig Table
 
-                    string entityCode = dto.IdLeaveTemplate.ToString() + "_" + "LEAVE" + "_" + dto.IdLeaveType.ToString() + "_" + dto.IdYear.ToString();
+                    string entityCode = "LEAVE" + "_" + IdLeaveTemplateInsUpdate.ToString();
                     if(dto.IdLeaveTemplateDetails > 0)
                     {
                         var existingWorkflowConfig = await _dbContext.WorkFlowConfig.FirstOrDefaultAsync(x => x.EntityCode == entityCode);
@@ -1308,6 +1328,86 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<PagedResultDto<LeaveApplicationListDto>> GetLeaveApplicationsForApproval(
+        int loggedInEmployeeId, string? approvalStatus, string? SearchText, DateTime? fromDate)
+        {
+            try
+            {
+
+                var query = from la in _dbContext.LeaveApplications
+                            join emp in _dbContext.Employees on la.IdEmployee equals emp.IdEmployee
+                            join dept in _dbContext.Departments on emp.IdDepartment equals dept.IdDepartment
+                            join desig in _dbContext.Designations on emp.IdDesignation equals desig.IdDesignation
+                            select new
+                            {
+                                la,
+                                emp,
+                                dept,
+                                desig
+                            };
+
+                int? idHRDept = _dbContext.Departments.Where(d => d.DepartmentCode == "HRD").FirstOrDefault().IdDepartment;
+
+                bool isHRLoginned = false;
+                if(idHRDept > 0)
+                {
+                    int? idLoginnedHRDept = _dbContext.Employees.Where(d => d.IdDepartment == idHRDept).FirstOrDefault().IdDepartment;
+                    if (idHRDept == idLoginnedHRDept)
+                        isHRLoginned = true;
+                }
+                if (!isHRLoginned) 
+                {
+                    query = query.Where(x => x.emp.ReportingTo == loggedInEmployeeId);
+                }
+
+                if (!string.IsNullOrWhiteSpace(approvalStatus))
+                    query = query.Where(x => x.la.ApprovalStatus == approvalStatus.Trim());
+
+                query = query.Where(x =>
+                   (x.emp.FirstName ?? "").ToUpper().Contains(SearchText) ||
+                   (x.emp.LastName ?? "").ToUpper().Contains(SearchText) ||
+                   (x.desig.DesignationName ?? "").ToUpper().Contains(SearchText) ||
+                   (x.dept.DepartmentName ?? "").ToUpper().Contains(SearchText)
+                    );
+
+                if (fromDate.HasValue)
+                    query = query.Where(x => x.la.FromDate.Date >= fromDate.Value.Date);
+
+                int totalRecords = await query.CountAsync();
+
+                // ✅ Paging
+
+                var data = await query
+                    .Select(x => new LeaveApplicationListDto
+                    {
+                        IdLeaveApplication = x.la.IdLeaveApplication,
+                        IdEmployee = x.la.IdEmployee,
+                        IdLeaveType = x.la.IdLeaveType,
+                        LeaveTypeName = x.la.LeaveTypeName,
+                        FromDate = x.la.FromDate,
+                        ToDate = x.la.ToDate,
+                        TotalLeaveDays = x.la.TotalLeaveDays,
+                        ApprovalStatus = x.la.ApprovalStatus,
+                        ApplicationStatus = x.la.ApplicationStatus,
+                        AppliedOn = x.la.AppliedOn,
+                        EmployeeName = x.emp.FirstName + " " + x.emp.LastName,
+                        DesignationName = x.desig.DesignationName,
+                        DepartmentName = x.dept.DepartmentName
+                    })
+                    .ToListAsync();
+
+                return new PagedResultDto<LeaveApplicationListDto>
+                {
+                    Data = data
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave Applications.");
+                throw;
+            }
+        }
+
         public async Task<LeaveApplicationDetailsDto> GetLeaveApplication(int idLeaveApplication)
         {
             try
@@ -1425,7 +1525,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // ✅ Leave cannot span across years
                 if (dto.FromDate.Year != dto.ToDate.Year)
                     throw new ArgumentException("Leave FromDate and ToDate must be within the same year.");
-
 
                 var today = DateTime.Now.Date;
 
@@ -1618,6 +1717,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 await transaction.CommitAsync();
+                _approvalWorkflowService.AddUpdateWorkFlowApprovalForLeave(entity.IdLeaveApplication, entity.IdEmployee, empLeaveTypeConfig);
                 return new LeaveApplicationSaveResultDto
                 {
                     SuccessFlag = true,

@@ -932,6 +932,63 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 .CreateSuccess("Employee service changes saved successfully."));
         }
 
+
+        [HttpPost("ApproveServiceChanges")]
+        public async Task<IActionResult> ApproveServiceChanges([FromBody] List<int> idChanges,[FromQuery] string approvalStatus,[FromQuery] string? remarks)
+        {
+            if (idChanges == null || !idChanges.Any())
+            {
+                return BadRequest(
+                    ApiResponseDto<string>.CreateFailure("No service change records selected.")
+                );
+            }
+
+            // Logged-in employee ID from token
+            int loggedInEmployeeId =
+                int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            if (loggedInEmployeeId == 0)
+            {
+                return Unauthorized(
+                    ApiResponseDto<string>.CreateFailure("Invalid USer.")
+                );
+            }
+
+            // Permission check
+            string screenCode = _configuration["ScreenCodes:EmployeeServiceChanges"];
+
+            bool hasPermission = await _roleBasedService
+                .CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
+
+            if (!hasPermission)
+            {
+                return StatusCode(403,
+                    ApiResponseDto<string>.CreateFailure("Permission denied.")
+                );
+            }
+
+            try
+            {
+                await _employeeservice.ApproveServiceChanges(
+                    idChanges,
+                    approvalStatus,
+                    remarks,
+                    loggedInEmployeeId
+                );
+
+                return Ok(
+                    ApiResponseDto<string>.CreateSuccess("Service changes approved successfully.")
+                );
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure(ex.Message)
+                );
+            }
+        }
+
+
         [HttpDelete("DeleteEmployeeServiceChanges/{id}")]
         public async Task<IActionResult> DeleteEmployeeServiceChanges(int id)
         {

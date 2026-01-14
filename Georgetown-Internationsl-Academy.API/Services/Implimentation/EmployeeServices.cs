@@ -2232,8 +2232,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.UpdatedAt = DateTime.Now;
                 }
 
-                await _dbContext.SaveChangesAsync();
-
                 // ✅ Initiate Approval Workflow (same pattern as AddConfig)
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeServiceChange"];
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(
@@ -2246,9 +2244,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 );
 
                 // ✅ OPTIONAL: If you want to fail and rollback when workflow fails
-                 if (approvalResult != "Approval workflow initiated.")
+                if (approvalResult != "Approval workflow initiated.")
                     throw new Exception(approvalResult);
 
+                await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return true;
             }
@@ -2259,7 +2258,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("An error occurred while saving the service change. Please try again later.");
             }
         }
-
         public async Task<bool> AddUpdateEmployeeServiceChanges(List<EmployeeServiceChangeDto> dtos, int loggedInEmployeeId)
         {
             if (dtos == null || !dtos.Any())
@@ -2371,7 +2369,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     // Optional strict check: rollback if workflow fails
                     if (result != "Approval workflow initiated.")
-                          throw new Exception(result);
+                        throw new Exception(result);
                 }
 
                 await transaction.CommitAsync();
@@ -2385,43 +2383,87 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-
-        public void ApproveServiceChanges()
+        public async Task<bool> ApproveServiceChanges(List<int> idChanges, string approvalStatus, string? remarks, int loggedInEmployeeId)
         {
-             //TO BE MOVED TO APPROVAL SCREEN
-            /*
-            if(dto.ChangeValidFrom <= DateTime.Now.AddDays(5))
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
             {
-                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.IdEmployee == dto.IdEmployee);
+                var serviceChanges = await _dbContext.EmployeeServiceChanges.Where(sc => idChanges.Contains(sc.IdEmployeeServiceChange))
+                    .ToListAsync();
 
-                if (employee == null)
-                    throw new Exception("Employee not found.");
+                if (!serviceChanges.Any())
+                    throw new Exception("No service changes found.");
 
-                switch (dto.ChangeType)
+                foreach (var change in serviceChanges)
                 {
-                    case "DESIGNATION":
-                        employee.IdDesignation = dto.ToValueID;
-                        break;
+                    if (change.ChangeValidFrom > DateTime.Now.AddDays(5))
+                        continue;
 
-                    case "DEPARTMENT":
-                        employee.IdDepartment = dto.ToValueID;
-                        break;
+                    var employee = await _dbContext.Employees
+                        .FirstOrDefaultAsync(e => e.IdEmployee == change.IdEmployee);
 
-                    case "REPOFFICER":
-                        employee.ReportingTo = dto.ToValueID;
-                        break;
+                    if (employee == null)
+                        throw new Exception($"Employee not found. Id: {change.IdEmployee}");
 
-                    case "EMPLOYMENTTYPE":
-                        employee.EM = dto.ToValue; // string-based
-                        break;
-                    
-                    default:
-                        throw new Exception("Unsupported ChangeType.");
+                    switch (change.ChangeType)
+                    {
+                        case "DESIGNATION":
+                            employee.IdDesignation = change.ToValueID;
+                            break;
+
+                        case "DEPARTMENT":
+                            employee.IdDepartment = change.ToValueID;
+                            break;
+
+                        case "REPOFFICER":
+                            employee.ReportingTo = change.ToValueID;
+                            break;
+
+                        /*case "EMPLOYMENTTYPE":
+                            employee.EmployeeCode = change.ToValue;
+                            break;*/
+
+                        default:
+                            throw new Exception($"Unsupported ChangeType: {change.ChangeType}");
+                    }
+
+                    // Update approval fields
+                    change.ApprovalStatus = approvalStatus;
+                    change.Remarks = remarks;
+                    change.ApprovedDate = DateTime.Now;
+                    change.ApprovedBy = loggedInEmployeeId;
                 }
-        
+
+                await _dbContext.SaveChangesAsync();
+
+
+                // ✅ Initiate workflow AFTER data update
+                string entityCode = _configuration["WorkflowEntityCodes:EmployeeServiceChange"];
+
+                foreach (var change in serviceChanges)
+                {
+                    var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                        change.IdEmployeeServiceChange,
+                        entityCode,
+                        loggedInEmployeeId,
+                        approvalStatus,null,
+                        remarks,
+                        1
+                    );
+                }
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+                return true;
             }
-            */
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
+
         #endregion
 
         public async Task<bool> DeleteEmployeeServiceChanges(
