@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Drawing;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -1328,7 +1329,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<PagedResultDto<LeaveApplicationListDto>> GetLeaveApplicationsForApproval(
+        public async Task<IEnumerable<LeaveApplicationListDto>> GetLeaveApplicationsForApproval(
         int loggedInEmployeeId, string? approvalStatus, string? SearchText, DateTime? fromDate)
         {
             try
@@ -1346,6 +1347,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                 desig
                             };
 
+                /*
                 int? idHRDept = _dbContext.Departments.Where(d => d.DepartmentCode == "HRD").FirstOrDefault().IdDepartment;
 
                 bool isHRLoginned = false;
@@ -1359,17 +1361,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     query = query.Where(x => x.emp.ReportingTo == loggedInEmployeeId);
                 }
-
+                */
                 if (!string.IsNullOrWhiteSpace(approvalStatus))
                     query = query.Where(x => x.la.ApprovalStatus == approvalStatus.Trim());
 
-                query = query.Where(x =>
-                   (x.emp.FirstName ?? "").ToUpper().Contains(SearchText) ||
-                   (x.emp.LastName ?? "").ToUpper().Contains(SearchText) ||
-                   (x.desig.DesignationName ?? "").ToUpper().Contains(SearchText) ||
-                   (x.dept.DepartmentName ?? "").ToUpper().Contains(SearchText)
-                    );
-
+                if (!string.IsNullOrWhiteSpace(SearchText))
+                {
+                    query = query.Where(x =>
+                       (x.emp.FirstName ?? "").ToUpper().Contains(SearchText) ||
+                       (x.emp.LastName ?? "").ToUpper().Contains(SearchText) ||
+                       (x.desig.DesignationName ?? "").ToUpper().Contains(SearchText) ||
+                       (x.dept.DepartmentName ?? "").ToUpper().Contains(SearchText)
+                        );
+                }
                 if (fromDate.HasValue)
                     query = query.Where(x => x.la.FromDate.Date >= fromDate.Value.Date);
 
@@ -1392,14 +1396,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         AppliedOn = x.la.AppliedOn,
                         EmployeeName = x.emp.FirstName + " " + x.emp.LastName,
                         DesignationName = x.desig.DesignationName,
-                        DepartmentName = x.dept.DepartmentName
+                        DepartmentName = x.dept.DepartmentName,
+                        Reason = x.la.Reason
+
                     })
                     .ToListAsync();
+                return data ?? new List<LeaveApplicationListDto>();
 
-                return new PagedResultDto<LeaveApplicationListDto>
-                {
-                    Data = data
-                };
             }
             catch (Exception ex)
             {

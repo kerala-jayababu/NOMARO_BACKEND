@@ -10,7 +10,7 @@
         public string? DesignationName { get; set; } // optional
         public int IdLeaveType { get; set; }
         public string? LeaveTypeName { get; set; }
-
+        public string? Reason { get; set; }
         public DateTime FromDate { get; set; }
         public DateTime ToDate { get; set; }
 

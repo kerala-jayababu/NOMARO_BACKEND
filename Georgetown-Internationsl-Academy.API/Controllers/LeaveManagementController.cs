@@ -453,6 +453,31 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        [HttpGet("GetLeaveApplicationsForApproval")]
+        public async Task<IActionResult> GetLeaveApplicationsForApproval(string? approvalStatus, string? SearchText, DateTime? fromDate)
+        {
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var result = await _leaveService.GetLeaveApplicationsForApproval(loggedInEmployeeId, approvalStatus, SearchText, fromDate);
+
+
+                return Ok(ApiResponseDto<IEnumerable<LeaveApplicationListDto>>
+                    .CreateSuccess(result, "Leave templates retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpGet("GetLeaveApplication")]
         public async Task<IActionResult> GetLeaveApplication(int idLeaveApplication)
         {

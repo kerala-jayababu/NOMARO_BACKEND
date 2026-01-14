@@ -34,6 +34,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<LeaveApplicationSaveResultDto> AddUpdateLeaveApplication(LeaveApplicationPostDto dto, int loggedInEmployeeId);
         Task<bool> DeleteLeaveApplicationDocument(int idLeaveApplicationDocument, int loggedInEmployeeId, bool isHrOverride);
         Task<CancelLeaveApplicationResultDto> CancelLeaveApplication(int idLeaveApplication, string? cancelReason, int loggedInEmployeeId);
+        Task<IEnumerable<LeaveApplicationListDto>> GetLeaveApplicationsForApproval(int loggedInEmployeeId, string? approvalStatus, string? SearchText, DateTime? fromDate);
 
     }
 }

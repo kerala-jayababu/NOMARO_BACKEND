@@ -183,7 +183,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task AddUpdateWorkFlowApprovalForLeave(int idLeaveApplication,int idEmployee, EmployeeLeaveSetupDetailDto empLvConfigDetails)
         {
-            string entityCode = "LEAVE" + "_" + empLvConfigDetails.IdEmployeeLeaveConfigDetail;
+            string entityCode = "LEAVE" + "_" + empLvConfigDetails.IdLeaveTemplateDetail;
 
             var wfConfig = await _dbContext.WorkFlowConfig
                 .FirstOrDefaultAsync(et => et.EntityCode == entityCode);
