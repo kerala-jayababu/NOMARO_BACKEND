@@ -1,4 +1,5 @@
 ﻿using Georgetown_Internationsl_Academy.API.DTO;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Interface
 {
@@ -6,15 +7,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     {
 
         Task<IEnumerable<ExitReasonDto>> GetExitReasons();
-        Task<bool> AddOrUpdateExitReasons(List<ExitReasonDto> dtos);
+        Task<bool> AddOrUpdateExitReasons(ExitReasonDto dto);
 
         Task<IEnumerable<ExitTypeDto>> GetExitTypes();
-        Task<bool> AddOrUpdateExitTypes(List<ExitTypeDto> dtos);
+        Task<bool> AddOrUpdateExitTypes(ExitTypeDto dto);
 
         Task<IEnumerable<NoticePeriodPolicyDto>> GetNoticePeriodPolicies();
-        Task<bool> AddOrUpdateNoticePeriodPolicies(List<NoticePeriodPolicyDto> dtos);
+        Task<bool> AddOrUpdateNoticePeriodPolicies(NoticePeriodPolicyDto dto);
 
         Task<IEnumerable<ClearanceTemplateDto>> GetClearanceTemplates();
-        Task<bool> AddOrUpdateClearanceTemplates(List<ClearanceTemplateDto> dtos);
+        Task<bool> AddOrUpdateClearanceTemplates(ClearanceTemplateDto dto);
+        Task<IEnumerable<ClearanceTemplateDepartmentDto>> GetClearanceTemplateDepartments(int idClearanceTemplate);
+        Task<bool> AddOrUpdateClearanceTemplateDepartment(List<ClearanceTemplateDepartmentDto> dtos);
     }
 }

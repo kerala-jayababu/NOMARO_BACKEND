@@ -32,33 +32,29 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return _mapper.Map<IEnumerable<ExitReasonDto>>(data);
         }
 
-        public async Task<bool> AddOrUpdateExitReasons(List<ExitReasonDto> dtos)
+        public async Task<bool> AddOrUpdateExitReasons(ExitReasonDto dto)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _dbContext.ExitReasons.ToListAsync();
-
-                foreach (var dto in dtos)
+                var entity = existing.FirstOrDefault(x => x.IdExitReason == dto.IdExitReason);
+                if (entity != null)
                 {
-                    var entity = existing.FirstOrDefault(x => x.IdExitReason == dto.IdExitReason);
-                    if (entity != null)
+                    entity.ReasonCode = dto.ReasonCode;
+                    entity.ReasonName = dto.ReasonName;
+                    entity.IsActive = dto.IsActive;
+                    entity.UpdatedAt = DateTime.Now;
+                }
+                else
+                {
+                    await _dbContext.ExitReasons.AddAsync(new ExitReasons
                     {
-                        entity.ReasonCode = dto.ReasonCode;
-                        entity.ReasonName = dto.ReasonName;
-                        entity.IsActive = dto.IsActive;
-                        entity.UpdatedAt = DateTime.Now;
-                    }
-                    else
-                    {
-                        await _dbContext.ExitReasons.AddAsync(new ExitReasons
-                        {
-                            ReasonCode = dto.ReasonCode,
-                            ReasonName = dto.ReasonName,
-                            IsActive = dto.IsActive,
-                            CreatedAt = DateTime.Now
-                        });
-                    }
+                        ReasonCode = dto.ReasonCode,
+                        ReasonName = dto.ReasonName,
+                        IsActive = dto.IsActive,
+                        CreatedAt = DateTime.Now
+                    });
                 }
 
                 await _dbContext.SaveChangesAsync();
@@ -81,34 +77,31 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return _mapper.Map<IEnumerable<ExitTypeDto>>(data);
         }
 
-        public async Task<bool> AddOrUpdateExitTypes(List<ExitTypeDto> dtos)
+        public async Task<bool> AddOrUpdateExitTypes(ExitTypeDto dto)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _dbContext.ExitTypes.ToListAsync();
 
-                foreach (var dto in dtos)
+                var entity = existing.FirstOrDefault(x => x.IdExitType == dto.IdExitType);
+                if (entity != null)
                 {
-                    var entity = existing.FirstOrDefault(x => x.IdExitType == dto.IdExitType);
-                    if (entity != null)
-                    {
-                        entity.TypeCode = dto.TypeCode;
-                        entity.TypeName = dto.TypeName;
-                        entity.IsActive = dto.IsActive;
-                        entity.UpdatedAt = DateTime.Now;
-                    }
-                    else
-                    {
-                        await _dbContext.ExitTypes.AddAsync(new ExitTypes
-                        {
-                            TypeCode = dto.TypeCode,
-                            TypeName = dto.TypeName,
-                            IsActive = dto.IsActive,
-                            CreatedAt = DateTime.Now
-                        });
-                    }
+                    entity.TypeCode = dto.TypeCode;
+                    entity.TypeName = dto.TypeName;
+                    entity.IsActive = dto.IsActive;
+                    entity.UpdatedAt = DateTime.Now;
                 }
+                else
+                {
+                    await _dbContext.ExitTypes.AddAsync(new ExitTypes
+                    {
+                        TypeCode = dto.TypeCode,
+                        TypeName = dto.TypeName,
+                        IsActive = dto.IsActive,
+                        CreatedAt = DateTime.Now
+                    });
+                }                
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -129,38 +122,36 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return _mapper.Map<IEnumerable<NoticePeriodPolicyDto>>(data);
         }
 
-        public async Task<bool> AddOrUpdateNoticePeriodPolicies(List<NoticePeriodPolicyDto> dtos)
+        public async Task<bool> AddOrUpdateNoticePeriodPolicies(NoticePeriodPolicyDto dto)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _dbContext.NoticePeriodPolicies.ToListAsync();
 
-                foreach (var dto in dtos)
+                var entity = existing.FirstOrDefault(x => x.IdNoticePeriodPolicy == dto.IdNoticePeriodPolicy);
+                if (entity != null)
                 {
-                    var entity = existing.FirstOrDefault(x => x.IdNoticePeriodPolicy == dto.IdNoticePeriodPolicy);
-                    if (entity != null)
-                    {
-                        entity.PolicyCode = dto.PolicyCode;
-                        entity.PolicyName = dto.PolicyName;
-                        entity.AppliesToEmployeeType = dto.AppliesToEmployeeType;
-                        entity.NoticeDays = dto.NoticeDays;
-                        entity.IsActive = dto.IsActive;
-                        entity.UpdatedAt = DateTime.Now;
-                    }
-                    else
-                    {
-                        await _dbContext.NoticePeriodPolicies.AddAsync(new NoticePeriodPolicies
-                        {
-                            PolicyCode = dto.PolicyCode,
-                            PolicyName = dto.PolicyName,
-                            AppliesToEmployeeType = dto.AppliesToEmployeeType,
-                            NoticeDays = dto.NoticeDays,
-                            IsActive = dto.IsActive,
-                            CreatedAt = DateTime.Now
-                        });
-                    }
+                    entity.PolicyCode = dto.PolicyCode;
+                    entity.PolicyName = dto.PolicyName;
+                    entity.AppliesToEmployeeType = dto.AppliesToEmployeeType;
+                    entity.NoticeDays = dto.NoticeDays;
+                    entity.IsActive = dto.IsActive;
+                    entity.UpdatedAt = DateTime.Now;
                 }
+                else
+                {
+                    await _dbContext.NoticePeriodPolicies.AddAsync(new NoticePeriodPolicies
+                    {
+                        PolicyCode = dto.PolicyCode,
+                        PolicyName = dto.PolicyName,
+                        AppliesToEmployeeType = dto.AppliesToEmployeeType,
+                        NoticeDays = dto.NoticeDays,
+                        IsActive = dto.IsActive,
+                        CreatedAt = DateTime.Now
+                    });
+                }
+                
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -182,35 +173,31 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return _mapper.Map<IEnumerable<ClearanceTemplateDto>>(data);
         }
 
-        public async Task<bool> AddOrUpdateClearanceTemplates(List<ClearanceTemplateDto> dtos)
+        public async Task<bool> AddOrUpdateClearanceTemplates(ClearanceTemplateDto dto)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _dbContext.ClearanceTemplates.ToListAsync();
-
-                foreach (var dto in dtos)
+                var entity = existing.FirstOrDefault(x => x.IdClearanceTemplate == dto.IdClearanceTemplate);
+                if (entity != null)
                 {
-                    var entity = existing.FirstOrDefault(x => x.IdClearanceTemplate == dto.IdClearanceTemplate);
-                    if (entity != null)
-                    {
-                        entity.TemplateName = dto.TemplateName;
-                        entity.Description = dto.Description;
-                        entity.IsActive = dto.IsActive;
-                        entity.UpdatedAt = DateTime.Now;
-                    }
-                    else
-                    {
-                        await _dbContext.ClearanceTemplates.AddAsync(new ClearanceTemplates
-                        {
-                            TemplateName = dto.TemplateName,
-                            Description = dto.Description,
-                            IsActive = dto.IsActive,
-                            CreatedAt = DateTime.Now
-                        });
-                    }
+                    entity.TemplateName = dto.TemplateName;
+                    entity.Description = dto.Description;
+                    entity.IsActive = dto.IsActive;
+                    entity.UpdatedAt = DateTime.Now;
                 }
-
+                else
+                {
+                    await _dbContext.ClearanceTemplates.AddAsync(new ClearanceTemplates
+                    {
+                        TemplateName = dto.TemplateName,
+                        Description = dto.Description,
+                        IsActive = dto.IsActive,
+                        CreatedAt = DateTime.Now
+                    });
+                }
+            
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return true;
@@ -221,8 +208,75 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-        #endregion
+
+        public async Task<IEnumerable<ClearanceTemplateDepartmentDto>> GetClearanceTemplateDepartments(int idClearanceTemplate)
+        {
+            return await _dbContext.ClearanceTemplateDepartments
+                .Where(x => x.IdClearanceTemplate == idClearanceTemplate)
+                .Select(x => new ClearanceTemplateDepartmentDto
+                {
+                    IdTemplateDept = x.IdTemplateDept,
+                    IdClearanceTemplate = x.IdClearanceTemplate,
+                    IdDepartment = x.IdDepartment,
+                    CheckListItem = x.CheckListItem,
+                    IsMandatory = x.IsMandatory
+                })
+                .ToListAsync();
+        }
+
+        public async Task<bool> AddOrUpdateClearanceTemplateDepartment(List<ClearanceTemplateDepartmentDto> dtos)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var templateId = dtos.First().IdClearanceTemplate;
+
+                var existing = await _dbContext.ClearanceTemplateDepartments
+                    .Where(x => x.IdClearanceTemplate == templateId)
+                    .ToListAsync();
+
+                // Delete removed items
+                _dbContext.ClearanceTemplateDepartments.RemoveRange(existing
+                    .Where(e => !dtos.Any(d => d.IdTemplateDept == e.IdTemplateDept)));
+
+                foreach (var dto in dtos)
+                {
+                    var entity = existing.FirstOrDefault(x => x.IdTemplateDept == dto.IdTemplateDept);
+                    if (entity != null)
+                    {
+                        entity.IdDepartment = dto.IdDepartment;
+                        entity.CheckListItem = dto.CheckListItem;
+                        entity.IsMandatory = dto.IsMandatory;
+                    }
+                    else
+                    {
+                        await _dbContext.ClearanceTemplateDepartments.AddAsync(
+                            new ClearanceTemplateDepartments
+                            {
+                                IdClearanceTemplate = dto.IdClearanceTemplate,
+                                IdDepartment = dto.IdDepartment,
+                                CheckListItem = dto.CheckListItem,
+                                IsMandatory = dto.IsMandatory
+                            });
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error saving ClearanceTemplateDepartments");
+                throw;
+            }
+        }
+
 
     }
+    #endregion
+
+
 
 }

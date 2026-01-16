@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -28,13 +29,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         => Ok(ApiResponseDto<IEnumerable<ExitReasonDto>>
             .CreateSuccess(await _EmpOffBoardingService.GetExitReasons(), "Exit reasons retrieved successfully."));
         [HttpPost("AddOrUpdateExitReasons")]
-        public async Task<IActionResult> AddOrUpdateExitReasons(List<ExitReasonDto> exitReasonDtos)
+        public async Task<IActionResult> AddOrUpdateExitReasons(ExitReasonDto exitReasonDto)
         {
-            if (exitReasonDtos == null || !exitReasonDtos.Any())
-            {
-                return BadRequest(ApiResponseDto<string>
-                    .CreateFailure("Invalid input. Please provide a valid list of exit reasons."));
-            }
+
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -58,7 +55,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         ApiResponseDto<string>.CreateFailure("You do not have permission to perform this action."));
                 }
 
-                var isSuccess = await _EmpOffBoardingService.AddOrUpdateExitReasons(exitReasonDtos);
+                var isSuccess = await _EmpOffBoardingService.AddOrUpdateExitReasons(exitReasonDto);
 
                 if (!isSuccess)
                 {
@@ -83,14 +80,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 .CreateSuccess(await _EmpOffBoardingService.GetExitTypes(), "Exit types retrieved successfully."));
 
         [HttpPost("AddOrUpdateExitTypes")]
-        public async Task<IActionResult> AddOrUpdateExitTypes(List<ExitTypeDto> exitTypeDtos)
+        public async Task<IActionResult> AddOrUpdateExitTypes(ExitTypeDto exitTypeDto)
         {
-            if (exitTypeDtos == null || !exitTypeDtos.Any())
-            {
-                return BadRequest(ApiResponseDto<string>
-                    .CreateFailure("Invalid input. Please provide a valid list of exit types."));
-            }
-
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(IdEmployee))
@@ -113,7 +104,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         ApiResponseDto<string>.CreateFailure("You do not have permission to perform this action."));
                 }
 
-                var isSuccess = await _EmpOffBoardingService.AddOrUpdateExitTypes(exitTypeDtos);
+                var isSuccess = await _EmpOffBoardingService.AddOrUpdateExitTypes(exitTypeDto);
 
                 if (!isSuccess)
                 {
@@ -138,14 +129,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 .CreateSuccess(await _EmpOffBoardingService.GetNoticePeriodPolicies(), "Notice policies retrieved successfully."));
 
         [HttpPost("AddOrUpdateNoticePeriodPolicies")]
-        public async Task<IActionResult> AddOrUpdateNoticePeriodPolicies(
-            List<NoticePeriodPolicyDto> noticePolicyDtos)
+        public async Task<IActionResult> AddOrUpdateNoticePeriodPolicies(NoticePeriodPolicyDto noticePolicyDto)
         {
-            if (noticePolicyDtos == null || !noticePolicyDtos.Any())
-            {
-                return BadRequest(ApiResponseDto<string>
-                    .CreateFailure("Invalid input. Please provide a valid list of notice period policies."));
-            }
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -170,7 +155,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var isSuccess = await _EmpOffBoardingService
-                    .AddOrUpdateNoticePeriodPolicies(noticePolicyDtos);
+                    .AddOrUpdateNoticePeriodPolicies(noticePolicyDto);
 
                 if (!isSuccess)
                 {
@@ -195,14 +180,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 .CreateSuccess(await _EmpOffBoardingService.GetClearanceTemplates(), "Clearance templates retrieved successfully."));
 
         [HttpPost("AddOrUpdateClearanceTemplates")]
-        public async Task<IActionResult> AddOrUpdateClearanceTemplates(
-            List<ClearanceTemplateDto> clearanceTemplateDtos)
+        public async Task<IActionResult> AddOrUpdateClearanceTemplates(ClearanceTemplateDto clearanceTemplateDto)
         {
-            if (clearanceTemplateDtos == null || !clearanceTemplateDtos.Any())
-            {
-                return BadRequest(ApiResponseDto<string>
-                    .CreateFailure("Invalid input. Please provide a valid list of clearance templates."));
-            }
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -227,7 +206,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 var isSuccess = await _EmpOffBoardingService
-                    .AddOrUpdateClearanceTemplates(clearanceTemplateDtos);
+                    .AddOrUpdateClearanceTemplates(clearanceTemplateDto);
 
                 if (!isSuccess)
                 {
@@ -244,6 +223,73 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        [HttpGet("GetClearanceTemplateDepartments/{idClearanceTemplate}")]
+        public async Task<IActionResult> GetClearanceTemplateDepartments(int idClearanceTemplate)
+        {
+            try
+            {
+                var data = await _EmpOffBoardingService.GetClearanceTemplateDepartments(idClearanceTemplate);
+
+                return Ok(ApiResponseDto<IEnumerable<ClearanceTemplateDepartmentDto>>
+                    .CreateSuccess(data, "Clearance checklist retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddOrUpdateClearanceTemplateDepartments")]
+        public async Task<IActionResult> AddOrUpdateClearanceTemplateDepartments(List<ClearanceTemplateDepartmentDto> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest(ApiResponseDto<string>
+                    .CreateFailure("Invalid input. Please provide a valid checklist."));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>
+                    .CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                var screenCode = _configuration["ScreenCodes:OffBoardingSetup"];
+                var actionType = "A";
+
+                var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403,
+                        ApiResponseDto<string>.CreateFailure("You do not have permission to perform this action."));
+                }
+
+                var isSuccess = await _EmpOffBoardingService.AddOrUpdateClearanceTemplateDepartment(dtos);
+
+                if (!isSuccess)
+                {
+                    return StatusCode(500,
+                        ApiResponseDto<string>.CreateFailure("Failed to save clearance checklist."));
+                }
+
+                return Ok(ApiResponseDto<string>
+                    .CreateSuccess("Clearance checklist saved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
 
     }
 }
