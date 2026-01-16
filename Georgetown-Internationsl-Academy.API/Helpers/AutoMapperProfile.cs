@@ -50,15 +50,15 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             CreateMap<Employee, EmployeeEntityDto>().ReverseMap();
             CreateMap<AssetTypes, AssetTypeDto>().ReverseMap();
             CreateMap<Assets, AssetDto>().ReverseMap();
-
+            CreateMap<ExitTypes, ExitTypeDto>().ReverseMap();
+            
             #region Time & Attendance
             CreateMap<ShiftDefinitionEntity, ShiftDto>().ReverseMap();
             CreateMap<ShiftSchedule, ShiftScheduleDto>().ReverseMap();
             CreateMap<ShiftEmployee, ShiftEmployeeDto>().ReverseMap();
             CreateMap<ShiftAssignment, ShiftAssignmentDto>().ReverseMap();
 
-            CreateMap<ExitReasons, ExitReasonDto>().ReverseMap();
-            CreateMap<ExitTypes, ExitTypes>().ReverseMap();
+            CreateMap<ExitReasons, ExitReasonDto>().ReverseMap();     
             CreateMap<NoticePeriodPolicies, NoticePeriodPolicyDto>().ReverseMap();
             CreateMap<ClearanceTemplates, ClearanceTemplateDto>().ReverseMap();
             CreateMap<ClearanceTemplateDepartments, ClearanceTemplateDepartmentDto>().ReverseMap();
