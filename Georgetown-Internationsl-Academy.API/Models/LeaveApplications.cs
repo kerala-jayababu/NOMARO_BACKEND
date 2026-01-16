@@ -8,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         [Key]
         public int IdLeaveApplication { get; set; }
         public int IdEmployee { get; set; }
+        public int? IdLeaveTemplateDetail { get; set; }
         public int IdLeaveType { get; set; }
         public string LeaveTypeName { get; set; }
         public DateTime FromDate { get; set; }

@@ -514,17 +514,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 var screenCode = _configuration["ScreenCodes:LeaveApplications"];
 
-                // ✅ Employee Apply Permission
-                var canApply = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
-                if (!canApply)
-                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
 
                 // ✅ Employee can only apply for himself (unless HR permission)
                 var canApplyForOthers = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "AA");
 
+                /*
                 if (!canApplyForOthers && dto.IdEmployee != loggedInEmployeeId)
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You can apply leave only for yourself."));
-
+                */
                 var result = await _leaveService.AddUpdateLeaveApplication(dto, loggedInEmployeeId);
 
                 return Ok(ApiResponseDto<LeaveApplicationSaveResultDto>

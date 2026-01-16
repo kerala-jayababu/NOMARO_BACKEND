@@ -183,69 +183,76 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task AddUpdateWorkFlowApprovalForLeave(int idLeaveApplication,int idEmployee, EmployeeLeaveSetupDetailDto empLvConfigDetails)
         {
-            string entityCode = "LEAVE" + "_" + empLvConfigDetails.IdLeaveTemplateDetail;
-
-            var wfConfig = await _dbContext.WorkFlowConfig
-                .FirstOrDefaultAsync(et => et.EntityCode == entityCode);
-
-            if (wfConfig == null)
-                return;
-
-            var wfConfigDetails = await _dbContext.WorkFlowConfigDetails
-                .Where(wf => wf.IdWorkFlowConfig == wfConfig.IdWorkFlowConfig)
-                .OrderBy(wf => wf.LevelNumber)
-                .ToListAsync();
-
-            if (!wfConfigDetails.Any())
-                return;
-
-            var employee = await _dbContext.Employees
-                .FirstOrDefaultAsync(em => em.IdEmployee == idEmployee);
-
-            int? reportingOfficerId = employee?.ReportingTo;
-
-            int cycleIndex = 1;
-
-            foreach (var wfd in wfConfigDetails)
+            try
             {
-                string targetEmployeeIds = string.Empty;
+                string entityCode = "LEAVE" + "_" + empLvConfigDetails.IdLeaveTemplateDetail;
 
-                if (wfd.ApprovalAuthorityType == "REPOFFICER")
+                var wfConfig = await _dbContext.WorkFlowConfig
+                    .FirstOrDefaultAsync(et => et.EntityCode == entityCode);
+
+                if (wfConfig == null)
+                    return;
+
+                var wfConfigDetails = await _dbContext.WorkFlowConfigDetails
+                    .Where(wf => wf.IdWorkFlowConfig == wfConfig.IdWorkFlowConfig)
+                    .OrderBy(wf => wf.LevelNumber)
+                    .ToListAsync();
+
+                if (!wfConfigDetails.Any())
+                    return;
+
+                var employee = await _dbContext.Employees
+                    .FirstOrDefaultAsync(em => em.IdEmployee == idEmployee);
+
+                int? reportingOfficerId = employee?.ReportingTo;
+
+                int cycleIndex = 1;
+
+                foreach (var wfd in wfConfigDetails)
                 {
-                    if (!reportingOfficerId.HasValue)
-                        continue;
+                    string targetEmployeeIds = string.Empty;
 
-                    targetEmployeeIds = reportingOfficerId.Value.ToString();
+                    if (wfd.ApprovalAuthorityType == "REPOFFICER")
+                    {
+                        if (!reportingOfficerId.HasValue)
+                            continue;
+
+                        targetEmployeeIds = reportingOfficerId.Value.ToString();
+                    }
+                    else
+                    {
+                        var empIds = await _dbContext.Employees
+                            .Where(em => em.IdDesignation == wfd.ApprovalAuthorityID)
+                            .Select(em => em.IdEmployee)
+                            .ToListAsync();
+
+                        if (!empIds.Any())
+                            continue;
+
+                        targetEmployeeIds = string.Join(",", empIds);
+                    }
+
+                    var approvalFlow = new ApprovalWorkFlowAllocation
+                    {
+                        IdWorkFlowConfig = wfConfig.IdWorkFlowConfig,
+                        EntityCode = wfConfig.EntityCode,
+                        EntityTablePrimaryKeyID = idLeaveApplication,
+                        CycleIndex = cycleIndex,
+                        LevelNumber = wfd.LevelNumber,
+                        SourceIdEmployee = idEmployee,
+                        TargetIdEmployee = targetEmployeeIds,
+                        SentDate = DateTime.Now
+                    };
+
+                    await _dbContext.ApprovalWorkFlowAllocations.AddAsync(approvalFlow);
                 }
-                else
-                {
-                    var empIds = await _dbContext.Employees
-                        .Where(em => em.IdDesignation == wfd.ApprovalAuthorityID)
-                        .Select(em => em.IdEmployee)
-                        .ToListAsync();
 
-                    if (!empIds.Any())
-                        continue;
-
-                    targetEmployeeIds = string.Join(",", empIds);
-                }
-
-                var approvalFlow = new ApprovalWorkFlowAllocation
-                {
-                    IdWorkFlowConfig = wfConfig.IdWorkFlowConfig,
-                    EntityCode = wfConfig.EntityCode,
-                    EntityTablePrimaryKeyID = idLeaveApplication,
-                    CycleIndex = cycleIndex,
-                    LevelNumber = wfd.LevelNumber,
-                    SourceIdEmployee = idEmployee,
-                    TargetIdEmployee = targetEmployeeIds,
-                    SentDate = DateTime.Now
-                };
-
-                await _dbContext.ApprovalWorkFlowAllocations.AddAsync(approvalFlow);
+                await _dbContext.SaveChangesAsync();
             }
-
-            await _dbContext.SaveChangesAsync();
+            catch(Exception ee)
+            {
+                int p = 100;
+            }
         }
 
 

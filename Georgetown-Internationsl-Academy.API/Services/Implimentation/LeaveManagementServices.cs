@@ -23,11 +23,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IApprovalWorkflowService _approvalWorkflowService;
 
 
-        public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, ILogger<NotificationConfigService> logger)
+        public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, ILogger<NotificationConfigService> logger)
         {
             _configuration = configuration;
             _dbContext = dbContext;
             _logger = logger;
+            _approvalWorkflowService = approveWorkflowService;
         }
         #region LeaveTypes
 
@@ -666,7 +667,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         EntityName = "Leave Approval Workflow - " + dto.LeaveTypeName,
                         ApprovalCycleCount = wfDto.Count,
                         MainTableName = "LeaveApplications",
-                        MainColumnName = "IdEmployee"
+                        MainColumnName = "IdEmployee",
+                        
                     };
 
                     _dbContext.WorkFlowConfig.Add(workflowConfig);
@@ -941,7 +943,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                    {
                        IdEmployeeLeaveConfigDetail = x.elc.IdEmployeeLeaveConfigDetails,
                         IdEmployeeLeaveConfig = x.elc.IdEmployeeLeaveConfig,
-                       IdLeaveType = x.elc.IdLeaveType,
+                        IdLeaveType = x.elc.IdLeaveType,
+                        IdLeaveTemplateDetail = x.elc.IdLeaveTemplateDetail,
                         LeaveTypeName = x.ltd.LeaveTypeName,
                         LeaveCode =  x.ltd.LeaveCode,
                         AllocatedDaysInYear = x.elc.AllocatedDaysInYear,
@@ -1386,6 +1389,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         IdLeaveApplication = x.la.IdLeaveApplication,
                         IdEmployee = x.la.IdEmployee,
+                        IdLeaveTemplateDetail = x.la.IdLeaveTemplateDetail,
                         IdLeaveType = x.la.IdLeaveType,
                         LeaveTypeName = x.la.LeaveTypeName,
                         FromDate = x.la.FromDate,
@@ -1407,6 +1411,50 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching Leave Applications.");
+                throw;
+            }
+        }
+
+
+        public async Task SubmitLeaveApplicationApproval(
+           List<int> idChanges,
+           string approvalStatus,
+           string? remarks,
+           int loggedInEmployeeId)
+        {
+            try
+            {
+                var leaveApplications = await _dbContext.LeaveApplications
+                    .Where(x => idChanges.Contains(x.IdLeaveApplication))
+                    .ToListAsync();
+
+                if (!leaveApplications.Any())
+                    return;
+                if (remarks == null)
+                    remarks = "";
+                foreach (var la in leaveApplications)
+                {
+                    la.ApprovalStatus = approvalStatus;
+                    la.Reason = remarks;
+                    la.ApprovedBy = loggedInEmployeeId;
+
+                    var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                        la.IdLeaveApplication,
+                        "LEAVE_" + la.IdLeaveTemplateDetail,
+                        loggedInEmployeeId,
+                        approvalStatus, null,
+                        remarks,
+                        1
+                    );
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating Leave Application approval status.");
                 throw;
             }
         }
@@ -1509,7 +1557,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
         public async Task<LeaveApplicationSaveResultDto> AddUpdateLeaveApplication(LeaveApplicationPostDto dto,int loggedInEmployeeId)
         {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            //using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
@@ -1654,6 +1702,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.TotalLeaveDays = totalLeaveDays;
                     entity.Reason = dto.Reason.Trim();
                     entity.ApprovalStatus = "SUBMITTED";
+                    entity.IdLeaveTemplateDetail = empLeaveTypeConfig.IdLeaveTemplateDetail;
                 }
                 else
                 {
@@ -1668,10 +1717,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         HalfDayType = dto.HalfDayType,
                         TotalLeaveDays = totalLeaveDays,
                         Reason = dto.Reason.Trim(),
-
                         AppliedOn = DateTime.Now,
                         ApprovalStatus = "SUBMITTED",
-                        ApplicationStatus = "Submitted"
+                        IdLeaveTemplateDetail = empLeaveTypeConfig.IdLeaveTemplateDetail
+
                     };
 
                     await _dbContext.LeaveApplications.AddAsync(entity);
@@ -1719,8 +1768,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     await _dbContext.SaveChangesAsync();
                 }
 
-                await transaction.CommitAsync();
-                _approvalWorkflowService.AddUpdateWorkFlowApprovalForLeave(entity.IdLeaveApplication, entity.IdEmployee, empLeaveTypeConfig);
+                await _approvalWorkflowService.AddUpdateWorkFlowApprovalForLeave(entity.IdLeaveApplication, entity.IdEmployee, empLeaveTypeConfig);
+                //await transaction.CommitAsync();
+
                 return new LeaveApplicationSaveResultDto
                 {
                     SuccessFlag = true,
@@ -1734,7 +1784,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                //await transaction.RollbackAsync();
                 throw ex;
             }
         }

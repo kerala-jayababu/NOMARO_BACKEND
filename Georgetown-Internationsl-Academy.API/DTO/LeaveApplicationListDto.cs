@@ -8,6 +8,7 @@
         public string? EmployeeName { get; set; } // optional
         public string? DepartmentName { get; set; } // optional
         public string? DesignationName { get; set; } // optional
+        public int? IdLeaveTemplateDetail { get; set; }
         public int IdLeaveType { get; set; }
         public string? LeaveTypeName { get; set; }
         public string? Reason { get; set; }
