@@ -1,0 +1,13 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace Georgetown_Internationsl_Academy.API.DTO
+{
+    public class ExitReasonDto
+    {
+        [Key]
+        public int IdExitReason { get; set; }
+        public string ReasonCode { get; set; }
+        public string ReasonName { get; set; }
+        public bool IsActive { get; set; }
+    }
+}
