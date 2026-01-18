@@ -114,6 +114,7 @@ namespace Georgetown_International_Academy.API.Database
 
         public DbSet<ExitReasons> ExitReasons { get; set; }
         public DbSet<ExitTypes> ExitTypes { get; set; }
+        public DbSet<ExitCases> ExitCases { get; set; }
         public DbSet<NoticePeriodPolicies> NoticePeriodPolicies { get; set; }
         public DbSet<ClearanceTemplates> ClearanceTemplates { get; set; }
         public DbSet<ClearanceTemplateDepartments> ClearanceTemplateDepartments { get; set; }

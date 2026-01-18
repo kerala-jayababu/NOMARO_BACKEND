@@ -36,7 +36,8 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public int? IdBudgetCode { get; set; }
         public int? ChildrenCount { get; set; }
         public string? OverTimeAllowedStatus { get; set; }
-        public string? EmployeePhotoFilePath { get; set; }      
+        public string? EmployeePhotoFilePath { get; set; }   
+        public string? EmployeeWorkType { get; set; }
 
         [NotMapped]
         public byte[]? AttachmentBlob { get; set; }

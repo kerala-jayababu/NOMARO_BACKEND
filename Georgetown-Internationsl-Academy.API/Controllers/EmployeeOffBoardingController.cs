@@ -289,7 +289,62 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        #region RESIGNATION/EXIT CASES
 
+        [HttpPost("SubmitResignation")]
+        public async Task<IActionResult> SubmitResignation([FromBody] SubmitResignationDto resignationDto)
+        {
+            var idEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+            if (string.IsNullOrEmpty(idEmployee) || !int.TryParse(idEmployee, out int loggedInEmployeeId))
+            {
+                return Unauthorized(ApiResponseDto<SubmitResignationResponseDto>
+                    .CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                // Validate input
+                if (resignationDto == null || resignationDto.IdEmployee <= 0)
+                {
+                    return BadRequest(ApiResponseDto<SubmitResignationResponseDto>
+                        .CreateFailure("Invalid employee ID."));
+                }
+
+                if (resignationDto.IdExitReason <= 0)
+                {
+                    return BadRequest(ApiResponseDto<SubmitResignationResponseDto>
+                        .CreateFailure("Invalid exit reason."));
+                }
+
+                if (resignationDto.ProposedLWD == default)
+                {
+                    return BadRequest(ApiResponseDto<SubmitResignationResponseDto>
+                        .CreateFailure("Proposed last working day is required."));
+                }
+
+                // Call service to submit resignation
+                var result = await _EmpOffBoardingService.SubmitResignation(resignationDto, loggedInEmployeeId);
+
+                if (result.Success)
+                {
+                    return Ok(ApiResponseDto<SubmitResignationResponseDto>
+                        .CreateSuccess(result, result.Message ?? "Resignation submitted successfully."));
+                }
+                else
+                {
+                    return BadRequest(ApiResponseDto<SubmitResignationResponseDto>
+                        .CreateFailure(result.Message ?? "Failed to submit resignation."));
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<SubmitResignationResponseDto>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        #endregion
     }
 }
