@@ -95,4 +95,64 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         public List<string>? Errors { get; set; }
     }
+
+    /// <summary>
+    /// DTO for getting resignation requests based on role and hierarchy
+    /// </summary>
+    public class ResignationRequestDto
+    {
+        // Exit Case Info
+        public int IdExitCase { get; set; }
+        public string? CaseNumber { get; set; }
+        public DateTime InitiationDate { get; set; }
+        public string? ExitStatus { get; set; }
+        public string? PendingWith { get; set; }
+
+        // Employee Info (Resigning Employee)
+        public int IdEmployee { get; set; }
+        public string? EmployeeCode { get; set; }
+        public string? EmployeeName { get; set; }
+        public int? IdEmployeeDepartment { get; set; }
+        public string? EmployeeDepartmentName { get; set; }
+        public int? IdEmployeeDesignation { get; set; }
+        public string? EmployeeDesignationName { get; set; }
+
+        // Exit Type Info
+        public int? IdExitType { get; set; }
+        public string? ExitTypeCode { get; set; }
+        public string? ExitTypeName { get; set; }
+
+        // Exit Reason Info
+        public int IdExitReason { get; set; }
+        public string? ExitReasonCode { get; set; }
+        public string? ExitReasonName { get; set; }
+        public string? EmployeeReasonDetails { get; set; }
+        public DateTime ProposedLWD { get; set; }
+        public DateTime? ApprovedLWD { get; set; }
+
+        // Notice Period Info
+        public int? IdNoticePolicy { get; set; }
+        public string? NoticePolicyCode { get; set; }
+        public string? NoticePolicyName { get; set; }
+        public int? PolicyNoticeDays { get; set; }
+        public int? EffectiveNoticeDays { get; set; }
+        public bool? IsNoticeOverridden { get; set; }
+
+        // Clearance Info
+        public int? IdClearanceTemplate { get; set; }
+        public string? ClearanceTemplateName { get; set; }
+        public string? ClearanceTemplateDescription { get; set; }
+        public DateTime? ClearanceInitiatedOn { get; set; }
+
+        // Reporting Officer Info
+        public int? PendingWithIDEmployee { get; set; }
+        public string? ReportingOfficerCode { get; set; }
+        public string? ReportingOfficerName { get; set; }
+        public int? ReportingOfficerDepartment { get; set; }
+        public string? ReportingOfficerDepartmentName { get; set; }
+
+        // Metadata
+        public DateTime CreatedAt { get; set; }
+        public int CreatedBy { get; set; }
+    }
 }

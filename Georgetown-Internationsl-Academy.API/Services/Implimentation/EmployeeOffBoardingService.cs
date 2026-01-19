@@ -1,9 +1,12 @@
 ﻿using AutoMapper;
+using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
+using System.Text;
 using static Georgetown_Internationsl_Academy.API.Services.Implimentation.EmployeeOffBoardingService;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -13,12 +16,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<AssetServices> _logger;
+        private readonly IConfiguration _configuration;
 
-        public EmployeeOffBoardingService(ApplicationDBContext dbContext, IMapper mapper, ILogger<AssetServices> logger)
+        public EmployeeOffBoardingService(ApplicationDBContext dbContext, IMapper mapper, ILogger<AssetServices> logger, IConfiguration configuration)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _configuration = configuration;
         }
 
         #region OFFBOARDING CONFIGURATIONS
@@ -323,7 +328,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
                 }
        
-                string employeeWorkType = employee.EmployeeWorkType;
+                string employeeWorkType = "FULLTIME";
 
                 // Get Notice Period Policy based on employee work type
                 var noticePolicy = await _dbContext.NoticePeriodPolicies
@@ -366,8 +371,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 // Calculate effective notice days and earliest LWD
-                int effectiveNoticeDays = noticePolicy.NoticeDays;
-                DateTime earliestLWD = dto.ProposedLWD.AddDays(-noticePolicy.NoticeDays);
+                int effectiveNoticeDays = noticePolicy.NoticeDays;             
 
                 // UPDATE existing exit case
                 if (existingExitCase != null)
@@ -377,8 +381,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     existingExitCase.ProposedLWD = dto.ProposedLWD;
                     existingExitCase.IdNoticePolicy = noticePolicy.IdNoticePeriodPolicy;
                     existingExitCase.PolicyNoticeDays = noticePolicy.NoticeDays;
-                    existingExitCase.EffectiveNoticeDays = effectiveNoticeDays;
-                    existingExitCase.EarliestLWD = earliestLWD;
+                    existingExitCase.EffectiveNoticeDays = effectiveNoticeDays;              
                     existingExitCase.UpdatedBy = loggedInEmployeeId;
                     existingExitCase.UpdatedAt = DateTime.Now;
                     existingExitCase.PendingWithIDEmployee = reportingOfficerId.Value;
@@ -413,7 +416,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         PolicyNoticeDays = noticePolicy.NoticeDays,
                         IsNoticeOverridden = false,
                         EffectiveNoticeDays = effectiveNoticeDays,
-                        EarliestLWD = earliestLWD,
+                       
                         HandoverPlan = null,
                         ExitInterviewDate = null,
                         ContactAfterExit = null,
@@ -477,7 +480,172 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
 
             return $"EXIT-{datePrefix}-{nextSequence:D4}";
-        }       
+        }
+
+        public async Task<IEnumerable<ResignationRequestDto>> GetResignationRequests(int idLoggedInEmployee, string? roleType = null, int? idEmployee = null, DateTime? initiationDate = null)
+        {
+            try
+            {
+                // Validate inputs
+                if (idEmployee <= 0 && string.IsNullOrEmpty(roleType))
+                {
+                    throw new ArgumentException("If IdEmployee is not provided, RoleType is mandatory. RoleType values: REPOFFICER, HREXECUTIVE, HRHEAD");
+                }
+
+                // Validate RoleType if provided
+                var validRoles = new[] { "REPOFFICER", "HREXECUTIVE", "HRHEAD" };
+                if (!string.IsNullOrEmpty(roleType) && !validRoles.Contains(roleType.ToUpper()))
+                {
+                    throw new ArgumentException("Invalid RoleType. Valid values: REPOFFICER, HREXECUTIVE, HRHEAD");
+                }
+
+                // Get logged-in employee details
+                var loggedInEmployee = await _dbContext.Employees
+                    .FirstOrDefaultAsync(e => e.IdEmployee == idLoggedInEmployee);
+
+                if (loggedInEmployee == null)
+                {
+                    throw new Exception("Logged-in employee not found.");
+                }
+
+                // Build the query
+                var query = new StringBuilder(@"
+        SELECT 
+            ec.IdExitCase,
+            ec.CaseNumber,
+            ec.InitiationDate,
+            ec.ExitStatus,
+            ec.PendingWith,
+            
+            -- Resigning Employee Info
+            e.IdEmployee,
+            e.EmployeeCode,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+            e.IdDepartment AS IdEmployeeDepartment,
+            d.DepartmentName AS EmployeeDepartmentName,
+            e.IdDesignation AS IdEmployeeDesignation,
+            des.DesignationName AS EmployeeDesignationName,
+            
+            -- Exit Type Info
+            ec.IdExitType,
+            et.TypeCode AS ExitTypeCode,
+            et.TypeName AS ExitTypeName,
+            
+            -- Exit Reason Info
+            ec.IdExitReason,
+            er.ReasonCode AS ExitReasonCode,
+            er.ReasonName AS ExitReasonName,
+            ec.EmployeeReasonDetails,
+            ec.ProposedLWD,
+            ec.ApprovedLWD,           
+            
+            -- Notice Period Info
+            ec.IdNoticePolicy,
+            npp.PolicyCode AS NoticePolicyCode,
+            npp.PolicyName AS NoticePolicyName,
+            ec.PolicyNoticeDays,
+            ec.EffectiveNoticeDays,
+            ec.IsNoticeOverridden,
+            
+            -- Clearance Info
+            ec.IdClearanceTemplate,
+            ct.TemplateName AS ClearanceTemplateName,
+            ct.Description AS ClearanceTemplateDescription,
+            ec.ClearanceInitiatedOn,
+            
+            -- Reporting Officer Info
+            ec.PendingWithIDEmployee,
+            ro.EmployeeCode AS ReportingOfficerCode,
+            CONCAT(ro.FirstName, ' ', COALESCE(ro.MiddleName, ''), ' ', ro.LastName) AS ReportingOfficerName,
+            ro.IdDepartment AS ReportingOfficerDepartment,
+            rod.DepartmentName AS ReportingOfficerDepartmentName,
+            
+            -- Metadata
+            ec.CreatedAt,
+            ec.CreatedBy
+        FROM ExitCases ec
+        INNER JOIN Employees e ON ec.IdEmployee = e.IdEmployee
+        INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+        LEFT JOIN ExitTypes et ON ec.IdExitType = et.IdExitType
+        LEFT JOIN ExitReasons er ON ec.IdExitReason = er.IdExitReason
+        LEFT JOIN NoticePeriodPolicies npp ON ec.IdNoticePolicy = npp.IdNoticePeriodPolicy
+        LEFT JOIN ClearanceTemplates ct ON ec.IdClearanceTemplate = ct.IdClearanceTemplate
+        LEFT JOIN Employees ro ON ec.PendingWithIDEmployee = ro.IdEmployee
+        LEFT JOIN Departments rod ON ro.IdDepartment = rod.IdDepartment
+        WHERE 1=1
+    ");
+
+                var parameters = new DynamicParameters();
+
+                // Filter logic based on RoleType and IdEmployee
+                if (idEmployee.HasValue && idEmployee > 0)
+                {
+                    // If IdEmployee provided, get all cases for that specific employee
+                    query.Append(" AND e.IdEmployee = @IdEmployee ");
+                    parameters.Add("IdEmployee", idEmployee.Value);
+                }
+                else
+                {
+                    // RoleType-based filtering
+                    roleType = roleType?.ToUpper();
+
+                    if (roleType == "REPOFFICER")
+                    {
+                        // Get all resignation requests where logged-in employee is the reporting officer
+                        query.Append(" AND ec.PendingWithIDEmployee = @LoggedInEmployeeId ");
+                        parameters.Add("LoggedInEmployeeId", idLoggedInEmployee);
+                    }
+                    else if (roleType == "HREXECUTIVE" || roleType == "HRHEAD")
+                    {
+                        // Get all resignation requests from HR department
+                        // The logged-in employee must be from HR department
+                        var hrDepartmentCode = _configuration["Departments:HRCode"] ?? "HRD";
+                        
+                        // For now, filter by employees pending with any HR role
+                        // OR filter by all cases if logged-in employee is from HR
+                        query.Append(@"
+            AND (
+                LOWER(d.DepartmentCode) = @HRDeptCode
+                OR ec.PendingWith IN ('HREXECUTIVE', 'HRHEAD')
+            )
+        ");
+                        parameters.Add("HRDeptCode", hrDepartmentCode.ToLower());
+                    }
+                }
+
+                // Optional InitiationDate filter
+                if (initiationDate.HasValue)
+                {
+                    query.Append(" AND CAST(ec.InitiationDate AS DATE) >= @InitiationDate ");
+                    parameters.Add("InitiationDate", initiationDate.Value.Date);
+                }
+
+                query.Append(" ORDER BY ec.InitiationDate DESC ");
+
+                try
+                {
+                    using (var connection = _dbContext.Database.GetDbConnection())
+                    {
+                        if (connection.State == ConnectionState.Closed)
+                            await connection.OpenAsync();
+
+                        var result = await connection.QueryAsync<ResignationRequestDto>(query.ToString(), parameters);
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error executing resignation requests query");
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching resignation requests for Employee ID: {employeeId}", idLoggedInEmployee);
+                throw;
+            }
+        }
 
         #endregion
     }

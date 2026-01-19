@@ -38,9 +38,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
 
         public bool? IsNoticeOverridden { get; set; }
 
-        public int? EffectiveNoticeDays { get; set; }
-
-        public DateTime? EarliestLWD { get; set; }
+        public int? EffectiveNoticeDays { get; set; }     
 
         [StringLength(2000)]
         public string? HandoverPlan { get; set; }

@@ -22,5 +22,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
 
         // Resignation/Exit Cases
         Task<SubmitResignationResponseDto> SubmitResignation(SubmitResignationDto dto, int loggedInEmployeeId);
+        Task<IEnumerable<ResignationRequestDto>> GetResignationRequests(int idLoggedInEmployee, string? roleType = null, int? idEmployee = null, DateTime? initiationDate = null);
     }
 }

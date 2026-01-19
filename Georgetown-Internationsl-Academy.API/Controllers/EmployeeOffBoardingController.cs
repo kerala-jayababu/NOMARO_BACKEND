@@ -345,6 +345,50 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetResignationRequests")]
+        public async Task<IActionResult> GetResignationRequests([FromQuery] string? roleType = null, [FromQuery] int? idEmployee = null, [FromQuery] DateTime? initiationDate = null)
+        {
+            var idLoggedInEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
+            {
+                return Unauthorized(ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                    .CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                // Call service to get resignation requests
+                var result = await _EmpOffBoardingService.GetResignationRequests(
+                    int.Parse(idLoggedInEmployee),
+                    roleType,
+                    idEmployee,
+                    initiationDate);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                        .CreateSuccess(result, "Resignation requests retrieved successfully."));
+                }
+                else
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                        .CreateSuccess(new List<ResignationRequestDto>(), "No resignation requests found."));
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                    .CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
     }
 }
