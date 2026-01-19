@@ -389,6 +389,41 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpPost("SubmitReportingOfficerActions")]
+        public async Task<IActionResult> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto)
+        {
+            var idLoggedInEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
+            {
+                return Unauthorized(ApiResponseDto<ReportingOfficerActionResponseDto>
+                    .CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                // Call service to process reporting officer action
+                var result = await _EmpOffBoardingService.SubmitReportingOfficerActions(dto, int.Parse(idLoggedInEmployee));
+
+                if (result.Success)
+                {
+                    return Ok(ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateSuccess(result, result.Message ?? "Operation successful."));
+                }
+                else
+                {
+                    return BadRequest(ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateFailure(result.Message ?? "Operation failed."));
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
     }
 }

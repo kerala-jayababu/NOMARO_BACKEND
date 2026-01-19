@@ -647,6 +647,201 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<ReportingOfficerActionResponseDto> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto, int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var errors = new List<string>();
+
+                // Validate exit case exists
+                var exitCase = await _dbContext.ExitCases.FirstOrDefaultAsync(e => e.IdExitCase == dto.IdExitCase);
+                if (exitCase == null)
+                {
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = false,
+                        IdExitCase = dto.IdExitCase,
+                        Message = "Exit case not found.",
+                        Errors = new List<string> { $"Exit case with ID {dto.IdExitCase} does not exist." }
+                    };
+                }
+
+                // Validate employee exists
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.IdEmployee == dto.IdEmployee);
+                if (employee == null)
+                {
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = false,
+                        IdExitCase = dto.IdExitCase,
+                        Message = "Employee not found.",
+                        Errors = new List<string> { $"Employee with ID {dto.IdEmployee} does not exist." }
+                    };
+                }
+
+                // Validate that the logged-in employee is the reporting officer (PendingWithIDEmployee)
+                if (exitCase.PendingWithIDEmployee != loggedInEmployeeId)
+                {
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = false,
+                        IdExitCase = dto.IdExitCase,
+                        Message = "Unauthorized action.",
+                        Errors = new List<string> { "You are not the assigned reporting officer for this resignation case." }
+                    };
+                }
+
+                // Validate exit status is still in INITIATED state
+                if (exitCase.ExitStatus != "INITIATED")
+                {
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = false,
+                        IdExitCase = dto.IdExitCase,
+                        Message = "Invalid exit case status.",
+                        Errors = new List<string> { $"Exit case status '{exitCase.ExitStatus}' does not allow further actions." }
+                    };
+                }
+
+                // Validate action is either Approved or Rejected
+                var validActions = new[] { "Approved", "Rejected" };
+                if (string.IsNullOrEmpty(dto.Action) || !validActions.Contains(dto.Action))
+                {
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = false,
+                        IdExitCase = dto.IdExitCase,
+                        Message = "Invalid action.",
+                        Errors = new List<string> { "Action must be either 'Approved' or 'Rejected'." }
+                    };
+                }
+
+                // If Approved, validate ApprovedLWD is provided
+                if (dto.Action == "Approved" && !dto.ApprovedLWD.HasValue)
+                {
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = false,
+                        IdExitCase = dto.IdExitCase,
+                        Message = "ApprovedLWD is required for approval.",
+                        Errors = new List<string> { "ApprovedLWD must be provided when approving resignation." }
+                    };
+                }
+
+                // Calculate EffectiveNoticeDays based on ApprovedLWD and InitiationDate
+                int effectiveNoticeDays = 0;
+                DateTime approvedLwdDate = DateTime.MinValue;
+
+                if (dto.Action == "Approved")
+                {
+                    // Calculate days between InitiationDate and ApprovedLWD
+                    TimeSpan noticePeriod = (TimeSpan)(dto.ApprovedLWD - exitCase.InitiationDate.Date);
+                    effectiveNoticeDays = (int)noticePeriod.TotalDays;
+
+                    if (effectiveNoticeDays < 0)
+                    {
+                        return new ReportingOfficerActionResponseDto
+                        {
+                            Success = false,
+                            IdExitCase = dto.IdExitCase,
+                            Message = "Invalid ApprovedLWD.",
+                            Errors = new List<string> { "ApprovedLWD cannot be earlier than InitiationDate." }
+                        };
+                    }                    
+                }
+
+                // Find HR Officer by designation code "HRD"
+                int? hrOfficerId = null;
+                if (dto.Action == "Approved")
+                {
+                    var hrDesignation = await _dbContext.Designations
+                        .FirstOrDefaultAsync(d => d.DesignationCode != null && d.DesignationCode.ToUpper() == "HRD");
+
+                    if (hrDesignation == null)
+                    {
+                        return new ReportingOfficerActionResponseDto
+                        {
+                            Success = false,
+                            IdExitCase = dto.IdExitCase,
+                            Message = "HR designation not configured.",
+                            Errors = new List<string> { "Designation with code 'HRD' not found in system." }
+                        };
+                    }
+
+                    var hrOfficer = await _dbContext.Employees
+                        .FirstOrDefaultAsync(e => e.IdDesignation == hrDesignation.IdDesignation);
+
+                    if (hrOfficer == null)
+                    {
+                        return new ReportingOfficerActionResponseDto
+                        {
+                            Success = false,
+                            IdExitCase = dto.IdExitCase,
+                            Message = "HR officer not assigned.",
+                            Errors = new List<string> { "No employee found with HR designation. Please assign an HR officer first." }
+                        };
+                    }
+
+                    hrOfficerId = hrOfficer.IdEmployee;
+                }
+
+                // Update exit case based on action
+                if (dto.Action == "Approved")
+                {
+                    exitCase.ApprovedLWD = dto.ApprovedLWD;
+                    exitCase.EffectiveNoticeDays = effectiveNoticeDays;
+                    exitCase.HandoverPlan = dto.HandOverNotes;
+                    exitCase.ExitStatus = "RepOfficerApproved";
+                    exitCase.PendingWith = "HROFFICER";
+                    exitCase.PendingWithIDEmployee = hrOfficerId ?? 0;
+                    exitCase.UpdatedBy = loggedInEmployeeId;
+                    exitCase.UpdatedAt = DateTime.Now;
+
+                    await _dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = true,
+                        IdExitCase = exitCase.IdExitCase,
+                        Message = "Resignation approved successfully. Case moved to HR for further processing."
+                    };
+                }
+                else // Rejected
+                {
+                    exitCase.HandoverPlan = dto.HandOverNotes;
+                    exitCase.ExitStatus = "RepOfficerRejected";
+                    exitCase.PendingWith = "EMPLOYEE";
+                    exitCase.PendingWithIDEmployee = dto.IdEmployee;
+                    exitCase.UpdatedBy = loggedInEmployeeId;
+                    exitCase.UpdatedAt = DateTime.Now;
+
+                    await _dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return new ReportingOfficerActionResponseDto
+                    {
+                        Success = true,
+                        IdExitCase = exitCase.IdExitCase,
+                        Message = "Resignation rejected. Case returned to employee for revision."
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error processing reporting officer actions");
+                return new ReportingOfficerActionResponseDto
+                {
+                    Success = false,
+                    IdExitCase = dto.IdExitCase,
+                    Message = "An error occurred while processing the action.",
+                    Errors = new List<string> { ex.Message }
+                };
+            }
+        }
+
         #endregion
     }
 }

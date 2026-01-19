@@ -155,4 +155,34 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public DateTime CreatedAt { get; set; }
         public int CreatedBy { get; set; }
     }
+
+    /// <summary>
+    /// DTO for Reporting Officer to approve/reject resignation and pass to HR
+    /// </summary>
+    public class SubmitReportingOfficerActionsDto
+    {
+        [Required(ErrorMessage = "IdExitCase is required")]
+        public int IdExitCase { get; set; }
+
+        [Required(ErrorMessage = "IdEmployee is required")]
+        public int IdEmployee { get; set; }
+
+        public DateTime? ApprovedLWD { get; set; } // Required only for Approved action
+
+        public string? HandOverNotes { get; set; }
+
+        [Required(ErrorMessage = "Action is required (Approved/Rejected)")]
+        public string? Action { get; set; } // "Approved" or "Rejected"
+    }
+
+    /// <summary>
+    /// Response DTO for Reporting Officer Actions
+    /// </summary>
+    public class ReportingOfficerActionResponseDto
+    {
+        public bool Success { get; set; }
+        public int IdExitCase { get; set; }
+        public string? Message { get; set; }
+        public List<string> Errors { get; set; } = new List<string>();
+    }
 }
