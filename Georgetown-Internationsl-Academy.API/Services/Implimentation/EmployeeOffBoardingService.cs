@@ -482,14 +482,45 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return $"EXIT-{datePrefix}-{nextSequence:D4}";
         }
 
+        private async Task<List<int>> GetEmployeeHierarchy(int managerId)
+        {
+            var hierarchyIds = new List<int>();
+            var allEmployees = await _dbContext.Employees.ToListAsync();
+            
+            // Get all employees reporting to the manager (recursively)
+            GetDirectReports(managerId, allEmployees, hierarchyIds);
+            
+            return hierarchyIds;
+        }
+
+        private void GetDirectReports(int managerId, List<Employee> allEmployees, List<int> result)
+        {
+            // Get direct reports of the manager
+            var directReports = allEmployees
+                .Where(e => e.ReportingTo == managerId)
+                .ToList();
+
+            foreach (var employee in directReports)
+            {
+                if (employee.IdEmployee.HasValue && !result.Contains(employee.IdEmployee.Value))
+                {
+                    result.Add(employee.IdEmployee.Value);
+                    // Recursively get their reports
+                    GetDirectReports(employee.IdEmployee.Value, allEmployees, result);
+                }
+            }
+        }
+
         public async Task<IEnumerable<ResignationRequestDto>> GetResignationRequests(int idLoggedInEmployee, string? roleType = null, int? idEmployee = null, DateTime? initiationDate = null)
         {
             try
             {
                 // Validate inputs
-                if (idEmployee <= 0 && string.IsNullOrEmpty(roleType))
+                // If IdEmployee is provided (> 0), roleType is optional
+                // If IdEmployee is not provided, roleType is mandatory
+                if ((!idEmployee.HasValue || idEmployee <= 0) && string.IsNullOrEmpty(roleType))
                 {
-                    throw new ArgumentException("If IdEmployee is not provided, RoleType is mandatory. RoleType values: REPOFFICER, HREXECUTIVE, HRHEAD");
+                    throw new ArgumentException("Either IdEmployee or RoleType must be provided. If IdEmployee is not provided, RoleType is mandatory. RoleType values: REPOFFICER, HREXECUTIVE, HRHEAD");
                 }
 
                 // Validate RoleType if provided
@@ -592,9 +623,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (roleType == "REPOFFICER")
                     {
-                        // Get all resignation requests where logged-in employee is the reporting officer
-                        query.Append(" AND ec.PendingWithIDEmployee = @LoggedInEmployeeId ");
-                        parameters.Add("LoggedInEmployeeId", idLoggedInEmployee);
+                        // Get all employees reporting to the logged-in employee (directly and indirectly)
+                        var reportingEmployeeIds = await GetEmployeeHierarchy(idLoggedInEmployee);
+                        
+                        if (reportingEmployeeIds.Any())
+                        {
+                            // Build IN clause for employee IDs
+                            var employeeIdList = string.Join(",", reportingEmployeeIds);
+                            query.Append($" AND e.IdEmployee IN ({employeeIdList}) ");
+                        }
+                        else
+                        {
+                            // No employees reporting to this officer
+                            query.Append(" AND 1=0 ");
+                        }
                     }
                     else if (roleType == "HREXECUTIVE" || roleType == "HRHEAD")
                     {
@@ -735,8 +777,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (dto.Action == "Approved")
                 {
+                    approvedLwdDate = dto.ApprovedLWD ?? DateTime.MinValue;
                     // Calculate days between InitiationDate and ApprovedLWD
-                    TimeSpan noticePeriod = (TimeSpan)(dto.ApprovedLWD - exitCase.InitiationDate.Date);
+                    TimeSpan noticePeriod = approvedLwdDate.Date - exitCase.InitiationDate.Date;
                     effectiveNoticeDays = (int)noticePeriod.TotalDays;
 
                     if (effectiveNoticeDays < 0)
