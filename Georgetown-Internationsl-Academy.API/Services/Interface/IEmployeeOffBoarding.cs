@@ -19,11 +19,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> AddOrUpdateClearanceTemplates(ClearanceTemplateDto dto);
         Task<IEnumerable<ClearanceTemplateDepartmentDto>> GetClearanceTemplateDepartments(int idClearanceTemplate);
         Task<bool> AddOrUpdateClearanceTemplateDepartment(List<ClearanceTemplateDepartmentDto> dtos);
+        Task<bool> DeleteClearanceTemplateDepartment(int IdTemplateDept);
 
         // Resignation/Exit Cases
         Task<SubmitResignationResponseDto> SubmitResignation(SubmitResignationDto dto, int loggedInEmployeeId);
         Task<IEnumerable<ResignationRequestDto>> GetResignationRequests(int idLoggedInEmployee, string? roleType = null, int? idEmployee = null, DateTime? initiationDate = null);
-        Task<ReportingOfficerActionResponseDto> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto, int loggedInEmployeeId);
-        Task<bool> DeleteClearanceTemplateDepartment(int IdTemplateDept);
+        Task<ReportingOfficerActionResponseDto> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto, int loggedInEmployeeId); 
+        Task<HROfficerActionResponseDto> SubmitHROfficerActions(SubmitHROfficerActionsDto dto,int loggedInEmployeeId);
+        Task<HRManagerActionResponseDto> SubmitHRManagerActions(SubmitHRManagerActionsDto dto,int loggedInHRManagerId);
     }
 }

@@ -154,11 +154,33 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         // Metadata
         public DateTime CreatedAt { get; set; }
         public int CreatedBy { get; set; }
+        public List<ExitCaseStatusHistoryDto> ExitCaseHistories { get; set; } = new();
+        public List<ExitCaseClearanceAssignmentDto> ClearanceAssignments { get; set; } = new();
+        public List<ExitCaseDepartmentClearanceLineDto> DepartmentClearanceLines { get; set; } = new();
     }
-
+    public class ExitCaseDepartmentClearanceLineDto
+    {
+        public int IdExitCase { get; set; }
+        public int IdDepartment { get; set; }
+        public string DepartmentName { get; set; }
+        public string CheckListItem { get; set; }
+        public bool IsHeaderRow { get; set; }
+        public string DeptClearanceStatus { get; set; }
+        public int SortOrder { get; set; }
+    }
+    public class ExitCaseClearanceAssignmentDto
+    {
+        public int IdExitCase { get; set; }
+        public int IdDepartment { get; set; }
+        public string DepartmentName { get; set; }
+        public int IdAssigneeUser { get; set; }
+        public string DeptClearanceStatus { get; set; }
+        public DateTime AssignedAt { get; set; }
+    }
     /// <summary>
     /// DTO for Reporting Officer to approve/reject resignation and pass to HR
     /// </summary>
+    /// 
     public class SubmitReportingOfficerActionsDto
     {
         [Required(ErrorMessage = "IdExitCase is required")]
@@ -173,6 +195,18 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         [Required(ErrorMessage = "Action is required (Approved/Rejected)")]
         public string? Action { get; set; } // "Approved" or "Rejected"
+
+        public string? Remarks { get; set; }
+    }
+    public class ExitCaseStatusHistoryDto
+    {
+        public int IdExitCase { get; set; }
+        public string ActionType { get; set; }
+        public string FromStatus { get; set; }
+        public string ToStatus { get; set; }
+        public string PendingWith { get; set; }
+        public int ActionBy { get; set; }
+        public DateTime ActionAt { get; set; }
     }
 
     /// <summary>

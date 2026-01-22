@@ -674,8 +674,77 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         if (connection.State == ConnectionState.Closed)
                             await connection.OpenAsync();
 
-                        var result = await connection.QueryAsync<ResignationRequestDto>(query.ToString(), parameters);
-                        return result;
+                        var exitCases = await connection.QueryAsync<ResignationRequestDto>(query.ToString(), parameters);
+                        if (!exitCases.Any())
+                            return exitCases;
+
+                        var exitCaseIds = exitCases.Select(x => x.IdExitCase).Distinct().ToList();
+
+                        // 2️⃣ LOAD STATUS HISTORY
+                        var histories = await connection.QueryAsync<ExitCaseStatusHistoryDto>(
+                            @"SELECT 
+            IdExitCase,
+            ActionType,
+            FromStatus,
+            ToStatus,
+            PendingWith,
+            ActionAt
+          FROM ExitCaseStatusHistories
+          WHERE IdExitCase IN @Ids",
+                            new { Ids = exitCaseIds }
+                        );
+
+                        // 3️⃣ LOAD CLEARANCE ASSIGNMENTS
+                        var assignments = await connection.QueryAsync<ExitCaseClearanceAssignmentDto>(
+                            @"SELECT
+            IdExitCase,
+            IdDepartment,
+            IdAssigneeUser,
+            DeptClearanceStatus,
+            AssignedAt
+          FROM ExitCaseClearanceAssignments
+          WHERE IdExitCase IN @Ids",
+                            new { Ids = exitCaseIds }
+                        );
+
+                        // 4️⃣ LOAD CLEARANCE LINES
+                        var clearanceLines = await connection.QueryAsync<ExitCaseDepartmentClearanceLineDto>(
+                            @"SELECT
+            IdExitCase,
+            IdDepartment,
+            CheckListItem,
+            IsHeaderRow,
+            DeptClearanceStatus,
+            SortOrder
+          FROM ExitCaseDepartmentClearanceLines
+          WHERE IdExitCase IN @Ids
+          ORDER BY SortOrder",
+                            new { Ids = exitCaseIds }
+                        );
+
+                        // 5️⃣ MAP CHILD DATA
+                        var historyLookup = histories.GroupBy(x => x.IdExitCase)
+                            .ToDictionary(g => g.Key, g => g.ToList());
+
+                        var assignmentLookup = assignments.GroupBy(x => x.IdExitCase)
+                            .ToDictionary(g => g.Key, g => g.ToList());
+
+                        var lineLookup = clearanceLines.GroupBy(x => x.IdExitCase)
+                            .ToDictionary(g => g.Key, g => g.ToList());
+
+                        foreach (var exitCase in exitCases)
+                        {
+                            exitCase.ExitCaseHistories =
+                                historyLookup.GetValueOrDefault(exitCase.IdExitCase, new());
+
+                            exitCase.ClearanceAssignments =
+                                assignmentLookup.GetValueOrDefault(exitCase.IdExitCase, new());
+
+                            exitCase.DepartmentClearanceLines =
+                                lineLookup.GetValueOrDefault(exitCase.IdExitCase, new());
+                        }
+
+                        return exitCases;
                     }
                 }
                 catch (Exception ex)
@@ -691,98 +760,90 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<ReportingOfficerActionResponseDto> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto, int loggedInEmployeeId)
+        public async Task<ReportingOfficerActionResponseDto> SubmitReportingOfficerActions(
+                  SubmitReportingOfficerActionsDto dto,
+                  int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                var errors = new List<string>();
+                // 1. Validate Exit Case
+                var exitCase = await _dbContext.ExitCases
+                    .FirstOrDefaultAsync(e => e.IdExitCase == dto.IdExitCase);
 
-                // Validate exit case exists
-                var exitCase = await _dbContext.ExitCases.FirstOrDefaultAsync(e => e.IdExitCase == dto.IdExitCase);
                 if (exitCase == null)
                 {
                     return new ReportingOfficerActionResponseDto
                     {
                         Success = false,
                         IdExitCase = dto.IdExitCase,
-                        Message = "Exit case not found.",
-                        Errors = new List<string> { $"Exit case with ID {dto.IdExitCase} does not exist." }
+                        Message = "Exit case not found."
                     };
                 }
 
-                // Validate employee exists
-                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.IdEmployee == dto.IdEmployee);
+                // 2. Validate Employee
+                var employee = await _dbContext.Employees
+                    .FirstOrDefaultAsync(e => e.IdEmployee == dto.IdEmployee);
+
                 if (employee == null)
                 {
                     return new ReportingOfficerActionResponseDto
                     {
                         Success = false,
                         IdExitCase = dto.IdExitCase,
-                        Message = "Employee not found.",
-                        Errors = new List<string> { $"Employee with ID {dto.IdEmployee} does not exist." }
+                        Message = "Employee not found."
                     };
                 }
 
-                // Validate that the logged-in employee is the reporting officer (PendingWithIDEmployee)
+                // 3. Authorization check
                 if (exitCase.PendingWithIDEmployee != loggedInEmployeeId)
                 {
                     return new ReportingOfficerActionResponseDto
                     {
                         Success = false,
                         IdExitCase = dto.IdExitCase,
-                        Message = "Unauthorized action.",
-                        Errors = new List<string> { "You are not the assigned reporting officer for this resignation case." }
+                        Message = "Unauthorized action."
                     };
                 }
 
-                // Validate exit status is still in INITIATED state
+                // 4. Status validation
                 if (exitCase.ExitStatus != "INITIATED")
                 {
                     return new ReportingOfficerActionResponseDto
                     {
                         Success = false,
                         IdExitCase = dto.IdExitCase,
-                        Message = "Invalid exit case status.",
-                        Errors = new List<string> { $"Exit case status '{exitCase.ExitStatus}' does not allow further actions." }
+                        Message = "Invalid exit case status."
                     };
                 }
 
-                // Validate action is either Approved or Rejected
-                var validActions = new[] { "Approved", "Rejected" };
-                if (string.IsNullOrEmpty(dto.Action) || !validActions.Contains(dto.Action))
+                // 5. Validate Action
+                if (dto.Action != "Approved" && dto.Action != "Rejected")
                 {
                     return new ReportingOfficerActionResponseDto
                     {
                         Success = false,
                         IdExitCase = dto.IdExitCase,
-                        Message = "Invalid action.",
-                        Errors = new List<string> { "Action must be either 'Approved' or 'Rejected'." }
+                        Message = "Action must be Approved or Rejected."
                     };
                 }
 
-                // If Approved, validate ApprovedLWD is provided
-                if (dto.Action == "Approved" && !dto.ApprovedLWD.HasValue)
-                {
-                    return new ReportingOfficerActionResponseDto
-                    {
-                        Success = false,
-                        IdExitCase = dto.IdExitCase,
-                        Message = "ApprovedLWD is required for approval.",
-                        Errors = new List<string> { "ApprovedLWD must be provided when approving resignation." }
-                    };
-                }
-
-                // Calculate EffectiveNoticeDays based on ApprovedLWD and InitiationDate
+                // 6. Approved LWD validation
                 int effectiveNoticeDays = 0;
-                DateTime approvedLwdDate = DateTime.MinValue;
-
                 if (dto.Action == "Approved")
                 {
-                    approvedLwdDate = dto.ApprovedLWD ?? DateTime.MinValue;
-                    // Calculate days between InitiationDate and ApprovedLWD
-                    TimeSpan noticePeriod = approvedLwdDate.Date - exitCase.InitiationDate.Date;
-                    effectiveNoticeDays = (int)noticePeriod.TotalDays;
+                    if (!dto.ApprovedLWD.HasValue)
+                    {
+                        return new ReportingOfficerActionResponseDto
+                        {
+                            Success = false,
+                            IdExitCase = dto.IdExitCase,
+                            Message = "ApprovedLWD is required."
+                        };
+                    }
+
+                    effectiveNoticeDays =
+                        (dto.ApprovedLWD.Value.Date - exitCase.InitiationDate.Date).Days;
 
                     if (effectiveNoticeDays < 0)
                     {
@@ -790,48 +851,40 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         {
                             Success = false,
                             IdExitCase = dto.IdExitCase,
-                            Message = "Invalid ApprovedLWD.",
-                            Errors = new List<string> { "ApprovedLWD cannot be earlier than InitiationDate." }
+                            Message = "ApprovedLWD cannot be before Initiation Date."
                         };
-                    }                    
+                    }
                 }
 
-                // Find HR Officer by designation code "HRD"
+                // 7. Get HR Officer
                 int? hrOfficerId = null;
                 if (dto.Action == "Approved")
                 {
                     var hrDesignation = await _dbContext.Designations
-                        .FirstOrDefaultAsync(d => d.DesignationCode != null && d.DesignationCode.ToUpper() == "HRD");
+                        .FirstOrDefaultAsync(d => d.DesignationCode == "HRD");
 
                     if (hrDesignation == null)
-                    {
-                        return new ReportingOfficerActionResponseDto
-                        {
-                            Success = false,
-                            IdExitCase = dto.IdExitCase,
-                            Message = "HR designation not configured.",
-                            Errors = new List<string> { "Designation with code 'HRD' not found in system." }
-                        };
-                    }
+                        throw new Exception("HR designation not found.");
 
                     var hrOfficer = await _dbContext.Employees
                         .FirstOrDefaultAsync(e => e.IdDesignation == hrDesignation.IdDesignation);
 
                     if (hrOfficer == null)
-                    {
-                        return new ReportingOfficerActionResponseDto
-                        {
-                            Success = false,
-                            IdExitCase = dto.IdExitCase,
-                            Message = "HR officer not assigned.",
-                            Errors = new List<string> { "No employee found with HR designation. Please assign an HR officer first." }
-                        };
-                    }
+                        throw new Exception("HR officer not assigned.");
 
                     hrOfficerId = hrOfficer.IdEmployee;
                 }
 
-                // Update exit case based on action
+                // 8. Get Order Number
+                var lastOrderNumber = await _dbContext.ExitCaseStatusHistories
+                    .Where(h => h.IdExitCase == dto.IdExitCase)
+                    .OrderByDescending(h => h.OrderNumber)
+                    .Select(h => h.OrderNumber)
+                    .FirstOrDefaultAsync();
+
+                int newOrderNumber = lastOrderNumber + 1;
+
+                // 9. Update Exit Case
                 if (dto.Action == "Approved")
                 {
                     exitCase.ApprovedLWD = dto.ApprovedLWD;
@@ -839,49 +892,58 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     exitCase.HandoverPlan = dto.HandOverNotes;
                     exitCase.ExitStatus = "RepOfficerApproved";
                     exitCase.PendingWith = "HROFFICER";
-                    exitCase.PendingWithIDEmployee = hrOfficerId ?? 0;
-                    exitCase.UpdatedBy = loggedInEmployeeId;
-                    exitCase.UpdatedAt = DateTime.Now;
-
-                    await _dbContext.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    return new ReportingOfficerActionResponseDto
-                    {
-                        Success = true,
-                        IdExitCase = exitCase.IdExitCase,
-                        Message = "Resignation approved successfully. Case moved to HR for further processing."
-                    };
+                    exitCase.PendingWithIDEmployee = hrOfficerId;
                 }
-                else // Rejected
+                else
                 {
                     exitCase.HandoverPlan = dto.HandOverNotes;
                     exitCase.ExitStatus = "RepOfficerRejected";
                     exitCase.PendingWith = "EMPLOYEE";
                     exitCase.PendingWithIDEmployee = dto.IdEmployee;
-                    exitCase.UpdatedBy = loggedInEmployeeId;
-                    exitCase.UpdatedAt = DateTime.Now;
-
-                    await _dbContext.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    return new ReportingOfficerActionResponseDto
-                    {
-                        Success = true,
-                        IdExitCase = exitCase.IdExitCase,
-                        Message = "Resignation rejected. Case returned to employee for revision."
-                    };
                 }
+
+                exitCase.UpdatedBy = loggedInEmployeeId;
+                exitCase.UpdatedAt = DateTime.Now;
+
+                // 🔟 Insert History Record
+                var history = new ExitCaseStatusHistory
+                {
+                    IdExitCase = exitCase.IdExitCase,
+                    ActionType = dto.Action == "Approved" ? "MGR_APPROVE" : "MGR_REJECT",
+                    FromStatus = "SUBMITTED",
+                    ToStatus = dto.Action == "Approved" ? "MGR_APPROVE" : "MGR_REJECT",
+                    PendingWith = dto.Action == "Approved" ? "HROFFICER" : "EMPLOYEE",
+                    Remarks = dto.Remarks,
+                    ApprovedLWD = dto.Action == "Approved" ? dto.ApprovedLWD : null,
+                    CreatedBy = loggedInEmployeeId,
+                    CreatedAt = DateTime.Now,
+                    OrderNumber = newOrderNumber
+                };
+
+                await _dbContext.ExitCaseStatusHistories.AddAsync(history);
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                return new ReportingOfficerActionResponseDto
+                {
+                    Success = true,
+                    IdExitCase = exitCase.IdExitCase,
+                    Message = dto.Action == "Approved"
+                        ? "Resignation approved and forwarded to HR."
+                        : "Resignation rejected and sent back to employee."
+                };
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error processing reporting officer actions");
+                _logger.LogError(ex, "Reporting Officer Action Failed");
+
                 return new ReportingOfficerActionResponseDto
                 {
                     Success = false,
                     IdExitCase = dto.IdExitCase,
-                    Message = "An error occurred while processing the action.",
+                    Message = "Error occurred while processing action.",
                     Errors = new List<string> { ex.Message }
                 };
             }
@@ -905,9 +967,265 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+        public async Task<HROfficerActionResponseDto> SubmitHROfficerActions(SubmitHROfficerActionsDto dto,int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                // =========================
+                // A) UPDATE EXIT CASE
+                // =========================
+                var exitCase = await _dbContext.ExitCases
+                    .FirstOrDefaultAsync(x => x.IdExitCase == dto.IdExitCase);
+
+                if (exitCase == null)
+                {
+                    return new HROfficerActionResponseDto
+                    {
+                        Success = false,
+                        Message = "Exit case not found."
+                    };
+                }
+
+                if (dto.ApprovedLWD.HasValue)
+                    exitCase.ApprovedLWD = dto.ApprovedLWD;
+
+                exitCase.ExitInterviewDate = dto.ExitInterviewDate;
+                exitCase.ContactAfterExit = dto.ContactAfterExit;
+                exitCase.IdClearanceTemplate = dto.IdClearanceTemplate;
+                exitCase.AssignedClearanceTemplateBy = loggedInEmployeeId;
+                exitCase.ClearanceInitiatedOn = DateTime.Now;
+                exitCase.ExitStatus = "InClearance";
+                exitCase.PendingWith = "HRMANAGER";
+                exitCase.UpdatedBy = loggedInEmployeeId;
+                exitCase.UpdatedAt = DateTime.Now;
+
+                // =========================
+                // B) CLEARANCE ASSIGNMENTS
+                // =========================
+                foreach (var dept in dto.ClearanceAssignments)
+                {
+                    ExitCaseClearanceAssignment assignment;
+
+                    if (dept.IdExitCaseClearanceAssignment == 0)
+                    {
+                        assignment = new ExitCaseClearanceAssignment
+                        {
+                            IdExitCase = dto.IdExitCase,
+                            IdDepartment = dept.IdDepartment,
+                            IdClearanceTemplate = dto.IdClearanceTemplate,
+                            IdAssigneeUser = dept.IdAssigneeUser,
+                            DeptClearanceStatus = "PENDING",
+                            AssignedBy = loggedInEmployeeId,
+                            AssignedAt = DateTime.Now
+                        };
+
+                        await _dbContext.ExitCaseClearanceAssignments.AddAsync(assignment);
+                    }
+                    else
+                    {
+                        assignment = await _dbContext.ExitCaseClearanceAssignments
+                            .FirstOrDefaultAsync(x =>
+                                x.IdExitCaseClearanceAssignment == dept.IdExitCaseClearanceAssignment);
+
+                        if (assignment == null) continue;
+
+                        assignment.IdAssigneeUser = dept.IdAssigneeUser;
+                    }
+
+                    // =========================
+                    // C) CLEARANCE LINES (SNAPSHOT)
+                    // =========================
+                    var templateLines = await _dbContext.ClearanceTemplateDepartments
+                        .Where(x => x.IdTemplateDept == dept.IdTemplateDept)                        
+                        .ToListAsync();
+
+                    // Remove old snapshot if re-init
+                    var existingLines = await _dbContext.ExitCaseDepartmentClearanceLines
+                        .Where(x => x.IdExitCase == dto.IdExitCase
+                                 && x.IdDepartment == dept.IdDepartment)
+                        .ToListAsync();
+
+                    _dbContext.ExitCaseDepartmentClearanceLines.RemoveRange(existingLines);
+
+                    int sortOrder = 1;
+
+                    // Header Row
+                    await _dbContext.ExitCaseDepartmentClearanceLines.AddAsync(
+                        new ExitCaseDepartmentClearanceLine
+                        {
+                            IdExitCase = dto.IdExitCase,
+                            IdDepartment = dept.IdDepartment,
+                            IdTemplateDept = dept.IdTemplateDept,
+                            CheckListItem = "DEPARTMENT CLEARANCE",
+                            DeptClearanceStatus = "PENDING",
+                            SortOrder = sortOrder++,
+                            CreatedBy = loggedInEmployeeId,
+                            CreatedOn = DateTime.Now
+                        });
+
+                    // Checklist Rows
+                    foreach (var line in templateLines)
+                    {
+                        await _dbContext.ExitCaseDepartmentClearanceLines.AddAsync(
+                            new ExitCaseDepartmentClearanceLine
+                            {
+                                IdExitCase = dto.IdExitCase,
+                                IdDepartment = dept.IdDepartment,
+                                IdTemplateDept = dept.IdTemplateDept,
+                                CheckListItem = line.CheckListItem,
+                                DeptClearanceStatus = "PENDING",
+                                SortOrder = sortOrder++,
+                                CreatedBy = loggedInEmployeeId,
+                                CreatedOn = DateTime.Now
+                            });
+                    }
+                }
+
+                // =========================
+                // D) STATUS HISTORY
+                // =========================
+                var lastOrder = await _dbContext.ExitCaseStatusHistories
+                    .Where(x => x.IdExitCase == dto.IdExitCase)
+                    .OrderByDescending(x => x.OrderNumber)
+                    .Select(x => x.OrderNumber)
+                    .FirstOrDefaultAsync();
+
+                await _dbContext.ExitCaseStatusHistories.AddAsync(
+                    new ExitCaseStatusHistory
+                    {
+                        IdExitCase = dto.IdExitCase,
+                        ActionType = "CLEARANCE_INITIATED",
+                        FromStatus = "RepOfficerApproved",
+                        ToStatus = "InClearance",
+                        PendingWith = "CLEARANCE",
+                        CreatedBy = loggedInEmployeeId,
+                        CreatedAt = DateTime.Now,
+                        OrderNumber = lastOrder + 1
+                    });
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return new HROfficerActionResponseDto
+                {
+                    Success = true,
+                    IdExitCase = dto.IdExitCase,
+                    Message = "Clearance process initiated successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "HR Clearance Initiation Failed");
+
+                return new HROfficerActionResponseDto
+                {
+                    Success = false,
+                    Message = "Failed to initiate clearance.",
+                    Errors = new List<string> { ex.Message }
+                };
+            }
+        }
+        public async Task<HRManagerActionResponseDto> SubmitHRManagerActions(SubmitHRManagerActionsDto dto,int loggedInHRManagerId)
+        {
+            using var tx = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // A️⃣ PRE-CHECK – Clearance gating
+                var pendingClearanceExists = await _dbContext.ExitCaseClearanceAssignments
+                    .AnyAsync(x =>
+                        x.IdExitCase == dto.IdExitCase &&
+                        !new[] { "CLEARED", "NOT_APPLICABLE" }
+                            .Contains(x.DeptClearanceStatus));
+
+                if (pendingClearanceExists)
+                {
+                    return new HRManagerActionResponseDto
+                    {
+                        Success = false,
+                        Message = "All departmental clearances must be completed before closure."
+                    };
+                }
+
+                // B️⃣ UPDATE EXIT CASE
+                var exitCase = await _dbContext.ExitCases
+                    .FirstOrDefaultAsync(x => x.IdExitCase == dto.IdExitCase);
+
+                if (exitCase == null)
+                {
+                    return new HRManagerActionResponseDto
+                    {
+                        Success = false,
+                        Message = "Exit case not found."
+                    };
+                }
+
+                var fromStatus = exitCase.ExitStatus;
+
+                exitCase.ExitInterviewDate = dto.ExitInterviewDate;
+               // exitCase.ExitInterviewDetails = dto.ExitInterviewDetails;
+                exitCase.ExitStatus = "COMPLETED";
+                exitCase.PendingWith = null;
+                exitCase.UpdatedBy = loggedInHRManagerId;
+                exitCase.UpdatedAt = DateTime.UtcNow;
+
+                // C️⃣ INSERT STATUS HISTORY
+                var lastOrder = await _dbContext.ExitCaseStatusHistories
+                    .Where(x => x.IdExitCase == dto.IdExitCase)
+                    .MaxAsync(x => (int?)x.OrderNumber) ?? 0;
+
+                await _dbContext.ExitCaseStatusHistories.AddAsync(
+                    new ExitCaseStatusHistory
+                    {
+                        IdExitCase = dto.IdExitCase,
+                        ActionType = "CLOSURE_COMPLETED",
+                        FromStatus = fromStatus,
+                        ToStatus = "COMPLETED",
+                        PendingWith = null,
+                        Remarks = dto.ExitInterviewDetails,
+                        CreatedBy = loggedInHRManagerId,
+                        CreatedAt = DateTime.UtcNow,
+                        OrderNumber = lastOrder + 1
+                    });
+
+                // D️⃣ UPDATE EMPLOYEE STATUS
+                var employee = await _dbContext.Employees
+                    .FirstOrDefaultAsync(x => x.IdEmployee == dto.IdEmployee);
+
+                if (employee != null)
+                {
+                    employee.CurrentStatus = "NotWorking";
+                    employee.LastWorkingDay = DateTime.UtcNow.Date;                    
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                return new HRManagerActionResponseDto
+                {
+                    Success = true,
+                    IdExitCase = dto.IdExitCase,
+                    Message = "Exit case closed successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "Error closing exit case {IdExitCase}", dto.IdExitCase);
+
+                return new HRManagerActionResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred while closing the exit case."
+                };
+            }
+        }
 
 
-#endregion
-}
+
+        #endregion
+    }
 }
 

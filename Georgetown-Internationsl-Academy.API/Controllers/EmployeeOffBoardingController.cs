@@ -2,6 +2,7 @@
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -288,6 +289,50 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+        [HttpPost("DeleteClearanceTemplateDepartment")]
+        public async Task<IActionResult> DeleteClearanceTemplateDepartment(int IdTemplateDept)
+        {
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>
+                    .CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                var screenCode = _configuration["ScreenCodes:OffBoardingSetup"];
+                var actionType = "A";
+
+                var hasPermission = await _roleBasedService
+                    .CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403,
+                        ApiResponseDto<string>.CreateFailure("You do not have permission to perform this action."));
+                }
+
+                var isSuccess = await _EmpOffBoardingService.DeleteClearanceTemplateDepartment(IdTemplateDept);
+
+                if (!isSuccess)
+                {
+                    return StatusCode(500,
+                        ApiResponseDto<string>.CreateFailure("Failed to delete Clearance Template Detail"));
+                }
+
+                return Ok(ApiResponseDto<string>
+                    .CreateSuccess("Clearance template Detail added/updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        #region RESIGNATION/EXIT CASES
         [HttpPost("SubmitResignation")]
         public async Task<IActionResult> SubmitResignation([FromBody] SubmitResignationDto resignationDto)
         {
@@ -421,56 +466,84 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         .CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-
-
-        #region RESIGNATION/EXIT CASES
-
-
-
-        [HttpPost("DeleteClearanceTemplateDepartment")]
-        public async Task<IActionResult> DeleteClearanceTemplateDepartment(int IdTemplateDept)
+        [HttpPost("SubmitHROfficerActions")]
+        public async Task<IActionResult> SubmitHROfficerActions([FromBody] SubmitHROfficerActionsDto dto)
         {
+            var idLoggedInEmployee =
+                HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(IdEmployee))
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
             {
-                return Unauthorized(ApiResponseDto<string>
-                    .CreateFailure("Employee ID not found."));
+                return Unauthorized(
+                    ApiResponseDto<HROfficerActionResponseDto>
+                        .CreateFailure("Employee ID not found."));
             }
+
 
             try
             {
-                var screenCode = _configuration["ScreenCodes:OffBoardingSetup"];
-                var actionType = "A";
+                var result = await _EmpOffBoardingService.SubmitHROfficerActions(dto, int.Parse(idLoggedInEmployee));
 
-                var hasPermission = await _roleBasedService
-                    .CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
-
-                if (!hasPermission)
+                if (result.Success)
                 {
-                    return StatusCode(403,
-                        ApiResponseDto<string>.CreateFailure("You do not have permission to perform this action."));
+                    return Ok(
+                        ApiResponseDto<HROfficerActionResponseDto>
+                            .CreateSuccess(result, result.Message));
                 }
 
-                var isSuccess = await _EmpOffBoardingService.DeleteClearanceTemplateDepartment(IdTemplateDept);
-
-                if (!isSuccess)
-                {
-                    return StatusCode(500,
-                        ApiResponseDto<string>.CreateFailure("Failed to delete Clearance Template Detail"));
-                }
-
-                return Ok(ApiResponseDto<string>
-                    .CreateSuccess("Clearance template Detail added/updated successfully."));
+                return BadRequest(ApiResponseDto<HROfficerActionResponseDto>
+                        .CreateFailure(result.Message ?? "Operation failed."));
             }
             catch (Exception ex)
             {
                 return StatusCode(500,
-                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+                    ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        [HttpPost("SubmitHRManagerActions")]     
+        public async Task<IActionResult> SubmitHRManagerActions(
+    [FromBody] SubmitHRManagerActionsDto dto)
+        {
+            var idLoggedInEmployee =
+                HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
+            {
+                return Unauthorized(
+                    ApiResponseDto<HRManagerActionResponseDto>
+                        .CreateFailure("Employee ID not found."));
+            }
+            try
+            {
+
+                var result = await _EmpOffBoardingService.SubmitHRManagerActions(dto, int.Parse(idLoggedInEmployee));
+
+            if (result.Success)
+            {
+                return Ok(
+                    ApiResponseDto<HRManagerActionResponseDto>
+                        .CreateSuccess(result, result.Message));
+            }
+
+            return BadRequest(
+                ApiResponseDto<HRManagerActionResponseDto>
+                    .CreateFailure(result.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
 
         #endregion
+
+
+
+
+
+
     }
 }
