@@ -536,6 +536,47 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        [HttpPost("SubmitLeaveApplicationApproval")]
+        public async Task<IActionResult> SubmitLeaveApplicationApproval(List<int> idChanges,string approvalStatus,string? remarks)
+        {
+            try
+            {
+                if (idChanges == null)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input."));
+
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var screenCode = _configuration["ScreenCodes:LeaveApplications"];
+
+
+                // ✅ Employee can only apply for himself (unless HR permission)
+                var canApplyForOthers = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "AA");
+
+                /*
+                if (!canApplyForOthers && dto.IdEmployee != loggedInEmployeeId)
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You can apply leave only for yourself."));
+                */
+                var result = await _leaveService.SubmitLeaveApplicationApproval(idChanges, approvalStatus, remarks, loggedInEmployeeId);
+
+                if (!result)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to Submit Approval."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Approved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
         [HttpDelete("DeleteLeaveApplicationDocument")]
         public async Task<IActionResult> DeleteLeaveApplicationDocument(int idLeaveApplicationDocument)
         {

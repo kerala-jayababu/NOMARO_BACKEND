@@ -18,7 +18,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public decimal TotalLeaveDays { get; set; }
         public string Reason { get; set; }
         public DateTime AppliedOn { get; set; }
-        public string ApplicationStatus { get; set; }
+        public string? ApplicationStatus { get; set; }
         public DateTime? CancelledDate { get; set; }
         public string? ReasonForCancellation { get; set; }
         public string ApprovalStatus { get; set; }

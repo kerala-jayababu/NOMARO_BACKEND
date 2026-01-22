@@ -1389,9 +1389,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         ToDate = x.la.ToDate,
                         TotalLeaveDays = x.la.TotalLeaveDays,
                         ApprovalStatus = x.la.ApprovalStatus,
-                        ApplicationStatus = x.la.ApplicationStatus,
+                        ApplicationStatus = String.IsNullOrEmpty(x.la.ApplicationStatus)?"":x.la.ApplicationStatus,
                         AppliedOn = x.la.AppliedOn,
-                        EmployeeName = x.emp.FirstName + " " + x.emp.LastName,
+                        EmployeeName = ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
                         DesignationName = x.desig.DesignationName,
                         DepartmentName = x.dept.DepartmentName,
                         Reason = x.la.Reason
@@ -1409,7 +1409,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-        public async Task SubmitLeaveApplicationApproval(
+        public  async Task<bool> SubmitLeaveApplicationApproval(
            List<int> idChanges,
            string approvalStatus,
            string? remarks,
@@ -1422,7 +1422,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .ToListAsync();
 
                 if (!leaveApplications.Any())
-                    return;
+                    return false;
                 if (remarks == null)
                     remarks = "";
                 foreach (var la in leaveApplications)
@@ -1442,7 +1442,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 await _dbContext.SaveChangesAsync();
-
+                return true;
 
             }
             catch (Exception ex)

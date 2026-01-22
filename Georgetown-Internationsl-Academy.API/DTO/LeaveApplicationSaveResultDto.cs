@@ -9,7 +9,7 @@
 
         public decimal TotalLeaveDays { get; set; }
         public string ApprovalStatus { get; set; } = "Pending";
-        public string ApplicationStatus { get; set; } = "Submitted";
+        public string? ApplicationStatus { get; set; } = "Submitted";
         public DateTime AppliedOn { get; set; }
     }
 }

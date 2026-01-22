@@ -39,6 +39,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<LeaveApplicationListDto>> GetLeaveApplicationsEmployee(int idEmployee, DateTime DateFrom, DateTime DateTo);
         Task<List<MonthlyLeaveDashboardDto>> GetLeaveDashboardEmployeeMonthWise(int idEmployee, int idYear);
         Task<decimal> CalculateLeaveDaysAsync(bool IncludeHoliday, DateTime fromDate, DateTime toDate, bool isHalfDay);
+        Task<bool> SubmitLeaveApplicationApproval(List<int> idChanges, string approvalStatus, string? remarks, int loggedInEmployeeId);
 
     }
 }
