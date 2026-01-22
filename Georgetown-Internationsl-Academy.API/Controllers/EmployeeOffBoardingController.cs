@@ -288,9 +288,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-
-        #region RESIGNATION/EXIT CASES
-
         [HttpPost("SubmitResignation")]
         public async Task<IActionResult> SubmitResignation([FromBody] SubmitResignationDto resignationDto)
         {
@@ -365,6 +362,71 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     idEmployee,
                     initiationDate);
 
+                if (result != null && result.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                        .CreateSuccess(result, "Resignation requests retrieved successfully."));
+                }
+                else
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                        .CreateSuccess(new List<ResignationRequestDto>(), "No resignation requests found."));
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                    .CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<IEnumerable<ResignationRequestDto>>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpPost("SubmitReportingOfficerActions")]
+        public async Task<IActionResult> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto)
+        {
+            var idLoggedInEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
+            {
+                return Unauthorized(ApiResponseDto<ReportingOfficerActionResponseDto>
+                    .CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                // Call service to process reporting officer action
+                var result = await _EmpOffBoardingService.SubmitReportingOfficerActions(dto, int.Parse(idLoggedInEmployee));
+
+                if (result.Success)
+                {
+                    return Ok(ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateSuccess(result, result.Message ?? "Operation successful."));
+                }
+                else
+                {
+                    return BadRequest(ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateFailure(result.Message ?? "Operation failed."));
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<ReportingOfficerActionResponseDto>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        #region RESIGNATION/EXIT CASES
+
+
+
         [HttpPost("DeleteClearanceTemplateDepartment")]
         public async Task<IActionResult> DeleteClearanceTemplateDepartment(int IdTemplateDept)
         {
@@ -406,41 +468,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return StatusCode(500,
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-            }
-        }
-
-        [HttpPost("SubmitReportingOfficerActions")]
-        public async Task<IActionResult> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto)
-        {
-            var idLoggedInEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(idLoggedInEmployee))
-            {
-                return Unauthorized(ApiResponseDto<ReportingOfficerActionResponseDto>
-                    .CreateFailure("Employee ID not found."));
-            }
-
-            try
-            {
-                // Call service to process reporting officer action
-                var result = await _EmpOffBoardingService.SubmitReportingOfficerActions(dto, int.Parse(idLoggedInEmployee));
-
-                if (result.Success)
-                {
-                    return Ok(ApiResponseDto<ReportingOfficerActionResponseDto>
-                        .CreateSuccess(result, result.Message ?? "Operation successful."));
-                }
-                else
-                {
-                    return BadRequest(ApiResponseDto<ReportingOfficerActionResponseDto>
-                        .CreateFailure(result.Message ?? "Operation failed."));
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500,
-                    ApiResponseDto<ReportingOfficerActionResponseDto>
-                        .CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
 
