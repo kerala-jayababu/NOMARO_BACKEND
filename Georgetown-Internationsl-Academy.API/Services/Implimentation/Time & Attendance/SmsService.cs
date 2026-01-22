@@ -21,13 +21,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
 
         public SmsService(
             ApplicationDBContext dbContext,
-            ILogger<SmsService> logger,
             IHttpClientFactory httpClientFactory,
+            ILogger<SmsService> logger,
             IConfiguration configuration)
         {
             _dbContext = dbContext;
             _logger = logger;
-            _httpClientFactory = httpClientFactory;
+           _httpClientFactory = httpClientFactory;
             _configuration = configuration;
         }
 
@@ -192,5 +192,61 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
             if (!result.Contains("\"Status\":\"Success\""))
                 throw new Exception("SMSALA Error: " + result);
         }
+
+        public async Task SendSMSOTP(string mobileNumber, string OTP)
+        {
+            string message = "Your OTP for Login to Self Portal is " + OTP;
+            SendSMSAsync(mobileNumber, message);
+        }
     }
+
+    public class SendSMSOTP
+    {
+        private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
+
+        public SendSMSOTP(
+            IConfiguration configuration,
+            IHttpClientFactory httpClientFactory)
+        {
+            _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
+        }
+
+        public async Task SendSMSAsync(string mobileNumber, string message)
+        {
+            string apiUrl = _configuration["SMSALA:ApiUrl"];
+            string apiToken = _configuration["SMSALA:ApiToken"];
+            string senderId = _configuration["SMSALA:SenderId"];
+
+            if (string.IsNullOrWhiteSpace(apiUrl) ||
+                string.IsNullOrWhiteSpace(apiToken) ||
+                string.IsNullOrWhiteSpace(senderId))
+            {
+                throw new InvalidOperationException("SMSALA configuration is missing in appsettings.json");
+            }
+
+            string url =
+                $"{apiUrl}" +
+                $"?apiToken={Uri.EscapeDataString(apiToken)}" +
+                $"&messageType=1" +
+                $"&messageEncoding=1" +
+                $"&destinationAddress={Uri.EscapeDataString(mobileNumber)}" +
+                $"&sourceAddress={Uri.EscapeDataString(senderId)}" +
+                $"&messageText={Uri.EscapeDataString(message)}" +
+                $"&userReferenceId={Guid.NewGuid():N}";
+
+            var client = _httpClientFactory.CreateClient();
+
+            HttpResponseMessage response = await client.GetAsync(url);
+            string result = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"HTTP Error: {response.StatusCode} | {result}");
+
+            if (!result.Contains("\"Status\":\"Success\"", StringComparison.OrdinalIgnoreCase))
+                throw new Exception($"SMSALA Error: {result}");
+        }
+    }
+
 }

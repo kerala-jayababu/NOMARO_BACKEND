@@ -35,6 +35,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> DeleteLeaveApplicationDocument(int idLeaveApplicationDocument, int loggedInEmployeeId, bool isHrOverride);
         Task<CancelLeaveApplicationResultDto> CancelLeaveApplication(int idLeaveApplication, string? cancelReason, int loggedInEmployeeId);
         Task<IEnumerable<LeaveApplicationListDto>> GetLeaveApplicationsForApproval(int loggedInEmployeeId, string? approvalStatus, string? SearchText, DateTime? fromDate);
+        Task<List<LeaveDashboardDto>> GetLeaveDashboardEmployee(int idEmployee, int idYear);
+        Task<List<LeaveApplicationListDto>> GetLeaveApplicationsEmployee(int idEmployee, DateTime DateFrom, DateTime DateTo);
+        Task<List<MonthlyLeaveDashboardDto>> GetLeaveDashboardEmployeeMonthWise(int idEmployee, int idYear);
+        Task<decimal> CalculateLeaveDaysAsync(bool IncludeHoliday, DateTime fromDate, DateTime toDate, bool isHalfDay);
 
     }
 }

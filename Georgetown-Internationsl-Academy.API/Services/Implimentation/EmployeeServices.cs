@@ -5,6 +5,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -868,6 +869,70 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error generating OTP for: {emailID}");
+                throw;
+            }
+        }
+
+        public async Task<OTPDto> SetOTPforSMS(string MobileNumber)
+        {
+            try
+            {
+                var otpDto = new OTPDto();
+
+                var emp = await _dbContext.Employees.FirstOrDefaultAsync(e => e.PhoneNumber1 == MobileNumber);
+                if (emp == null)
+                {
+                    otpDto.IdEmployee = 0;
+                    otpDto.OTP = "Not an Authorized Mobile Number";
+                    return otpDto;
+                }
+                if (emp.CurrentStatus != "Working")
+                {
+                    otpDto.IdEmployee = 0;
+                    otpDto.OTP = "Not an Authorized Email ID";
+                    return otpDto;
+                }
+                if( String.IsNullOrEmpty(emp.PhoneNumber1))
+                {
+                    return null;
+                }
+                var recentOTP = await _dbContext.LoginOTP
+                    .Where(o => o.EmailID == emp.EmailID && o.OTPSentDate >= DateTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
+                    .FirstOrDefaultAsync();
+
+                if (recentOTP != null)
+                {
+                    otpDto.IdEmployee = 0;
+                    otpDto.OTP = "An OTP is already valid and was recently sent. Try again in 1 to 2 minutes.";
+                    return otpDto;
+                }
+
+                var generatedOtp = new Random().Next(100000, 999999).ToString();
+
+                var otpEntry = new LoginOTP
+                {
+                    EmailID = emp.EmailID,
+                    IdEmployee = (int)emp.IdEmployee,
+                    OTP = generatedOtp,
+                    OTPSentDate = DateTime.Now,
+                    OTPLoginStatus = "PENDING"
+                };
+
+                await _dbContext.LoginOTP.AddAsync(otpEntry);
+                await _dbContext.SaveChangesAsync();
+
+                var otpNotification = await _dbContext.NotificationsConfig
+                    .FirstOrDefaultAsync(n => n.NotificationType == "OTP Email");
+
+                //await _sendSMSOTP.SendSMSAsync("233501234567","Your OTP is 458912. Valid for 5 minutes.");
+                otpDto.IdEmployee = (int)emp.IdEmployee;
+                otpDto.OTP = string.Empty;
+
+                return otpDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error generating OTP for: {MobileNumber}");
                 throw;
             }
         }

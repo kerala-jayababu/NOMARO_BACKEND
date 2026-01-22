@@ -616,8 +616,62 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetLeaveDashboardEmployee")]
+        public async Task<IActionResult> GetLeaveDashboardEmployee(int idEmployee, int idYear)
+        {
+            var result = await _leaveService.GetLeaveDashboardEmployee(idEmployee, idYear);
 
+            return Ok(result);
+        }
 
+        [HttpGet("GetLeaveDashboardEmployeeMonthWise")]
+        public async Task<IActionResult> GetLeaveDashboardEmployeeMonthWise(int idEmployee, int idYear)
+        {
+            try
+            {
+                var result = await _leaveService.GetLeaveDashboardEmployeeMonthWise(idEmployee, idYear);
+
+                return Ok(result);
+            }
+            catch(Exception ex)
+            {
+                return StatusCode(500,
+                  ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+
+            }
+        }
+
+        [HttpGet("GetLeaveApplicationsEmployee")]
+        public async Task<IActionResult> GetLeaveApplicationsEmployee(int idEmployee, DateTime FromDate, DateTime ToDate)
+        {
+            try
+            {
+                return Ok(await _leaveService
+                    .GetLeaveApplicationsEmployee(idEmployee, FromDate, ToDate));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                  ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+
+            }
+        }
+
+        [HttpGet("CalculateLeaveDaysAsync")]
+        public async Task<ActionResult> CalculateLeaveDaysAsync(bool IncludeHoliday, DateTime fromDate, DateTime toDate, bool isHalfDay)
+        {
+            try
+            {
+                return Ok(await _leaveService
+                    .CalculateLeaveDaysAsync(IncludeHoliday, fromDate, toDate, isHalfDay));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                  ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+
+            }
+        }
         #endregion
     }
 }

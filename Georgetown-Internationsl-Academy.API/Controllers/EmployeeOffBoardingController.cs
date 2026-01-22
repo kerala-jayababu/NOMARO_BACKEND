@@ -365,27 +365,47 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     idEmployee,
                     initiationDate);
 
-                if (result != null && result.Any())
-                {
-                    return Ok(ApiResponseDto<IEnumerable<ResignationRequestDto>>
-                        .CreateSuccess(result, "Resignation requests retrieved successfully."));
-                }
-                else
-                {
-                    return Ok(ApiResponseDto<IEnumerable<ResignationRequestDto>>
-                        .CreateSuccess(new List<ResignationRequestDto>(), "No resignation requests found."));
-                }
-            }
-            catch (ArgumentException ex)
+        [HttpPost("DeleteClearanceTemplateDepartment")]
+        public async Task<IActionResult> DeleteClearanceTemplateDepartment(int IdTemplateDept)
+        {
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
             {
-                return BadRequest(ApiResponseDto<IEnumerable<ResignationRequestDto>>
-                    .CreateFailure(ex.Message));
+                return Unauthorized(ApiResponseDto<string>
+                    .CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                var screenCode = _configuration["ScreenCodes:OffBoardingSetup"];
+                var actionType = "A";
+
+                var hasPermission = await _roleBasedService
+                    .CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403,
+                        ApiResponseDto<string>.CreateFailure("You do not have permission to perform this action."));
+                }
+
+                var isSuccess = await _EmpOffBoardingService.DeleteClearanceTemplateDepartment(IdTemplateDept);
+
+                if (!isSuccess)
+                {
+                    return StatusCode(500,
+                        ApiResponseDto<string>.CreateFailure("Failed to delete Clearance Template Detail"));
+                }
+
+                return Ok(ApiResponseDto<string>
+                    .CreateSuccess("Clearance template Detail added/updated successfully."));
             }
             catch (Exception ex)
             {
                 return StatusCode(500,
-                    ApiResponseDto<IEnumerable<ResignationRequestDto>>
-                        .CreateFailure($"An error occurred: {ex.Message}"));
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
 

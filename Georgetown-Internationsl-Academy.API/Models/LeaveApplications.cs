@@ -27,5 +27,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? IdEmployeeSalary { get; set; }
         public int? IdSalaryMonth { get; set; }
         public decimal? DeductedAmount { get; set; }
+        public int IdYear { get; set; }
     }
 }

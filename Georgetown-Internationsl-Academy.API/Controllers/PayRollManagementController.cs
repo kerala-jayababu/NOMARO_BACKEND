@@ -296,12 +296,9 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (!hasPermission)
                 {
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
-
                 }
-
             }
             
-
             try
             {
                 //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;

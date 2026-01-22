@@ -5,8 +5,10 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Data;
 using System.Text;
+using System.Threading.Tasks;
 using static Georgetown_Internationsl_Academy.API.Services.Implimentation.EmployeeOffBoardingService;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -885,7 +887,27 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        #endregion
-    }
+        public async Task<bool> DeleteClearanceTemplateDepartment(int IdTemplateDept)
+        {
+            try
+            {
+                var existing = await _dbContext.ClearanceTemplateDepartments
+                    .Where(x => x.IdTemplateDept == IdTemplateDept).FirstOrDefaultAsync();
+
+                // Delete removed items
+                _dbContext.ClearanceTemplateDepartments.Remove(existing);
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving ClearanceTemplateDepartments");
+                throw;
+            }
+        }
+
+
+#endregion
+}
 }
 

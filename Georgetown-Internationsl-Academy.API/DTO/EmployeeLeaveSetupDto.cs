@@ -31,11 +31,11 @@
         public int IdLeaveType { get; set; }
         public string? LeaveTypeName { get; set; }
         public string? LeaveCode { get; set; }
-        public int AllocatedDaysInYear { get; set; }
-        public int CarryForwardDays { get; set; } = 0;
-        public int TotalAllocatedDays { get; set; }
-        public int UsedLeaveDays { get; set; } = 0;
-        public int BalanceLeaveDays { get; set; } = 0;
+        public decimal AllocatedDaysInYear { get; set; }
+        public decimal CarryForwardDays { get; set; } = 0;
+        public decimal TotalAllocatedDays { get; set; }
+        public decimal UsedLeaveDays { get; set; } = 0;
+        public decimal BalanceLeaveDays { get; set; } = 0;
 
         //Properties from Leave Template Details
         public string ApplicableGender { get; set; } = "BOTH";

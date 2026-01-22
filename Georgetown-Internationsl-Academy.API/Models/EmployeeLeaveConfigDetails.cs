@@ -25,26 +25,26 @@ namespace Georgetown_Internationsl_Academy.API.Models
         /// <summary>
         /// Allocated days for the year (from template)
         /// </summary>
-        public int AllocatedDaysInYear { get; set; }
+        public decimal AllocatedDaysInYear { get; set; }
 
         /// <summary>
         /// Carry forward days from previous year
         /// </summary>
-        public int CarryForwardDays { get; set; } = 0;
+        public decimal CarryForwardDays { get; set; } = 0;
 
         /// <summary>
         /// Total allocated days (Allocated + Carry Forward)
         /// </summary>
-        public int TotalAllocatedDays { get; set; }
+        public decimal TotalAllocatedDays { get; set; }
 
         /// <summary>
         /// Used leave days
         /// </summary>
-        public int UsedLeaveDays { get; set; } = 0;
+        public decimal UsedLeaveDays { get; set; } = 0;
 
         /// <summary>
         /// Balance available leave days
         /// </summary>
-        public int BalanceLeaveDays { get; set; } = 0;
+        public decimal BalanceLeaveDays { get; set; } = 0;
     }
 }

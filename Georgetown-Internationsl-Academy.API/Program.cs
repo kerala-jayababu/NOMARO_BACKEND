@@ -214,7 +214,8 @@ builder.Services.AddScoped<ITaxReportService, TaxReportService>();
 builder.Services.AddScoped<IAssetServices, AssetServices>();
 builder.Services.AddScoped<ILeaveManaementServices, LeaveManaementServices>();
 builder.Services.AddScoped<IEmployeeOffBoarding, EmployeeOffBoardingService>();
-
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<SendSMSOTP>();
 
 var app = builder.Build();
 
