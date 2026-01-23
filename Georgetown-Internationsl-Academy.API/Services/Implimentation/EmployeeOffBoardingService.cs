@@ -1213,6 +1213,443 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<GetExitClearanceDetailsResponseDto> GetExitClearanceDetails(
+    int loggedInEmployeeId,
+    int idExitCase,
+    int? idDepartment = null,
+    string? viewAsRole = null)
+        {
+            using var connection = _dbContext.Database.GetDbConnection();
+            if (connection.State == ConnectionState.Closed)
+                await connection.OpenAsync();
+
+            // 1) Exit case header
+            var exitCase = await connection.QueryFirstOrDefaultAsync<ExitClearanceCaseHeaderDto>(
+                @"SELECT 
+            ec.IdExitCase,
+            ec.CaseNumber,
+            ec.IdEmployee,
+            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName,''), ' ', e.LastName) AS EmployeeName,
+            ec.ExitStatus,
+            ec.PendingWith,
+            ec.InitiationDate,
+            ec.ProposedLWD,
+            ec.ApprovedLWD,
+            ec.IdClearanceTemplate,
+            ec.ClearanceInitiatedOn
+          FROM ExitCases ec
+          INNER JOIN Employees e ON e.IdEmployee = ec.IdEmployee
+          WHERE ec.IdExitCase = @IdExitCase",
+                new { IdExitCase = idExitCase });
+
+            if (exitCase == null)
+                return new GetExitClearanceDetailsResponseDto { Success = false, Message = "Invalid Exit Case." };
+
+            // 2) Role derivation (replace with your real RBAC if you have)
+            bool isEmployee = exitCase.IdEmployee == loggedInEmployeeId;
+
+            // HR detection by DepartmentCode (same style as your existing code)
+            bool isHr = false;
+            var hrDepartmentCode = _configuration["Departments:HRCode"] ?? "HRD";
+
+            var loggedInDeptCode = await connection.QueryFirstOrDefaultAsync<string>(
+                @"SELECT d.DepartmentCode
+          FROM Employees e
+          INNER JOIN Departments d ON d.IdDepartment = e.IdDepartment
+          WHERE e.IdEmployee = @EmpId",
+                new { EmpId = loggedInEmployeeId });
+
+            if (!string.IsNullOrEmpty(loggedInDeptCode) &&
+                loggedInDeptCode.Equals(hrDepartmentCode, StringComparison.OrdinalIgnoreCase))
+                isHr = true;
+
+            // 3) Assignments (filtered by optional dept)
+            var assignmentsSql = @"
+        SELECT
+            a.IdExitCase,
+            a.IdDepartment,
+            d.DepartmentName,
+            a.IdAssigneeUser,
+            CONCAT(u.FirstName, ' ', COALESCE(u.MiddleName,''), ' ', u.LastName) AS AssigneeName,
+            a.DeptClearanceStatus,
+            a.AssignedAt
+        FROM ExitCaseClearanceAssignments a
+        INNER JOIN Departments d ON d.IdDepartment = a.IdDepartment
+        LEFT JOIN Employees u ON u.IdEmployee = a.IdAssigneeUser
+        WHERE a.IdExitCase = @IdExitCase
+    ";
+
+            if (idDepartment.HasValue)
+                assignmentsSql += " AND a.IdDepartment = @IdDepartment ";
+
+            var assignments = (await connection.QueryAsync<AssignmentViewDto>(
+                assignmentsSql,
+                new { IdExitCase = idExitCase, IdDepartment = idDepartment }
+            )).ToList();
+
+            // 4) Dept clearer authorization
+            bool isDeptClearer = false;
+            if (idDepartment.HasValue)
+                isDeptClearer = assignments.Any(a => a.IdAssigneeUser == loggedInEmployeeId);
+
+            // 5) Enforce access
+            if (!isEmployee && !isHr)
+            {
+                if (!idDepartment.HasValue || !isDeptClearer)
+                    return new GetExitClearanceDetailsResponseDto { Success = false, Message = "Unauthorized / Not Assigned." };
+            }
+
+            if (idDepartment.HasValue && !assignments.Any())
+                return new GetExitClearanceDetailsResponseDto { Success = false, Message = "Invalid Department / No assignment." };
+
+            var deptIds = assignments.Select(a => a.IdDepartment).Distinct().ToList();
+
+            // 6) Load lines including header metadata
+            var lines = new List<LineViewDto>();
+            if (deptIds.Any())
+            {
+                lines = (await connection.QueryAsync<LineViewDto>(
+                    @"SELECT
+                l.IdExitCaseDepartmentClearanceLine,
+                l.IdExitCase,
+                l.IdDepartment,
+                d.DepartmentName,
+                l.CheckListItem,
+                l.DeptClearanceStatus,
+                l.DeptRemarks,
+                l.ClearedBy,
+                CONCAT(cb.FirstName, ' ', COALESCE(cb.MiddleName,''), ' ', cb.LastName) AS ClearedByName,
+                l.ClearedAt,
+                l.SortOrder
+              FROM ExitCaseDepartmentClearanceLines l
+              INNER JOIN Departments d ON d.IdDepartment = l.IdDepartment
+              LEFT JOIN Employees cb ON cb.IdEmployee = l.ClearedBy
+              WHERE l.IdExitCase = @IdExitCase
+                AND l.IdDepartment IN @DeptIds
+              ORDER BY l.IdDepartment, l.SortOrder",
+                    new { IdExitCase = idExitCase, DeptIds = deptIds }
+                )).ToList();
+            }
+
+            // 7) Build response blocks
+            var lineByDept = lines.GroupBy(x => x.IdDepartment).ToDictionary(g => g.Key, g => g.ToList());
+
+            var blocks = new List<ExitClearanceDepartmentBlockDto>();
+
+            foreach (var a in assignments)
+            {
+                var deptLines = lineByDept.GetValueOrDefault(a.IdDepartment, new List<LineViewDto>());
+
+                // header row definition:
+                // - SortOrder == 0 OR CheckListItem is NULL
+                var headerLine = deptLines
+                    .OrderBy(x => x.SortOrder ?? int.MaxValue)
+                    .FirstOrDefault(x => (x.SortOrder ?? 999999) == 0 || string.IsNullOrEmpty(x.CheckListItem));
+
+                var checklist = deptLines
+                    .Where(x => !string.IsNullOrEmpty(x.CheckListItem) && (x.SortOrder ?? 0) > 0)
+                    .OrderBy(x => x.SortOrder ?? 999999)
+                    .Select(x => new ExitClearanceChecklistItemDto
+                    {
+                        IdExitCaseDepartmentClearanceLine = x.IdExitCaseDepartmentClearanceLine,
+                        CheckListItem = x.CheckListItem,
+                        DeptClearanceStatus = x.DeptClearanceStatus,
+                        SortOrder = x.SortOrder
+                    })
+                    .ToList();
+
+                bool canEdit = (a.IdAssigneeUser == loggedInEmployeeId) && !isHr; // HR read-only per your rule
+
+                blocks.Add(new ExitClearanceDepartmentBlockDto
+                {
+                    IdDepartment = a.IdDepartment,
+                    DepartmentName = a.DepartmentName,
+                    IdAssigneeUser = a.IdAssigneeUser,
+                    AssigneeName = a.AssigneeName,
+                    DeptClearanceStatus = a.DeptClearanceStatus,
+                    AssignedAt = a.AssignedAt,
+
+                    CanEditChecklist = canEdit,
+                    CanEditDeptHeader = canEdit,
+
+                    Header = new DeptHeaderDto
+                    {
+                        DeptClearanceStatus = headerLine?.DeptClearanceStatus ?? a.DeptClearanceStatus,
+                        DeptRemarks = headerLine?.DeptRemarks,
+                        ClearedBy = headerLine?.ClearedBy,
+                        ClearedByName = headerLine?.ClearedByName,
+                        ClearedAt = headerLine?.ClearedAt
+                    },
+
+                    Checklist = checklist
+                });
+            }
+
+            return new GetExitClearanceDetailsResponseDto
+            {
+                Success = true,
+                Message = "Exit clearance details retrieved successfully.",
+                ExitCase = exitCase,
+                Departments = blocks
+            };
+        }
+
+        public async Task<SubmitExitCaseDepartmentClearanceLinesResponseDto> SubmitExitCaseDepartmentClearanceLines(SubmitExitCaseDepartmentClearanceLinesDto dto,int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // A1) Validate exit case exists
+                var exitCase = await _dbContext.ExitCases.FirstOrDefaultAsync(x => x.IdExitCase == dto.IdExitCase);
+                if (exitCase == null)
+                    return Fail(dto, "Invalid Case.");
+
+                // A2) Validate department header row exists (SortOrder = 0 OR CheckListItem is null)
+                var headerRow = await _dbContext.ExitCaseDepartmentClearanceLines
+                    .FirstOrDefaultAsync(x =>
+                        x.IdExitCase == dto.IdExitCase &&
+                        x.IdDepartment == dto.IdDepartment );
+
+                if (headerRow == null)
+                    return Fail(dto, "Invalid Department / Clearance not initiated.");
+
+                // A3) Authorize: must be assigned user for this department
+                var assignment = await _dbContext.ExitCaseClearanceAssignments.FirstOrDefaultAsync(x =>
+                    x.IdExitCase == dto.IdExitCase &&
+                    x.IdDepartment == dto.IdDepartment);
+
+                if (assignment == null)
+                    return Fail(dto, "Not Assigned / Department not part of clearance.");
+
+                if (assignment.IdAssigneeUser != loggedInEmployeeId)
+                    return Fail(dto, "Unauthorized / Forbidden. You are not assigned to this department.");
+
+                // B) Update checklist rows
+                if (dto.ClearanceLineUpdates != null && dto.ClearanceLineUpdates.Any())
+                {
+                    foreach (var upd in dto.ClearanceLineUpdates)
+                    {
+                        var line = await _dbContext.ExitCaseDepartmentClearanceLines
+                            .FirstOrDefaultAsync(x => x.IdExitCaseDepartmentClearanceLine == upd.IdExitCaseDepartmentClearanceLine);
+
+                        if (line == null)
+                            return Fail(dto, $"Invalid clearance line: {upd.IdExitCaseDepartmentClearanceLine}");
+
+                        // Ensure it belongs to the same case/department
+                        if (line.IdExitCase != dto.IdExitCase || line.IdDepartment != dto.IdDepartment)
+                            return Fail(dto, $"Line does not belong to this case/department: {upd.IdExitCaseDepartmentClearanceLine}");
+
+                        // Prevent editing header row
+                        if ((line.SortOrder ?? 0) == 0 || string.IsNullOrEmpty(line.CheckListItem))
+                            return Fail(dto, $"Header row cannot be updated as checklist item: {upd.IdExitCaseDepartmentClearanceLine}");
+
+                        // No IsCompleted column -> map to status
+                        line.DeptClearanceStatus = upd.IsCompleted ? "CLEARED" : "PENDING";
+                        line.UpdatedBy = loggedInEmployeeId;
+                        line.UpdatedAt = DateTime.Now;
+                    }
+                }
+
+                // C) Update department header row fields
+                if (dto.DeptRemarks != null)
+                {
+                    headerRow.DeptRemarks = dto.DeptRemarks;
+                    headerRow.UpdatedBy = loggedInEmployeeId;
+                    headerRow.UpdatedAt = DateTime.Now;
+                }
+
+                // ⚠️ DueAmount not in DB. If you add column later, update it here.
+                // headerRow.DueAmount = dto.DueAmount;
+
+                if (!string.IsNullOrEmpty(dto.DeptClearanceStatus))
+                {
+                    var normalized = NormalizeDeptStatus(dto.DeptClearanceStatus);
+                    if (normalized == null)
+                        return Fail(dto, "Invalid DeptClearanceStatus. Allowed: Pending, Cleared, Not Applicable");
+
+                    headerRow.DeptClearanceStatus = normalized;
+                    assignment.DeptClearanceStatus = normalized;
+                    headerRow.UpdatedBy = loggedInEmployeeId;
+                    headerRow.UpdatedAt = DateTime.Now;
+                }
+
+                // D) Completion rule
+                bool wantsCleared =
+                    (dto.MarkDepartmentCleared == true) ||
+                    (NormalizeDeptStatus(dto.DeptClearanceStatus) == "CLEARED");
+
+                if (wantsCleared)
+                {
+                    // check all checklist lines cleared (recommended rule)
+                    var checklistLines = await _dbContext.ExitCaseDepartmentClearanceLines
+                        .Where(x => x.IdExitCase == dto.IdExitCase
+                                 && x.IdDepartment == dto.IdDepartment
+                                 && (x.SortOrder ?? 0) > 0
+                                 && x.CheckListItem != null)
+                        .ToListAsync();
+
+                    // If you later add Mandatory flag, check only mandatory.
+                    bool allCompleted = checklistLines.All(x => (x.DeptClearanceStatus ?? "").ToUpper() == "CLEARED");
+
+                    if (!allCompleted)
+                        return Fail(dto, "Cannot mark Cleared. All checklist items must be completed.");
+
+                    headerRow.DeptClearanceStatus = "CLEARED";
+                    assignment.DeptClearanceStatus = "CLEARED";
+                    headerRow.ClearedBy = loggedInEmployeeId;
+                    headerRow.ClearedAt = DateTime.Now;
+                    headerRow.UpdatedBy = loggedInEmployeeId;
+                    headerRow.UpdatedAt = DateTime.Now;
+                }
+
+                // E) Case-level progression (all departments completed)
+                // Completed = CLEARED or NOT_APPLICABLE
+                var deptStatuses = await _dbContext.ExitCaseClearanceAssignments
+                    .Where(x => x.IdExitCase == dto.IdExitCase)
+                    .Select(x => x.DeptClearanceStatus)
+                    .ToListAsync();
+
+                bool allDone = deptStatuses.Any() &&
+                               deptStatuses.All(s =>
+                               {
+                                   var st = (s ?? "").ToUpper();
+                                   return st == "CLEARED" || st == "NOT_APPLICABLE";
+                               });
+
+                if (allDone)
+                {
+                    exitCase.ExitStatus = "ReadyForClosure";
+                    exitCase.PendingWith = "HRMANAGER";
+                    exitCase.UpdatedBy = loggedInEmployeeId;
+                    exitCase.UpdatedAt = DateTime.Now;
+                }
+
+                // F) Status history
+                string actionType = wantsCleared ? "DEPT_CLEARED" : "DEPT_CLEARANCE_UPDATED";
+
+                var lastOrder = await _dbContext.ExitCaseStatusHistory
+                    .Where(x => x.IdExitCase == dto.IdExitCase)
+                    .OrderByDescending(x => x.OrderNumber)
+                    .Select(x => x.OrderNumber)
+                    .FirstOrDefaultAsync();
+
+                await _dbContext.ExitCaseStatusHistory.AddAsync(new ExitCaseStatusHistory
+                {
+                    IdExitCase = dto.IdExitCase,
+                    ActionType = actionType,
+                    FromStatus = exitCase.ExitStatus,        // you can store previous before change if needed
+                    ToStatus = exitCase.ExitStatus,
+                    PendingWith = exitCase.PendingWith,
+                    CreatedBy = loggedInEmployeeId,
+                    CreatedAt = DateTime.Now,
+                    OrderNumber = lastOrder + 1
+                });
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Build response (return updated snapshot)
+                var updatedLines = await _dbContext.ExitCaseDepartmentClearanceLines
+                    .Where(x => x.IdExitCase == dto.IdExitCase
+                             && x.IdDepartment == dto.IdDepartment
+                             && (x.SortOrder ?? 0) > 0
+                             && x.CheckListItem != null)
+                    .OrderBy(x => x.SortOrder)
+                    .ToListAsync();
+
+                return new SubmitExitCaseDepartmentClearanceLinesResponseDto
+                {
+                    Success = true,
+                    Message = "Department clearance updated successfully.",
+                    IdExitCase = dto.IdExitCase,
+                    IdDepartment = dto.IdDepartment,
+                    DepartmentStatus = headerRow.DeptClearanceStatus,
+                    DeptRemarks = headerRow.DeptRemarks,
+                    DueAmount = dto.DueAmount, // echo back; real value only if you add column
+                    ClearedBy = headerRow.ClearedBy,
+                    ClearedAt = headerRow.ClearedAt,
+                    CaseExitStatus = exitCase.ExitStatus,
+                    CasePendingWith = exitCase.PendingWith,
+                    Checklist = updatedLines.Select(l => new UpdatedChecklistItemDto
+                    {
+                        IdExitCaseDepartmentClearanceLine = l.IdExitCaseDepartmentClearanceLine,
+                        CheckListItem = l.CheckListItem,
+                        IsCompleted = (l.DeptClearanceStatus ?? "").ToUpper() == "CLEARED",
+                        LineStatus = l.DeptClearanceStatus
+                    }).ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "SubmitExitCaseDepartmentClearanceLines failed");
+                return Fail(dto, "Failed to update clearance.", ex.Message);
+            }
+        }
+
+        private static SubmitExitCaseDepartmentClearanceLinesResponseDto Fail(
+            SubmitExitCaseDepartmentClearanceLinesDto dto,
+            string message,
+            string? error = null)
+        {
+            var resp = new SubmitExitCaseDepartmentClearanceLinesResponseDto
+            {
+                Success = false,
+                Message = message,
+                IdExitCase = dto.IdExitCase,
+                IdDepartment = dto.IdDepartment
+            };
+
+            if (!string.IsNullOrEmpty(error))
+                resp.Errors.Add(error);
+
+            return resp;
+        }
+
+        private static string? NormalizeDeptStatus(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return null;
+
+            var s = input.Trim().ToUpper();
+
+            if (s == "PENDING" || s == "PEND") return "PENDING";
+            if (s == "CLEARED" || s == "CLEAR") return "CLEARED";
+            if (s == "NOT APPLICABLE" || s == "NOT_APPLICABLE" || s == "NA") return "NOT_APPLICABLE";
+
+            return null;
+        }
+
+
+
+
+        // Internal view DTOs for queries
+        private class AssignmentViewDto
+        {
+            public int IdExitCase { get; set; }
+            public int IdDepartment { get; set; }
+            public string DepartmentName { get; set; }
+            public int IdAssigneeUser { get; set; }
+            public string AssigneeName { get; set; }
+            public string DeptClearanceStatus { get; set; }
+            public DateTime AssignedAt { get; set; }
+        }
+
+        private class LineViewDto
+        {
+            public int IdExitCaseDepartmentClearanceLine { get; set; }
+            public int IdExitCase { get; set; }
+            public int IdDepartment { get; set; }
+            public string DepartmentName { get; set; }
+            public string? CheckListItem { get; set; }
+            public string? DeptClearanceStatus { get; set; }
+            public string? DeptRemarks { get; set; }
+            public int? ClearedBy { get; set; }
+            public string? ClearedByName { get; set; }
+            public DateTime? ClearedAt { get; set; }
+            public int? SortOrder { get; set; }
+        }
+
 
 
         #endregion

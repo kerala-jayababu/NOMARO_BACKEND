@@ -536,6 +536,72 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         .CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+        [HttpGet("GetExitClearanceDetails")]
+        public async Task<IActionResult> GetExitClearanceDetails([FromQuery] int idExitCase,[FromQuery] int? idDepartment = null,[FromQuery] string? viewAsRole = null)
+        {
+            var idLoggedInEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
+                return Unauthorized(ApiResponseDto<GetExitClearanceDetailsResponseDto>.CreateFailure("Employee ID not found."));
+
+            try
+            {
+                var result = await _EmpOffBoardingService.GetExitClearanceDetails(
+                    int.Parse(idLoggedInEmployee),
+                    idExitCase,
+                    idDepartment,
+                    viewAsRole);
+
+                if (result.Success)
+                    return Ok(ApiResponseDto<GetExitClearanceDetailsResponseDto>.CreateSuccess(result, result.Message ?? "Success"));
+
+                // unauthorized
+                if ((result.Message ?? "").ToLower().Contains("unauthorized"))
+                    return Unauthorized(ApiResponseDto<GetExitClearanceDetailsResponseDto>.CreateFailure(result.Message ?? "Unauthorized"));
+
+                return BadRequest(ApiResponseDto<GetExitClearanceDetailsResponseDto>.CreateFailure(result.Message ?? "Failed"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<GetExitClearanceDetailsResponseDto>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        [HttpPost("SubmitExitCaseDepartmentClearanceLines")]
+        public async Task<IActionResult> SubmitExitCaseDepartmentClearanceLines([FromBody] SubmitExitCaseDepartmentClearanceLinesDto dto)
+        {
+            var idLoggedInEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
+                return Unauthorized(ApiResponseDto<SubmitExitCaseDepartmentClearanceLinesResponseDto>
+                    .CreateFailure("Employee ID not found."));
+
+            try
+            {
+                var result = await _EmpOffBoardingService.SubmitExitCaseDepartmentClearanceLines(dto, int.Parse(idLoggedInEmployee));
+
+                if (result.Success)
+                    return Ok(ApiResponseDto<SubmitExitCaseDepartmentClearanceLinesResponseDto>
+                        .CreateSuccess(result, result.Message ?? "Updated successfully."));
+
+                // unauthorized
+                if ((result.Message ?? "").ToLower().Contains("unauthorized") ||
+                    (result.Message ?? "").ToLower().Contains("forbidden"))
+                {
+                    return Unauthorized(ApiResponseDto<SubmitExitCaseDepartmentClearanceLinesResponseDto>
+                        .CreateFailure(result.Message ?? "Unauthorized"));
+                }
+
+                return BadRequest(ApiResponseDto<SubmitExitCaseDepartmentClearanceLinesResponseDto>.CreateFailure($"Validation failed: {string.Join(" | ",  result.Errors)}"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<SubmitExitCaseDepartmentClearanceLinesResponseDto>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
 
         #endregion
 
