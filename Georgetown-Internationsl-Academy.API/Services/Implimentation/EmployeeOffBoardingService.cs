@@ -764,9 +764,102 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<ReportingOfficerActionResponseDto> SubmitReportingOfficerActions(
-                  SubmitReportingOfficerActionsDto dto,
-                  int loggedInEmployeeId)
+        public async Task<List<ExitCasesForListingDto>> GetExitCasesForListing(int idLoggedInEmployee, int? idEmployee = null)
+        {
+            try
+            {
+
+
+                var query =
+                    from ec in _dbContext.ExitCases
+                    join emp in _dbContext.Employees
+                        on ec.IdEmployee equals emp.IdEmployee
+                    select new
+                    {
+                        ec,
+                        emp
+                    };
+
+                // 🔹 Optional filters
+                if (idEmployee.HasValue)
+                    query = query.Where(x => x.ec.IdEmployee == idEmployee.Value);
+
+                var departmentCode = await (from emp in _dbContext.Employees
+                                            join dept in _dbContext.Departments
+                                            on emp.IdDepartment equals dept.IdDepartment
+                                            where emp.IdEmployee == idLoggedInEmployee
+                                            select dept.DepartmentCode).FirstOrDefaultAsync();
+                if (departmentCode != "HRD")
+                {
+                    var reportingEmployeeIds = await GetEmployeeHierarchy(idLoggedInEmployee);
+
+                    if (reportingEmployeeIds.Any())
+                    {
+
+                        query = query.Where(x => reportingEmployeeIds.Contains(x.ec.IdEmployee));
+                    }
+                    else
+                    {
+                        query = query.Where(x => false);
+                    }
+                }
+
+                var result = await query
+                    .OrderByDescending(x => x.ec.CreatedAt)
+                    .Select(x => new ExitCasesForListingDto
+                    {
+                        IdExitCase = x.ec.IdExitCase,
+                        CaseNumber = x.ec.CaseNumber,
+
+                        IdEmployee = x.ec.IdEmployee,
+                        EmployeeName =
+                            ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
+
+                        IdExitType = x.ec.IdExitType,
+                        IdExitReason = x.ec.IdExitReason,
+
+                        InitiationDate = x.ec.InitiationDate,
+                        EmployeeReasonDetails = x.ec.EmployeeReasonDetails,
+
+                        ProposedLWD = x.ec.ProposedLWD,
+                        ApprovedLWD = x.ec.ApprovedLWD,
+
+                        IdNoticePolicy = x.ec.IdNoticePolicy,
+                        PolicyNoticeDays = x.ec.PolicyNoticeDays,
+                        IsNoticeOverridden = x.ec.IsNoticeOverridden,
+                        EffectiveNoticeDays = x.ec.EffectiveNoticeDays,
+
+                        HandoverPlan = x.ec.HandoverPlan,
+                        ExitInterviewDate = x.ec.ExitInterviewDate,
+                        ContactAfterExit = x.ec.ContactAfterExit,
+
+                        ExitStatus = x.ec.ExitStatus,
+                        PendingWith = x.ec.PendingWith,
+                        PendingWithIDEmployee = x.ec.PendingWithIDEmployee,
+
+                        IdClearanceTemplate = x.ec.IdClearanceTemplate,
+                        AssignedClearanceTemplateBy = x.ec.AssignedClearanceTemplateBy,
+                        ClearanceInitiatedOn = x.ec.ClearanceInitiatedOn,
+
+                        CreatedBy = x.ec.CreatedBy,
+                        CreatedAt = x.ec.CreatedAt,
+                        UpdatedBy = x.ec.UpdatedBy,
+                        UpdatedAt = x.ec.UpdatedAt
+                    })
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Exit Cases");
+                throw;
+            }
+        }
+
+
+        public async Task<ReportingOfficerActionResponseDto> SubmitReportingOfficerActions(SubmitReportingOfficerActionsDto dto, int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try

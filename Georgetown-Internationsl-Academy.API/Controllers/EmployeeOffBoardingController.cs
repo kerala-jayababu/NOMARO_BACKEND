@@ -602,6 +602,20 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetExitCasesForListing")]
+        public async Task<IActionResult> GetExitCasesForListing( int idLoggidLoggedInEmployee, int? idEmployee)
+        {
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>
+                    .CreateFailure("Employee ID not found."));
+            }
+            var result = await _EmpOffBoardingService.GetExitCasesForListing(idLoggidLoggedInEmployee, idEmployee);
+
+            return Ok(result);
+        }
 
         #endregion
 

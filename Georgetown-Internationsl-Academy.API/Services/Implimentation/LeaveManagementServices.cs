@@ -1409,11 +1409,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-        public  async Task<bool> SubmitLeaveApplicationApproval(
-           List<int> idChanges,
-           string approvalStatus,
-           string? remarks,
-           int loggedInEmployeeId)
+        public  async Task<bool> SubmitLeaveApplicationApproval(List<int> idChanges,string approvalStatus,string? remarks,int loggedInEmployeeId)
         {
             try
             {
