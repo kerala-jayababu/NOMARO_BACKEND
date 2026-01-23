@@ -605,14 +605,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         [HttpGet("GetExitCasesForListing")]
         public async Task<IActionResult> GetExitCasesForListing( int idLoggidLoggedInEmployee, int? idEmployee)
         {
-            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var IdEmploy = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (string.IsNullOrEmpty(IdEmployee))
+            if (string.IsNullOrEmpty(IdEmploy))
             {
                 return Unauthorized(ApiResponseDto<string>
                     .CreateFailure("Employee ID not found."));
             }
-            var result = await _EmpOffBoardingService.GetExitCasesForListing(idLoggidLoggedInEmployee, idEmployee);
+            var result = await _EmpOffBoardingService.GetExitCasesForListing(int.Parse(IdEmploy), idEmployee);
 
             return Ok(result);
         }

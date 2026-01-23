@@ -29,8 +29,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<HRManagerActionResponseDto> SubmitHRManagerActions(SubmitHRManagerActionsDto dto,int loggedInHRManagerId);
        Task<GetExitClearanceDetailsResponseDto> GetExitClearanceDetails(int loggedInEmployeeId,int idExitCase,int? idDepartment = null,string? viewAsRole = null);
         Task<SubmitExitCaseDepartmentClearanceLinesResponseDto> SubmitExitCaseDepartmentClearanceLines(SubmitExitCaseDepartmentClearanceLinesDto dto,int loggedInEmployeeId);
-
-       Task<bool> DeleteClearanceTemplateDepartment(int IdTemplateDept);
         Task<List<ExitCasesForListingDto>> GetExitCasesForListing(int idLoggedInEmployee, int? idEmployee = null);
     }
 }
