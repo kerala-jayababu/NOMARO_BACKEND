@@ -163,8 +163,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int IdExitCase { get; set; }
         public int IdDepartment { get; set; }
         public string DepartmentName { get; set; }
-        public string CheckListItem { get; set; }
-        public bool IsHeaderRow { get; set; }
+        public string CheckListItem { get; set; }    
         public string DeptClearanceStatus { get; set; }
         public int SortOrder { get; set; }
     }
@@ -205,8 +204,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string FromStatus { get; set; }
         public string ToStatus { get; set; }
         public string PendingWith { get; set; }
-        public int ActionBy { get; set; }
-        public DateTime ActionAt { get; set; }
+        public int CreatedBy { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     /// <summary>

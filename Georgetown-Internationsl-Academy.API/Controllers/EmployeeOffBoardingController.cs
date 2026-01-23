@@ -502,8 +502,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         [HttpPost("SubmitHRManagerActions")]     
-        public async Task<IActionResult> SubmitHRManagerActions(
-    [FromBody] SubmitHRManagerActionsDto dto)
+        public async Task<IActionResult> SubmitHRManagerActions([FromBody] SubmitHRManagerActionsDto dto)
         {
             var idLoggedInEmployee =
                 HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;

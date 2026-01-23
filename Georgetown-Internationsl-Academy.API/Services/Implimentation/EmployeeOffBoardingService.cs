@@ -651,7 +651,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         query.Append(@"
             AND (
                 LOWER(d.DepartmentCode) = @HRDeptCode
-                OR ec.PendingWith IN ('HREXECUTIVE', 'HRHEAD')
+                OR ec.PendingWith IN ('HRMANAGER', 'HROFFICER')
             )
         ");
                         parameters.Add("HRDeptCode", hrDepartmentCode.ToLower());
@@ -688,8 +688,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             FromStatus,
             ToStatus,
             PendingWith,
-            ActionAt
-          FROM ExitCaseStatusHistories
+            CreatedBy,
+            CreatedAt
+          FROM ExitCaseStatusHistory
           WHERE IdExitCase IN @Ids",
                             new { Ids = exitCaseIds }
                         );
@@ -697,28 +698,31 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         // 3️⃣ LOAD CLEARANCE ASSIGNMENTS
                         var assignments = await connection.QueryAsync<ExitCaseClearanceAssignmentDto>(
                             @"SELECT
-            IdExitCase,
-            IdDepartment,
-            IdAssigneeUser,
-            DeptClearanceStatus,
-            AssignedAt
-          FROM ExitCaseClearanceAssignments
-          WHERE IdExitCase IN @Ids",
+        a.IdExitCase,
+        a.IdDepartment,
+        d.DepartmentName,
+        a.IdAssigneeUser,
+        a.DeptClearanceStatus,
+        a.AssignedAt
+      FROM ExitCaseClearanceAssignments a
+      INNER JOIN Departments d ON d.IdDepartment = a.IdDepartment
+      WHERE a.IdExitCase IN @Ids",
                             new { Ids = exitCaseIds }
                         );
 
                         // 4️⃣ LOAD CLEARANCE LINES
                         var clearanceLines = await connection.QueryAsync<ExitCaseDepartmentClearanceLineDto>(
-                            @"SELECT
-            IdExitCase,
-            IdDepartment,
-            CheckListItem,
-            IsHeaderRow,
-            DeptClearanceStatus,
-            SortOrder
-          FROM ExitCaseDepartmentClearanceLines
-          WHERE IdExitCase IN @Ids
-          ORDER BY SortOrder",
+                         @"SELECT
+        l.IdExitCase,
+        l.IdDepartment,
+        d.DepartmentName,
+        l.CheckListItem,
+        l.DeptClearanceStatus,
+        l.SortOrder
+      FROM ExitCaseDepartmentClearanceLines l
+      INNER JOIN Departments d ON d.IdDepartment = l.IdDepartment
+      WHERE l.IdExitCase IN @Ids
+      ORDER BY l.IdExitCase, l.IdDepartment, l.SortOrder",
                             new { Ids = exitCaseIds }
                         );
 
@@ -876,7 +880,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 // 8. Get Order Number
-                var lastOrderNumber = await _dbContext.ExitCaseStatusHistories
+                var lastOrderNumber = await _dbContext.ExitCaseStatusHistory
                     .Where(h => h.IdExitCase == dto.IdExitCase)
                     .OrderByDescending(h => h.OrderNumber)
                     .Select(h => h.OrderNumber)
@@ -920,7 +924,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     OrderNumber = newOrderNumber
                 };
 
-                await _dbContext.ExitCaseStatusHistories.AddAsync(history);
+                await _dbContext.ExitCaseStatusHistory.AddAsync(history);
                 await _dbContext.SaveChangesAsync();
 
                 await transaction.CommitAsync();
@@ -1050,20 +1054,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     int sortOrder = 1;
 
-                    // Header Row
-                    await _dbContext.ExitCaseDepartmentClearanceLines.AddAsync(
-                        new ExitCaseDepartmentClearanceLine
-                        {
-                            IdExitCase = dto.IdExitCase,
-                            IdDepartment = dept.IdDepartment,
-                            IdTemplateDept = dept.IdTemplateDept,
-                            CheckListItem = "DEPARTMENT CLEARANCE",
-                            DeptClearanceStatus = "PENDING",
-                            SortOrder = sortOrder++,
-                            CreatedBy = loggedInEmployeeId,
-                            CreatedOn = DateTime.Now
-                        });
-
                     // Checklist Rows
                     foreach (var line in templateLines)
                     {
@@ -1085,13 +1075,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // =========================
                 // D) STATUS HISTORY
                 // =========================
-                var lastOrder = await _dbContext.ExitCaseStatusHistories
+                var lastOrder = await _dbContext.ExitCaseStatusHistory
                     .Where(x => x.IdExitCase == dto.IdExitCase)
                     .OrderByDescending(x => x.OrderNumber)
                     .Select(x => x.OrderNumber)
                     .FirstOrDefaultAsync();
 
-                await _dbContext.ExitCaseStatusHistories.AddAsync(
+                await _dbContext.ExitCaseStatusHistory.AddAsync(
                     new ExitCaseStatusHistory
                     {
                         IdExitCase = dto.IdExitCase,
@@ -1172,11 +1162,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 exitCase.UpdatedAt = DateTime.UtcNow;
 
                 // C️⃣ INSERT STATUS HISTORY
-                var lastOrder = await _dbContext.ExitCaseStatusHistories
+                var lastOrder = await _dbContext.ExitCaseStatusHistory
                     .Where(x => x.IdExitCase == dto.IdExitCase)
                     .MaxAsync(x => (int?)x.OrderNumber) ?? 0;
 
-                await _dbContext.ExitCaseStatusHistories.AddAsync(
+                await _dbContext.ExitCaseStatusHistory.AddAsync(
                     new ExitCaseStatusHistory
                     {
                         IdExitCase = dto.IdExitCase,
