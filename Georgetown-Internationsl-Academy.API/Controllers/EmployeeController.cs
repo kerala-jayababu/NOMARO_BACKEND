@@ -853,6 +853,39 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpDelete("DeleteEmployeeDocument")]
+        public async Task<IActionResult> DeleteEmployeeDocument(int idEmployeeDocument)
+        {
+            try
+            {
+                if (idEmployeeDocument <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("idEmployeeDocument is required."));
+
+                // ✅ Get logged-in employee id
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                // ✅ Permission check
+                var screenCode = _configuration["ScreenCodes:EmployeeDocuments"];
+                if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "D"))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
+
+                var result = await _employeeservice.DeleteEmployeeExperience(idEmployeeDocument);
+
+                if (!result)
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to delete Employee Document."));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee Document deleted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #region EMPLOYEE SERVICE CHANGES
 
         [HttpGet("GetEmployeeServiceChanges")]

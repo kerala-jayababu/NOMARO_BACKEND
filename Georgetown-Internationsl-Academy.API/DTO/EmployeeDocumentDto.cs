@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Org.BouncyCastle.Bcpg.OpenPgp;
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace Georgetown_Internationsl_Academy.API.DTO
@@ -11,7 +12,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         public int IdDocumentType { get; set; }
         public string? DocumentTypeName { get; set; }
-
+        public DateTime? DocumentValidTill { get; set; }
         public string? Remarks { get; set; }
         public string? DocumentFilePath { get; set; }
 

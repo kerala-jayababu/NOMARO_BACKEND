@@ -54,7 +54,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
     e.ChildCountDocumentFilePath,
         bc.BudgetCodeName,
         e.EmployeePhotoFilePath,
-        e.OverTimeAllowedStatus
+        e.OverTimeAllowedStatus,
+        e.EmployeeWorkType
     FROM 
         Employees e
     INNER JOIN 
@@ -109,7 +110,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 e.IdDesignation,
                 e.ChildCountDocumentFilePath,
                 e.EmployeePhotoFilePath,
-                e.OverTimeAllowedStatus   
+                e.OverTimeAllowedStatus
             FROM Employees e
             INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
             INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
@@ -175,6 +176,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.PhoneNumber2,            
             e.CurrentStatus,
             e.OverTimeAllowedStatus,
+            e.EmployeeWorkType
             CASE 
                 WHEN esc.IdEmployee IS NULL THEN 'Not Available'
                 --WHEN esc.ApprovalStatus = 'REJECTED' THEN 'Rejected'
@@ -365,7 +367,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.DateOfBirth,
             e.EmployeePhotoFilePath,
             e.Gender,
-            e.OverTimeAllowedStatus
+            e.OverTimeAllowedStatus,
+            e.EmployeeWorkType
         FROM dbo.Employees e
         LEFT JOIN dbo.Departments d ON e.IdDepartment = d.IdDepartment
         LEFT JOIN dbo.Designations des ON e.IdDesignation = des.IdDesignation
@@ -601,6 +604,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         d.DepartmentName,
         e.ReportingTo,
         e.OverTimeAllowedStatus,
+        e.EmployeeWorkType
         CONCAT(r.FirstName, ' ', COALESCE(r.MiddleName, ''), ' ', r.LastName) AS IdReportingToName
     FROM Employees e
     INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
@@ -1144,6 +1148,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 employee.ReportingTo = dto.ReportingTo;
                 employee.CurrentStatus = dto.CurrentStatus;
                 employee.OverTimeAllowedStatus = dto.OverTimeAllowedStatus;
+                employee.EmployeeWorkType = dto.EmployeeWorkType;
 
                 // Handle photo upload (if new photo provided)
                 if (dto.EmployeePhoto != null)
@@ -1978,7 +1983,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                         IdDocumentType = doc.IdDocumentType,
                         DocumentTypeName = dt.DocumentTypeName,
-
+                        DocumentValidTill = doc.DocumentValidTill,
                         Remarks = doc.Remarks,
                         DocumentFilePath = doc.DocumentFilePath,
 
@@ -2039,6 +2044,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
         public async Task<bool> PostEmployeeDocuments(List<EmployeeDocumentPostDto> dtos, int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
@@ -2060,7 +2066,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         existing.Remarks = dto.Remarks;
                         existing.UpdatedAt = DateTime.Now;
                         existing.UpdatedBy = loggedInEmployeeId;
-
+                        existing.DocumentValidTill = dto.DocumentValidTill;
                         // ✅ Replace file if new file provided
                         existing.DocumentFilePath = await SaveEmployeeDocumentFileAsync(
                             dto.DocumentFile,
@@ -2099,6 +2105,36 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
+        public async Task<bool> DeleteEmployeeDocument(int idEmployeeDocument)
+        {
+            try
+            {
+                var record = await _dbContext.EmployeeDocuments
+                    .FirstOrDefaultAsync(x => x.IdEmployeeDocument == idEmployeeDocument);
+
+                if (record == null)
+                    throw new Exception("Employee Document record not found.");
+
+                // ✅ Delete file from system if exists
+                if (!string.IsNullOrWhiteSpace(record.DocumentFilePath) &&
+                    System.IO.File.Exists(record.DocumentFilePath))
+                {
+                    System.IO.File.Delete(record.DocumentFilePath);
+                }
+
+                _dbContext.EmployeeDocuments.Remove(record);
+                await _dbContext.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting employee Document. IdEmployeeDocument: {IdEmployeeDocument}", idEmployeeDocument);
+                throw;
+            }
+        }
+
         private async Task<string?> SaveEmployeeDocumentFileAsync(IFormFile? file, string? oldFilePath = null)
         {
             if (file == null || file.Length == 0)

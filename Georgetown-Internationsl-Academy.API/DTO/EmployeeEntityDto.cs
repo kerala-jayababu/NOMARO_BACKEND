@@ -7,6 +7,7 @@
         public string? MiddleName { get; set; }
         public string? LastName { get; set; }
         public string? Gender { get; set; }
+        public string? EmployeeWorkType { get; set; }
         public string? IdNumber { get; set; }
         public string? TaxIdNumber { get; set; }
         public int? IdDepartment { get; set; }

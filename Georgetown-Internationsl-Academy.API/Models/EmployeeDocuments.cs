@@ -10,7 +10,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
 
         public int IdEmployee { get; set; }
         public int IdDocumentType { get; set; }
-
+        public DateTime? DocumentValidTill { get; set; }
         public string? Remarks { get; set; }
         public string? DocumentFilePath { get; set; }
 

@@ -9,6 +9,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int IdEmployee { get; set; }
         public int IdDocumentType { get; set; }
         public string? Remarks { get; set; }
+        public DateTime? DocumentValidTill { get; set; }
 
         // ✅ File upload
         public IFormFile? DocumentFile { get; set; }
