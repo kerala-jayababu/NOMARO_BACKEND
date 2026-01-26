@@ -664,7 +664,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // update status
                 leaveApp.ApprovalStatus = finalStatus;
 
-                // optional: set approved info when final approval
+                // final approval check (your existing logic)
                 var isFinalApproved =
                     finalStatus == "FINAL APPROVED" ||
                     finalStatus == "APPROVED" ||
@@ -673,8 +673,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (isFinalApproved)
                 {
                     leaveApp.ApprovedBy = loggedInEmployeeId;
-                    // You don't have ApprovedDate in LeaveApplications, but you do have AppliedOn
-                    // so either skip, or add a column ApprovedOn if you need it.
                 }
                 else if (finalStatus == "REJECTED")
                 {
@@ -683,38 +681,64 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 await _dbContext.SaveChangesAsync();
 
-                // If you want reject/final to go back to requester:
+                // If rejected/final, notify employee
                 if (finalStatus == "REJECTED" || nextLevelNumber == 99)
                     targetEmployeeIdsForNextLevel = leaveApp.IdEmployee.ToString();
 
+                // --- notifications ---
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);                             
+                List<Dictionary<string, string>> employees;             
+                bool isRejected = finalStatus == "REJECTED";
+                var CreatorName = await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee });
+                var CreatorNames = string.Join(", ", CreatorName.Select(e => e["Name"]));
+                if (isFinalApproved || isRejected)
+                {
+                    // Send to leave applicant
+                    employees = await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee });
+                }
+                else
+                {
+                    // Send to next approver(s)
+                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                    employees = await GetEmployeesByIds(employeeIdList);
+                }
 
-                // --- notifications (same pattern you already use) ---
-                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
-                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
-                var employees = await GetEmployeesByIds(employeeIdList);
+                // Receiver names (used in template)
                 var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+
                 int levelNumberForNotification = nextLevelNumber ?? 0;
 
-                // If Approved -> use LevelNumber = -1
-                if (!string.IsNullOrWhiteSpace(finalStatus) &&
-                    finalStatus.Contains("APPROVED", StringComparison.OrdinalIgnoreCase))
+                // ✅ Choose template entity code (NEW RULE)
+                string leaveEntityCodeForNotification;
+
+                if (finalStatus == "REJECTED")
                 {
-                    levelNumberForNotification -=1;
+                    leaveEntityCodeForNotification = "LEAVE"; // Rejected template
                 }
-                string leaveEntityCodeForNotification = $"LEAVE_{levelNumberForNotification}";
+                else if (nextLevelNumber == 99)
+                {
+                    leaveEntityCodeForNotification = "LEAVE_FINALAPPROVAL"; // Final approved template
+                }
+                else
+                {
+                    leaveEntityCodeForNotification = "LEAVE_MULTILEVEL"; // Pending/multilevel template
+                }
+
                 var notificationConfig = await GetNotificationConfigForLevaeApplicationEntity(
-                                            leaveEntityCodeForNotification,
-                                            levelNumberForNotification,
-                                            senderName,
-                                            receiverNames,
-                                            rejectReason: finalStatus == "REJECTED" ? rejectReason : null,
-                                            employeeName: receiverNames,              // or actual employee name if you have it
-                                            leaveType: leaveApp.LeaveTypeName,
-                                            fromDate: leaveApp.FromDate,
-                                            toDate: leaveApp.ToDate,
-                                            totalDays: leaveApp.TotalLeaveDays,
-                                            reason: finalStatus== "REJECTED"?leaveApp.Reason: null
-                                        );
+                    leaveEntityCodeForNotification,
+                    levelNumberForNotification,
+                    senderName,
+                    receiverNames,
+                    rejectReason: finalStatus == "REJECTED" ? rejectReason : null,
+                    employeeName: CreatorNames,              // better: pass actual employee name if you have it
+                    leaveType: leaveApp.LeaveTypeName,
+                    fromDate: leaveApp.FromDate,
+                    toDate: leaveApp.ToDate,
+                    totalDays: leaveApp.TotalLeaveDays,
+                    reason: leaveApp.Reason
+                );
+
+                if (notificationConfig == null) return;
 
                 foreach (var emp in employees)
                 {
@@ -747,43 +771,41 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         await _dbContext.SaveChangesAsync();
                     }
                 }
-
             }
+
         }
 
         public async Task<NotificationConfigDto> GetNotificationConfigForLevaeApplicationEntity(
-        string EntityCode,
-        int LevelNumber,
-        string SenderName,
-        string ReceiverName,
-        string? rejectReason,    
-        string employeeName,
-        string? leaveType,
-        DateTime fromDate,
-        DateTime toDate,
-        decimal totalDays,
-        string? reason)
+      string EntityCode,
+      int LevelNumber,
+      string SenderName,
+      string ReceiverName,
+      string? rejectReason,
+      string employeeName,
+      string? leaveType,
+      DateTime fromDate,
+      DateTime toDate,
+      decimal totalDays,
+      string? reason,
+      string? approvalWorkflow = null // use for #ApprovalWorkflow# in LEAVE_MULTILEVEL
+  )
         {
             try
             {
-                // your existing behavior: if reject reason exists => level 0
-                if (!string.IsNullOrEmpty(rejectReason))
-                {
-                    LevelNumber = 0;
-                }
+                
 
                 var nConfig = await _dbContext.NotificationsConfig
-                    .Where(n => n.EntityCode == EntityCode && n.LevelNumber == LevelNumber)
+                    .Where(n => n.EntityCode == EntityCode)
                     .FirstOrDefaultAsync();
 
                 if (nConfig == null || string.IsNullOrEmpty(nConfig.EmailContent))
-                {
                     return null;
-                }
 
                 string fromDateStr = fromDate.ToString("dd-MMM-yyyy");
                 string toDateStr = toDate.ToString("dd-MMM-yyyy");
                 string totalDaysStr = totalDays.ToString("0.##");
+
+                string approvalWorkflowText = approvalWorkflow ?? "";
 
                 // Email content replacements
                 string emailContent = nConfig.EmailContent
@@ -792,8 +814,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Replace("#ApprovedBy", SenderName)
                     .Replace("#REJECTIONREASON#", rejectReason ?? "")
                     .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
+                    .Replace("#ApprovalWorkflow#", approvalWorkflowText)
 
-                    // ✅ Leave placeholders
+                    // Leave placeholders
                     .Replace("#EMPLOYEENAME#", employeeName ?? "")
                     .Replace("#LEAVETYPE#", leaveType ?? "")
                     .Replace("#FROMDATE#", fromDateStr)
@@ -802,14 +825,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Replace("#REASON#", reason ?? "");
 
                 // App content replacements
-                string appContent = nConfig.AppNotificationText?
+                string appContent = (nConfig.AppNotificationText ?? "")
                     .Replace("#SENDER#", SenderName)
                     .Replace("#RECEIVER#", ReceiverName)
                     .Replace("#APPROVERNAME#", SenderName)
                     .Replace("#REJECTIONREASON#", rejectReason ?? "")
                     .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
+                    .Replace("#ApprovalWorkflow#", approvalWorkflowText)
 
-                    // ✅ Leave placeholders
+                    // Leave placeholders
                     .Replace("#EMPLOYEENAME#", employeeName ?? "")
                     .Replace("#LEAVETYPE#", leaveType ?? "")
                     .Replace("#FROMDATE#", fromDateStr)
@@ -817,22 +841,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Replace("#TOTALDAYS#", totalDaysStr)
                     .Replace("#REASON#", reason ?? "");
 
-                // Notification link logic (include -1 too)
-                string notificationLink;
-
-                if (LevelNumber == 1)
-                {
-                    notificationLink = "config-approvals";
-                }
-                else if (LevelNumber == 0 || LevelNumber == 99 || LevelNumber == -1)
-                {
-                    // leave application page
-                    notificationLink = "leave-applications";
-                }
-                else
-                {
-                    notificationLink = "config-approvals";
-                }
+                // Notification link (you said: simple)
+                string notificationLink = "leave-applications";
 
                 return new NotificationConfigDto
                 {
@@ -852,6 +862,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
 
         private async Task<List<Dictionary<string, string>>> GetEmployeesByIds(List<int> employeeIds)
         {
