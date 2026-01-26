@@ -3,15 +3,20 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Org.BouncyCastle.Ocsp;
 using System.Drawing;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using static iText.StyledXmlParser.Jsoup.Select.Evaluator;
 using static Org.BouncyCastle.Math.EC.ECCurve;
+using System.Text.Json;
+
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 {
@@ -402,7 +407,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     idLeaveTemplate,
                     entityCode,
                     loggedInEmployeeId,
-                    "SUBMITTED",
+                    "APPROVED",
                     null,
                     null);
 
@@ -702,7 +707,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                     var workflowEntities = wfDto.Select(w => new WorkFlowConfigDetails
                     {
-                        ApprovalStatusName = "L" + w.LevelNumber.ToString() + "_" + w.ApprovalStatusName,
+                        ApprovalStatusName = w.ApprovalStatusName,
                         ApprovalAuthorityID = w.ApprovalAuthorityID,
                         ApprovalAuthorityType = w.ApprovalAuthorityType,
                         LevelNumber = w.LevelNumber,
@@ -1366,6 +1371,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     query = query.Where(x => x.emp.ReportingTo == loggedInEmployeeId);
                 }
                 */
+
+                var approveDetails = _dbContext.ApprovalWorkFlowAllocations
+                    .Where(a =>
+                        a.EntityCode.Contains("LEAVE") &&
+                        ("," + a.TargetIdEmployee + ",").Contains("," + loggedInEmployeeId.ToString() + ","));
+
                 if (!string.IsNullOrWhiteSpace(approvalStatus))
                     query = query.Where(x => x.la.ApprovalStatus == approvalStatus.Trim());
 
@@ -1416,8 +1427,240 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<string> GetApprovalLevelDetails(int idLeaveTemplateDetail,int idEmployee,int loggedInEmployeeId)
+        {
+            // 🔹 Fetch workflow configuration
+            var workflowDetails = await
+                (from wc in _dbContext.WorkFlowConfig
+                 join wcd in _dbContext.WorkFlowConfigDetails
+                     on wc.IdWorkFlowConfig equals wcd.IdWorkFlowConfig
+                 where wc.EntityCode == "LEAVE_" + idLeaveTemplateDetail
+                 orderby wcd.LevelNumber
+                 select new
+                 {
+                     wcd.LevelNumber,
+                     wcd.ApprovalAuthorityID,
+                     wcd.ApprovalAuthorityType
+                 })
+                .AsNoTracking()
+                .ToListAsync();
 
-        public  async Task<bool> SubmitLeaveApplicationApproval(List<int> idChanges,string approvalStatus,string? remarks,int loggedInEmployeeId)
+            if (!workflowDetails.Any())
+                return "[]";
+
+            // 🔹 Fetch employee once (for reporting officer)
+            var employee = await _dbContext.Employees
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.IdEmployee == idEmployee);
+
+            var approvers = new List<LeaveApprovalDetailsDto>();
+
+            foreach (var wf in workflowDetails)
+            {
+                // 🔹 Reporting Officer
+                if (wf.ApprovalAuthorityType == "REPOFFICER")
+                {
+                    if (employee?.ReportingTo != null)
+                    {
+                        var reportingOfficer = await _dbContext.Employees
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(e => e.IdEmployee == employee.ReportingTo);
+
+                        if (reportingOfficer != null)
+                        {
+                            approvers.Add(new LeaveApprovalDetailsDto
+                            {
+                                Level = wf.LevelNumber,
+                                Type = "REPOFFICER",
+                                Id = reportingOfficer.IdEmployee.Value,
+                                Name = $"{reportingOfficer.FirstName} {reportingOfficer.LastName}".Trim(),
+                                Status = "PENDING",
+                                StatusDate = null
+                            });
+                        }
+                    }
+                }
+                // 🔹 Role / Department based
+                else if (wf.ApprovalAuthorityType == "ROLE")
+                {
+                    var department = await _dbContext.Departments
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(d => d.IdDepartment == wf.ApprovalAuthorityID);
+
+                    if (department != null)
+                    {
+                        approvers.Add(new LeaveApprovalDetailsDto
+                        {
+                            Level = wf.LevelNumber,
+                            Type = "ROLE",
+                            Id = department.IdDepartment,
+                            Name = department.DepartmentName,
+                            Status = "PENDING",
+                            StatusDate = null
+                        });
+                    }
+                }
+            }
+
+            // 🔹 Serialize ONLY list of ApproverDto
+            string approverJson = JsonSerializer.Serialize(
+                approvers,
+                new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+            return approverJson;
+        }
+
+        public async Task<bool> UpdateApproverStatus(int idLeaveApplication, string actionStatus, int loggedInEmployeeId)
+        {
+            if (actionStatus != "APPROVED" && actionStatus != "REJECTED")
+                throw new ArgumentException("Invalid approval action.");
+
+            var snapshot = await _dbContext.LeaveApplications
+                .FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
+
+            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.ApprovalStatus))
+                throw new InvalidOperationException("Approval details not found.");
+
+            var approvers = JsonSerializer.Deserialize<List<LeaveApprovalDetailsDto>>(
+                snapshot.ApprovalStatus);
+
+            if (approvers == null || !approvers.Any())
+                throw new InvalidOperationException("Invalid approver data.");
+
+            // 🔹 Find current approver (must be pending)
+            var currentApprover = approvers
+                .FirstOrDefault(a =>
+                    a.Id == loggedInEmployeeId &&
+                    a.Status == "PENDING");
+
+            if (currentApprover == null)
+                throw new InvalidOperationException("No pending approval found for this user.");
+
+            // 🔹 Update current approver
+            currentApprover.Status = actionStatus;
+            currentApprover.StatusDate = DateTime.UtcNow;
+
+            // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
+            if (actionStatus == "REJECTED")
+            {
+                foreach (var next in approvers
+                    .Where(a => a.Level > currentApprover.Level && a.Status == "PENDING"))
+                {
+                    next.Status = "NO_ACTION_REQUIRED";
+                    next.StatusDate = DateTime.UtcNow;
+                }
+            }
+
+            snapshot.LeaveApprovalDetails = JsonSerializer.Serialize(
+                approvers,
+                new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+
+        /*
+        public async Task<string> GetApprovalLevelDetails(int idLeaveApplication,int idLeaveTemplateDetail,int idEmployee)
+        {
+            // 🔹 Fetch workflow config details
+            var workflowDetails = await
+                (from wc in _dbContext.WorkFlowConfig
+                 join wcd in _dbContext.WorkFlowConfigDetails
+                     on wc.IdWorkFlowConfig equals wcd.IdWorkFlowConfig
+                 where wc.EntityCode == "LEAVE_" + idLeaveTemplateDetail
+                 select new
+                 {
+                     wcd.ApprovalAuthorityID,
+                     wcd.ApprovalStatusName,
+                     wcd.ApprovalAuthorityType
+                 })
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (!workflowDetails.Any())
+                return string.Empty;
+
+            var approverNames = new List<string>();
+
+            // 🔹 Fetch employee once
+            var employee = await _dbContext.Employees
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.IdEmployee == idEmployee);
+
+            foreach (var wcdet in workflowDetails)
+            {
+                // 🔹 Reporting Officer
+                if (wcdet.ApprovalAuthorityType == "REPOFFICER")
+                {
+                    if (employee?.ReportingTo != null)
+                    {
+                        var reportingOfficer = await _dbContext.Employees
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(e => e.IdEmployee == employee.ReportingTo);
+
+                        if (reportingOfficer != null)
+                        {
+                            approverNames.Add(
+                                $"{reportingOfficer.FirstName} {reportingOfficer.LastName}".Trim());
+                        }
+                    }
+                }
+
+                // 🔹 Role / Department based approval
+                else if (wcdet.ApprovalAuthorityType == "ROLE")
+                {
+                    var department = await _dbContext.Departments
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(d => d.IdDepartment == wcdet.ApprovalAuthorityID);
+
+                    if (department != null)
+                    {
+                        approverNames.Add(department.DepartmentName);
+                    }
+                }
+            }
+
+            // 🔹 Final formatted string
+            return string.Join(" | ", approverNames);
+        }
+        */
+
+        /*
+        public async Task<IEnumerable<LeaveApplicationListDto>> GetLeaveApplicationsForApproval111(int loggedInEmployeeId, string? approvalStatus, string? SearchText, DateTime? fromDate)
+        {
+            try
+            {
+
+
+                var data = await _dbContext.LeaveApplicationListDtos
+           .FromSqlRaw(
+               "EXEC sp_GetLeaveApplicationsForApproval @LoggedInEmployeeId, @ApprovalStatus, @SearchText, @FromDate",
+               new SqlParameter("@LoggedInEmployeeId", loggedInEmployeeId),
+               new SqlParameter("@ApprovalStatus", (object?)approvalStatus ?? DBNull.Value),
+               new SqlParameter("@SearchText", (object?)searchText ?? DBNull.Value),
+               new SqlParameter("@FromDate", (object?)fromDate ?? DBNull.Value)
+           )
+           .AsNoTracking()
+           .ToListAsync();
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave Applications.");
+                throw;
+            }
+        }
+
+        */
+
+        public async Task<bool> SubmitLeaveApplicationApproval(List<int> idChanges,string approvalStatus,string? remarks,int loggedInEmployeeId)
         {
             try
             {
@@ -1443,9 +1686,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         remarks,
                         1
                     );
+                    await UpdateApproverStatus(la.IdLeaveApplication, approvalStatus,loggedInEmployeeId);
                 }
 
                 await _dbContext.SaveChangesAsync();
+
                 return true;
 
             }
@@ -1608,12 +1853,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 // ✅ (5) Check overlap with existing Pending/Approved leaves
+                var fromDate = dto.FromDate.Date;
+                var toDate = dto.ToDate.Date.AddDays(1).AddTicks(-1);
                 bool hasOverlap = await _dbContext.LeaveApplications.AnyAsync(x =>
                     x.IdEmployee == dto.IdEmployee
                     && x.IdLeaveApplication != dto.IdLeaveApplication
-                    && (x.ApplicationStatus == "SUBMITTED" || x.ApplicationStatus == "APPROVED")
-                    && x.FromDate.Date <= dto.ToDate.Date
-                    && x.ToDate.Date >= dto.FromDate.Date
+                    && (x.ApprovalStatus != "REJECTED" && x.ApprovalStatus != "CANCELLED")
+                    && x.FromDate <= toDate
+                    && x.ToDate >=fromDate
                 );
 
                 var holidaydet = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.HolidayDate == dto.FromDate);
@@ -1723,6 +1970,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 else
                 {
+                    entity.LeaveApprovalDetails = await GetApprovalLevelDetails(empLeaveTypeConfig.IdLeaveTemplateDetail, dto.IdEmployee, loggedInEmployeeId);
+                    if (entity.LeaveApprovalDetails == null)
+                        entity.LeaveApprovalDetails = "";
                     entity = new LeaveApplications
                     {
                         IdEmployee = dto.IdEmployee,
@@ -1737,7 +1987,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         AppliedOn = DateTime.Now,
                         ApprovalStatus = "SUBMITTED",
                         IdLeaveTemplateDetail = empLeaveTypeConfig.IdLeaveTemplateDetail,
-                        IdYear = dto.FromDate.Year
+                        IdYear = dto.FromDate.Year,
+                        LeaveApprovalDetails = entity.LeaveApprovalDetails
+
                     };
 
                     await _dbContext.LeaveApplications.AddAsync(entity);
@@ -1806,7 +2058,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 _dbContext.EmployeeLeaveConfigDetails.Update(empLeaveConfigDetailEntity);
                 await _dbContext.SaveChangesAsync();
 
-                await _approvalWorkflowService.AddUpdateWorkFlowApprovalForLeave(entity.IdLeaveApplication, entity.IdEmployee, empLeaveTypeConfig);
+
+
+                await _approvalWorkflowService.InitiateApprovalWorkflow(entity.IdLeaveApplication, "LEAVE_1041", entity.IdEmployee,"APPROVED", 0,"APPROVED", 1);
                 //await transaction.CommitAsync();
 
                 return new LeaveApplicationSaveResultDto

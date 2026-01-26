@@ -654,8 +654,82 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
             }
-        }
+            else if (!string.IsNullOrWhiteSpace(entityCode) && entityCode.Contains("LEAVE_", StringComparison.OrdinalIgnoreCase))
+            {
+                var leaveApp = await _dbContext.LeaveApplications
+                    .FirstOrDefaultAsync(x => x.IdLeaveApplication == entityTablePrimaryKeyID);
 
+                if (leaveApp == null) return;
+
+                // update status
+                leaveApp.ApprovalStatus = finalStatus;
+
+                // optional: set approved info when final approval
+                var isFinalApproved =
+                    finalStatus == "FINAL APPROVED" ||
+                    finalStatus == "APPROVED" ||
+                    nextLevelNumber == 99;
+
+                if (isFinalApproved)
+                {
+                    leaveApp.ApprovedBy = loggedInEmployeeId;
+                    // You don't have ApprovedDate in LeaveApplications, but you do have AppliedOn
+                    // so either skip, or add a column ApprovedOn if you need it.
+                }
+                else if (finalStatus == "REJECTED")
+                {
+                    leaveApp.ApprovedBy = null;
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                // If you want reject/final to go back to requester:
+                if (finalStatus == "REJECTED" || nextLevelNumber == 99)
+                    targetEmployeeIdsForNextLevel = leaveApp.IdEmployee.ToString();
+
+                // --- notifications (same pattern you already use) ---
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
+                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                var employees = await GetEmployeesByIds(employeeIdList);
+                var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+
+                var notificationConfig = await GetNotificationConfigForEntity(
+                    entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
+
+                foreach (var emp in employees)
+                {
+                    var toEmail = emp["Email"];
+                    if (!string.IsNullOrWhiteSpace(toEmail))
+                        EmailService.SendMail(toEmail, notificationConfig.EmailSubject, notificationConfig.EmailContent);
+
+                    var employeeDetails = await _dbContext.Employees.FirstOrDefaultAsync(x => x.EmailID == toEmail);
+                    if (employeeDetails != null)
+                    {
+                        await _dbContext.Notifications.AddAsync(new Notification
+                        {
+                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                            NotificationType = notificationConfig.NotificationType,
+                            SentByIdEmployee = loggedInEmployeeId,
+                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            AppNotificationText = notificationConfig.AppNotificationText,
+                            EmailSubject = notificationConfig.EmailSubject,
+                            EmailContent = notificationConfig.EmailContent,
+                            EmailSentStatus = "SENT",
+                            IsReadAppNotification = false,
+                            CreatedAt = DateTime.Now,
+                            Status = "SENT",
+                            RelatedRecordID = entityTablePrimaryKeyID,
+                            RelatedRecordType = entityCode,
+                            LogoText = notificationConfig.LogoText,
+                            NotificationLink = notificationConfig.NotificationLink
+                        });
+
+                        await _dbContext.SaveChangesAsync();
+                    }
+                }
+
+            }
+        }
 
 
         private async Task<List<Dictionary<string, string>>> GetEmployeesByIds(List<int> employeeIds)

@@ -33,6 +33,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? IdEmployeeSalary { get; set; }
         public int? IdSalaryMonth { get; set; }
         public decimal? DeductedAmount { get; set; }
+        public string? LeaveApprovalDetails { get; set; }
 
         public List<LeaveApplicationDocumentDetailsDto> Documents { get; set; } = new();
     }

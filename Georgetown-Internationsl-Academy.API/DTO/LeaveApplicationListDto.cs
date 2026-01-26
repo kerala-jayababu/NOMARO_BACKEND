@@ -16,9 +16,10 @@
         public DateTime ToDate { get; set; }
 
         public decimal TotalLeaveDays { get; set; }
-
         public string? ApprovalStatus { get; set; }
         public string? ApplicationStatus { get; set; }
         public DateTime AppliedOn { get; set; }
+        public string? LeaveApprovalDetails { get; set; }
+
     }
 }
