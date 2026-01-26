@@ -1686,7 +1686,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         remarks,
                         1
                     );
-                    await UpdateApproverStatus(la.IdLeaveApplication, approvalStatus,loggedInEmployeeId);
+                   // await UpdateApproverStatus(la.IdLeaveApplication, approvalStatus,loggedInEmployeeId);
                 }
 
                 await _dbContext.SaveChangesAsync();

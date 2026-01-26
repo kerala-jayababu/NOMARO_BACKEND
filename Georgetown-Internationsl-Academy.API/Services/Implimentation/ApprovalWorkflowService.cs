@@ -687,14 +687,34 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (finalStatus == "REJECTED" || nextLevelNumber == 99)
                     targetEmployeeIdsForNextLevel = leaveApp.IdEmployee.ToString();
 
+
                 // --- notifications (same pattern you already use) ---
                 var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
                 var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
                 var employees = await GetEmployeesByIds(employeeIdList);
                 var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+                int levelNumberForNotification = nextLevelNumber ?? 0;
 
-                var notificationConfig = await GetNotificationConfigForEntity(
-                    entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
+                // If Approved -> use LevelNumber = -1
+                if (!string.IsNullOrWhiteSpace(finalStatus) &&
+                    finalStatus.Contains("APPROVED", StringComparison.OrdinalIgnoreCase))
+                {
+                    levelNumberForNotification -=1;
+                }
+                string leaveEntityCodeForNotification = $"LEAVE_{levelNumberForNotification}";
+                var notificationConfig = await GetNotificationConfigForLevaeApplicationEntity(
+                                            leaveEntityCodeForNotification,
+                                            levelNumberForNotification,
+                                            senderName,
+                                            receiverNames,
+                                            rejectReason: finalStatus == "REJECTED" ? rejectReason : null,
+                                            employeeName: receiverNames,              // or actual employee name if you have it
+                                            leaveType: leaveApp.LeaveTypeName,
+                                            fromDate: leaveApp.FromDate,
+                                            toDate: leaveApp.ToDate,
+                                            totalDays: leaveApp.TotalLeaveDays,
+                                            reason: finalStatus== "REJECTED"?leaveApp.Reason: null
+                                        );
 
                 foreach (var emp in employees)
                 {
@@ -731,6 +751,107 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<NotificationConfigDto> GetNotificationConfigForLevaeApplicationEntity(
+        string EntityCode,
+        int LevelNumber,
+        string SenderName,
+        string ReceiverName,
+        string? rejectReason,    
+        string employeeName,
+        string? leaveType,
+        DateTime fromDate,
+        DateTime toDate,
+        decimal totalDays,
+        string? reason)
+        {
+            try
+            {
+                // your existing behavior: if reject reason exists => level 0
+                if (!string.IsNullOrEmpty(rejectReason))
+                {
+                    LevelNumber = 0;
+                }
+
+                var nConfig = await _dbContext.NotificationsConfig
+                    .Where(n => n.EntityCode == EntityCode && n.LevelNumber == LevelNumber)
+                    .FirstOrDefaultAsync();
+
+                if (nConfig == null || string.IsNullOrEmpty(nConfig.EmailContent))
+                {
+                    return null;
+                }
+
+                string fromDateStr = fromDate.ToString("dd-MMM-yyyy");
+                string toDateStr = toDate.ToString("dd-MMM-yyyy");
+                string totalDaysStr = totalDays.ToString("0.##");
+
+                // Email content replacements
+                string emailContent = nConfig.EmailContent
+                    .Replace("#SENDER#", SenderName)
+                    .Replace("#RECEIVER#", ReceiverName)
+                    .Replace("#ApprovedBy", SenderName)
+                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
+                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
+
+                    // ✅ Leave placeholders
+                    .Replace("#EMPLOYEENAME#", employeeName ?? "")
+                    .Replace("#LEAVETYPE#", leaveType ?? "")
+                    .Replace("#FROMDATE#", fromDateStr)
+                    .Replace("#TODATE#", toDateStr)
+                    .Replace("#TOTALDAYS#", totalDaysStr)
+                    .Replace("#REASON#", reason ?? "");
+
+                // App content replacements
+                string appContent = nConfig.AppNotificationText?
+                    .Replace("#SENDER#", SenderName)
+                    .Replace("#RECEIVER#", ReceiverName)
+                    .Replace("#APPROVERNAME#", SenderName)
+                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
+                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
+
+                    // ✅ Leave placeholders
+                    .Replace("#EMPLOYEENAME#", employeeName ?? "")
+                    .Replace("#LEAVETYPE#", leaveType ?? "")
+                    .Replace("#FROMDATE#", fromDateStr)
+                    .Replace("#TODATE#", toDateStr)
+                    .Replace("#TOTALDAYS#", totalDaysStr)
+                    .Replace("#REASON#", reason ?? "");
+
+                // Notification link logic (include -1 too)
+                string notificationLink;
+
+                if (LevelNumber == 1)
+                {
+                    notificationLink = "config-approvals";
+                }
+                else if (LevelNumber == 0 || LevelNumber == 99 || LevelNumber == -1)
+                {
+                    // leave application page
+                    notificationLink = "leave-applications";
+                }
+                else
+                {
+                    notificationLink = "config-approvals";
+                }
+
+                return new NotificationConfigDto
+                {
+                    IdNotificationConfig = nConfig.IdNotificationConfig,
+                    NotificationType = nConfig.NotificationType,
+                    EntityCode = nConfig.EntityCode,
+                    EmailSubject = nConfig.EmailSubject,
+                    EmailContent = emailContent,
+                    LogoText = nConfig.LogoText,
+                    NotificationLink = notificationLink,
+                    AppNotificationText = appContent,
+                    WebLink = nConfig.WebLink
+                };
+            }
+            catch
+            {
+                throw;
+            }
+        }
 
         private async Task<List<Dictionary<string, string>>> GetEmployeesByIds(List<int> employeeIds)
         {
