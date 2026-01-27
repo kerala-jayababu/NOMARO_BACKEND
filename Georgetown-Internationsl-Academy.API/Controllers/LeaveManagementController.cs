@@ -631,13 +631,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 int loggedInEmployeeId = int.Parse(userId);
 
-                var screenCode = _configuration["ScreenCodes:LeaveApplications"];
-
-                // ✅ Cancel permission
-                var canCancel = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "U");
-                if (!canCancel)
-                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
-
                 var result = await _leaveService.CancelLeaveApplication(
                     dto.IdLeaveApplication,
                     dto.CancelReason,
