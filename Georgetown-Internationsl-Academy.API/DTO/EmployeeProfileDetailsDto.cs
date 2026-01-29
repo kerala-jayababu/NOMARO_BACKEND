@@ -23,7 +23,7 @@
         public string? EmployeePhotoFilePath { get; set; }
         public byte[]? AttachmentBlob { get; set; }
         public string? EmployeeWorkType { get; set; }
-
         public string? OverTimeAllowedStatus { get; set; }
+        public List<EmployeeBankAccountDto> BankAccounts { get; set; }
     }
 }

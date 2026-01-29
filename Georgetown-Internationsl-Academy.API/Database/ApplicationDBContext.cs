@@ -78,7 +78,8 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<Countries> Countries { get; set; }
         public DbSet<EmployeeDocuments> EmployeeDocuments { get; set; }
         public DbSet<DocumentTypes> DocumentTypes { get; set; }
-        
+        public DbSet<EmployeeTypes> EmployeeTypes { get; set; }
+
 
 
         #region Time & Attendance

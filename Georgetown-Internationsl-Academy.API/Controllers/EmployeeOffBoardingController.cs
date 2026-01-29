@@ -466,6 +466,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         .CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
         [HttpPost("SubmitHROfficerActions")]
         public async Task<IActionResult> SubmitHROfficerActions([FromBody] SubmitHROfficerActionsDto dto)
         {
@@ -617,12 +618,21 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             return Ok(result);
         }
 
+        [HttpGet("ExitClearanceForDepartmentUser")]
+        public async Task<IActionResult>  ExitClearanceForDepartmentUser()
+        {
+            var idLoggedInEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(idLoggedInEmployee))
+                return Unauthorized(ApiResponseDto<SubmitExitCaseDepartmentClearanceLinesResponseDto>
+                    .CreateFailure("Employee ID not found."));
+
+            var result = await _EmpOffBoardingService.ExitClearanceForDepartmentUser(int.Parse(idLoggedInEmployee));
+
+            return Ok(result);
+        }
+
         #endregion
-
-
-
-
-
 
     }
 }

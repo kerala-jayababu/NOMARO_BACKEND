@@ -205,7 +205,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             ScreenName = subScreen.ScreenName,
                             ValidPermissions = subPermissionRecord?.Permission, // Assign Permission or null
                             IdEmployeePermission = subPermissionRecord?.IdEmployeePermission ?? 0, // Assign IdEmployeePermission or 0
-                            IdParentPayrollScreen = subScreen.IdParentPayrollScreen
+                            IdParentPayrollScreen = subScreen.IdParentPayrollScreen,
+                            ScreenCode = subScreen.ScreenCode
                         };
                     })
                     .ToList();

@@ -149,10 +149,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-
-
-
-
         public async Task<UserResponseDto> DecryptToken(string token)
         {
             if (string.IsNullOrEmpty(token))

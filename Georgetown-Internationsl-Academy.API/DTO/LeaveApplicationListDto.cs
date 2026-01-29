@@ -20,6 +20,9 @@
         public string? ApplicationStatus { get; set; }
         public DateTime AppliedOn { get; set; }
         public string? LeaveApprovalDetails { get; set; }
+        public string? ActionStatusByUser { get; set; }
+        public DateTime? ActionStatusDateByUser { get; set; }
+
 
     }
 }

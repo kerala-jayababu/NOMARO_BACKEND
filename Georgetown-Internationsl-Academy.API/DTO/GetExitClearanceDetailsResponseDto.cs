@@ -55,6 +55,7 @@
         public string? CheckListItem { get; set; }
         public string? DeptClearanceStatus { get; set; }
         public int? SortOrder { get; set; }
+        public string? DeptRemarks { get; set; }
     }
 
 }

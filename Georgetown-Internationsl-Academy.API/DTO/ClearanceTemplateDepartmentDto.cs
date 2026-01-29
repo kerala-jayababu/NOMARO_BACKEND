@@ -10,5 +10,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int IdDepartment { get; set; }
         public string CheckListItem { get; set; }
         public bool IsMandatory { get; set; }
+        public string? DepartmentName { get; set; }
+        public List<DepartmentEmployees> DeptEmployees { get; set; }
+       
     }
 }

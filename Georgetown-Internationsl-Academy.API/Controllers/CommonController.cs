@@ -73,6 +73,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             var result = await _optionService.GetAllSalaryMonths();
             return Ok(result);
         }
+
+        [HttpGet("GetEmployeeWorkTypes")]
+        public async Task<IActionResult> GetEmployeeWorkTypes()
+        {
+            var result = await _optionService.GetEmployeeWorkTypes();
+            return Ok(result);
+        }
+
         [HttpGet("GetAllFiancialyear")]
         public async Task<IActionResult> GetAllFiancialyear()
         {

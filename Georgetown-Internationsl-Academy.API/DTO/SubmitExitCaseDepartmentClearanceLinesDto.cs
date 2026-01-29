@@ -31,6 +31,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 
         [Required]
         public bool IsCompleted { get; set; }
+        public string? ClearanceStatus { get; set; }
+        public string? Remarks { get; set; }
     }
 
     public class SubmitExitCaseDepartmentClearanceLinesResponseDto

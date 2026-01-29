@@ -20,5 +20,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<QualificationTypesDto>> GetQualificationTypes();
         Task<IEnumerable<CountryDto>> GetCountries();
         Task<IEnumerable<DocumentTypeDto>> GetDocumentTypes();
+        Task<List<EmployeeTypeDto>> GetEmployeeWorkTypes();
     }
 }

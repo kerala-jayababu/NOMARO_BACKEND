@@ -1338,7 +1338,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-        public async Task<IEnumerable<LeaveApplicationListDto>> GetLeaveApplicationsForApproval(
+        public async Task<IEnumerable<LeaveApplicationListDto>> GetLeaveApplicationsForApproval_old(
         int loggedInEmployeeId, string? approvalStatus, string? SearchText, DateTime? fromDate)
         {
             try
@@ -1423,6 +1423,84 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching Leave Applications.");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<LeaveApplicationListDto>> GetLeaveApplicationsForApproval(
+            int loggedInEmployeeId, string? approvalStatus, string? searchText, DateTime? fromDate)
+        {
+            try
+            {
+                var query =
+                    from la in _dbContext.LeaveApplications
+                    join emp in _dbContext.Employees
+                        on la.IdEmployee equals emp.IdEmployee
+                    join dept in _dbContext.Departments
+                        on emp.IdDepartment equals dept.IdDepartment
+                    join desig in _dbContext.Designations
+                        on emp.IdDesignation equals desig.IdDesignation
+                    join awa in _dbContext.ApprovalWorkFlowAllocations
+                        on la.IdLeaveApplication equals awa.EntityTablePrimaryKeyID
+                    where awa.EntityCode.StartsWith("LEAVE_")
+                          && ("," + awa.TargetIdEmployee + ",")
+                                .Contains("," + loggedInEmployeeId + ",")
+                    select new
+                    {
+                        la,
+                        emp,
+                        dept,
+                        desig,
+                        awa
+                    };
+
+                // 🔹 Optional filters
+                if (!string.IsNullOrWhiteSpace(approvalStatus))
+                    query = query.Where(x => x.awa.ActionStatus.Contains(approvalStatus.Trim()));
+
+                if (!string.IsNullOrWhiteSpace(searchText))
+                {
+                    searchText = searchText.ToUpper();
+
+                    query = query.Where(x =>
+                        (x.emp.FirstName ?? "").ToUpper().Contains(searchText) ||
+                        (x.emp.LastName ?? "").ToUpper().Contains(searchText) ||
+                        (x.desig.DesignationName ?? "").ToUpper().Contains(searchText) ||
+                        (x.dept.DepartmentName ?? "").ToUpper().Contains(searchText));
+                }
+
+                if (fromDate.HasValue)
+                    query = query.Where(x => x.la.FromDate >= fromDate.Value.Date);
+
+                var data = await query
+                    .AsNoTracking()
+                    .Select(x => new LeaveApplicationListDto
+                    {
+                        IdLeaveApplication = x.la.IdLeaveApplication,
+                        IdEmployee = x.la.IdEmployee,
+                        IdLeaveTemplateDetail = x.la.IdLeaveTemplateDetail,
+                        IdLeaveType = x.la.IdLeaveType,
+                        LeaveTypeName = x.la.LeaveTypeName,
+                        FromDate = x.la.FromDate,
+                        ToDate = x.la.ToDate,
+                        TotalLeaveDays = x.la.TotalLeaveDays,
+                        ApprovalStatus = x.la.ApprovalStatus,
+                        ApplicationStatus = x.la.ApplicationStatus ?? "",
+                        AppliedOn = x.la.AppliedOn,
+                        EmployeeName = ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
+                        DesignationName = x.desig.DesignationName,
+                        DepartmentName = x.dept.DepartmentName,
+                        Reason = x.la.Reason,
+                        ActionStatusByUser = x.awa.ActionStatus,
+                        ActionStatusDateByUser = x.awa.ActionDate
+                    })
+                    .ToListAsync();
+
+                return data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave Applications for approval.");
                 throw;
             }
         }
@@ -1515,55 +1593,72 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<bool> UpdateApproverStatus(int idLeaveApplication, string actionStatus, int loggedInEmployeeId)
         {
-            if (actionStatus != "APPROVED" && actionStatus != "REJECTED")
-                throw new ArgumentException("Invalid approval action.");
-
-            var snapshot = await _dbContext.LeaveApplications
-                .FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
-
-            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.ApprovalStatus))
-                throw new InvalidOperationException("Approval details not found.");
-
-            var approvers = JsonSerializer.Deserialize<List<LeaveApprovalDetailsDto>>(
-                snapshot.ApprovalStatus);
-
-            if (approvers == null || !approvers.Any())
-                throw new InvalidOperationException("Invalid approver data.");
-
-            // 🔹 Find current approver (must be pending)
-            var currentApprover = approvers
-                .FirstOrDefault(a =>
-                    a.Id == loggedInEmployeeId &&
-                    a.Status == "PENDING");
-
-            if (currentApprover == null)
-                throw new InvalidOperationException("No pending approval found for this user.");
-
-            // 🔹 Update current approver
-            currentApprover.Status = actionStatus;
-            currentApprover.StatusDate = DateTime.UtcNow;
-
-            // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
-            if (actionStatus == "REJECTED")
+            try
             {
-                foreach (var next in approvers
-                    .Where(a => a.Level > currentApprover.Level && a.Status == "PENDING"))
+                if (actionStatus != "APPROVED" && actionStatus != "REJECTED")
+                    throw new ArgumentException("Invalid approval action.");
+
+                var snapshot = await _dbContext.LeaveApplications
+                    .FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
+
+                if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.LeaveApprovalDetails))
+                    throw new InvalidOperationException("Approval details not found.");
+
+                var approvers = JsonSerializer.Deserialize<List<LeaveApprovalDetailsDto>>(
+                    snapshot.LeaveApprovalDetails);
+
+                if (approvers == null || !approvers.Any())
+                    throw new InvalidOperationException("Invalid approver data.");
+
+                var empDetail = await
+                           (from emp in _dbContext.Employees
+                                join desig in _dbContext.Designations
+                                on emp.IdDesignation equals desig.IdDesignation
+                            where emp.IdEmployee == loggedInEmployeeId
+                            select new 
+                            {
+                                desig.DesignationName,
+                                emp.FirstName,
+                            }).AsNoTracking().ToListAsync();
+
+                // 🔹 Find current approver (must be pending)
+                var currentApprover = approvers
+                    .FirstOrDefault(a =>
+                        a.Status == "PENDING");
+
+                if (currentApprover == null)
+                    throw new InvalidOperationException("No pending approval found for this user.");
+
+                // 🔹 Update current approver
+                currentApprover.Status = actionStatus;
+                currentApprover.StatusDate = DateTime.UtcNow;
+
+                // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
+                if (actionStatus == "REJECTED")
                 {
-                    next.Status = "NO_ACTION_REQUIRED";
-                    next.StatusDate = DateTime.UtcNow;
+                    foreach (var next in approvers
+                        .Where(a => a.Level > currentApprover.Level && a.Status == "PENDING"))
+                    {
+                        next.Status = "NO_ACTION_REQUIRED";
+                        next.StatusDate = DateTime.UtcNow;
+                    }
                 }
+
+                snapshot.LeaveApprovalDetails = JsonSerializer.Serialize(
+                    approvers,
+                    new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                await _dbContext.SaveChangesAsync();
+
+                return true;
             }
-
-            snapshot.LeaveApprovalDetails = JsonSerializer.Serialize(
-                approvers,
-                new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                });
-
-            await _dbContext.SaveChangesAsync();
-
-            return true;
+            catch(Exception ee)
+            {
+                return false;
+            }
         }
 
         /*
@@ -1664,6 +1759,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
+                await UpdateApproverStatus(2038, approvalStatus, loggedInEmployeeId);
+
                 var leaveApplications = await _dbContext.LeaveApplications
                     .Where(x => idChanges.Contains(x.IdLeaveApplication))
                     .ToListAsync();
@@ -1686,7 +1783,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         remarks,
                         1
                     );
-                   // await UpdateApproverStatus(la.IdLeaveApplication, approvalStatus,loggedInEmployeeId);
+                   await UpdateApproverStatus(la.IdLeaveApplication, approvalStatus,loggedInEmployeeId);
                 }
 
                 await _dbContext.SaveChangesAsync();
@@ -2212,22 +2309,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var approvalStatus = application.ApprovalStatus?.Trim().ToUpperInvariant();
                 var appStatus = application.ApplicationStatus?.Trim().ToUpperInvariant();
-
-                // ✅ Block cancel if already approved
-                if (approvalStatus == "APPROVED")
-                    throw new ArgumentException("Approved leave cannot be cancelled. Please contact HR.");
-
-                // ✅ Allow cancel only if Pending/Submitted/SentBack
-                bool canCancel =
-                    approvalStatus == "APPROVED" ||
-                    appStatus == "SUBMITTED" ||
-                    appStatus == "REJECTED";
          
-                if (!canCancel || application.FromDate < DateTime.Now)
-                    throw new ArgumentException("This leave application cannot be cancelled.");
+                if (application.FromDate < DateTime.Now)
+                    throw new ArgumentException("Cancellation of past-dated leave applications is not allowed.");
 
                 // ✅ Cancel the leave
                 application.ApplicationStatus = "Cancelled";
+                application.ApprovalStatus = "CANCELLED";
                 application.CancelledDate = DateTime.Now;
                 application.ReasonForCancellation = string.IsNullOrWhiteSpace(cancelReason)
                     ? "Cancelled by employee"

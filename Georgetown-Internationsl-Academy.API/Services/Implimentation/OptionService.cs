@@ -113,6 +113,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<List<EmployeeTypeDto>> GetEmployeeWorkTypes()
+        {
+            try
+            {
+                var salaryMonths = await _dbContext.EmployeeTypes.ToListAsync();
+                return _mapper.Map<List<EmployeeTypeDto>>(salaryMonths);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all GetAllSalaryMonths.");
+                throw;
+            }
+        }
+
+
         public async Task<dynamic> GetSalaryOptions()
         {
             try

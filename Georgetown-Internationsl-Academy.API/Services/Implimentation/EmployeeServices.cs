@@ -41,32 +41,32 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<EmployeeDetailsDto> GetEmployeeDetailsByID(int id)
         {
             const string query = @"
-    SELECT 
-        e.IdEmployee,
-        e.EmployeeCode,
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS FullName,
-        d.DepartmentName AS Department,
-        des.DesignationName AS Designation,
-        e.IdBudgetCode,
-        e.ChildrenCount,
-        e.IdDepartment,
-        e.IdDesignation,
-    e.ChildCountDocumentFilePath,
-        bc.BudgetCodeName,
-        e.EmployeePhotoFilePath,
-        e.OverTimeAllowedStatus,
-        e.EmployeeWorkType
-    FROM 
-        Employees e
-    INNER JOIN 
-        Departments d ON e.IdDepartment = d.IdDepartment
-    INNER JOIN 
-        Designations des ON e.IdDesignation = des.IdDesignation
- LEFT JOIN 
-        BudgetCodes bc ON e.IdBudgetCode = bc.IdBudgetCode
-    WHERE 
-        e.IdEmployee = @Id;
-    ";
+                SELECT 
+                    e.IdEmployee,
+                    e.EmployeeCode,
+                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS FullName,
+                    d.DepartmentName AS Department,
+                    des.DesignationName AS Designation,
+                    e.IdBudgetCode,
+                    e.ChildrenCount,
+                    e.IdDepartment,
+                    e.IdDesignation,
+                e.ChildCountDocumentFilePath,
+                    bc.BudgetCodeName,
+                    e.EmployeePhotoFilePath,
+                    e.OverTimeAllowedStatus,
+                    e.EmployeeWorkType
+                FROM 
+                    Employees e
+                INNER JOIN 
+                    Departments d ON e.IdDepartment = d.IdDepartment
+                INNER JOIN 
+                    Designations des ON e.IdDesignation = des.IdDesignation
+             LEFT JOIN 
+                    BudgetCodes bc ON e.IdBudgetCode = bc.IdBudgetCode
+                WHERE 
+                    e.IdEmployee = @Id;
+                ";
 
             using (var connection = _dbContext.Database.GetDbConnection())
             {
@@ -392,6 +392,98 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error fetching employeeProfileDetails for Employee ID: {Id} using Dapper.");
+                throw;
+            }
+        }
+
+
+        public async Task<LinkedList<EmployeeProfileDetailsDto>> GetEmployeeProfileViewDetails(int idEmployee)
+        {
+            try
+            {
+
+                //var bankAccountDetails = await ( from  eb in _dbContext.EmployeeBankAccounts 
+                //                                 join b in _dbContext.Banks on eb.IdBank equals b.IdBank)
+
+
+                var data = await
+                    (from e in _dbContext.Employees
+                     join d in _dbContext.Departments
+                         on e.IdDepartment equals d.IdDepartment into deptJoin
+                     from d in deptJoin.DefaultIfEmpty()
+
+                     join des in _dbContext.Designations
+                         on e.IdDesignation equals des.IdDesignation into desigJoin
+                     from des in desigJoin.DefaultIfEmpty()
+
+                     join r in _dbContext.Employees
+                         on e.ReportingTo equals r.IdEmployee into repJoin
+                     from r in repJoin.DefaultIfEmpty()
+
+                     join b in _dbContext.BudgetCodes
+                         on e.IdBudgetCode equals b.IdBudgetCode into budgetJoin
+                     from b in budgetJoin.DefaultIfEmpty()
+
+                     where e.IdEmployee == idEmployee
+
+                     select new EmployeeProfileDetailsDto
+                     {
+                         IdEmployee = e.IdEmployee.Value,
+                         EmployeeCode = e.EmployeeCode,
+
+                         FullName =
+                             ((e.FirstName ?? "") + " " +
+                              (e.MiddleName ?? "") + " " +
+                              (e.LastName ?? "")).Trim(),
+
+                         EmailId = e.EmailID,
+                         PhoneNumber1 = e.PhoneNumber1,
+                         PhoneNumber2 = e.PhoneNumber2,
+                         SSNNumber = e.IdNumber,
+                         WhatsAppNumber = e.PhoneNumber1,
+
+                         Department = d != null ? d.DepartmentName : null,
+                         Designation = des != null ? des.DesignationName : null,
+
+                         ReportingTo =
+                             r != null
+                                 ? ((r.FirstName ?? "") + " " +
+                                    (r.MiddleName ?? "") + " " +
+                                    (r.LastName ?? "")).Trim()
+                                 : null,
+
+                         BudgetCode = b != null ? b.BudgetCodeName : null,
+                         TaxIdNumber = e.TaxIdNumber,
+
+                         Address =
+                             ((e.Address1 ?? "") + ", " +
+                              (e.Address2 ?? "") + ", " +
+                              (e.Address3 ?? "") + ", " +
+                              (e.City ?? "") + ", " +
+                              (e.State ?? "") + ", " +
+                              (e.ZipCode ?? "")).Trim(new[] { ',', ' ' }),
+
+                         CurrentStatus = e.CurrentStatus,
+                         JoiningDate = e.JoiningDate.Value,
+                         DateOfBirth = e.DateOfBirth,
+                         EmployeePhotoFilePath = e.EmployeePhotoFilePath,
+                         Gender = e.Gender,
+                         OverTimeAllowedStatus = e.OverTimeAllowedStatus,
+                         EmployeeWorkType = e.EmployeeWorkType
+                     })
+                    .AsNoTracking()
+                    .ToListAsync();
+
+
+                // ✅ Convert to LinkedList
+                return new LinkedList<EmployeeProfileDetailsDto>(data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error fetching employee profile details for Employee ID: {EmployeeId}",
+                    idEmployee);
                 throw;
             }
         }
@@ -753,7 +845,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             s.IdEmployeeSalary,
             s.SalaryMonthText AS SalaryMonthName,
             s.TotalEarnings,
-            s.TotalDeductions
+            s.TotalDeductions,
+            s.IdSalaryMonth
         FROM EmployeeSalaries s
         INNER JOIN Employees e ON s.IdEmployee = e.IdEmployee
         INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment

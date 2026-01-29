@@ -316,6 +316,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("IsOverTimeTransactionAllowed/{IdEmployee}")]
+        public async Task<IActionResult> IsOverTimeTransactionAllowed(int IdEmployee)
+        {
+            try
+            {
+                bool isAllowed = await _overtimeTransactionService.IsOverTimeTransactionAllowed(IdEmployee);
+
+                return Ok(new
+                {
+                    EmployeeId = IdEmployee,
+                    IsOvertimeAllowed = isAllowed
+                });
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while checking overtime permission.");
+            }
+        }
+
         [HttpPost("UpdateOvertimeTransaction")]
         public async Task<IActionResult> UpdateOvertimeTransaction([FromForm] OvertimeTransactionDto dto)
         {

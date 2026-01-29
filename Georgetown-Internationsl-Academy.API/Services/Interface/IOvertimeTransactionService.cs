@@ -12,6 +12,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transaction,int IdEmployee);
         Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transaction, int IdEmployee);
         Task<decimal> GetOverTimeAmount(int IdEmployee, DateTime OvertimeDate, decimal DurationInHours);
+        Task<bool> IsOverTimeTransactionAllowed(int IdEmployee);
 
     }
 }

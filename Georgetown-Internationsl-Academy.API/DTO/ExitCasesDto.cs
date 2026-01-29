@@ -150,6 +150,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? ReportingOfficerName { get; set; }
         public int? ReportingOfficerDepartment { get; set; }
         public string? ReportingOfficerDepartmentName { get; set; }
+        public string? ExitInterviewDate { get; set; }
+        public string? ContactAfterExit { get; set; }
 
         // Metadata
         public DateTime CreatedAt { get; set; }
@@ -166,6 +168,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string CheckListItem { get; set; }    
         public string DeptClearanceStatus { get; set; }
         public int SortOrder { get; set; }
+        public string? DeptRemarks { get; set; }
+        public string ClearedByEmployee { get; set; }
     }
     public class ExitCaseClearanceAssignmentDto
     {
@@ -225,9 +229,14 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string CaseNumber { get; set; }
 
         public int IdEmployee { get; set; }
+        public string EmployeeCode { get; set; }
         public string EmployeeName { get; set; }
+        public string DepartmentName { get; set; }
+        public int IdDepartment { get; set; }
 
         public int IdExitType { get; set; }
+        public string? ExitTypeName { get; set; }
+
         public int IdExitReason { get; set; }
 
         public DateTime InitiationDate { get; set; }
@@ -244,7 +253,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? HandoverPlan { get; set; }
         public DateTime? ExitInterviewDate { get; set; }
         public string? ContactAfterExit { get; set; }
-
         public string ExitStatus { get; set; }
         public string? PendingWith { get; set; }
         public int? PendingWithIDEmployee { get; set; }

@@ -30,5 +30,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
        Task<GetExitClearanceDetailsResponseDto> GetExitClearanceDetails(int loggedInEmployeeId,int idExitCase,int? idDepartment = null,string? viewAsRole = null);
         Task<SubmitExitCaseDepartmentClearanceLinesResponseDto> SubmitExitCaseDepartmentClearanceLines(SubmitExitCaseDepartmentClearanceLinesDto dto,int loggedInEmployeeId);
         Task<List<ExitCasesForListingDto>> GetExitCasesForListing(int idLoggedInEmployee, int? idEmployee = null);
+
+        Task<List<ExitClearanceForDepartmentUserDto>> ExitClearanceForDepartmentUser(int loggedInEmployeeId);
     }
 }

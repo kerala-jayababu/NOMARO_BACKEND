@@ -7,6 +7,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Data;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using static Georgetown_Internationsl_Academy.API.Services.Implimentation.EmployeeOffBoardingService;
@@ -218,17 +219,56 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<IEnumerable<ClearanceTemplateDepartmentDto>> GetClearanceTemplateDepartments(int idClearanceTemplate)
         {
-            return await _dbContext.ClearanceTemplateDepartments
-                .Where(x => x.IdClearanceTemplate == idClearanceTemplate)
-                .Select(x => new ClearanceTemplateDepartmentDto
-                {
-                    IdTemplateDept = x.IdTemplateDept,
-                    IdClearanceTemplate = x.IdClearanceTemplate,
-                    IdDepartment = x.IdDepartment,
-                    CheckListItem = x.CheckListItem,
-                    IsMandatory = x.IsMandatory
-                })
+            // 🔹 1. Get template departments
+            var departments = await
+                (from ct in _dbContext.ClearanceTemplateDepartments
+                 join dept in _dbContext.Departments
+                     on ct.IdDepartment equals dept.IdDepartment
+                 where ct.IdClearanceTemplate == idClearanceTemplate
+                 select new ClearanceTemplateDepartmentDto
+                 {
+                     IdTemplateDept = ct.IdTemplateDept,
+                     IdClearanceTemplate = ct.IdClearanceTemplate,
+                     IdDepartment = ct.IdDepartment,
+                     CheckListItem = ct.CheckListItem,
+                     IsMandatory = ct.IsMandatory,
+                     DepartmentName = dept.DepartmentName
+                 })
+                .AsNoTracking()
                 .ToListAsync();
+
+            if (!departments.Any())
+                return departments;
+
+            // 🔹 2. Get employees for ONLY required departments
+            var departmentIds = departments
+                .Select(d => d.IdDepartment)
+                .Distinct()
+                .ToList();
+
+            var employees = await
+                    (from emp in _dbContext.Employees
+                     where emp.CurrentStatus == "Working"
+                           && emp.IdDepartment.HasValue
+                           && departmentIds.Contains(emp.IdDepartment.Value)
+                     select new DepartmentEmployees
+                     {
+                         IdEmployee = emp.IdEmployee,
+                         IdDepartment = emp.IdDepartment.Value,
+                         EmployeeName = (emp.FirstName + " " + emp.LastName).Trim()
+                     })
+                    .AsNoTracking()
+                    .ToListAsync();
+
+            // 🔹 3. Attach employees per department
+            foreach (var dept in departments)
+            {
+                dept.DeptEmployees = employees
+                    .Where(e => e.IdDepartment == dept.IdDepartment)
+                    .ToList();
+            }
+
+            return departments;
         }
 
         public async Task<bool> AddOrUpdateClearanceTemplateDepartment(List<ClearanceTemplateDepartmentDto> dtos)
@@ -435,6 +475,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
 
                     await _dbContext.ExitCases.AddAsync(exitCase);
+
+                    //Disable Screen Permission
+
+                    var permissions = await
+                        (from ep in _dbContext.EmployeePermissions join ps in _dbContext.PayrollScreens
+                             on ep.IdPayrollScreen equals ps.IdPayrollScreen
+                         where ep.IdEmployee == loggedInEmployeeId && ps.ScreenCode == "RESIGNREQUEST"
+                         select ep)
+                        .ToListAsync();
+
+                    foreach (var permission in permissions)
+                    {
+                        permission.Permission = "V";
+                    }
+
                     await _dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
 
@@ -570,7 +625,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             er.ReasonName AS ExitReasonName,
             ec.EmployeeReasonDetails,
             ec.ProposedLWD,
-            ec.ApprovedLWD,           
+            ec.ApprovedLWD,     
+            ec.ExitInterviewDate,
+            ec.ContactAfterExit,
             
             -- Notice Period Info
             ec.IdNoticePolicy,
@@ -649,11 +706,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         // For now, filter by employees pending with any HR role
                         // OR filter by all cases if logged-in employee is from HR
                         query.Append(@"
-            AND (
-                LOWER(d.DepartmentCode) = @HRDeptCode
-                OR ec.PendingWith IN ('HRMANAGER', 'HROFFICER')
-            )
-        ");
+                        AND (
+                            LOWER(d.DepartmentCode) = @HRDeptCode
+                            OR ec.PendingWith IN ('HRMANAGER', 'HROFFICER')
+                        )
+                    ");
                         parameters.Add("HRDeptCode", hrDepartmentCode.ToLower());
                     }
                 }
@@ -683,46 +740,49 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         // 2️⃣ LOAD STATUS HISTORY
                         var histories = await connection.QueryAsync<ExitCaseStatusHistoryDto>(
                             @"SELECT 
-            IdExitCase,
-            ActionType,
-            FromStatus,
-            ToStatus,
-            PendingWith,
-            CreatedBy,
-            CreatedAt
-          FROM ExitCaseStatusHistory
-          WHERE IdExitCase IN @Ids",
-                            new { Ids = exitCaseIds }
-                        );
+                            IdExitCase,
+                            ActionType,
+                            FromStatus,
+                            ToStatus,
+                            PendingWith,
+                            CreatedBy,
+                            CreatedAt
+                          FROM ExitCaseStatusHistory
+                          WHERE IdExitCase IN @Ids",
+                                            new { Ids = exitCaseIds }
+                                        );
 
                         // 3️⃣ LOAD CLEARANCE ASSIGNMENTS
                         var assignments = await connection.QueryAsync<ExitCaseClearanceAssignmentDto>(
                             @"SELECT
-        a.IdExitCase,
-        a.IdDepartment,
-        d.DepartmentName,
-        a.IdAssigneeUser,
-        a.DeptClearanceStatus,
-        a.AssignedAt
-      FROM ExitCaseClearanceAssignments a
-      INNER JOIN Departments d ON d.IdDepartment = a.IdDepartment
-      WHERE a.IdExitCase IN @Ids",
-                            new { Ids = exitCaseIds }
+                            a.IdExitCase,
+                            a.IdDepartment,
+                            d.DepartmentName,
+                            a.IdAssigneeUser,
+                            a.DeptClearanceStatus,
+                            a.AssignedAt
+                          FROM ExitCaseClearanceAssignments a
+                          INNER JOIN Departments d ON d.IdDepartment = a.IdDepartment
+                          WHERE a.IdExitCase IN @Ids",
+                                                new { Ids = exitCaseIds }
                         );
 
                         // 4️⃣ LOAD CLEARANCE LINES
                         var clearanceLines = await connection.QueryAsync<ExitCaseDepartmentClearanceLineDto>(
                          @"SELECT
-        l.IdExitCase,
-        l.IdDepartment,
-        d.DepartmentName,
-        l.CheckListItem,
-        l.DeptClearanceStatus,
-        l.SortOrder
-      FROM ExitCaseDepartmentClearanceLines l
-      INNER JOIN Departments d ON d.IdDepartment = l.IdDepartment
-      WHERE l.IdExitCase IN @Ids
-      ORDER BY l.IdExitCase, l.IdDepartment, l.SortOrder",
+                            l.IdExitCase,
+                            l.IdDepartment,
+                            d.DepartmentName,
+                            l.CheckListItem,
+                            l.DeptClearanceStatus,
+                            l.SortOrder,
+                            l.DeptRemarks,
+                            e.EmployeeName as ClearedByEmployee
+                          FROM ExitCaseDepartmentClearanceLines l
+                          INNER JOIN Departments d ON d.IdDepartment = l.IdDepartment
+                          left outer JOIN vw_employeeDetails e on l.ClearedBy = e.IdEmployee
+                          WHERE l.IdExitCase IN @Ids
+                          ORDER BY l.IdExitCase, l.IdDepartment, l.SortOrder",
                             new { Ids = exitCaseIds }
                         );
 
@@ -768,16 +828,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-
-
                 var query =
                     from ec in _dbContext.ExitCases
-                    join emp in _dbContext.Employees
-                        on ec.IdEmployee equals emp.IdEmployee
+                    join emp in _dbContext.Employees on ec.IdEmployee equals emp.IdEmployee
+                    join dept in _dbContext.Departments on emp.IdDepartment equals dept.IdDepartment
+                    join et in _dbContext.ExitTypes on ec.IdExitType equals et.IdExitType
                     select new
                     {
                         ec,
-                        emp
+                        emp,
+                        et,
+                        dept
                     };
 
                 // 🔹 Optional filters
@@ -810,8 +871,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         IdExitCase = x.ec.IdExitCase,
                         CaseNumber = x.ec.CaseNumber,
-
                         IdEmployee = x.ec.IdEmployee,
+                        ExitTypeName = x.et.TypeName,
+                        EmployeeCode = x.emp.EmployeeCode,
+                        IdDepartment = x.dept.IdDepartment,
+                        DepartmentName = x.dept.DepartmentName,
                         EmployeeName =
                             ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
 
@@ -839,8 +903,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                         IdClearanceTemplate = x.ec.IdClearanceTemplate,
                         AssignedClearanceTemplateBy = x.ec.AssignedClearanceTemplateBy,
-                        ClearanceInitiatedOn = x.ec.ClearanceInitiatedOn,
-
+                        ClearanceInitiatedOn = x.ec.ClearanceInitiatedOn,                       
                         CreatedBy = x.ec.CreatedBy,
                         CreatedAt = x.ec.CreatedAt,
                         UpdatedBy = x.ec.UpdatedBy,
@@ -1307,10 +1370,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
         public async Task<GetExitClearanceDetailsResponseDto> GetExitClearanceDetails(
-    int loggedInEmployeeId,
-    int idExitCase,
-    int? idDepartment = null,
-    string? viewAsRole = null)
+            int loggedInEmployeeId,
+            int idExitCase,
+            int? idDepartment = null,
+            string? viewAsRole = null)
         {
             using var connection = _dbContext.Database.GetDbConnection();
             if (connection.State == ConnectionState.Closed)
@@ -1347,9 +1410,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             var loggedInDeptCode = await connection.QueryFirstOrDefaultAsync<string>(
                 @"SELECT d.DepartmentCode
-          FROM Employees e
-          INNER JOIN Departments d ON d.IdDepartment = e.IdDepartment
-          WHERE e.IdEmployee = @EmpId",
+                  FROM Employees e
+                  INNER JOIN Departments d ON d.IdDepartment = e.IdDepartment
+                  WHERE e.IdEmployee = @EmpId",
                 new { EmpId = loggedInEmployeeId });
 
             if (!string.IsNullOrEmpty(loggedInDeptCode) &&
@@ -1358,21 +1421,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             // 3) Assignments (filtered by optional dept)
             var assignmentsSql = @"
-        SELECT
-            a.IdExitCase,
-            a.IdDepartment,
-            d.DepartmentName,
-            a.IdAssigneeUser,
-            CONCAT(u.FirstName, ' ', COALESCE(u.MiddleName,''), ' ', u.LastName) AS AssigneeName,
-            a.DeptClearanceStatus,
-            a.AssignedAt
-        FROM ExitCaseClearanceAssignments a
-        INNER JOIN Departments d ON d.IdDepartment = a.IdDepartment
-        LEFT JOIN Employees u ON u.IdEmployee = a.IdAssigneeUser
-        WHERE a.IdExitCase = @IdExitCase
-    ";
+                SELECT
+                    a.IdExitCase,
+                    a.IdDepartment,
+                    d.DepartmentName,
+                    a.IdAssigneeUser,
+                    CONCAT(u.FirstName, ' ', COALESCE(u.MiddleName,''), ' ', u.LastName) AS AssigneeName,
+                    a.DeptClearanceStatus,
+                    a.AssignedAt
+                FROM ExitCaseClearanceAssignments a
+                INNER JOIN Departments d ON d.IdDepartment = a.IdDepartment
+                LEFT JOIN Employees u ON u.IdEmployee = a.IdAssigneeUser
+                WHERE a.IdExitCase = @IdExitCase
+            ";
 
-            if (idDepartment.HasValue)
+                    if (idDepartment.HasValue)
                 assignmentsSql += " AND a.IdDepartment = @IdDepartment ";
 
             var assignments = (await connection.QueryAsync<AssignmentViewDto>(
@@ -1386,15 +1449,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 isDeptClearer = assignments.Any(a => a.IdAssigneeUser == loggedInEmployeeId);
 
             // 5) Enforce access
+            /*
             if (!isEmployee && !isHr)
             {
                 if (!idDepartment.HasValue || !isDeptClearer)
                     return new GetExitClearanceDetailsResponseDto { Success = false, Message = "Unauthorized / Not Assigned." };
             }
-
+            
             if (idDepartment.HasValue && !assignments.Any())
                 return new GetExitClearanceDetailsResponseDto { Success = false, Message = "Invalid Department / No assignment." };
-
+            */
             var deptIds = assignments.Select(a => a.IdDepartment).Distinct().ToList();
 
             // 6) Load lines including header metadata
@@ -1447,7 +1511,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         IdExitCaseDepartmentClearanceLine = x.IdExitCaseDepartmentClearanceLine,
                         CheckListItem = x.CheckListItem,
                         DeptClearanceStatus = x.DeptClearanceStatus,
-                        SortOrder = x.SortOrder
+                        SortOrder = x.SortOrder,
+                        DeptRemarks = x.DeptRemarks
                     })
                     .ToList();
 
@@ -1487,6 +1552,36 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             };
         }
 
+
+        public async Task<List<ExitClearanceForDepartmentUserDto>> ExitClearanceForDepartmentUser(int loggedInEmployeeId)
+        {
+            var data = await
+                (from ex in _dbContext.ExitCases
+                 join emp in _dbContext.Employees
+                     on ex.IdEmployee equals emp.IdEmployee
+                 join assign in _dbContext.ExitCaseClearanceAssignments
+                     on ex.IdExitCase equals assign.IdExitCase
+                 where assign.IdAssigneeUser == loggedInEmployeeId
+                 select new ExitClearanceForDepartmentUserDto
+                 {
+                     IdExitCase = ex.IdExitCase,
+                     IdEmployee = ex.IdEmployee,
+                     EmployeeCode = emp.EmployeeCode,
+                     IdExitType = ex.IdExitType,
+                     IdExitReason = ex.IdExitReason,
+                     InitiationDate = ex.InitiationDate,
+                     EmployeeReasonDetails = ex.EmployeeReasonDetails,
+                     LogginedEmployeeIdDepartment = assign.IdDepartment,
+                     ProposedLWD = ex.ProposedLWD,
+                     ApprovedLWD = ex.ApprovedLWD,
+                     EmployeeName = ((emp.FirstName ?? "") + " " + (emp.LastName ?? "")).Trim(),
+                     CurrentStatus = assign.DeptClearanceStatus
+                 })
+                .AsNoTracking()
+                .ToListAsync();
+
+            return data;
+        }
         public async Task<SubmitExitCaseDepartmentClearanceLinesResponseDto> SubmitExitCaseDepartmentClearanceLines(SubmitExitCaseDepartmentClearanceLinesDto dto,int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
@@ -1541,6 +1636,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         line.DeptClearanceStatus = upd.IsCompleted ? "CLEARED" : "PENDING";
                         line.UpdatedBy = loggedInEmployeeId;
                         line.UpdatedAt = DateTime.Now;
+                        line.DeptRemarks = upd.Remarks;
+                        line.DeptClearanceStatus = upd.ClearanceStatus;
                     }
                 }
 
