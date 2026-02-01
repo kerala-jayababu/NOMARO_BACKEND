@@ -650,88 +650,171 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
 
             }
         }
-
         public async Task<IEnumerable<OvertimeTransactionFullDto>> GetOvertimeTransactionsFullDetails(int EmployeeId)
         {
-            const string entityCode = "OVERTIME"; // match your ApprovalWorkFlowAllocations.EntityCode
-
+            const string entityCode = "OVERTIME";
+            int idWorkFlowConfig = 4;
             const string deptAndDesignationQuery = @"
-            SELECT TOP 1
-                d.DepartmentCode,
-                des.DesignationCode
-            FROM Employees e
-            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-            WHERE e.IdEmployee = @EmployeeId;
-            ";
+SELECT TOP 1
+    d.DepartmentCode,
+    des.DesignationCode
+FROM Employees e
+INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+WHERE e.IdEmployee = @EmployeeId;
+";
 
             const string allEmployeesIdsQuery = @"SELECT IdEmployee FROM Employees;";
 
-           const string overtimeQuery = @"
-            SELECT 
-                ot.IdOvertimeTransaction,
-                ot.IdEmployee,
-                ot.IdOvertimeType,    
-                ot.StartDate,
-                ot.StartTime,
-                ot.EndDate,
-                ot.EndTime,
-                ot.DurationInHours,
-                ot.ReasonForOvertime,
-                ot.Attachment,
-                ot.AttachmentDescription,
-                ot.ApprovalStatus,
-                e.EmployeeCode,    
-                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-                e.IdDepartment,
-                e.IdDesignation,
-                d.DepartmentName AS Department,
-                des.DesignationName AS Designation
-            FROM OvertimeTransactions ot
-            INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
-            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-            WHERE ot.IdEmployee IN @EmployeeIds
-            ORDER BY ot.StartDate DESC;
-            ";
+            const string overtimeQuery = @"
+SELECT 
+    ot.IdOvertimeTransaction,
+    ot.IdEmployee,
+    ot.IdOvertimeType,    
+    ot.StartDate,
+    ot.StartTime,
+    ot.EndDate,
+    ot.EndTime,
+    ot.DurationInHours,
+    ot.ReasonForOvertime,
+    ot.Attachment,
+    ot.AttachmentDescription,
+    ot.ApprovalStatus,
+    e.EmployeeCode,    
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    e.IdDepartment,
+    e.IdDesignation,
+    d.DepartmentName AS Department,
+    des.DesignationName AS Designation
+FROM OvertimeTransactions ot
+INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
+INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+WHERE ot.IdOvertimeTransaction = 2304
+ORDER BY ot.StartDate DESC;
+";
 
+            // ✅ Returns exactly your nested rows:
+            // - Always from WorkFlowConfigDetails (WCD)
+            // - Overlay ActionedByName + ActionDate from ApprovalWorkFlowAllocations (AWA)
             const string approvalsQuery = @"
-            SELECT
-                awa.IdApprovalWorkFlow,
-                awa.IdWorkFlowConfig,
-                awa.EntityCode,
-                awa.EntityTablePrimaryKeyID,
-                awa.CycleIndex,
-                awa.LevelNumber,
-                awa.SourceIdEmployee,
-                CONCAT(src.FirstName, ' ', COALESCE(src.MiddleName, ''), ' ', src.LastName) AS SourcedEmployeeName,
-                awa.SentDate,
-                awa.TargetIdEmployee,
-                CONCAT(tgt.FirstName, ' ', COALESCE(tgt.MiddleName, ''), ' ', tgt.LastName) AS TargetEmployeeName,
-                awa.ExpectedApprovalActionStatus,
-                awa.ActionStatus,
-                awa.ActionedBy,
-                CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName) AS ActionedByName,
-                awa.ActionDate,
-                awa.RejectionRemarks
-            FROM ApprovalWorkFlowAllocations awa
-            LEFT JOIN Employees tgt ON TRY_CONVERT(int, awa.TargetIdEmployee) = tgt.IdEmployee
-            LEFT JOIN Employees act ON awa.ActionedBy = act.IdEmployee
-            LEFT JOIN Employees src ON awa.SourceIdEmployee = src.IdEmployee
-            WHERE awa.EntityCode = @EntityCode
-            AND awa.EntityTablePrimaryKeyID IN @OvertimeIds
-            ORDER BY awa.EntityTablePrimaryKeyID, awa.CycleIndex, awa.LevelNumber;
-            ";
+;WITH wcd AS (
+    SELECT
+        d.IdWorkFlowConfigDetail,
+        d.IdWorkFlowConfig,
+        d.LevelNumber,
+        d.ApprovalAuthorityType,
+        d.ApprovalAuthorityID,
+        d.ApprovalStatusName
+    FROM WorkFlowConfigDetails d
+    WHERE d.IdWorkFlowConfig = @IdWorkFlowConfig
+),
+ot AS (
+    SELECT
+        ot.IdOvertimeTransaction,
+        ot.IdEmployee,
+        e.ReportingTo,
+        e.IdDepartment
+    FROM OvertimeTransactions ot
+    INNER JOIN Employees e ON e.IdEmployee = ot.IdEmployee
+    WHERE ot.IdOvertimeTransaction IN @OvertimeIds
+),
+expected AS (
+    SELECT
+        wcd.IdWorkFlowConfigDetail,
+        ot.IdOvertimeTransaction,
+        wcd.IdWorkFlowConfig,
+        wcd.LevelNumber,
+        wcd.ApprovalAuthorityType,
+        wcd.ApprovalAuthorityID,
+        wcd.ApprovalStatusName,
+
+        CASE
+            WHEN wcd.ApprovalAuthorityType = 'REPOFFICER' THEN ot.ReportingTo
+            ELSE NULL
+        END AS RepoOfficerEmployeeId,
+
+        CASE
+            WHEN wcd.ApprovalAuthorityType = 'ROLE' THEN (
+                SELECT STRING_AGG(
+                    CONCAT(emp.FirstName, ' ', COALESCE(emp.MiddleName, ''), ' ', emp.LastName),
+                    ', '
+                )
+                FROM Employees emp
+                WHERE emp.IdDesignation = wcd.ApprovalAuthorityID
+            )
+            ELSE NULL
+        END AS RoleApproverNames
+    FROM ot
+    CROSS JOIN wcd
+),
+awa_pick AS (
+    SELECT
+        awa.EntityTablePrimaryKeyID,
+        awa.LevelNumber,
+        awa.ActionedBy,
+        awa.ActionDate,
+        ROW_NUMBER() OVER (
+            PARTITION BY awa.EntityTablePrimaryKeyID, awa.LevelNumber
+            ORDER BY awa.ActionDate DESC, awa.IdApprovalWorkFlow DESC
+        ) AS rn
+    FROM ApprovalWorkFlowAllocations awa
+    WHERE awa.EntityTablePrimaryKeyID IN @OvertimeIds
+)
+SELECT
+    ex.IdWorkFlowConfigDetail,
+    ex.IdOvertimeTransaction,
+    ex.IdWorkFlowConfig,
+    ex.LevelNumber,
+    ex.ApprovalAuthorityType,
+    ex.ApprovalAuthorityID,
+    ex.ApprovalStatusName,
+
+    -- ApprovalAuthorityName
+    CASE
+        WHEN ex.ApprovalAuthorityType = 'REPOFFICER'
+            THEN CONCAT(tgt.FirstName, ' ', COALESCE(tgt.MiddleName, ''), ' ', tgt.LastName)
+        WHEN ex.ApprovalAuthorityType = 'ROLE'
+            THEN ex.RoleApproverNames
+        ELSE NULL
+    END AS ApprovalAuthorityName,
+
+    -- ApprovalStatus + ActionDate
+    CASE
+        WHEN ap.ActionDate IS NULL THEN 'Pending'
+        ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
+    END AS ApprovalStatus,
+
+    ap.ActionDate,
+
+    -- ✅ NEW: ActionedById + ActionedByName
+    ap.ActionedBy AS ActionedById,
+    CASE
+        WHEN ap.ActionedBy IS NULL THEN NULL
+        ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
+    END AS ActionedByName
+
+FROM expected ex
+LEFT JOIN awa_pick ap
+    ON ap.EntityTablePrimaryKeyID = ex.IdOvertimeTransaction
+   AND ap.LevelNumber = ex.LevelNumber
+   AND ap.rn = 1
+LEFT JOIN Employees tgt ON tgt.IdEmployee = ex.RepoOfficerEmployeeId
+LEFT JOIN Employees act ON act.IdEmployee = ap.ActionedBy
+ORDER BY ex.IdOvertimeTransaction, ex.LevelNumber;
+";
+
+
 
             using var connection = _dbContext.Database.GetDbConnection();
-            if (connection.State == ConnectionState.Closed)
+            if (connection.State == System.Data.ConnectionState.Closed)
                 await connection.OpenAsync();
 
             // 1) Login employee meta
-            var meta = await connection.QueryFirstOrDefaultAsync(deptAndDesignationQuery, new { EmployeeId = EmployeeId });
+            var meta = await connection.QueryFirstOrDefaultAsync(deptAndDesignationQuery, new { EmployeeId });
             if (meta == null) throw new Exception("Employee not found.");
 
-            var requiredDesignationCode = _configuration["Designations:Code"]; // your admin designation code
+            var requiredDesignationCode = _configuration["Designations:Code"];
             bool isHrd = string.Equals((string?)meta.DepartmentCode, "HRD", StringComparison.OrdinalIgnoreCase);
             bool isAdminDesignation = string.Equals((string?)meta.DesignationCode, requiredDesignationCode, StringComparison.OrdinalIgnoreCase);
 
@@ -743,7 +826,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
             }
             else
             {
-                var hierarchy = await GetEmployeeHierarchy(EmployeeId); // your existing recursive method
+                var hierarchy = await GetEmployeeHierarchy(EmployeeId);
                 hierarchy.Add(EmployeeId);
                 employeeIds = hierarchy.Distinct();
             }
@@ -760,26 +843,32 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
             if (!overtimeList.Any())
                 return overtimeList;
 
-            // 4) Approval cycles for those overtime ids
+            // 4) Nested approvals
             var overtimeIds = overtimeList.Select(x => x.IdOvertimeTransaction).Distinct().ToList();
 
-            var approvals = await connection.QueryAsync<ApprovalCycleDto>(
-                approvalsQuery,
-                new { EntityCode = entityCode, OvertimeIds = overtimeIds }
-            );
+            var approvals = (await connection.QueryAsync<ApprovalCycleDto>(
+      approvalsQuery,
+      new
+      {
+          IdWorkFlowConfig = idWorkFlowConfig,
+          OvertimeIds = overtimeIds
+      }
+  )).ToList();
 
             var map = approvals
-                .GroupBy(a => a.EntityTablePrimaryKeyID)
+                .GroupBy(a => a.IdOvertimeTransaction)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
             foreach (var ot in overtimeList)
             {
-                if (map.TryGetValue(ot.IdOvertimeTransaction, out var cycles))
-                    ot.ApprovalCycles = cycles;
+                ot.ApprovalCycles = map.TryGetValue(ot.IdOvertimeTransaction, out var cycles)
+                    ? cycles
+                    : new List<ApprovalCycleDto>();
             }
 
             return overtimeList;
         }
+
         private async Task<List<int>> GetEmployeeHierarchy(int managerId)
         {
             var hierarchyIds = new List<int>();
