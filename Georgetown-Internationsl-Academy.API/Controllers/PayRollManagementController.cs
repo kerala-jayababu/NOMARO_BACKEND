@@ -398,6 +398,30 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+        [HttpGet("GetOvertimeTransactionsFullDetails")]
+        public async Task<IActionResult> GetOvertimeTransactionsFullDetails()
+        {
+            try
+            {
+                var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(IdEmployee))
+                {
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+                }
+               
+                var data = await _overtimeTransactionService.GetOvertimeTransactionsFullDetails(int.Parse(IdEmployee));
+
+                return Ok(ApiResponseDto<IEnumerable<OvertimeTransactionFullDto>>
+                    .CreateSuccess(data ?? Enumerable.Empty<OvertimeTransactionFullDto>(),
+                        data != null && data.Any() ? "Retrieved successfully." : "No overtime transactions found."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
 
         #region salaryAdjustments

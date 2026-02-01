@@ -650,5 +650,165 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
 
             }
         }
+
+        public async Task<IEnumerable<OvertimeTransactionFullDto>> GetOvertimeTransactionsFullDetails(int EmployeeId)
+        {
+            const string entityCode = "OVERTIME"; // match your ApprovalWorkFlowAllocations.EntityCode
+
+            const string deptAndDesignationQuery = @"
+            SELECT TOP 1
+                d.DepartmentCode,
+                des.DesignationCode
+            FROM Employees e
+            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE e.IdEmployee = @EmployeeId;
+            ";
+
+            const string allEmployeesIdsQuery = @"SELECT IdEmployee FROM Employees;";
+
+           const string overtimeQuery = @"
+            SELECT 
+                ot.IdOvertimeTransaction,
+                ot.IdEmployee,
+                ot.IdOvertimeType,    
+                ot.StartDate,
+                ot.StartTime,
+                ot.EndDate,
+                ot.EndTime,
+                ot.DurationInHours,
+                ot.ReasonForOvertime,
+                ot.Attachment,
+                ot.AttachmentDescription,
+                ot.ApprovalStatus,
+                e.EmployeeCode,    
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                e.IdDepartment,
+                e.IdDesignation,
+                d.DepartmentName AS Department,
+                des.DesignationName AS Designation
+            FROM OvertimeTransactions ot
+            INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
+            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE ot.IdEmployee IN @EmployeeIds
+            ORDER BY ot.StartDate DESC;
+            ";
+
+            const string approvalsQuery = @"
+            SELECT
+                awa.IdApprovalWorkFlow,
+                awa.IdWorkFlowConfig,
+                awa.EntityCode,
+                awa.EntityTablePrimaryKeyID,
+                awa.CycleIndex,
+                awa.LevelNumber,
+                awa.SourceIdEmployee,
+                CONCAT(src.FirstName, ' ', COALESCE(src.MiddleName, ''), ' ', src.LastName) AS SourcedEmployeeName,
+                awa.SentDate,
+                awa.TargetIdEmployee,
+                CONCAT(tgt.FirstName, ' ', COALESCE(tgt.MiddleName, ''), ' ', tgt.LastName) AS TargetEmployeeName,
+                awa.ExpectedApprovalActionStatus,
+                awa.ActionStatus,
+                awa.ActionedBy,
+                CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName) AS ActionedByName,
+                awa.ActionDate,
+                awa.RejectionRemarks
+            FROM ApprovalWorkFlowAllocations awa
+            LEFT JOIN Employees tgt ON TRY_CONVERT(int, awa.TargetIdEmployee) = tgt.IdEmployee
+            LEFT JOIN Employees act ON awa.ActionedBy = act.IdEmployee
+            LEFT JOIN Employees src ON awa.SourceIdEmployee = src.IdEmployee
+            WHERE awa.EntityCode = @EntityCode
+            AND awa.EntityTablePrimaryKeyID IN @OvertimeIds
+            ORDER BY awa.EntityTablePrimaryKeyID, awa.CycleIndex, awa.LevelNumber;
+            ";
+
+            using var connection = _dbContext.Database.GetDbConnection();
+            if (connection.State == ConnectionState.Closed)
+                await connection.OpenAsync();
+
+            // 1) Login employee meta
+            var meta = await connection.QueryFirstOrDefaultAsync(deptAndDesignationQuery, new { EmployeeId = EmployeeId });
+            if (meta == null) throw new Exception("Employee not found.");
+
+            var requiredDesignationCode = _configuration["Designations:Code"]; // your admin designation code
+            bool isHrd = string.Equals((string?)meta.DepartmentCode, "HRD", StringComparison.OrdinalIgnoreCase);
+            bool isAdminDesignation = string.Equals((string?)meta.DesignationCode, requiredDesignationCode, StringComparison.OrdinalIgnoreCase);
+
+            // 2) Employee scope
+            IEnumerable<int> employeeIds;
+            if (isHrd || isAdminDesignation)
+            {
+                employeeIds = await connection.QueryAsync<int>(allEmployeesIdsQuery);
+            }
+            else
+            {
+                var hierarchy = await GetEmployeeHierarchy(EmployeeId); // your existing recursive method
+                hierarchy.Add(EmployeeId);
+                employeeIds = hierarchy.Distinct();
+            }
+
+            if (!employeeIds.Any())
+                return Enumerable.Empty<OvertimeTransactionFullDto>();
+
+            // 3) Overtime list
+            var overtimeList = (await connection.QueryAsync<OvertimeTransactionFullDto>(
+                overtimeQuery,
+                new { EmployeeIds = employeeIds }
+            )).ToList();
+
+            if (!overtimeList.Any())
+                return overtimeList;
+
+            // 4) Approval cycles for those overtime ids
+            var overtimeIds = overtimeList.Select(x => x.IdOvertimeTransaction).Distinct().ToList();
+
+            var approvals = await connection.QueryAsync<ApprovalCycleDto>(
+                approvalsQuery,
+                new { EntityCode = entityCode, OvertimeIds = overtimeIds }
+            );
+
+            var map = approvals
+                .GroupBy(a => a.EntityTablePrimaryKeyID)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var ot in overtimeList)
+            {
+                if (map.TryGetValue(ot.IdOvertimeTransaction, out var cycles))
+                    ot.ApprovalCycles = cycles;
+            }
+
+            return overtimeList;
+        }
+        private async Task<List<int>> GetEmployeeHierarchy(int managerId)
+        {
+            var hierarchyIds = new List<int>();
+            var allEmployees = await _dbContext.Employees.ToListAsync();
+
+            // Get all employees reporting to the manager (recursively)
+            GetDirectReports(managerId, allEmployees, hierarchyIds);
+
+            return hierarchyIds;
+        }
+
+        private void GetDirectReports(int managerId, List<Employee> allEmployees, List<int> result)
+        {
+            // Get direct reports of the manager
+            var directReports = allEmployees
+                .Where(e => e.ReportingTo == managerId)
+                .ToList();
+
+            foreach (var employee in directReports)
+            {
+                if (employee.IdEmployee.HasValue && !result.Contains(employee.IdEmployee.Value))
+                {
+                    result.Add(employee.IdEmployee.Value);
+                    // Recursively get their reports
+                    GetDirectReports(employee.IdEmployee.Value, allEmployees, result);
+                }
+            }
+        }
+
+
     }
 }
