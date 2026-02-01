@@ -653,7 +653,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
         public async Task<IEnumerable<OvertimeTransactionFullDto>> GetOvertimeTransactionsFullDetails(int EmployeeId)
         {
             const string entityCode = "OVERTIME";
-            int idWorkFlowConfig = 4;
+
             const string deptAndDesignationQuery = @"
 SELECT TOP 1
     d.DepartmentCode,
@@ -665,6 +665,13 @@ WHERE e.IdEmployee = @EmployeeId;
 ";
 
             const string allEmployeesIdsQuery = @"SELECT IdEmployee FROM Employees;";
+
+            // ✅ Robust: avoid failing due to spaces/case mismatch
+            const string wfConfigQuery = @"
+SELECT TOP 1 IdWorkFlowConfig
+FROM WorkFlowConfig
+WHERE UPPER(LTRIM(RTRIM(EntityCode))) = UPPER(LTRIM(RTRIM(@EntityCode)));
+";
 
             const string overtimeQuery = @"
 SELECT 
@@ -690,13 +697,11 @@ FROM OvertimeTransactions ot
 INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
 INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
 INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-WHERE ot.IdOvertimeTransaction = 2304
+WHERE ot.IdEmployee IN @EmployeeIds
 ORDER BY ot.StartDate DESC;
 ";
 
-            // ✅ Returns exactly your nested rows:
-            // - Always from WorkFlowConfigDetails (WCD)
-            // - Overlay ActionedByName + ActionDate from ApprovalWorkFlowAllocations (AWA)
+            // ✅ Approvals from WCD (master) + optional overlay from AWA
             const string approvalsQuery = @"
 ;WITH wcd AS (
     SELECT
@@ -729,11 +734,13 @@ expected AS (
         wcd.ApprovalAuthorityID,
         wcd.ApprovalStatusName,
 
+        -- REPOFFICER -> reporting officer id
         CASE
             WHEN wcd.ApprovalAuthorityType = 'REPOFFICER' THEN ot.ReportingTo
             ELSE NULL
         END AS RepoOfficerEmployeeId,
 
+        -- ROLE -> all employees with designation = ApprovalAuthorityID
         CASE
             WHEN wcd.ApprovalAuthorityType = 'ROLE' THEN (
                 SELECT STRING_AGG(
@@ -779,7 +786,7 @@ SELECT
         ELSE NULL
     END AS ApprovalAuthorityName,
 
-    -- ApprovalStatus + ActionDate
+    -- ApprovalStatus (Pending or actioned-by name)
     CASE
         WHEN ap.ActionDate IS NULL THEN 'Pending'
         ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
@@ -787,7 +794,7 @@ SELECT
 
     ap.ActionDate,
 
-    -- ✅ NEW: ActionedById + ActionedByName
+    -- ActionedBy fields
     ap.ActionedBy AS ActionedById,
     CASE
         WHEN ap.ActionedBy IS NULL THEN NULL
@@ -804,13 +811,11 @@ LEFT JOIN Employees act ON act.IdEmployee = ap.ActionedBy
 ORDER BY ex.IdOvertimeTransaction, ex.LevelNumber;
 ";
 
-
-
             using var connection = _dbContext.Database.GetDbConnection();
-            if (connection.State == System.Data.ConnectionState.Closed)
+            if (connection.State == ConnectionState.Closed)
                 await connection.OpenAsync();
 
-            // 1) Login employee meta
+            // 1) Validate login employee
             var meta = await connection.QueryFirstOrDefaultAsync(deptAndDesignationQuery, new { EmployeeId });
             if (meta == null) throw new Exception("Employee not found.");
 
@@ -843,17 +848,29 @@ ORDER BY ex.IdOvertimeTransaction, ex.LevelNumber;
             if (!overtimeList.Any())
                 return overtimeList;
 
-            // 4) Nested approvals
+            // 4) Get workflow config id dynamically (NO hardcode)
+            var idWorkFlowConfig = await connection.QueryFirstOrDefaultAsync<int?>(
+                wfConfigQuery,
+                new { EntityCode = entityCode }
+            );
+
+            if (idWorkFlowConfig == null)
+            {
+                foreach (var ot in overtimeList) ot.ApprovalCycles = new List<ApprovalCycleDto>();
+                return overtimeList;
+            }
+
+            // 5) Nested approvals (WCD always drives rows)
             var overtimeIds = overtimeList.Select(x => x.IdOvertimeTransaction).Distinct().ToList();
 
             var approvals = (await connection.QueryAsync<ApprovalCycleDto>(
-      approvalsQuery,
-      new
-      {
-          IdWorkFlowConfig = idWorkFlowConfig,
-          OvertimeIds = overtimeIds
-      }
-  )).ToList();
+                approvalsQuery,
+                new
+                {
+                    IdWorkFlowConfig = idWorkFlowConfig.Value,
+                    OvertimeIds = overtimeIds
+                }
+            )).ToList();
 
             var map = approvals
                 .GroupBy(a => a.IdOvertimeTransaction)
@@ -867,6 +884,13 @@ ORDER BY ex.IdOvertimeTransaction, ex.LevelNumber;
             }
 
             return overtimeList;
+        }
+
+        // Helper DTO only for workflow map query
+        private class OvertimeWorkflowPair
+        {
+            public int IdOvertimeTransaction { get; set; }
+            public int IdWorkFlowConfig { get; set; }
         }
 
         private async Task<List<int>> GetEmployeeHierarchy(int managerId)
