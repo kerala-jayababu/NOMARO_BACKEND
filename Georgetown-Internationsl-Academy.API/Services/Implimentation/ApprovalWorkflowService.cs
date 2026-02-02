@@ -15,6 +15,7 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -700,6 +701,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     // Send to next approver(s)
                     var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                    if (!employeeIdList.Contains(leaveApp.IdEmployee))
+                        employeeIdList.Add(leaveApp.IdEmployee);
                     employees = await GetEmployeesByIds(employeeIdList);
                 }
 
@@ -707,10 +710,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
 
                 int levelNumberForNotification = nextLevelNumber ?? 0;
-
+                var creator = (await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee })).FirstOrDefault();
+                var creatorEmail = creator != null && creator.ContainsKey("Email") ? creator["Email"] : null;
                 // ✅ Choose template entity code (NEW RULE)
                 string leaveEntityCodeForNotification;
-
+                string approvalWorkflowHtml = "";
                 if (finalStatus == "REJECTED")
                 {
                     leaveEntityCodeForNotification = "LEAVE"; // Rejected template
@@ -722,6 +726,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 else
                 {
                     leaveEntityCodeForNotification = "LEAVE_MULTILEVEL"; // Pending/multilevel template
+                    approvalWorkflowHtml = BuildApprovalWorkflowHtml(leaveApp.LeaveApprovalDetails);
                 }
 
                 var notificationConfig = await GetNotificationConfigForLevaeApplicationEntity(
@@ -735,7 +740,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     fromDate: leaveApp.FromDate,
                     toDate: leaveApp.ToDate,
                     totalDays: leaveApp.TotalLeaveDays,
-                    reason: leaveApp.Reason
+                    reason: leaveApp.Reason,
+                    approvalWorkflow: approvalWorkflowHtml
                 );
 
                 if (notificationConfig == null) return;
@@ -863,6 +869,76 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        private static string BuildApprovalWorkflowHtml(string? approvalDetailsJson)
+        {
+            if (string.IsNullOrWhiteSpace(approvalDetailsJson))
+                return "";
+
+            try
+            {
+                var rows = JsonSerializer.Deserialize<List<LeaveApprovalRow>>(approvalDetailsJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (rows == null || rows.Count == 0) return "";
+
+                // sort by level
+                rows = rows.OrderBy(r => r.Level).ToList();
+
+                var sb = new StringBuilder();
+
+                sb.AppendLine(@"
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;'>
+  <thead>
+    <tr>
+      <th align='left'>Level</th>
+      <th align='left'>Approver</th>
+      <th align='left'>Status</th>
+      <th align='left'>Status Date</th>
+    </tr>
+  </thead>
+  <tbody>");
+
+                foreach (var r in rows)
+                {
+                    var levelText = $"Level {r.Level}";
+                    var approverText = string.IsNullOrWhiteSpace(r.Name) ? "-" : r.Name;
+                    var statusText = string.IsNullOrWhiteSpace(r.Status) ? "PENDING" : r.Status;
+
+                    string dateText = "-";
+                    if (r.StatusDate.HasValue)
+                        dateText = r.StatusDate.Value.ToString("dd-MM-yyyy");
+
+                    sb.AppendLine($@"
+    <tr>
+      <td>{System.Net.WebUtility.HtmlEncode(levelText)}</td>
+      <td>{System.Net.WebUtility.HtmlEncode(approverText)}</td>
+      <td>{System.Net.WebUtility.HtmlEncode(statusText)}</td>
+      <td>{System.Net.WebUtility.HtmlEncode(dateText)}</td>
+    </tr>");
+                }
+
+                sb.AppendLine(@"
+  </tbody>
+</table>");
+
+                return sb.ToString();
+            }
+            catch
+            {
+                // If JSON invalid, don't break email
+                return "";
+            }
+        }
+
+        private class LeaveApprovalRow
+        {
+            public int Level { get; set; }
+            public string? Type { get; set; }
+            public int? Id { get; set; }
+            public string? Name { get; set; }
+            public string? Status { get; set; }
+            public DateTime? StatusDate { get; set; }
+        }
 
         private async Task<List<Dictionary<string, string>>> GetEmployeesByIds(List<int> employeeIds)
         {
