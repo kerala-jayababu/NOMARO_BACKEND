@@ -14,6 +14,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? Gender { get; set; }
         public string? IdNumber { get; set; }
         public string? TaxIdNumber { get; set; }
+        public string? NationalIDNumber { get; set; }
         public int? IdDepartment { get; set; }
         public int? IdDesignation { get; set; }
         public string? EmailID { get; set; }

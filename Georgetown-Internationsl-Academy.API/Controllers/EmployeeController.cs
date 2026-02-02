@@ -614,7 +614,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 int loggedInEmployeeId = int.Parse(userId);
 
-                var screenCode = _configuration["ScreenCodes:EmployeeQualifications"];
+                var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
 
                 if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A"))
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
@@ -647,7 +647,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return BadRequest(string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
                 int loggedInEmployeeId = int.Parse(userId);
 
-                var screenCode = _configuration["ScreenCodes:EmployeeExperiences"];
+                var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
 
                 if (!await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A"))
                     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
@@ -1036,6 +1036,25 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 .CreateSuccess("Employee service change deleted successfully."));
         }
 
+        [HttpGet("GetEmployeeHierarchyWithPhotoBinary")]
+        public async Task<IActionResult> GetEmployeeHierarchyWithPhotoBinary()
+        {
+            try
+            {
+                var organizationHierarchies = await _employeeservice.GetEmployeeHierarchyWithPhotoBinary();
+
+                if (organizationHierarchies == null || !organizationHierarchies.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<OrganizationHierarchyDto>>.CreateSuccess(Enumerable.Empty<OrganizationHierarchyDto>(), "No Hierarchy Exits"));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<OrganizationHierarchyDto>>.CreateSuccess(organizationHierarchies, "Organization Hierarchy retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
         #endregion
 
     }

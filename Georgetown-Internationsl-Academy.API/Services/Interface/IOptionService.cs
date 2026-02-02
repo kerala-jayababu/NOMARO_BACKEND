@@ -12,7 +12,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<SalaryMonthsDto>> GetAllSalaryMonths();
         Task<List<NotificationDto>> GetEmployeeNotification(int employeeID);
         Task<NotificationDto> UpdateEmployeeNotification(int idNotification);        
-        Task<List<FinancialYearsDto>> GetAllFiancialyear();        
+        Task<List<FinancialYearsDto>> GetAllFiancialyear();
+        Task<List<WorkYearsDto>> GetAllWorkYears();
         Task<List<HolidayTypeDto>> GetHolidayTypes();
         Task<List<LatestEmployeeSalaryConfigDto>> GetEmployeeLatestSalaryStructure();
         Task<List<WorkFlowConfig?>> GetWorkflowConfigList();

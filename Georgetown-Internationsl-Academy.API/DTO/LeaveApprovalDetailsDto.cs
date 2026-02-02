@@ -2,12 +2,12 @@
 {
     public class LeaveApprovalDetailsDto
     {
-        public int Level { get; set; }
-        public string Type { get; set; }   // REPOFFICER / ROLE
-        public int Id { get; set; }
-        public string Name { get; set; }
+        public int level { get; set; }
+        public string type { get; set; }   // REPOFFICER / ROLE
+        public int id { get; set; }
+        public string name { get; set; }
 
-        public string Status { get; set; }        // PENDING / APPROVED / REJECTED
-        public DateTime? StatusDate { get; set; } // null until action
+        public string status { get; set; }        // PENDING / APPROVED / REJECTED
+        public DateTime? statusDate { get; set; } // null until action
     }
 }

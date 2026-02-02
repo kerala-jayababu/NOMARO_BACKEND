@@ -287,7 +287,6 @@ e.EmployeeCode,
                     int minutes = totalDuration.Minutes;
                     record.TotalInHoursText = $"{hours} hrs {minutes} minutes";
                 }
-
             }
 
             _dbContext.UpdateRange(records);

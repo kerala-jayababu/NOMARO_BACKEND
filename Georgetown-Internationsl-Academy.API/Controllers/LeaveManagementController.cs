@@ -276,12 +276,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #region EmployeeLeaveManagement
         [HttpGet("GetEmployeeLeaveSetup")]
-        public async Task<IActionResult> GetEmployeeLeaveSetup(string? searchText, int? idYear)
+        public async Task<IActionResult> GetEmployeeLeaveSetup(string? searchText, int IdYear)
         {
             try
             {
 
-                var result = await _leaveService.GetEmployeesLeaveSetup(searchText, idYear);
+                var result = await _leaveService.GetEmployeesLeaveSetup(searchText, IdYear);
 
                 return Ok(ApiResponseDto<List<EmployeeLeaveSetupDto>>
                     .CreateSuccess(result, "Employee leave setup retrieved successfully."));
@@ -298,12 +298,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpGet("GetLeaveSetupOfAnEmployee")]
-        public async Task<IActionResult> GetLeaveSetupOfAnEmployee(int IdEmployee, int idYear)
+        public async Task<IActionResult> GetLeaveSetupOfAnEmployee(int IdEmployee, int? IdYear, DateTime? DateTo)
         {
             try
             {
 
-                var result = await _leaveService.GetLeaveSetupOfAnEmployee(IdEmployee, idYear);
+                var result = await _leaveService.GetLeaveSetupOfAnEmployee(IdEmployee, IdYear, DateTo);
 
                 return Ok(ApiResponseDto<EmployeeLeaveSetupDto>
                     .CreateSuccess(result, "Employee leave setup retrieved successfully."));

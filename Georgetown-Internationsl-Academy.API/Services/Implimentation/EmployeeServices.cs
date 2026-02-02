@@ -321,8 +321,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 	         left join BankBranches bb on eba.IdBankBranch = bb.IdBankBranches
 	         left join Banks b on eba.IdBank=b.IdBank
          WHERE 
-            eba.IdEmployee = @IdEmployee;
-    ";
+            eba.IdEmployee = @IdEmployee;";
 
             try
             {
@@ -354,13 +353,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.EmailId,
             e.PhoneNumber1 AS PhoneNumber1,
             e.PhoneNumber2 AS PhoneNumber2,
-            e.IdNumber as SSNNumber,
+            e.IdNumber as IdNumber,
             e.WhatsAppNumber AS WhatsAppNumber,
             d.DepartmentName AS Department,
             des.DesignationName AS Designation,
            CONCAT(r.FirstName, ' ', r.MiddleName, ' ', r.LastName) AS ReportingTo,
             b.BudgetCodeName AS BudgetCode,
             e.TaxIdNumber,
+            e.NationalIDNumber,
             CONCAT(e.Address1, ', ', e.Address2, ',' , e.Address3, ',', e.City, ', ', e.State, ', ', e.ZipCode) AS Address,
             e.CurrentStatus,
             e.JoiningDate, 
@@ -397,98 +397,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-        public async Task<LinkedList<EmployeeProfileDetailsDto>> GetEmployeeProfileViewDetails(int idEmployee)
-        {
-            try
-            {
-
-                //var bankAccountDetails = await ( from  eb in _dbContext.EmployeeBankAccounts 
-                //                                 join b in _dbContext.Banks on eb.IdBank equals b.IdBank)
-
-
-                var data = await
-                    (from e in _dbContext.Employees
-                     join d in _dbContext.Departments
-                         on e.IdDepartment equals d.IdDepartment into deptJoin
-                     from d in deptJoin.DefaultIfEmpty()
-
-                     join des in _dbContext.Designations
-                         on e.IdDesignation equals des.IdDesignation into desigJoin
-                     from des in desigJoin.DefaultIfEmpty()
-
-                     join r in _dbContext.Employees
-                         on e.ReportingTo equals r.IdEmployee into repJoin
-                     from r in repJoin.DefaultIfEmpty()
-
-                     join b in _dbContext.BudgetCodes
-                         on e.IdBudgetCode equals b.IdBudgetCode into budgetJoin
-                     from b in budgetJoin.DefaultIfEmpty()
-
-                     where e.IdEmployee == idEmployee
-
-                     select new EmployeeProfileDetailsDto
-                     {
-                         IdEmployee = e.IdEmployee.Value,
-                         EmployeeCode = e.EmployeeCode,
-
-                         FullName =
-                             ((e.FirstName ?? "") + " " +
-                              (e.MiddleName ?? "") + " " +
-                              (e.LastName ?? "")).Trim(),
-
-                         EmailId = e.EmailID,
-                         PhoneNumber1 = e.PhoneNumber1,
-                         PhoneNumber2 = e.PhoneNumber2,
-                         SSNNumber = e.IdNumber,
-                         WhatsAppNumber = e.PhoneNumber1,
-
-                         Department = d != null ? d.DepartmentName : null,
-                         Designation = des != null ? des.DesignationName : null,
-
-                         ReportingTo =
-                             r != null
-                                 ? ((r.FirstName ?? "") + " " +
-                                    (r.MiddleName ?? "") + " " +
-                                    (r.LastName ?? "")).Trim()
-                                 : null,
-
-                         BudgetCode = b != null ? b.BudgetCodeName : null,
-                         TaxIdNumber = e.TaxIdNumber,
-
-                         Address =
-                             ((e.Address1 ?? "") + ", " +
-                              (e.Address2 ?? "") + ", " +
-                              (e.Address3 ?? "") + ", " +
-                              (e.City ?? "") + ", " +
-                              (e.State ?? "") + ", " +
-                              (e.ZipCode ?? "")).Trim(new[] { ',', ' ' }),
-
-                         CurrentStatus = e.CurrentStatus,
-                         JoiningDate = e.JoiningDate.Value,
-                         DateOfBirth = e.DateOfBirth,
-                         EmployeePhotoFilePath = e.EmployeePhotoFilePath,
-                         Gender = e.Gender,
-                         OverTimeAllowedStatus = e.OverTimeAllowedStatus,
-                         EmployeeWorkType = e.EmployeeWorkType
-                     })
-                    .AsNoTracking()
-                    .ToListAsync();
-
-
-                // ✅ Convert to LinkedList
-                return new LinkedList<EmployeeProfileDetailsDto>(data);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Error fetching employee profile details for Employee ID: {EmployeeId}",
-                    idEmployee);
-                throw;
-            }
-        }
-
-
         public async Task<IEnumerable<EmployeeOvertimeConfigDto>> GetEmployeeOvertimeConfigsByID(int employeeId)
         {
             const string query = @"
@@ -501,8 +409,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         FROM 
             EmployeeOvertimeConfig eoc
         WHERE 
-            eoc.IdEmployee = @IdEmployee;
-    ";
+            eoc.IdEmployee = @IdEmployee;";
 
             try
             {
@@ -676,14 +583,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<IEnumerable<EmployeeHierarchyDto>> GetEmployeesByHierarchy(int employeeId)
         {
             const string designationQuery = @"
-    SELECT 
-        e.IdEmployee,
-        e.IdDesignation,
-        des.DesignationCode
-    FROM Employees e
-    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-    WHERE e.IdEmployee = @EmployeeId;
-";
+            SELECT 
+                e.IdEmployee,
+                e.IdDesignation,
+                des.DesignationCode
+            FROM Employees e
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE e.IdEmployee = @EmployeeId;
+        ";
 
             const string allEmployeesQuery = @"
     SELECT 
@@ -1224,7 +1131,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 employee.IdDesignation = dto.IdDesignation;
                 employee.Gender=dto.Gender;
                 employee.PhoneNumber1 = dto.PhoneNumber1;
-                employee.WhatsAppNumber = dto.WhatsAppNumber;
+                employee.PhoneNumber2 = dto.PhoneNumber2;
                 employee.Address1 = dto.Address1;
                 employee.Address2 = dto.Address2;
                 employee.Address3 = dto.Address3;
@@ -1232,6 +1139,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 employee.City = dto.City;
                 employee.State = dto.State;
                 employee.ZipCode = dto.ZipCode;
+                employee.IdNumber = dto.IdNumber;
+                employee.NationalIDNumber = dto.NationalIDNumber;
                 employee.LastWorkingDay = dto.LastWorkingDay;
                 employee.TaxIdNumber = dto.TaxIdNumber;
                 employee.IdBudgetCode = dto.IdBudgetCode;
@@ -2684,6 +2593,50 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return true;
         }
 
+        public async Task<List<OrganizationHierarchyDto>> GetEmployeeHierarchyWithPhotoBinary()
+        {
+            try
+            {
+                var data = await _dbContext.EmployeeHierarchyView
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var result = new List<OrganizationHierarchyDto>();
+
+                foreach (var row in data)
+                {
+                    byte[]? photoBytes = null;
+
+                    if (!string.IsNullOrWhiteSpace(row.EmployeePhotoFilePath))
+                    {                        
+                        if (File.Exists(row.EmployeePhotoFilePath))
+                        {
+                            photoBytes = await File.ReadAllBytesAsync(row.EmployeePhotoFilePath);
+                        }
+                    }
+
+                    result.Add(new OrganizationHierarchyDto
+                    {
+                        IdEmployee = row.IdEmployee,
+                        EmployeeCode = row.EmployeeCode,
+                        FullName = row.FullName,
+                        ReportingTo = row.ReportingTo,
+                        LevelNumber = row.LevelNumber,
+                        DepartmentName = row.DepartmentName,
+                        DesignationName = row.DesignationName,
+                        EmployeePhotoFilePath = row.EmployeePhotoFilePath,
+                        EmployeePhoto = photoBytes // ✅ binary array
+                    });
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching employee hierarchy with photo binary.");
+                throw;
+            }
+        }
 
     }
 }

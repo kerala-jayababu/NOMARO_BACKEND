@@ -22,7 +22,17 @@
         public string? LeaveApprovalDetails { get; set; }
         public string? ActionStatusByUser { get; set; }
         public DateTime? ActionStatusDateByUser { get; set; }
+        public string LeaveApprovalHistories { get; set; }
 
+    }
+    
+    public class LeaveApprovalHistory
+    {
+        public int IdHistory { get; set; }
+        public string? ActionBy { get; set; }
+        public string? Status { get; set; }
+        public DateTime? ActionDate { get; set; }
+        public string? Remarks { get; set; }
 
     }
 }

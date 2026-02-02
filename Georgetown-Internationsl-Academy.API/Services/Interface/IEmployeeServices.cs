@@ -48,5 +48,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> AddUpdateEmployeeServiceChanges(List<EmployeeServiceChangeDto> dtos, int loggedInEmployeeId);
         Task<bool> ApproveServiceChanges(List<int> idChanges, string approvalStatus, string? remarks, int loggedInEmployeeId);
         Task<bool> DeleteEmployeeServiceChanges(int idEmployeeServiceChange, int loggedInEmployeeId, bool isHrManager);
+        Task<List<OrganizationHierarchyDto>> GetEmployeeHierarchyWithPhotoBinary();
     }
 }

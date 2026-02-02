@@ -37,7 +37,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<string> InitiateApprovalWorkflow(int entityTablePrimaryKeyID, string entityCode, int loggedInEmployeeId, string? status, decimal? LeavePassageAmount, string? rejectReason, int count=1)
         {
 
-
             try
             {
                 var currentRecord = await _dbContext.ApprovalWorkFlowAllocations

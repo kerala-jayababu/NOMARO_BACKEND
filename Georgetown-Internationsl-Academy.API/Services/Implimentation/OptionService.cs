@@ -192,6 +192,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<List<WorkYearsDto>> GetAllWorkYears()
+        {
+            try
+            {
+                var WorkYears = await _dbContext.WorkYears.ToListAsync();
+                return _mapper.Map<List<WorkYearsDto>>(WorkYears);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all GetAllWorkYears.");
+                throw;
+            }
+        }
+
 
         public async Task<List<LatestEmployeeSalaryConfigDto>> GetEmployeeLatestSalaryStructure()
         {
@@ -351,8 +365,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-
-        
 
         public async Task<NotificationDto> UpdateEmployeeNotification(int idNotification)
         {

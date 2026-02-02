@@ -32,7 +32,8 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<NotificationConfig> NotificationsConfig { get; set; }
         public DbSet<VacationMode> VacationModes { get; set; }
         public DbSet<TaxSlab> TaxSlabs { get; set; }
-        public DbSet<FinancialYears> FinancialYears { get; set; }        
+        public DbSet<FinancialYears> FinancialYears { get; set; }
+        public DbSet<WorkYears> WorkYears { get; set; }
         public DbSet<CurrencyConversion> CurrencyConversions { get; set; }
         public DbSet<ChildTaxThreshold> ChildTaxThresholds { get; set; }
         public DbSet<SalaryTemplate> SalaryTemplates { get; set; }
@@ -122,6 +123,14 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<ExitCaseStatusHistory> ExitCaseStatusHistory { get; set; }
         public DbSet<ExitCaseClearanceAssignment> ExitCaseClearanceAssignments { get; set; }
         public DbSet<ExitCaseDepartmentClearanceLine> ExitCaseDepartmentClearanceLines { get; set; }
+
+        public DbSet<EmployeeHierarchyView> EmployeeHierarchyView { get; set; }
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmployeeHierarchyView>()
+                .HasNoKey()
+                .ToView("vw_EmployeeHierarchy");
+        }
 
         #endregion
 
