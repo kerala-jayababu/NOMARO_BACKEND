@@ -1841,19 +1841,36 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             try
             {
                 var snapshot = await _dbContext.LeaveApplications.FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
-                //if (snapshot.ApprovalStatus != "APPROVED" || snapshot.ApprovalStatus != "REJECTED")
-                 //   throw new ArgumentException("Invalid approval action.");
 
+                if (snapshot == null)
+                {
+                    _logger.LogWarning("Leave application not found: {IdLeaveApplication}", idLeaveApplication);
+                    throw new InvalidOperationException("Leave application not found.");
+                }
 
-
-                if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.LeaveApprovalDetails))
+                if (string.IsNullOrWhiteSpace(snapshot.LeaveApprovalDetails))
+                {
+                    _logger.LogWarning("No approval details found for: {IdLeaveApplication}", idLeaveApplication);
                     throw new InvalidOperationException("Approval details not found.");
+                }
 
-                var approvers = JsonSerializer.Deserialize<List<LeaveApprovalDetailsDto>>(
-                    snapshot.LeaveApprovalDetails);
+                List<LeaveApprovalDetailsDto>? approvers = null;
+                try
+                {
+                    approvers = JsonSerializer.Deserialize<List<LeaveApprovalDetailsDto>>(
+                        snapshot.LeaveApprovalDetails);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Error deserializing approval details for: {IdLeaveApplication}", idLeaveApplication);
+                    throw new InvalidOperationException("Invalid approver data format.", ex);
+                }
 
                 if (approvers == null || !approvers.Any())
+                {
+                    _logger.LogWarning("No approvers found for: {IdLeaveApplication}", idLeaveApplication);
                     throw new InvalidOperationException("Invalid approver data.");
+                }
 
                 var empDetail = await
                            (from emp in _dbContext.Employees
@@ -1866,42 +1883,61 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                 EmployeeName = ((emp.FirstName ?? "") + " " + (emp.LastName ?? "")).Trim(),
                             }).AsNoTracking().FirstOrDefaultAsync();
 
+                if (empDetail == null)
+                {
+                    _logger.LogWarning("Employee not found: {LoggedInEmployeeId}", loggedInEmployeeId);
+                    throw new InvalidOperationException("Employee details not found.");
+                }
+
                 // 🔹 Find current approver (must be pending)
                 var currentApprover = approvers
-                    .FirstOrDefault(a =>a.status == "PENDING");
+                    .FirstOrDefault(a => a != null && a.status == "PENDING");
 
                 if (currentApprover == null)
+                {
+                    _logger.LogWarning("No pending approval found for: {IdLeaveApplication}", idLeaveApplication);
                     throw new InvalidOperationException("No pending approval found for this user.");
+                }
 
                 // 🔹 Update current approver
-                currentApprover.status = snapshot.ApprovalStatus;
+                currentApprover.status = snapshot.ApprovalStatus ?? "PENDING";
                 currentApprover.statusDate = DateTime.Now;
-                currentApprover.name = empDetail.EmployeeName;
+                currentApprover.name = empDetail?.EmployeeName ?? "Unknown";
 
                 // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
-                if (actionStatus == "REJECTED")
+                if (!string.IsNullOrWhiteSpace(actionStatus) && actionStatus == "REJECTED")
                 {
                     foreach (var next in approvers
-                        .Where(a => a.level > currentApprover.level && a.status == "PENDING"))
+                        .Where(a => a != null && a.level > currentApprover.level && a.status == "PENDING"))
                     {
                         next.status = "NO_ACTION_REQUIRED";
                         next.statusDate = DateTime.Now;
                     }
                 }
 
-                snapshot.LeaveApprovalDetails = JsonSerializer.Serialize(
-                    approvers,
-                    new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    });
+                try
+                {
+                    snapshot.LeaveApprovalDetails = JsonSerializer.Serialize(
+                        approvers,
+                        new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Error serializing approver details for: {IdLeaveApplication}", idLeaveApplication);
+                    throw new InvalidOperationException("Failed to serialize approval data.", ex);
+                }
 
                 await _dbContext.SaveChangesAsync();
 
+                _logger.LogInformation("Successfully updated approver status for: {IdLeaveApplication}", idLeaveApplication);
                 return true;
             }
             catch(Exception ee)
             {
+                _logger.LogError(ee, "Error updating approver status for Leave Application: {IdLeaveApplication}", idLeaveApplication);
                 return false;
             }
         }
@@ -2105,7 +2141,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
 
-                application.Documents = documents;
+                application.Documents = documents ?? new List<LeaveApplicationDocumentDetailsDto>();
                 return application;
             }
             catch (Exception ex)
@@ -2119,22 +2155,41 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (string.IsNullOrWhiteSpace(storedFilePath))
                 return null;
 
-            var fileName = Path.GetFileName(storedFilePath);
-
-            // GUID_originalname.ext
-            var underscoreIndex = fileName.IndexOf('_');
-
-            if (underscoreIndex > 0)
+            try
             {
-                var prefix = fileName.Substring(0, underscoreIndex);
+                var fileName = Path.GetFileName(storedFilePath);
 
-                if (Guid.TryParse(prefix, out _))
+                if (string.IsNullOrWhiteSpace(fileName))
+                    return null;
+
+                // GUID_originalname.ext
+                var underscoreIndex = fileName.IndexOf('_');
+
+                if (underscoreIndex > 0 && underscoreIndex < fileName.Length - 1)
                 {
-                    return fileName.Substring(underscoreIndex + 1);
+                    var prefix = fileName.Substring(0, underscoreIndex);
+
+                    if (Guid.TryParse(prefix, out _))
+                    {
+                        string originalName = fileName.Substring(underscoreIndex + 1);
+                        return !string.IsNullOrWhiteSpace(originalName) ? originalName : null;
+                    }
+                }
+
+                return fileName;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error extracting original filename from: {StoredFilePath}", storedFilePath);
+                try
+                {
+                    return Path.GetFileName(storedFilePath) ?? "unknown";
+                }
+                catch
+                {
+                    return "unknown";
                 }
             }
-
-            return fileName;
         }
         public async Task<LeaveApplicationSaveResultDto> AddUpdateLeaveApplication(LeaveApplicationPostDto dto,int loggedInEmployeeId)
         {
@@ -2623,26 +2678,94 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             if (file == null || file.Length == 0)
                 throw new ArgumentException("Invalid file.");
 
-            string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "leaveapplications");
-            Directory.CreateDirectory(folderPath);
+            try
+            {
+                string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "leaveapplications");
+                Directory.CreateDirectory(folderPath);
 
             // ✅ delete old file if exists (optional)
-            if (!string.IsNullOrWhiteSpace(oldFilePath) && File.Exists(oldFilePath))
+            if (!string.IsNullOrWhiteSpace(oldFilePath))
             {
-                File.Delete(oldFilePath);
+                string fullOldPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", oldFilePath.TrimStart('/').Replace("/", "\\"));
+                if (File.Exists(fullOldPath))
+                {
+                    File.Delete(fullOldPath);
+                }
             }
 
-            string fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
-            string filePath = Path.Combine(folderPath, fileName);
+                string fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+                string fullFilePath = Path.Combine(folderPath, fileName);
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
+                using (var stream = new FileStream(fullFilePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Verify file was created
+                if (!File.Exists(fullFilePath))
+                    throw new InvalidOperationException("File was not saved successfully.");
+
+                // ✅ Store relative path instead of absolute path
+                string relativePath = Path.Combine("uploads", "leaveapplications", fileName).Replace("\\", "/");
+                _logger.LogInformation("File saved successfully: {RelativePath}", relativePath);
+                return relativePath;
             }
-
-            return filePath;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving leave application file: {FileName}", file?.FileName);
+                throw;
+            }
         }
         
+        private string? ConvertPathToUrl(string? filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return null;
+
+            try
+            {
+                // Check if file exists first
+                string fullPath = filePath;
+                
+                // If it's a relative path, construct full path
+                if (!Path.IsPathRooted(filePath))
+                {
+                    fullPath = Path.Combine(_env?.WebRootPath ?? Directory.GetCurrentDirectory(), filePath.TrimStart('/').Replace("/", "\\"));
+                }
+
+                // Check file existence
+                if (!File.Exists(fullPath))
+                {
+                    _logger.LogWarning("File not found at path: {FilePath}", fullPath);
+                    return null;
+                }
+
+                // If it's already a relative path (starts with /uploads or uploads)
+                if (filePath.StartsWith("/uploads") || filePath.StartsWith("uploads"))
+                {
+                    return filePath.Replace("\\", "/").TrimStart('/');
+                }
+
+                // If it's an absolute path, convert to relative
+                if (Path.IsPathRooted(filePath))
+                {
+                    var webRootPath = _env?.WebRootPath;
+                    if (!string.IsNullOrWhiteSpace(webRootPath) && filePath.StartsWith(webRootPath))
+                    {
+                        return filePath.Substring(webRootPath.Length).Replace("\\", "/").TrimStart('/');
+                    }
+                }
+
+                // Fallback: just normalize slashes
+                return filePath.Replace("\\", "/");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error converting path to URL: {FilePath}", filePath);
+                return null;
+            }
+        }
+
         public async Task<decimal> CalculateLeaveDaysAsync(bool IncludeHoliday, DateTime fromDate, DateTime toDate, bool isHalfDay)
         {
             if (isHalfDay)
@@ -2959,8 +3082,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     IdLeaveApplicationDocument = d.IdLeaveApplicationDocument,
                     FileType = d.FileType,
                     FileName = d.FileName,
-                    FileUrl = d.FilePath?
-                        .Replace(_env.WebRootPath, string.Empty).Replace("\\", "/"),UploadedAt = d.UploadedAt}).ToList();
+                    FileUrl = ConvertPathToUrl(d.FilePath),
+                    UploadedAt = d.UploadedAt
+                }).ToList();
 
                 return documents;
             }
