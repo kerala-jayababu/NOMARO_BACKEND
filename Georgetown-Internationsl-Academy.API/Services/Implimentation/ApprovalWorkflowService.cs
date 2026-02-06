@@ -846,6 +846,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Replace("#SENDER#", SenderName)
                     .Replace("#RECEIVER#", ReceiverName)
                     .Replace("#APPROVERNAME", SenderName)
+                    .Replace("#APPROVERNAME#", SenderName)
                     .Replace("#REJECTIONREASON#", rejectReason ?? "")
                     .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
                     .Replace("#ApprovalWorkflow#", approvalWorkflowText)
