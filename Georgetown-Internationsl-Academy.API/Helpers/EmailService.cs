@@ -96,5 +96,54 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
                 throw;
             }
         }
+
+        public static async Task<bool> SendMailWithCcToMany(
+    IEnumerable<string> toEmails,
+    IEnumerable<string>? ccEmails,
+    string subject,
+    string htmlBody)
+        {
+            try
+            {
+                using var client = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort)
+                {
+                    EnableSsl = _settings.EnableSsl,
+                    Credentials = new NetworkCredential(_settings.Email, _settings.Password)
+                };
+
+                using var mailMessage = new MailMessage
+                {
+                    From = new MailAddress(_settings.Email, _settings.DisplayName ?? _settings.Email),
+                    Subject = subject,
+                    Body = htmlBody,
+                    IsBodyHtml = true
+                };
+
+                foreach (var to in (toEmails ?? Enumerable.Empty<string>())
+                             .Where(x => !string.IsNullOrWhiteSpace(x))
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    mailMessage.To.Add(to);
+                }
+
+                foreach (var cc in (ccEmails ?? Enumerable.Empty<string>())
+                             .Where(x => !string.IsNullOrWhiteSpace(x))
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    mailMessage.CC.Add(cc);
+                }
+
+                if (mailMessage.To.Count == 0) return false;
+
+                await client.SendMailAsync(mailMessage);
+                return true;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+
     }
 }

@@ -654,7 +654,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
             }
-            else if (!string.IsNullOrWhiteSpace(entityCode) && entityCode.Contains("LEAVE_", StringComparison.OrdinalIgnoreCase))
+            else if (!string.IsNullOrWhiteSpace(entityCode) &&entityCode.Contains("LEAVE_", StringComparison.OrdinalIgnoreCase))
             {
                 var leaveApp = await _dbContext.LeaveApplications
                     .FirstOrDefaultAsync(x => x.IdLeaveApplication == entityTablePrimaryKeyID);
@@ -664,20 +664,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // update status
                 leaveApp.ApprovalStatus = finalStatus;
 
-                // final approval check (your existing logic)
                 var isFinalApproved =
                     finalStatus == "FINAL APPROVED" ||
                     finalStatus == "APPROVED" ||
                     nextLevelNumber == 99;
 
                 if (isFinalApproved)
-                {
                     leaveApp.ApprovedBy = loggedInEmployeeId;
-                }
                 else if (finalStatus == "REJECTED")
-                {
                     leaveApp.ApprovedBy = null;
-                }
 
                 await _dbContext.SaveChangesAsync();
 
@@ -686,45 +681,69 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     targetEmployeeIdsForNextLevel = leaveApp.IdEmployee.ToString();
 
                 // --- notifications ---
-                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);                             
-                List<Dictionary<string, string>> employees;             
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
                 bool isRejected = finalStatus == "REJECTED";
-                var CreatorName = await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee });
-                var CreatorNames = string.Join(", ", CreatorName.Select(e => e["Name"]));
+
+                // Applicant (creator)
+                var creator = (await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee })).FirstOrDefault();
+                var creatorName = creator != null && creator.ContainsKey("Name") ? creator["Name"] : "";
+                var creatorEmail = creator != null && creator.ContainsKey("Email") ? creator["Email"] : null;
+
+                List<Dictionary<string, string>> employees; // TO list
+                List<string> toEmails = new();
+                List<string> ccEmails = new();
+
                 if (isFinalApproved || isRejected)
                 {
-                    // Send to leave applicant
-                    employees = await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee });
+                    // TO = applicant only
+                    employees = new List<Dictionary<string, string>>();
+                    if (!string.IsNullOrWhiteSpace(creatorEmail))
+                    {
+                        toEmails.Add(creatorEmail);
+                        employees.Add(new Dictionary<string, string>
+                        {
+                            ["Name"] = creatorName,
+                            ["Email"] = creatorEmail
+                        });
+                    }
                 }
                 else
                 {
-                    // Send to next approver(s)
-                    var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
-                    if (!employeeIdList.Contains(leaveApp.IdEmployee))
-                        employeeIdList.Add(leaveApp.IdEmployee);
-                    employees = await GetEmployeesByIds(employeeIdList);
+                    // TO = next approver(s)
+                    var approverIds = ParseEmployeeIds(targetEmployeeIdsForNextLevel).Distinct().ToList();
+                    employees = await GetEmployeesByIds(approverIds);
+
+                    toEmails = employees
+                        .Select(e => e.ContainsKey("Email") ? e["Email"] : null)
+                        .Where(e => !string.IsNullOrWhiteSpace(e))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    // CC = applicant
+                    if (!string.IsNullOrWhiteSpace(creatorEmail))
+                        ccEmails.Add(creatorEmail);
                 }
 
-                // Receiver names (used in template)
+                // Receiver names (template) should include ONLY TO users (approvers or applicant)
                 var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
 
                 int levelNumberForNotification = nextLevelNumber ?? 0;
-                var creator = (await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee })).FirstOrDefault();
-                var creatorEmail = creator != null && creator.ContainsKey("Email") ? creator["Email"] : null;
-                // ✅ Choose template entity code (NEW RULE)
+
+                // Template entity code
                 string leaveEntityCodeForNotification;
                 string approvalWorkflowHtml = "";
-                if (finalStatus == "REJECTED")
+
+                if (isRejected)
                 {
-                    leaveEntityCodeForNotification = "LEAVE"; // Rejected template
+                    leaveEntityCodeForNotification = "LEAVE";
                 }
                 else if (nextLevelNumber == 99)
                 {
-                    leaveEntityCodeForNotification = "LEAVE_FINALAPPROVAL"; // Final approved template
+                    leaveEntityCodeForNotification = "LEAVE_FINALAPPROVAL";
                 }
                 else
                 {
-                    leaveEntityCodeForNotification = "LEAVE_MULTILEVEL"; // Pending/multilevel template
+                    leaveEntityCodeForNotification = "LEAVE_MULTILEVEL";
                     approvalWorkflowHtml = BuildApprovalWorkflowHtml(leaveApp.LeaveApprovalDetails);
                 }
 
@@ -733,8 +752,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     levelNumberForNotification,
                     senderName,
                     receiverNames,
-                    rejectReason: finalStatus == "REJECTED" ? rejectReason : null,
-                    employeeName: CreatorNames,              // better: pass actual employee name if you have it
+                    rejectReason: isRejected ? rejectReason : null,
+                    employeeName: creatorName,
                     leaveType: leaveApp.LeaveTypeName,
                     fromDate: leaveApp.FromDate,
                     toDate: leaveApp.ToDate,
@@ -745,37 +764,47 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (notificationConfig == null) return;
 
+                // ✅ SEND ONE EMAIL
+                if (toEmails.Any())
+                {
+                    await EmailService.SendMailWithCcToMany(
+                        toEmails,
+                        ccEmails.Any() ? ccEmails : null,
+                        notificationConfig.EmailSubject,
+                        notificationConfig.EmailContent
+                    );
+                }
+
+                // ✅ MULTIPLE APP NOTIFICATIONS (TO users)
                 foreach (var emp in employees)
                 {
-                    var toEmail = emp["Email"];
-                    if (!string.IsNullOrWhiteSpace(toEmail))
-                        EmailService.SendMail(toEmail, notificationConfig.EmailSubject, notificationConfig.EmailContent);
+                    var toEmail = emp.ContainsKey("Email") ? emp["Email"] : null;
+                    if (string.IsNullOrWhiteSpace(toEmail)) continue;
 
                     var employeeDetails = await _dbContext.Employees.FirstOrDefaultAsync(x => x.EmailID == toEmail);
-                    if (employeeDetails != null)
-                    {
-                        await _dbContext.Notifications.AddAsync(new Notification
-                        {
-                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
-                            NotificationType = notificationConfig.NotificationType,
-                            SentByIdEmployee = loggedInEmployeeId,
-                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
-                            AppNotificationText = notificationConfig.AppNotificationText,
-                            EmailSubject = notificationConfig.EmailSubject,
-                            EmailContent = notificationConfig.EmailContent,
-                            EmailSentStatus = "SENT",
-                            IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
-                            Status = "SENT",
-                            RelatedRecordID = entityTablePrimaryKeyID,
-                            RelatedRecordType = entityCode,
-                            LogoText = notificationConfig.LogoText,
-                            NotificationLink = notificationConfig.NotificationLink
-                        });
+                    if (employeeDetails == null) continue;
 
-                        await _dbContext.SaveChangesAsync();
-                    }
+                    await _dbContext.Notifications.AddAsync(new Notification
+                    {
+                        IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                        NotificationType = notificationConfig.NotificationType,
+                        SentByIdEmployee = loggedInEmployeeId,
+                        ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                        AppNotificationText = notificationConfig.AppNotificationText,
+                        EmailSubject = notificationConfig.EmailSubject,
+                        EmailContent = notificationConfig.EmailContent,
+                        EmailSentStatus = "SENT",
+                        IsReadAppNotification = false,
+                        CreatedAt = DateTime.Now,
+                        Status = "SENT",
+                        RelatedRecordID = entityTablePrimaryKeyID,
+                        RelatedRecordType = entityCode,
+                        LogoText = notificationConfig.LogoText,
+                        NotificationLink = notificationConfig.NotificationLink
+                    });
                 }
+
+                await _dbContext.SaveChangesAsync();
             }
 
         }
@@ -816,7 +845,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 string emailContent = nConfig.EmailContent
                     .Replace("#SENDER#", SenderName)
                     .Replace("#RECEIVER#", ReceiverName)
-                    .Replace("#ApprovedBy", SenderName)
+                    .Replace("#APPROVERNAME", SenderName)
                     .Replace("#REJECTIONREASON#", rejectReason ?? "")
                     .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
                     .Replace("#ApprovalWorkflow#", approvalWorkflowText)
