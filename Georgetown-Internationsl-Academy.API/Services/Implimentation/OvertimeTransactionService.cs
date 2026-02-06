@@ -803,14 +803,20 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                         ELSE NULL
                     END AS ApprovalAuthorityName,
 
-                    -- ApprovalAuthorityEmployeeIDs
-                    CASE
-                        WHEN ex.ApprovalAuthorityType = 'REPOFFICER'
-                            THEN CONCAT(tgt.FirstName, ' ', COALESCE(tgt.MiddleName, ''), ' ', tgt.LastName)
-                        WHEN ex.ApprovalAuthorityType = 'ROLE'
-                            THEN ex.RoleApproverNames
-                        ELSE NULL
-                    END AS ApprovalAuthorityName,
+                  -- ApprovalAuthorityEmployeeIDs (return IdEmployee(s))
+CASE
+    WHEN ex.ApprovalAuthorityType = 'REPOFFICER'
+        THEN CAST(ex.RepoOfficerEmployeeId AS VARCHAR(20))
+
+    WHEN ex.ApprovalAuthorityType = 'ROLE'
+        THEN (
+            SELECT STRING_AGG(CAST(emp.IdEmployee AS VARCHAR(20)), ',')
+            FROM Employees emp
+            WHERE emp.IdDesignation = ex.ApprovalAuthorityID
+        )
+
+    ELSE NULL
+END AS ApprovalAuthorityIdEmployees,
 
                     -- ApprovalStatus (Pending or actioned-by name)
                     CASE
