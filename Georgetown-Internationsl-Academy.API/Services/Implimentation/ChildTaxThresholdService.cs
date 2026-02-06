@@ -33,7 +33,7 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
             else
             {
                 // Determine current financial year based on today's date
-                var currentDate = DateTime.UtcNow.Date;
+                var currentDate = DateTime.Now.Date;
                 var financialYear = await _dbContext.FinancialYears
                     .Where(fy => fy.FinancialYearFrom <= currentDate && fy.FinancialYearTo >= currentDate)
                     .FirstOrDefaultAsync();

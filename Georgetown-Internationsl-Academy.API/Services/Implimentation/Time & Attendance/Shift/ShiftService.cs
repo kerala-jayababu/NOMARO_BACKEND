@@ -131,44 +131,44 @@ public class ShiftService : IShiftService
     int? idDepartment = null)
     {
         var query = new StringBuilder(@"
-    SELECT 
-        e.IdEmployee,
-        CONCAT(e.FirstName, ' ', ISNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-        e.IdDesignation,
-        dsg.DesignationName,
-        e.IdDepartment,
-e.EmployeeCode,
-        dept.DepartmentName,
-        da.AttendanceDate,
-        da.RegularDayType,
-        da.IdShiftSchedule,
-        da.FirstInDateTime,
-        da.LastOutDateTime,
-        da.ExpectedInDateTime,
-        da.ExpectedOutDateTime,
-        da.TotalDurationInMinutes,
-        da.TotalDurationInHours,
-        da.ActualDurationInMinutes,
-        da.ActualDurationInHours,
-        da.ExpectedDurationInMinutes,
-        da.MinuteDifference,
-        da.AllowedTolerenceInMinutes,
-        da.DeficitHours,
-       	 CAST(FLOOR(da.TotalDurationInHours) AS VARCHAR) + ' Hrs ' + 
-		CAST(CAST((da.TotalDurationInHours - FLOOR(da.TotalDurationInHours)) * 60 AS INT) AS VARCHAR) + ' Min' AS TotalDurationHoursText,
-		CAST(FLOOR(da.ActualDurationInHours) AS VARCHAR) + ' Hrs ' + 
-		CAST(CAST((da.ActualDurationInHours - FLOOR(da.ActualDurationInHours)) * 60 AS INT) AS VARCHAR) + ' Min' AS ActualHoursText,
-        da.StatusType,
-        da.StatusDetails,
-        da.ReasonForShortTime,
-        da.TimeSheetApprovalStatus,
-        da.IdDayAttendance
-    FROM DayAttendance da
-    INNER JOIN Employees e ON da.IdEmployee = e.IdEmployee
-    INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
-    INNER JOIN Designations dsg ON e.IdDesignation = dsg.IdDesignation
-    WHERE da.AttendanceDate BETWEEN @DateFrom AND @DateTo
-");
+            SELECT 
+                e.IdEmployee,
+                CONCAT(e.FirstName, ' ', ISNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                e.IdDesignation,
+                dsg.DesignationName,
+                e.IdDepartment,
+        e.EmployeeCode,
+                dept.DepartmentName,
+                da.AttendanceDate,
+                da.RegularDayType,
+                da.IdShiftSchedule,
+                da.FirstInDateTime,
+                da.LastOutDateTime,
+                da.ExpectedInDateTime,
+                da.ExpectedOutDateTime,
+                da.TotalDurationInMinutes,
+                da.TotalDurationInHours,
+                da.ActualDurationInMinutes,
+                da.ActualDurationInHours,
+                da.ExpectedDurationInMinutes,
+                da.MinuteDifference,
+                da.AllowedTolerenceInMinutes,
+                da.DeficitHours,
+       	         CAST(FLOOR(da.TotalDurationInHours) AS VARCHAR) + ' Hrs ' + 
+		        CAST(CAST((da.TotalDurationInHours - FLOOR(da.TotalDurationInHours)) * 60 AS INT) AS VARCHAR) + ' Min' AS TotalDurationHoursText,
+		        CAST(FLOOR(da.ActualDurationInHours) AS VARCHAR) + ' Hrs ' + 
+		        CAST(CAST((da.ActualDurationInHours - FLOOR(da.ActualDurationInHours)) * 60 AS INT) AS VARCHAR) + ' Min' AS ActualHoursText,
+                da.StatusType,
+                da.StatusDetails,
+                da.ReasonForShortTime,
+                da.TimeSheetApprovalStatus,
+                da.IdDayAttendance
+            FROM DayAttendance da
+            INNER JOIN Employees e ON da.IdEmployee = e.IdEmployee
+            INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+            INNER JOIN Designations dsg ON e.IdDesignation = dsg.IdDesignation
+            WHERE da.AttendanceDate BETWEEN @DateFrom AND @DateTo
+        ");
 
         var parameters = new DynamicParameters();
         parameters.Add("DateFrom", dateFrom);
@@ -219,7 +219,7 @@ e.EmployeeCode,
             if (!records.Any())
                 return false;
 
-            var currentTime = DateTime.UtcNow;
+            var currentTime = DateTime.Now;
 
             foreach (var record in records)
             {

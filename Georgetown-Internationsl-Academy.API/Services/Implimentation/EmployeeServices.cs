@@ -400,16 +400,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<IEnumerable<EmployeeOvertimeConfigDto>> GetEmployeeOvertimeConfigsByID(int employeeId)
         {
             const string query = @"
-        SELECT 
-            eoc.IdEmployeeOvertimeConfig,
-            eoc.IdEmployee,
-            eoc.DayType,
-            eoc.StandardRate,
-            eoc.DayRate
-        FROM 
-            EmployeeOvertimeConfig eoc
-        WHERE 
-            eoc.IdEmployee = @IdEmployee;";
+                    SELECT 
+                        eoc.IdEmployeeOvertimeConfig,
+                        eoc.IdEmployee,
+                        eoc.DayType,
+                        eoc.StandardRate,
+                        eoc.DayRate
+                    FROM 
+                        EmployeeOvertimeConfig eoc
+                    WHERE 
+                        eoc.IdEmployee = @IdEmployee;";
 
             try
             {

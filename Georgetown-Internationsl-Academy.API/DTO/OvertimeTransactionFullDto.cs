@@ -5,6 +5,7 @@
         public int IdOvertimeTransaction { get; set; }
         public int IdEmployee { get; set; }
         public int IdOvertimeType { get; set; }
+        public string? DayType { get; set; }
         public DateTime StartDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public DateTime EndDate { get; set; }
@@ -22,8 +23,10 @@
         public int IdDesignation { get; set; }
         public string? Department { get; set; }
         public string? Designation { get; set; }
-
+        public int? IdSalaryMonthAccounted { get; set; }
+        public decimal? SalaryAccountedAmount { get; set; }
         public List<ApprovalCycleDto> ApprovalCycles { get; set; } = new();
+
     }
 
     public class ApprovalCycleDto
@@ -39,7 +42,7 @@
 
         // Expected approver (from WCD rule)
         public string? ApprovalAuthorityName { get; set; }
-
+        public string? ApprovalAuthorityIdEmployees { get; set; }
         // Actual action overlay (from allocations)
         public string ApprovalStatus { get; set; } = "Pending";   // you showed JB/SK/KI or Pending
         public DateTime? ActionDate { get; set; }

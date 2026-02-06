@@ -381,7 +381,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                             Amount = (decimal)detailDto.Amount,
                             AmountInUSD = 0,
                             CreatedBy = updatedBy,
-                            CreatedDate = DateTime.UtcNow
+                            CreatedDate = DateTime.Now
                         };
 
                         await _dbContext.MaternityLeaveSalaryDetail.AddAsync(newDetail);

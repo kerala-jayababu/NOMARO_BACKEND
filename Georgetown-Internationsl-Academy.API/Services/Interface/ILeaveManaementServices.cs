@@ -10,11 +10,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<LeaveTemplateDto> GetLeaveTemplateByID(int idLeaveTemplate);
         Task<bool> AddUpdateLeaveTemplate(LeaveTemplatePostDto dto, int loggedInEmployeeId);
 
-        Task<bool> SubmitLeaveTemplateForApproval(int idLeaveTemplate, int loggedInEmployeeId);
+        Task<bool> SubmitLeaveTemplateForApproval(int idLeaveTemplate,   int loggedInEmployeeId);
+        Task<bool> ApproveLeaveTemplate(int idLeaveTemplate, string approvalStatus, int loggedInEmployeeId);
 
         Task<bool> AddOrUpdateLeaveTemplateDetails(LeaveTemplateDetailsDto dto, int loggedInEmployeeId);
         Task<LeaveTemplateDetailsDto> GetLeaveTemplateDetailById(int idLeaveTemplateDetails);
-
         Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? IdYear);
         Task<EmployeeLeaveSetupDto> GetLeaveSetupOfAnEmployee(int idEmployee, int? idYear, DateTime? dateTo);
         Task<bool> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigsPostDto dto, int loggedInEmployeeId);
@@ -40,6 +40,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<MonthlyLeaveDashboardDto>> GetLeaveDashboardEmployeeMonthWise(int idEmployee, int idYear);
         Task<decimal> CalculateLeaveDaysAsync(bool IncludeHoliday, DateTime fromDate, DateTime toDate, bool isHalfDay);
         Task<bool> SubmitLeaveApplicationApproval(List<int> idChanges, string approvalStatus, string? remarks, int loggedInEmployeeId);
-
+        Task<List<LeaveApplicationDocumentDto>> GetLeaveApplicationDocuments(int idLeaveApplication);
+        Task<bool> DeleteLeaveTemplateDetail(int idLeaveTemplateDetail);
+        Task<List<EmployeeNameList>> GetEmployeesNotConfiguredLeave(int idWorkYear);
     }
 }

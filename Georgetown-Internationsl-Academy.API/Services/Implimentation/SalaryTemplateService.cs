@@ -221,7 +221,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             templateEntity.TotalEarnings = dto.TotalEarnings;
             templateEntity.NetSalary = dto.NetSalary;
             templateEntity.CreatedBy = IdEmployee;
-            templateEntity.CreatedOn = DateTime.UtcNow;
+            templateEntity.CreatedOn = DateTime.Now;
             templateEntity.ActiveStatus = dto.ActiveStatus;
             templateEntity.ApprovalStatus = "SUBMITTED";
 
@@ -292,7 +292,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             templateEntity.TotalEarnings = dto.TotalEarnings;
             templateEntity.NetSalary = dto.NetSalary;
             templateEntity.ModifiedBy = IdEmployee;
-            templateEntity.ModifiedOn = DateTime.UtcNow;
+            templateEntity.ModifiedOn = DateTime.Now;
             templateEntity.ApprovalStatus = dto.ApprovalStatus;
             templateEntity.ActiveStatus = dto.ActiveStatus;
 

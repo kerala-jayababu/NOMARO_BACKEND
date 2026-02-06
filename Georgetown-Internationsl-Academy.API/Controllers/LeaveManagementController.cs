@@ -171,6 +171,70 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpPost("DeleteLeaveTemplateDetail")]
+        public async Task<IActionResult> DeleteLeaveTemplateDetail(int idLeaveTemplateDetail)
+        {
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var screenCode = _configuration["ScreenCodes:LeaveTemplates"];
+                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "D");
+
+                if (!hasPermission)
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                var result = await _leaveService.DeleteLeaveTemplateDetail(idLeaveTemplateDetail);
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave Template Detail deleted successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpGet("GetEmployeesNotConfiguredLeave")]
+        public async Task<IActionResult> GetEmployeesNotConfiguredLeave(int idWorkYear)
+        {
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var screenCode = _configuration["ScreenCodes:LeaveTemplates"];
+                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "V");
+
+                if (!hasPermission)
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                var result = await _leaveService.GetEmployeesNotConfiguredLeave(idWorkYear);
+                return Ok(ApiResponseDto <IEnumerable<EmployeeNameList>>
+                    .CreateSuccess(result, "Leave template retrieved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpPost("SubmitLeaveTemplateForApproval")]
         public async Task<IActionResult> SubmitLeaveTemplateForApproval(int idLeaveTemplate)
         {
@@ -190,6 +254,37 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
                 var result = await _leaveService.SubmitLeaveTemplateForApproval(idLeaveTemplate, loggedInEmployeeId);
                 return Ok(ApiResponseDto<string>.CreateSuccess("Leave Template Submitted for Approval."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("ApproveLeaveTemplate")]
+        public async Task<IActionResult> ApproveLeaveTemplate(int idLeaveTemplate, string approvalStatus)
+        {
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var screenCode = _configuration["ScreenCodes:LeaveTemplates"];
+                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
+
+                if (!hasPermission)
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                var result = await _leaveService.ApproveLeaveTemplate(idLeaveTemplate, approvalStatus, loggedInEmployeeId);
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave Template Approved"));
             }
             catch (ArgumentException ex)
             {
@@ -707,5 +802,26 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         #endregion
+
+        /// <summary>
+        /// Get all documents for a leave application
+        /// </summary>
+        [HttpGet("GetLeaveApplicationDocuments/{idLeaveApplication}")]
+        public async Task<IActionResult> GetLeaveApplicationDocuments(int idLeaveApplication)
+        {
+            var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+            if (idLeaveApplication <= 0)
+                return BadRequest("Invalid Leave Application Id.");
+
+            var documents = await _leaveService.GetLeaveApplicationDocuments(idLeaveApplication);
+
+            if (documents == null || !documents.Any())
+                return NotFound("No documents found for this leave application.");
+
+            return Ok(documents);
+        }
     }
 }

@@ -16,6 +16,8 @@ using System.Text;
 using static iText.StyledXmlParser.Jsoup.Select.Evaluator;
 using static Org.BouncyCastle.Math.EC.ECCurve;
 using System.Text.Json;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using System.Data;
 
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -26,7 +28,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly ILogger<NotificationConfigService> _logger;
         private readonly IApprovalWorkflowService _approvalWorkflowService;
-
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IWebHostEnvironment _env;
 
         public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, ILogger<NotificationConfigService> logger)
         {
@@ -339,6 +342,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     headerEntity.IdYear = dto.IdYear;
                     headerEntity.UpdatedAt = DateTime.Now;
                     headerEntity.UpdatedBy = loggedInEmployeeId;
+                    headerEntity.ApprovlStatus = dto.ApprovlStatus;
                     _dbContext.LeaveTemplates.Update(headerEntity);
                     await _dbContext.SaveChangesAsync();
                 }
@@ -349,7 +353,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         LeaveTemplateName = dto.LeaveTemplateName,
                         LeaveTemplateDesc = dto.LeaveTemplateDesc,
                         IdYear = dto.IdYear,
-                        ApprovlStatus = "SUBMIITED",
+                        ApprovlStatus = dto.ApprovlStatus,
                         CreatedAt = DateTime.Now,
                         CreatedBy = loggedInEmployeeId
                     };
@@ -358,7 +362,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 }
                 await transaction.CommitAsync();
-                SubmitLeaveTemplateForApproval(headerEntity.IdLeaveTemplate, loggedInEmployeeId);
+                //await SubmitLeaveTemplateForApproval(headerEntity.IdLeaveTemplate, loggedInEmployeeId);
                 return true;
             }
             catch (Exception ex)
@@ -368,6 +372,62 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
+        public async Task<bool> DeleteLeaveTemplateDetail(int idLeaveTemplateDetail)
+        {
+            // 1. Check dependency in EmployeeLeaveConfigDetails
+            bool isUsed = _dbContext.EmployeeLeaveConfigDetails
+                .Any(x =>
+                    x.IdLeaveTemplateDetail == idLeaveTemplateDetail);
+
+            if (isUsed)
+            {
+                throw new ArgumentException(
+                    "This leave template detail is already mapped to an employee configuration and cannot be deleted."
+                );
+            }
+
+            // 2. Fetch the template detail
+            var entity = _dbContext.LeaveTemplateDetails
+                .FirstOrDefault(x => x.IdLeaveTemplateDetails == idLeaveTemplateDetail);
+
+            if (entity == null)
+                return false;
+
+            // 3. Delete
+            _dbContext.LeaveTemplateDetails.Remove(entity);
+            _dbContext.SaveChanges();
+            return true;
+        }
+
+        public async Task<List<EmployeeNameList>> GetEmployeesNotConfiguredLeave(int idWorkYear)
+        {
+            var employees = await _dbContext.Employees
+                .Where(e =>
+                    !_dbContext.EmployeeLeaveConfigs
+                        .Join(_dbContext.LeaveTemplates,
+                              elc => elc.IdLeaveTemplate,
+                              lt => lt.IdLeaveTemplate,
+                              (elc, lt) => new { elc, lt })
+                        .Any(x =>
+                            x.elc.IdEmployee == e.IdEmployee &&
+                            x.lt.IdYear == idWorkYear)
+                )
+                .Select(e => new EmployeeNameList
+                {
+                    Idemployee = e.IdEmployee.Value,
+                    EmployeeCode = e.EmployeeCode,
+                    EmployeeName =
+                        (e.FirstName ?? string.Empty) +
+                        (string.IsNullOrEmpty(e.LastName) ? string.Empty : " " + e.LastName)
+                })
+                .AsNoTracking().OrderBy(ee=>ee.EmployeeName)
+                .ToListAsync();
+
+            return employees;
+        }
+
+
 
         public async Task<bool> SubmitLeaveTemplateForApproval(int idLeaveTemplate,int loggedInEmployeeId)
         {
@@ -384,12 +444,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (template == null)
                     throw new ArgumentException("Leave template not found.");
 
-                // ✅ Allow submit only from DRAFT or REJECTED
-                if (template.ApprovlStatus == "SUBMITTED")
-                    throw new ArgumentException("Leave template is already submitted.");
-
                 if (template.ApprovlStatus == "APPROVED")
-                    throw new ArgumentException("Approved template cannot be resubmitted.");
+                    throw new ArgumentException("Approved template cannot be resubmitted/rejected.");
 
                 // ✅ Update approval status
                 template.ApprovlStatus = "SUBMITTED";
@@ -403,16 +459,52 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var entityCode = _configuration["WorkflowEntityCodes:LeaveTemplate"];
 
                 var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
-                    idLeaveTemplate,
-                    entityCode,
-                    loggedInEmployeeId,
-                    "APPROVED",
-                    null,
-                    null);
+                    idLeaveTemplate,entityCode, loggedInEmployeeId, "SUBMITTED", null,null);
 
                     // Optional strict check: rollback if workflow fails
                     if (result != "Approval workflow initiated.")
                         throw new Exception(result);
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex,
+                    "Error submitting LeaveTemplate for approval. IdLeaveTemplate={Id}",
+                    idLeaveTemplate);
+                throw;
+            }
+        }
+
+
+        public async Task<bool> ApproveLeaveTemplate(int idLeaveTemplate, string approvalStatus, int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                if (idLeaveTemplate <= 0)
+                    throw new ArgumentException("IdLeaveTemplate is required.");
+
+                var template = await _dbContext.LeaveTemplates
+                    .FirstOrDefaultAsync(x => x.IdLeaveTemplate == idLeaveTemplate);
+
+                if (template == null)
+                    throw new ArgumentException("Leave template not found.");
+
+                if (template.ApprovlStatus == "APPROVED")
+                    throw new ArgumentException("Approved template cannot be resubmitted/rejected.");
+
+                // ✅ Initiate workflow for each record
+                var entityCode = _configuration["WorkflowEntityCodes:LeaveTemplate"];
+
+                var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    idLeaveTemplate, entityCode, loggedInEmployeeId, approvalStatus, null, null);
+
+                // Optional strict check: rollback if workflow fails
+                if (result != "Approval workflow initiated.")
+                    throw new Exception(result);
                 await transaction.CommitAsync();
                 return true;
             }
@@ -803,6 +895,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
 
 
         #region EmployeeLeaveManagement
@@ -1268,7 +1361,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-
         #endregion
 
         #region LeaveApplications
@@ -1514,12 +1606,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         query = query.Where(x => x.awa.ActionStatus == null &&  
                             (x.la.ApprovalStatus != "CANCELLED" && x.la.ApprovalStatus != "REJECTED"));
                     if (approvalStatus.ToUpper() == "APPROVED")
-                        query = query.Where(x => x.awa.ActionStatus.Contains("APPROVE"));
+                        query = query.Where(x => x.awa.ActionStatus.Contains("APPROVE") &&
+                         (x.la.ApprovalStatus != "CANCELLED" && x.la.ApprovalStatus != "REJECTED"));
                     if (approvalStatus.ToUpper() == "REJECTED")
-                        query = query.Where(x => x.awa.ActionStatus.Contains("REJECTED"));
+                        query = query.Where(x => x.la.ApprovalStatus.Contains("REJECTED"));
                     if (approvalStatus.ToUpper() == "CANCELLED")
-                        query = query.Where(x => x.awa.ActionStatus.Contains("CANCELLED"));
-
+                        query = query.Where(x => x.la.ApprovalStatus.Contains("CANCELLED"));
                 }
                 if (!string.IsNullOrWhiteSpace(searchText))
                 {
@@ -1541,6 +1633,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         IdLeaveApplication = x.la.IdLeaveApplication,
                         IdEmployee = x.la.IdEmployee,
+                        EmployeeCode = x.emp.EmployeeCode,
                         IdLeaveTemplateDetail = x.la.IdLeaveTemplateDetail,
                         IdLeaveType = x.la.IdLeaveType,
                         LeaveTypeName = x.la.LeaveTypeName,
@@ -1659,11 +1752,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                if (actionStatus != "APPROVED" || actionStatus != "REJECTED")
-                    throw new ArgumentException("Invalid approval action.");
+                var snapshot = await _dbContext.LeaveApplications.FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
+                //if (snapshot.ApprovalStatus != "APPROVED" || snapshot.ApprovalStatus != "REJECTED")
+                 //   throw new ArgumentException("Invalid approval action.");
 
-                var snapshot = await _dbContext.LeaveApplications
-                    .FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
+
 
                 if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.LeaveApprovalDetails))
                     throw new InvalidOperationException("Approval details not found.");
@@ -1693,8 +1786,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     throw new InvalidOperationException("No pending approval found for this user.");
 
                 // 🔹 Update current approver
-                currentApprover.status = actionStatus;
-                currentApprover.statusDate = DateTime.UtcNow;
+                currentApprover.status = snapshot.ApprovalStatus;
+                currentApprover.statusDate = DateTime.Now;
                 currentApprover.name = empDetail.EmployeeName;
 
                 // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
@@ -1704,7 +1797,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         .Where(a => a.level > currentApprover.level && a.status == "PENDING"))
                     {
                         next.status = "NO_ACTION_REQUIRED";
-                        next.statusDate = DateTime.UtcNow;
+                        next.statusDate = DateTime.Now;
                     }
                 }
 
@@ -1826,7 +1919,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var leaveApplications = await _dbContext.LeaveApplications
                     .Where(x => idChanges.Contains(x.IdLeaveApplication))
                     .ToListAsync();
-
+                
                 if (!leaveApplications.Any())
                     return false;
                 if (remarks == null)
@@ -1973,9 +2066,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (dto.ToDate.Date < dto.FromDate.Date)
                     throw new ArgumentException("ToDate cannot be earlier than FromDate.");
-                // ✅ Leave cannot span across years
-                if (dto.FromDate.Year != dto.ToDate.Year)
-                    throw new ArgumentException("Leave FromDate and ToDate must be within the same year.");
 
                 var today = DateTime.Now.Date;
 
@@ -2140,8 +2230,34 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 //EmployeeLeaveConfigDetails empLeaveConfig = _dbContext.EmployeeLeaveConfigDetails.Where(e=>e.IdEmployeeLeaveConfig )
 
-                var idWorkYear = await _dbContext.WorkYears.Where(w => dto.FromDate >= w.WorkDateFrom && dto.FromDate <= w.WorkDateTo)
-                    .Select(w => w.IdWorkYear).FirstOrDefaultAsync();
+
+                var workYear = await _dbContext.WorkYears.Where(w => dto.FromDate >= w.WorkDateFrom && dto.FromDate <= w.WorkDateTo)
+                      .Select(w => new
+                      {
+                          w.IdWorkYear,
+                          w.WorkDateFrom,
+                          w.WorkDateTo
+                      })
+                      .FirstOrDefaultAsync();
+                if(workYear == null)
+                {
+                    throw new ArgumentException("Invalid Date Selection");
+                }
+
+                var emp = await _dbContext.Employees.Where(ee => ee.IdEmployee == dto.IdEmployee).
+                    Select(emp => new
+                    {
+                        emp.JoiningDate
+                    }).FirstOrDefaultAsync();
+
+                if(emp != null)
+                {
+                    if(dto.FromDate < emp.JoiningDate)
+                    {
+                        throw new ArgumentException("You cannot apply for leave for a date, before your Joining Date");
+                    }
+                }
+
                 if (dto.IdLeaveApplication > 0)
                 {
                     entity.IdLeaveType = dto.IdLeaveType;
@@ -2154,7 +2270,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.Reason = dto.Reason.Trim();
                     entity.ApprovalStatus = "SUBMITTED";
                     entity.IdLeaveTemplateDetail = empLeaveTypeConfig.IdLeaveTemplateDetail;
-                    entity.IdYear = idWorkYear;
+                    entity.IdYear = workYear.IdWorkYear;
                 }
                 else
                 {
@@ -2175,15 +2291,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         AppliedOn = DateTime.Now,
                         ApprovalStatus = "SUBMITTED",
                         IdLeaveTemplateDetail = empLeaveTypeConfig.IdLeaveTemplateDetail,
-                        IdYear = idWorkYear,
+                        IdYear = workYear.IdWorkYear,
                         LeaveApprovalDetails = entity.LeaveApprovalDetails
-
                     };
 
                     await _dbContext.LeaveApplications.AddAsync(entity);
                     await _dbContext.SaveChangesAsync();
                 }
-
                 await _dbContext.SaveChangesAsync();
 
                 // ✅ Save documents if provided
@@ -2232,6 +2346,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     && x.IdYear == dto.FromDate.Year
                     && (x.ApprovalStatus == "APPROVED" || x.ApprovalStatus == "SUBMITTED")
                 ).SumAsync(x => x.TotalLeaveDays);
+                if (dto.IdLeaveApplication > 0)
+                {
+                    UpdateDayAttendanceStatus(dto.IdEmployee, dto.IdLeaveApplication, dto.FromDate, dto.ToDate, "SUBMITTED");
+                }
 
                 //Update Used and Balance details in employee leave config detail
                 var empLeaveConfigDetailEntity = await _dbContext.EmployeeLeaveConfigDetails
@@ -2267,6 +2385,47 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw ex;
             }
         }
+
+        private void UpdateDayAttendanceStatus(int IdEmployee, int IdLeaveApplication, DateTime LeaveFromDate, DateTime LeaveToDate, string LeaveStatus)
+        {
+            string leaveStatusDetails;
+
+            if (LeaveStatus == "SUBMITTED" || LeaveStatus.Contains("APPROVE"))
+            {
+                leaveStatusDetails = "Authorized Absence";
+            }
+            else if (LeaveStatus == "CANCELLED" || LeaveStatus.Contains("REJECTED"))
+            {
+                leaveStatusDetails = "UnAuthorized Absence";
+            }
+            else
+            {
+                leaveStatusDetails = LeaveStatus; // fallback safety
+            }
+
+            using var con = (SqlConnection)_dbContext.Database.GetDbConnection();
+            using var cmd = new SqlCommand(@"
+                        UPDATE DayAttendance
+                        SET StatusDetails = CONCAT('Leave ', @StatusDetails),
+                            IdEmployeeLeave = @IdLeaveApplication,
+                            IsLeaveApplied = 1
+                        WHERE IdEmployee = @IdEmployee
+                          AND FirstInDateTime IS NULL
+                          AND LastOutDateTime IS NULL
+                          AND AttendanceDate BETWEEN @FromDate AND @ToDate", con);
+
+            cmd.Parameters.AddWithValue("@StatusDetails", leaveStatusDetails);
+            cmd.Parameters.AddWithValue("@IdLeaveApplication", IdLeaveApplication);
+            cmd.Parameters.AddWithValue("@IdEmployee", IdEmployee);
+            cmd.Parameters.AddWithValue("@FromDate", LeaveFromDate.Date);
+            cmd.Parameters.AddWithValue("@ToDate", LeaveToDate.Date);
+
+            if (con.State != ConnectionState.Open)
+                con.Open();
+
+            cmd.ExecuteNonQuery();
+        }
+
         private Dictionary<(int Year, int Month), int> SplitLeaveDaysByMonth(DateTime fromDate,DateTime toDate)
         {
             var result = new Dictionary<(int Year, int Month), int>();
@@ -2687,6 +2846,42 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     AppliedOn = la.AppliedOn
                 };
             return await query.ToListAsync();
+        }
+
+        public async Task<List<LeaveApplicationDocumentDto>> GetLeaveApplicationDocuments(int idLeaveApplication)
+        {
+            try
+            {
+                var records = await _dbContext.LeaveApplicationDocuments
+                .Where(d => d.IdLeaveApplication == idLeaveApplication)
+                .OrderByDescending(d => d.UploadedAt)
+                .Select(d => new
+                {
+                    d.IdLeaveApplicationDocument,
+                    d.FileType,
+                    d.FileName,
+                    d.FilePath,
+                    d.UploadedAt
+                })
+                .ToListAsync(); // 👈 materialize here
+
+                // Step 2: Process paths in memory
+                var documents = records.Select(d => new LeaveApplicationDocumentDto
+                {
+                    IdLeaveApplicationDocument = d.IdLeaveApplicationDocument,
+                    FileType = d.FileType,
+                    FileName = d.FileName,
+                    FileUrl = d.FilePath?
+                        .Replace(_env.WebRootPath, string.Empty).Replace("\\", "/"),UploadedAt = d.UploadedAt}).ToList();
+
+                return documents;
+            }
+            catch(Exception ee)
+            {
+                int pp = 0;
+                _logger.LogError(ee, "Error fetching Leave Application Documents");
+                throw new ArgumentException(ee.Message);
+            }
         }
 
         #endregion

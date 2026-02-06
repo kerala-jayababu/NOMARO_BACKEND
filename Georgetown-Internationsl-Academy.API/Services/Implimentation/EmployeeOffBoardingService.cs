@@ -1315,7 +1315,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 exitCase.ExitStatus = "COMPLETED";
                 exitCase.PendingWith = null;
                 exitCase.UpdatedBy = loggedInHRManagerId;
-                exitCase.UpdatedAt = DateTime.UtcNow;
+                exitCase.UpdatedAt = DateTime.Now;
 
                 // C️⃣ INSERT STATUS HISTORY
                 var lastOrder = await _dbContext.ExitCaseStatusHistory
@@ -1332,7 +1332,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         PendingWith = null,
                         Remarks = dto.ExitInterviewDetails,
                         CreatedBy = loggedInHRManagerId,
-                        CreatedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.Now,
                         OrderNumber = lastOrder + 1
                     });
 
@@ -1343,7 +1343,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (employee != null)
                 {
                     employee.CurrentStatus = "NotWorking";
-                    employee.LastWorkingDay = DateTime.UtcNow.Date;                    
+                    employee.LastWorkingDay = DateTime.Now.Date;                    
                 }
 
                 await _dbContext.SaveChangesAsync();

@@ -375,6 +375,18 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
         {
             try
             {
+
+                var result = await _dbContext.Employees
+                       .Where(e => e.IdEmployee == transactionDto.IdEmployee)
+                       .Select(e => e.OverTimeAllowedStatus)
+                       .FirstOrDefaultAsync();
+
+                if(result == "false")
+                {
+                    throw new ArgumentException("Overtime Transaction is not permitted for you");
+
+                }
+
                 // 🔹 Map DTO to entity
                 var transactionEntity = _mapper.Map<OvertimeTransactionEntity>(transactionDto);
 
@@ -657,161 +669,173 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
             const string entityCode = "OVERTIME";
 
             const string deptAndDesignationQuery = @"
-SELECT TOP 1
-    d.DepartmentCode,
-    des.DesignationCode
-FROM Employees e
-INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-WHERE e.IdEmployee = @EmployeeId;
-";
+            SELECT TOP 1
+                d.DepartmentCode,
+                des.DesignationCode
+            FROM Employees e
+            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE e.IdEmployee = @EmployeeId;
+            ";
 
             const string allEmployeesIdsQuery = @"SELECT IdEmployee FROM Employees;";
 
-            // ✅ Robust: avoid failing due to spaces/case mismatch
+                        // ✅ Robust: avoid failing due to spaces/case mismatch
             const string wfConfigQuery = @"
-SELECT TOP 1 IdWorkFlowConfig
-FROM WorkFlowConfig
-WHERE UPPER(LTRIM(RTRIM(EntityCode))) = UPPER(LTRIM(RTRIM(@EntityCode)));
-";
+            SELECT TOP 1 IdWorkFlowConfig
+            FROM WorkFlowConfig
+            WHERE UPPER(LTRIM(RTRIM(EntityCode))) = UPPER(LTRIM(RTRIM(@EntityCode)));
+            ";
 
-            const string overtimeQuery = @"
-SELECT 
-    ot.IdOvertimeTransaction,
-    ot.IdEmployee,
-    ot.IdOvertimeType,    
-    ot.StartDate,
-    ot.StartTime,
-    ot.EndDate,
-    ot.EndTime,
-    ot.DurationInHours,
-    ot.ReasonForOvertime,
-    ot.Attachment,
-    ot.AttachmentDescription,
-    ot.ApprovalStatus,
-    e.EmployeeCode,    
-    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-    e.IdDepartment,
-    e.IdDesignation,
-    d.DepartmentName AS Department,
-    des.DesignationName AS Designation
-FROM OvertimeTransactions ot
-INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
-INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-WHERE ot.IdEmployee IN @EmployeeIds
-ORDER BY ot.StartDate DESC;
-";
+                        const string overtimeQuery = @"
+            SELECT 
+                ot.IdOvertimeTransaction,
+                ot.IdEmployee,
+                ot.IdOvertimeType,    
+                ot.StartDate,
+                ot.StartTime,
+                ot.EndDate,
+                ot.EndTime,
+                ot.DurationInHours,
+                ot.ReasonForOvertime,
+                ot.Attachment,
+                ot.AttachmentDescription,
+                ot.ApprovalStatus,
+                e.EmployeeCode,    
+                ot.DayType,
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                e.IdDepartment,
+                e.IdDesignation,
+                d.DepartmentName AS Department,
+                ot.IdSalaryMonthAccounted,
+                ot.SalaryAccountedAmount,
+                des.DesignationName AS Designation
+            FROM OvertimeTransactions ot
+            INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
+            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE ot.IdEmployee IN @EmployeeIds
+            ORDER BY ot.StartDate ASC;
+            ";
 
             // ✅ Approvals from WCD (master) + optional overlay from AWA
             const string approvalsQuery = @"
-;WITH wcd AS (
-    SELECT
-        d.IdWorkFlowConfigDetail,
-        d.IdWorkFlowConfig,
-        d.LevelNumber,
-        d.ApprovalAuthorityType,
-        d.ApprovalAuthorityID,
-        d.ApprovalStatusName
-    FROM WorkFlowConfigDetails d
-    WHERE d.IdWorkFlowConfig = @IdWorkFlowConfig
-),
-ot AS (
-    SELECT
-        ot.IdOvertimeTransaction,
-        ot.IdEmployee,
-        e.ReportingTo,
-        e.IdDepartment
-    FROM OvertimeTransactions ot
-    INNER JOIN Employees e ON e.IdEmployee = ot.IdEmployee
-    WHERE ot.IdOvertimeTransaction IN @OvertimeIds
-),
-expected AS (
-    SELECT
-        wcd.IdWorkFlowConfigDetail,
-        ot.IdOvertimeTransaction,
-        wcd.IdWorkFlowConfig,
-        wcd.LevelNumber,
-        wcd.ApprovalAuthorityType,
-        wcd.ApprovalAuthorityID,
-        wcd.ApprovalStatusName,
+                ;WITH wcd AS (
+                    SELECT
+                        d.IdWorkFlowConfigDetail,
+                        d.IdWorkFlowConfig,
+                        d.LevelNumber,
+                        d.ApprovalAuthorityType,
+                        d.ApprovalAuthorityID,
+                        d.ApprovalStatusName
+                    FROM WorkFlowConfigDetails d
+                    WHERE d.IdWorkFlowConfig = @IdWorkFlowConfig
+                ),
+                ot AS (
+                    SELECT
+                        ot.IdOvertimeTransaction,
+                        ot.IdEmployee,
+                        e.ReportingTo,
+                        e.IdDepartment
+                    FROM OvertimeTransactions ot
+                    INNER JOIN Employees e ON e.IdEmployee = ot.IdEmployee
+                    WHERE ot.IdOvertimeTransaction IN @OvertimeIds
+                ),
+                expected AS (
+                    SELECT
+                        wcd.IdWorkFlowConfigDetail,
+                        ot.IdOvertimeTransaction,
+                        wcd.IdWorkFlowConfig,
+                        wcd.LevelNumber,
+                        wcd.ApprovalAuthorityType,
+                        wcd.ApprovalAuthorityID,
+                        wcd.ApprovalStatusName,
 
-        -- REPOFFICER -> reporting officer id
-        CASE
-            WHEN wcd.ApprovalAuthorityType = 'REPOFFICER' THEN ot.ReportingTo
-            ELSE NULL
-        END AS RepoOfficerEmployeeId,
+                        -- REPOFFICER -> reporting officer id
+                        CASE
+                            WHEN wcd.ApprovalAuthorityType = 'REPOFFICER' THEN ot.ReportingTo
+                            ELSE NULL
+                        END AS RepoOfficerEmployeeId,
 
-        -- ROLE -> all employees with designation = ApprovalAuthorityID
-        CASE
-            WHEN wcd.ApprovalAuthorityType = 'ROLE' THEN (
-                SELECT STRING_AGG(
-                    CONCAT(emp.FirstName, ' ', COALESCE(emp.MiddleName, ''), ' ', emp.LastName),
-                    ', '
+                        -- ROLE -> all employees with designation = ApprovalAuthorityID
+                        CASE
+                            WHEN wcd.ApprovalAuthorityType = 'ROLE' THEN (
+                                SELECT STRING_AGG(
+                                    CONCAT(emp.FirstName, ' ', COALESCE(emp.MiddleName, ''), ' ', emp.LastName),
+                                    ', '
+                                )
+                                FROM Employees emp
+                                WHERE emp.IdDesignation = wcd.ApprovalAuthorityID
+                            )
+                            ELSE NULL
+                        END AS RoleApproverNames
+                    FROM ot
+                    CROSS JOIN wcd
+                ),
+                awa_pick AS (
+                    SELECT
+                        awa.EntityTablePrimaryKeyID,
+                        awa.LevelNumber,
+                        awa.ActionedBy,
+                        awa.ActionDate,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY awa.EntityTablePrimaryKeyID, awa.LevelNumber
+                            ORDER BY awa.ActionDate DESC, awa.IdApprovalWorkFlow DESC
+                        ) AS rn
+                    FROM ApprovalWorkFlowAllocations awa
+                    WHERE awa.EntityTablePrimaryKeyID IN @OvertimeIds
                 )
-                FROM Employees emp
-                WHERE emp.IdDesignation = wcd.ApprovalAuthorityID
-            )
-            ELSE NULL
-        END AS RoleApproverNames
-    FROM ot
-    CROSS JOIN wcd
-),
-awa_pick AS (
-    SELECT
-        awa.EntityTablePrimaryKeyID,
-        awa.LevelNumber,
-        awa.ActionedBy,
-        awa.ActionDate,
-        ROW_NUMBER() OVER (
-            PARTITION BY awa.EntityTablePrimaryKeyID, awa.LevelNumber
-            ORDER BY awa.ActionDate DESC, awa.IdApprovalWorkFlow DESC
-        ) AS rn
-    FROM ApprovalWorkFlowAllocations awa
-    WHERE awa.EntityTablePrimaryKeyID IN @OvertimeIds
-)
-SELECT
-    ex.IdWorkFlowConfigDetail,
-    ex.IdOvertimeTransaction,
-    ex.IdWorkFlowConfig,
-    ex.LevelNumber,
-    ex.ApprovalAuthorityType,
-    ex.ApprovalAuthorityID,
-    ex.ApprovalStatusName,
+                SELECT
+                    ex.IdWorkFlowConfigDetail,
+                    ex.IdOvertimeTransaction,
+                    ex.IdWorkFlowConfig,
+                    ex.LevelNumber,
+                    ex.ApprovalAuthorityType,
+                    ex.ApprovalAuthorityID,
+                    ex.ApprovalStatusName,
 
-    -- ApprovalAuthorityName
-    CASE
-        WHEN ex.ApprovalAuthorityType = 'REPOFFICER'
-            THEN CONCAT(tgt.FirstName, ' ', COALESCE(tgt.MiddleName, ''), ' ', tgt.LastName)
-        WHEN ex.ApprovalAuthorityType = 'ROLE'
-            THEN ex.RoleApproverNames
-        ELSE NULL
-    END AS ApprovalAuthorityName,
+                    -- ApprovalAuthorityName
+                    CASE
+                        WHEN ex.ApprovalAuthorityType = 'REPOFFICER'
+                            THEN CONCAT(tgt.FirstName, ' ', COALESCE(tgt.MiddleName, ''), ' ', tgt.LastName)
+                        WHEN ex.ApprovalAuthorityType = 'ROLE'
+                            THEN ex.RoleApproverNames
+                        ELSE NULL
+                    END AS ApprovalAuthorityName,
 
-    -- ApprovalStatus (Pending or actioned-by name)
-    CASE
-        WHEN ap.ActionDate IS NULL THEN 'Pending'
-        ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
-    END AS ApprovalStatus,
+                    -- ApprovalAuthorityEmployeeIDs
+                    CASE
+                        WHEN ex.ApprovalAuthorityType = 'REPOFFICER'
+                            THEN CONCAT(tgt.FirstName, ' ', COALESCE(tgt.MiddleName, ''), ' ', tgt.LastName)
+                        WHEN ex.ApprovalAuthorityType = 'ROLE'
+                            THEN ex.RoleApproverNames
+                        ELSE NULL
+                    END AS ApprovalAuthorityName,
 
-    ap.ActionDate,
+                    -- ApprovalStatus (Pending or actioned-by name)
+                    CASE
+                        WHEN ap.ActionDate IS NULL THEN 'Pending'
+                        ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
+                    END AS ApprovalStatus,
 
-    -- ActionedBy fields
-    ap.ActionedBy AS ActionedById,
-    CASE
-        WHEN ap.ActionedBy IS NULL THEN NULL
-        ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
-    END AS ActionedByName
+                    ap.ActionDate,
 
-FROM expected ex
-LEFT JOIN awa_pick ap
-    ON ap.EntityTablePrimaryKeyID = ex.IdOvertimeTransaction
-   AND ap.LevelNumber = ex.LevelNumber
-   AND ap.rn = 1
-LEFT JOIN Employees tgt ON tgt.IdEmployee = ex.RepoOfficerEmployeeId
-LEFT JOIN Employees act ON act.IdEmployee = ap.ActionedBy
-ORDER BY ex.IdOvertimeTransaction, ex.LevelNumber;
-";
+                    -- ActionedBy fields
+                    ap.ActionedBy AS ActionedById,
+                    CASE
+                        WHEN ap.ActionedBy IS NULL THEN NULL
+                        ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
+                    END AS ActionedByName
+
+                FROM expected ex
+                LEFT JOIN awa_pick ap
+                    ON ap.EntityTablePrimaryKeyID = ex.IdOvertimeTransaction
+                   AND ap.LevelNumber = ex.LevelNumber
+                   AND ap.rn = 1
+                LEFT JOIN Employees tgt ON tgt.IdEmployee = ex.RepoOfficerEmployeeId
+                LEFT JOIN Employees act ON act.IdEmployee = ap.ActionedBy
+                ORDER BY ex.IdOvertimeTransaction, ex.LevelNumber;
+                ";
 
             using var connection = _dbContext.Database.GetDbConnection();
             if (connection.State == ConnectionState.Closed)

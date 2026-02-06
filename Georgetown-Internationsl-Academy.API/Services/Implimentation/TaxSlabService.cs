@@ -35,7 +35,7 @@ public class TaxSlabService : ITaxSlabService
             else
             {
                
-                var currentDate = DateTime.UtcNow.Date;
+                var currentDate = DateTime.Now.Date;
                 var financialYear = await _dbContext.FinancialYears
                     .Where(fy => fy.FinancialYearFrom <= currentDate && fy.FinancialYearTo >= currentDate)
                     .FirstOrDefaultAsync();
