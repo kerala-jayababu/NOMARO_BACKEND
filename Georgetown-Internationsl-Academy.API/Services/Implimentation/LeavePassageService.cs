@@ -311,45 +311,55 @@ WHERE lp.IdEmployee = @IdEmployee
         public async Task<IEnumerable<LeavePassageAmountDto>> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null)
         {
             var query = new StringBuilder(@"
-    SELECT 
-        e.IdEmployee,
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-        e.EmployeeCode,
-        e.IdDesignation,
-        des.DesignationName,
-        e.IdDepartment,
-        dept.DepartmentName,
-        e.JoiningDate,
-        e.Gender,
-        e.EmailID,
-        e.PhoneNumber1,
-        e.PhoneNumber2,
+SELECT 
+    e.IdEmployee,
+    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+    e.EmployeeCode,
+    e.IdDesignation,
+    des.DesignationName,
+    e.IdDepartment,
+    dept.DepartmentName,
+    e.JoiningDate,
+    e.Gender,
+    e.EmailID,
+    e.PhoneNumber1,
+    e.PhoneNumber2,
 
-        -- Leave Passage Amount Fields
-        lpa.IdLeavePassageAmount,
-        lpa.IdFinancialYear,
-        lpa.DateFrom,
-        lpa.DateTo,
-        lpa.LeavePassageAmount,
+    lpa.IdLeavePassageAmount,
+    lpa.IdFinancialYear,
+    lpa.DateFrom,
+    lpa.DateTo,
+    lpa.LeavePassageAmount,
 
-        -- Financial Year Fields
-        fy.FinancialYearName,
-        fy.FinancialYearFrom,
-        fy.FinancialYearTo
+    fy.FinancialYearName,
+    fy.FinancialYearFrom,
+    fy.FinancialYearTo
 
-    FROM Employees e
-    INNER JOIN Designations des 
-        ON e.IdDesignation = des.IdDesignation
-    INNER JOIN Departments dept 
-        ON e.IdDepartment = dept.IdDepartment
-    LEFT JOIN LeavePassageAmounts lpa 
-        ON e.IdEmployee = lpa.IdEmployee 
-        " + (financialYear.HasValue ? "AND lpa.IdFinancialYear = @FinancialYear" : "") + @"
-    LEFT JOIN FinancialYears fy 
-        ON lpa.IdFinancialYear = fy.IdFinancialYear
-    WHERE e.CurrentStatus = 'WORKING'
-        AND e.IdEmployee >= 1000
-    ");
+FROM Employees e
+INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+
+-- bring the selected WorkYear row (only when financialYear is provided)
+LEFT JOIN WorkYears wy
+    ON (@FinancialYear IS NOT NULL AND wy.IdWorkYear = @FinancialYear)
+
+-- FILTER LeavePassageAmounts using WorkYears date range
+LEFT JOIN LeavePassageAmounts lpa 
+    ON e.IdEmployee = lpa.IdEmployee
+    AND (@FinancialYear IS NULL OR lpa.IdFinancialYear = @FinancialYear)
+    AND (
+        @FinancialYear IS NULL
+        OR (
+            lpa.DateFrom >= wy.WorkDateFrom
+            AND lpa.DateTo   <= wy.WorkDateTo
+        )
+    )
+LEFT JOIN FinancialYears fy 
+    ON lpa.IdFinancialYear = fy.IdFinancialYear
+
+WHERE e.CurrentStatus = 'WORKING'
+  AND e.IdEmployee >= 1000
+");
 
             var parameters = new DynamicParameters();
 
