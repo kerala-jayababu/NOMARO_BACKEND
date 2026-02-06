@@ -1361,6 +1361,94 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<bool> SubmitEmployeeLeaveConfigForApproval(int IdEmployeeLeaveConfig, int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                if (IdEmployeeLeaveConfig <= 0)
+                    throw new ArgumentException("IdLeaveTemplate is required.");
+
+                var template = await _dbContext.EmployeeLeaveConfigs
+                    .FirstOrDefaultAsync(x => x.IdEmployeeLeaveConfig == IdEmployeeLeaveConfig);
+
+                if (template == null)
+                    throw new ArgumentException("Leave Config not found.");
+
+                if (template.ApprovalStatus == "APPROVED")
+                    throw new ArgumentException("Approved template cannot be resubmitted/rejected.");
+
+                // ✅ Update approval status
+                template.ApprovalStatus = "SUBMITTED";
+                template.UpdatedBy = loggedInEmployeeId;
+                template.UpdatedAt = DateTime.Now;
+
+                _dbContext.EmployeeLeaveConfigs.Update(template);
+                await _dbContext.SaveChangesAsync();
+
+                // ✅ Initiate workflow for each record
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeLeaveConfig"];
+
+                var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    IdEmployeeLeaveConfig, entityCode, loggedInEmployeeId, "SUBMITTED", null, null);
+
+                // Optional strict check: rollback if workflow fails
+                if (result != "Approval workflow initiated.")
+                    throw new Exception(result);
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex,
+                    "Error submitting LeaveTemplate for approval. IdLeaveTemplate={Id}",
+                    IdEmployeeLeaveConfig);
+                throw;
+            }
+        }
+
+
+        public async Task<bool> ApproveEmployeeLeaveConfig(int IdEmployeeLeaveConfig, string approvalStatus, int loggedInEmployeeId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                if (IdEmployeeLeaveConfig <= 0)
+                    throw new ArgumentException("IdLeaveTemplate is required.");
+
+                var template = await _dbContext.EmployeeLeaveConfigs
+                    .FirstOrDefaultAsync(x => x.IdLeaveTemplate == IdEmployeeLeaveConfig);
+
+                if (template == null)
+                    throw new ArgumentException("Leave template not found.");
+
+                if (template.ApprovalStatus == "APPROVED")
+                    throw new ArgumentException("Approved template cannot be resubmitted/rejected.");
+
+                // ✅ Initiate workflow for each record
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeLeaveConfig"];
+
+                var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    IdEmployeeLeaveConfig, entityCode, loggedInEmployeeId, approvalStatus, null, null);
+
+                // Optional strict check: rollback if workflow fails
+                if (result != "Approval workflow initiated.")
+                    throw new Exception(result);
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex,
+                    "Error submitting LeaveTemplate for approval. IdLeaveTemplate={Id}",
+                    IdEmployeeLeaveConfig);
+                throw;
+            }
+        }
         #endregion
 
         #region LeaveApplications

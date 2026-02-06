@@ -18,6 +18,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? IdYear);
         Task<EmployeeLeaveSetupDto> GetLeaveSetupOfAnEmployee(int idEmployee, int? idYear, DateTime? dateTo);
         Task<bool> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigsPostDto dto, int loggedInEmployeeId);
+        Task<bool> SubmitEmployeeLeaveConfigForApproval(int IdEmployeeLeaveConfig, int loggedInEmployeeId);
+        Task<bool> ApproveEmployeeLeaveConfig(int IdEmployeeLeaveConfig, string approvalStatus, int loggedInEmployeeId);
         Task<bool> AddUpdateEmployeeLeaveConfigDetails(EmployeeLeaveConfigDetailsPostDto dto, int loggedInEmployeeId);
         Task<PagedResultDto<LeaveApplicationListDto>> GetLeaveApplications(
             int loggedInEmployeeId,

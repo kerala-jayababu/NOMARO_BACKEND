@@ -15,5 +15,9 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public DateTime CreatedAt { get; set; }
         public int? UpdatedBy { get; set; }
         public DateTime? UpdatedAt { get; set; }
+
+        public int? IdApprovedBy { get; set; }
+
+        public string? ApprovalStatus {get;set;}
     }
 }
