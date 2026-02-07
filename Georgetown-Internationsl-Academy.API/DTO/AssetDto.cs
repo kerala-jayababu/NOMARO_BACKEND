@@ -1,13 +1,20 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Georgetown_Internationsl_Academy.API.DTO
 {
-    public class ClearanceTemplateDto
+    public class AssetDto
     {
         [Key]
-        public int IdClearanceTemplate { get; set; }
-        public string TemplateName { get; set; }
-        public string? Description { get; set; }
-        public bool IsActive { get; set; }
+        public int IdAsset { get; set; }
+        public int IdAssetType { get; set; }
+        public string? AssetSerialNumber { get; set; }
+        public string? AssetDetails { get; set; }
+        public decimal AverageCost { get; set; }
+        public string? AssetWorkingStatus { get; set; }
+        public bool IsAllocated { get; set; }
+
+        [NotMapped]
+        public string? AssetTypeName { get; set; }
     }
 }

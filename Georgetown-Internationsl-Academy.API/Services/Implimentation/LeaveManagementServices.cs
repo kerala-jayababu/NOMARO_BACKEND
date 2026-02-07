@@ -788,7 +788,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         _dbContext.WorkFlowConfigDetails.RemoveRange(existingWorkflow);
 
                     // insert new workflow
-                    int levelCount = wfDto.Count + 1;
+                    int levelCount = wfDto.Count;
                     foreach(var wfd in  wfDto)
                     {
                         if(wfd.LevelNumber < levelCount)
@@ -2382,7 +2382,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 .Where(x =>
                     x.IdEmployee == dto.IdEmployee
                     && x.IdLeaveType == dto.IdLeaveType
-                    && x.IdYear == dto.FromDate.Year
+                    && x.IdYear == workYear.IdWorkYear
                     && (x.ApprovalStatus == "APPROVED" || x.ApprovalStatus == "SUBMITTED")
                 ).SumAsync(x => x.TotalLeaveDays);
                 if (dto.IdLeaveApplication > 0)

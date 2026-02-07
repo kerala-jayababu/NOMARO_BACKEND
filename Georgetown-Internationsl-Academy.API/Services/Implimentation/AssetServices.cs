@@ -89,15 +89,46 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         #region Assets
 
-        public async Task<IEnumerable<AssetDto>> GetAssets()
+        public async Task<IEnumerable<AssetDto>> GetAssets(string? searchText)
         {
             try
             {
-                var assets = await _dbContext.Assets
-                    .OrderBy(a => a.AssetSerialNumber)
+                var query =
+                    from a in _dbContext.Assets
+                    join at in _dbContext.AssetTypes
+                        on a.IdAssetType equals at.IdAssetType
+                    select new { a, at };
+
+                if (!string.IsNullOrWhiteSpace(searchText))
+                {
+                    query = query.Where(x =>
+                        (x.a.AssetSerialNumber != null &&
+                         x.a.AssetSerialNumber.Contains(searchText)) ||
+
+                        (x.a.AssetDetails != null &&
+                         x.a.AssetDetails.Contains(searchText)) ||
+
+                        (x.at.AssetTypeName != null &&
+                         x.at.AssetTypeName.Contains(searchText))
+                    );
+                }
+
+                var assets = await query
+                    .OrderBy(x => x.a.AssetSerialNumber)
+                    .Select(x => new AssetDto
+                    {
+                        IdAsset = x.a.IdAsset,
+                        AssetSerialNumber = x.a.AssetSerialNumber,
+                        AssetDetails = x.a.AssetDetails,
+                        IdAssetType = x.a.IdAssetType,
+                        AssetTypeName = x.at.AssetTypeName,
+                        AssetWorkingStatus = x.a.AssetWorkingStatus,
+                        AverageCost = x.a.AverageCost
+                    })
+                    .AsNoTracking()
                     .ToListAsync();
 
-                return _mapper.Map<IEnumerable<AssetDto>>(assets);
+                return assets;
             }
             catch (Exception ex)
             {
@@ -105,6 +136,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
 
         public async Task<bool> AddOrUpdateAssets(List<AssetDto> assetDtos)
         {

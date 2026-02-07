@@ -42,6 +42,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             try
             {
+                string holidType = new string(holidayDetail.HolidayType.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpper();
+
                 if (holidayDetail.IdHoliday > 0)
                 {
                     var holidayDet = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.IdHoliday == holidayDetail.IdHoliday);
@@ -49,7 +51,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         holidayDet.HolidayDate = holidayDetail.HolidayDate;
                         holidayDet.HolidayDescription = holidayDetail.HolidayDescription;
-                        holidayDet.HolidayType = holidayDetail.HolidayType;
+                        holidayDet.HolidayType = holidType;
 
                         _dbContext.Holidays.Update(holidayDet);
                         await _dbContext.SaveChangesAsync();
@@ -61,7 +63,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         HolidayDate = holidayDetail.HolidayDate,
                         HolidayDescription = holidayDetail.HolidayDescription,
-                        HolidayType = holidayDetail.HolidayType
+                        HolidayType = holidType
                     };
                     _dbContext.Holidays.Add(holidayDet);
                     await _dbContext.SaveChangesAsync();

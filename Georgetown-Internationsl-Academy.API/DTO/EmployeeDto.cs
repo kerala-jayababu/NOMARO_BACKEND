@@ -36,6 +36,14 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? IdBudgetCode { get; set; }
         public int? ChildrenCount { get; set; }
         public string? OverTimeAllowedStatus { get; set; }
+        public string? Nationality { get; set; }
+        public string? HomeEmail { get; set; }
+        public string? MaritalStatus { get; set; }
+        public string? EmergencyContactPersonName { get; set; }
+        public string? EmergencyContactNumbers { get; set; }
+        public string? PassportNumber { get; set; }
+        public DateTime? WorkExpirationDate { get; set; }         
+        public string? CitizenShip { get; set; }
 
     }
 

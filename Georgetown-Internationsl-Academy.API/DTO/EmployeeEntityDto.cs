@@ -32,6 +32,15 @@
         public string? EmployeePhotoFilePath { get; set; }
         public string? ChildCountDocumentFilePath { get; set; }
         public string? OverTimeAllowedStatus { get; set; }
+        public string? Nationality { get; set; }
+        public string? HomeEmail { get; set; }
+        public string? MaritalStatus { get; set; }
+        public string? EmergencyContactPersonName { get; set; }
+        public string? EmergencyContactNumbers { get; set; }
+        public string? PassportNumber { get; set; }
+        public DateTime? WorkExpirationDate { get; set; }
+        public string? CitizenShip { get; set; }
+
 
         // File Upload
         public IFormFile? EmployeePhoto { get; set; }

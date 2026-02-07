@@ -105,11 +105,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         #region Assets
 
         [HttpGet("GetAssets")]
-        public async Task<IActionResult> GetAssets()
+        public async Task<IActionResult> GetAssets(string? searchText)
         {
             try
             {
-                var assets = await _assetService.GetAssets();
+                var assets = await _assetService.GetAssets(searchText);
 
                 if (!assets.Any())
                 {

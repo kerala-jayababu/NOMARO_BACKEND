@@ -7,7 +7,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<AssetTypeDto>> GetAssetTypes();
         Task<bool> AddOrUpdateAssetTypes(List<AssetTypeDto> assetTypeDtos);
 
-        Task<IEnumerable<AssetDto>> GetAssets();
+        Task<IEnumerable<AssetDto>> GetAssets(string? searchText);
         Task<bool> AddOrUpdateAssets(List<AssetDto> assetDtos);
     }
 }

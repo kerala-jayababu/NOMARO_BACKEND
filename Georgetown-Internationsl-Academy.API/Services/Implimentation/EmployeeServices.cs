@@ -1151,6 +1151,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 employee.CurrentStatus = dto.CurrentStatus;
                 employee.OverTimeAllowedStatus = dto.OverTimeAllowedStatus;
                 employee.EmployeeWorkType = dto.EmployeeWorkType;
+                employee.Nationality = dto.Nationality;
+                employee.HomeEmail = dto.HomeEmail;
+                employee.MaritalStatus = dto.MaritalStatus;
+                employee.EmergencyContactPersonName = dto.EmergencyContactPersonName;
+                employee.EmergencyContactNumbers = dto.EmergencyContactNumbers;
+                employee.PassportNumber = dto.PassportNumber;
+                employee.WorkExpirationDate = dto.WorkExpirationDate;
+                employee.CitizenShip = dto.EmployeeWorkType;
+
 
                 // Handle photo upload (if new photo provided)
                 if (dto.EmployeePhoto != null)
