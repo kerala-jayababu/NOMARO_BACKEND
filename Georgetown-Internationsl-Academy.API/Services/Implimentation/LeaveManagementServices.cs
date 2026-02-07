@@ -1836,111 +1836,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return approverJson;
         }
 
-        public async Task<bool> UpdateApproverStatus(int idLeaveApplication, string actionStatus, int loggedInEmployeeId)
-        {
-            try
-            {
-                var snapshot = await _dbContext.LeaveApplications.FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
-
-                if (snapshot == null)
-                {
-                    _logger.LogWarning("Leave application not found: {IdLeaveApplication}", idLeaveApplication);
-                    throw new InvalidOperationException("Leave application not found.");
-                }
-
-                if (string.IsNullOrWhiteSpace(snapshot.LeaveApprovalDetails))
-                {
-                    _logger.LogWarning("No approval details found for: {IdLeaveApplication}", idLeaveApplication);
-                    throw new InvalidOperationException("Approval details not found.");
-                }
-
-                List<LeaveApprovalDetailsDto>? approvers = null;
-                try
-                {
-                    approvers = JsonSerializer.Deserialize<List<LeaveApprovalDetailsDto>>(
-                        snapshot.LeaveApprovalDetails);
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogError(ex, "Error deserializing approval details for: {IdLeaveApplication}", idLeaveApplication);
-                    throw new InvalidOperationException("Invalid approver data format.", ex);
-                }
-
-                if (approvers == null || !approvers.Any())
-                {
-                    _logger.LogWarning("No approvers found for: {IdLeaveApplication}", idLeaveApplication);
-                    throw new InvalidOperationException("Invalid approver data.");
-                }
-
-                var empDetail = await
-                           (from emp in _dbContext.Employees
-                                join desig in _dbContext.Designations
-                                on emp.IdDesignation equals desig.IdDesignation
-                            where emp.IdEmployee == loggedInEmployeeId
-                            select new 
-                            {
-                                desig.DesignationName,
-                                EmployeeName = ((emp.FirstName ?? "") + " " + (emp.LastName ?? "")).Trim(),
-                            }).AsNoTracking().FirstOrDefaultAsync();
-
-                if (empDetail == null)
-                {
-                    _logger.LogWarning("Employee not found: {LoggedInEmployeeId}", loggedInEmployeeId);
-                    throw new InvalidOperationException("Employee details not found.");
-                }
-
-                // 🔹 Find current approver (must be pending)
-                var currentApprover = approvers
-                    .FirstOrDefault(a => a != null && a.status == "PENDING");
-
-                if (currentApprover == null)
-                {
-                    _logger.LogWarning("No pending approval found for: {IdLeaveApplication}", idLeaveApplication);
-                    throw new InvalidOperationException("No pending approval found for this user.");
-                }
-
-                // 🔹 Update current approver
-                currentApprover.status = snapshot.ApprovalStatus ?? "PENDING";
-                currentApprover.statusDate = DateTime.Now;
-                currentApprover.name = empDetail?.EmployeeName ?? "Unknown";
-
-                // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
-                if (!string.IsNullOrWhiteSpace(actionStatus) && actionStatus == "REJECTED")
-                {
-                    foreach (var next in approvers
-                        .Where(a => a != null && a.level > currentApprover.level && a.status == "PENDING"))
-                    {
-                        next.status = "NO_ACTION_REQUIRED";
-                        next.statusDate = DateTime.Now;
-                    }
-                }
-
-                try
-                {
-                    snapshot.LeaveApprovalDetails = JsonSerializer.Serialize(
-                        approvers,
-                        new JsonSerializerOptions
-                        {
-                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                        });
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogError(ex, "Error serializing approver details for: {IdLeaveApplication}", idLeaveApplication);
-                    throw new InvalidOperationException("Failed to serialize approval data.", ex);
-                }
-
-                await _dbContext.SaveChangesAsync();
-
-                _logger.LogInformation("Successfully updated approver status for: {IdLeaveApplication}", idLeaveApplication);
-                return true;
-            }
-            catch(Exception ee)
-            {
-                _logger.LogError(ee, "Error updating approver status for Leave Application: {IdLeaveApplication}", idLeaveApplication);
-                return false;
-            }
-        }
+      
 
         /*
         public async Task<string> GetApprovalLevelDetails(int idLeaveApplication,int idLeaveTemplateDetail,int idEmployee)
@@ -2061,7 +1957,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         remarks,
                         1
                     );
-                    await UpdateApproverStatus(la.IdLeaveApplication,result,loggedInEmployeeId);
+                    //await UpdateApproverStatus(la.IdLeaveApplication,result,loggedInEmployeeId);
                 }
 
                 await _dbContext.SaveChangesAsync();

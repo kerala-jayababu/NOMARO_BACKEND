@@ -26,7 +26,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IConfiguration _configuration;
         private readonly IAccountService _accountService;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public ApprovalWorkflowService(ApplicationDBContext dbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IAccountService accountService)
+        
+        public ApprovalWorkflowService(ApplicationDBContext dbContext,  IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IAccountService accountService)
         {
             _dbContext = dbContext;
             _configuration = configuration;
@@ -658,7 +659,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var leaveApp = await _dbContext.LeaveApplications
                     .FirstOrDefaultAsync(x => x.IdLeaveApplication == entityTablePrimaryKeyID);
-
+              
                 if (leaveApp == null) return;
 
                 // update status
@@ -682,8 +683,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 // --- notifications ---
                 var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
-                bool isRejected = finalStatus == "REJECTED";
+                bool isRejected = finalStatus == "REJECTED";         
+                await UpdateApproverStatus(leaveApp.IdLeaveApplication, finalStatus, loggedInEmployeeId ?? 0);
 
+                // 3) reload to get the updated LeaveApprovalDetails before building HTML
+                await _dbContext.Entry(leaveApp).ReloadAsync();
                 // Applicant (creator)
                 var creator = (await GetEmployeesByIds(new List<int> { leaveApp.IdEmployee })).FirstOrDefault();
                 var creatorName = creator != null && creator.ContainsKey("Name") ? creator["Name"] : "";
@@ -744,6 +748,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 else
                 {
                     leaveEntityCodeForNotification = "LEAVE_MULTILEVEL";
+                  
                     approvalWorkflowHtml = BuildApprovalWorkflowHtml(leaveApp.LeaveApprovalDetails);
                 }
 
@@ -809,6 +814,103 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         }
 
+        public async Task<bool> UpdateApproverStatus(int idLeaveApplication, string actionStatus, int loggedInEmployeeId)
+        {
+            try
+            {
+                var snapshot = await _dbContext.LeaveApplications.FirstOrDefaultAsync(x => x.IdLeaveApplication == idLeaveApplication);
+
+                if (snapshot == null)
+                {
+                    throw new InvalidOperationException("Leave application not found.");
+                }
+
+                if (string.IsNullOrWhiteSpace(snapshot.LeaveApprovalDetails))
+                {
+                    throw new InvalidOperationException("Approval details not found.");
+                }
+
+                List<LeaveApprovalDetailsDto>? approvers = null;
+                try
+                {
+                    approvers = JsonSerializer.Deserialize<List<LeaveApprovalDetailsDto>>(
+                        snapshot.LeaveApprovalDetails);
+                }
+                catch (JsonException ex)
+                {
+                    throw new InvalidOperationException("Invalid approver data format.", ex);
+                }
+
+                if (approvers == null || !approvers.Any())
+                {
+                    throw new InvalidOperationException("Invalid approver data.");
+                }
+
+                var empDetail = await
+                           (from emp in _dbContext.Employees
+                            join desig in _dbContext.Designations
+                            on emp.IdDesignation equals desig.IdDesignation
+                            where emp.IdEmployee == loggedInEmployeeId
+                            select new
+                            {
+                                desig.DesignationName,
+                                EmployeeName = ((emp.FirstName ?? "") + " " + (emp.LastName ?? "")).Trim(),
+                            }).AsNoTracking().FirstOrDefaultAsync();
+
+                if (empDetail == null)
+                {
+                    throw new InvalidOperationException("Employee details not found.");
+                }
+
+                // 🔹 Find current approver (must be pending)
+                var currentApprover = approvers
+                    .FirstOrDefault(a => a != null && a.status == "PENDING");
+
+                if (currentApprover == null)
+                {
+                    throw new InvalidOperationException("No pending approval found for this user.");
+                }
+
+                // 🔹 Update current approver
+                currentApprover.status = snapshot.ApprovalStatus ?? "PENDING";
+                currentApprover.statusDate = DateTime.Now;
+                currentApprover.name = empDetail?.EmployeeName ?? "Unknown";
+
+                // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
+                if (!string.IsNullOrWhiteSpace(actionStatus) && actionStatus == "REJECTED")
+                {
+                    foreach (var next in approvers
+                        .Where(a => a != null && a.level > currentApprover.level && a.status == "PENDING"))
+                    {
+                        next.status = "NO_ACTION_REQUIRED";
+                        next.statusDate = DateTime.Now;
+                    }
+                }
+
+                try
+                {
+                    snapshot.LeaveApprovalDetails = JsonSerializer.Serialize(
+                        approvers,
+                        new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                }
+                catch (JsonException ex)
+                {
+                    throw new InvalidOperationException("Failed to serialize approval data.", ex);
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ee)
+            {
+                return false;
+            }
+        }
+
         public async Task<NotificationConfigDto> GetNotificationConfigForLevaeApplicationEntity(
       string EntityCode,
       int LevelNumber,
@@ -845,7 +947,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 string emailContent = nConfig.EmailContent
                     .Replace("#SENDER#", SenderName)
                     .Replace("#RECEIVER#", ReceiverName)
-                    .Replace("#APPROVERNAME", SenderName)
+                    .Replace("#APPROVERNAME#", SenderName)
                     .Replace("#APPROVERNAME#", SenderName)
                     .Replace("#REJECTIONREASON#", rejectReason ?? "")
                     .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
