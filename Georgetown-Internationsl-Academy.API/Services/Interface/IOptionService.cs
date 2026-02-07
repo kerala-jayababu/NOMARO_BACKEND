@@ -19,6 +19,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<WorkFlowConfig?>> GetWorkflowConfigList();
         Task<List<WorkFlowConfigDetails>> GetWorkflowConfigDetailsList(int entityId);
         Task<List<QualificationTypesDto>> GetQualificationTypes();
+        Task<List<NationalitiesDto>> GetNationalities();
         Task<IEnumerable<CountryDto>> GetCountries();
         Task<IEnumerable<DocumentTypeDto>> GetDocumentTypes();
         Task<List<EmployeeTypeDto>> GetEmployeeWorkTypes();

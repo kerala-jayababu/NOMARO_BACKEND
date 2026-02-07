@@ -108,7 +108,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             var result = await _optionService.GetQualificationTypes();
             return Ok(result);
         }
-
+        [HttpGet("GetNationalities")]
+        public async Task<IActionResult> GetNationalities()
+        {
+            var result = await _optionService.GetNationalities();
+            return Ok(result);
+        }
 
         [HttpGet("GetEmployeeLatestSalaryStructure")]
         public async Task<IActionResult> GetEmployeeLatestSalaryStructure()

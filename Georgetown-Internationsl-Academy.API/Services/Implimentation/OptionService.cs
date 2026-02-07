@@ -338,6 +338,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+        public async Task<List<NationalitiesDto>> GetNationalities()
+        {
+            try
+            {
+                var nationalities = await _dbContext.Nationalities.ToListAsync();
+
+                var result = nationalities.Select(n => new NationalitiesDto
+                {
+                    Nationality = n.Nationality
+                }).ToList();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Nationalities.");
+                throw;
+            }
+        }
 
         public async Task<List<NotificationDto>> GetEmployeeNotification(int employeeID)
         {
