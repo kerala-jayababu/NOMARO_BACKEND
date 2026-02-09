@@ -123,6 +123,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<ExitCaseStatusHistory> ExitCaseStatusHistory { get; set; }
         public DbSet<ExitCaseClearanceAssignment> ExitCaseClearanceAssignments { get; set; }
         public DbSet<ExitCaseDepartmentClearanceLine> ExitCaseDepartmentClearanceLines { get; set; }
+        public DbSet<MobileNotifications> MobileNotifications { get; set; }
 
         public DbSet<EmployeeHierarchyView> EmployeeHierarchyView { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)

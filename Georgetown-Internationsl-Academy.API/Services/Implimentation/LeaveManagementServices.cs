@@ -896,10 +896,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-
-
         #region EmployeeLeaveManagement
-        public async Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? idYear)
+        public async Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? idYear, string? ApprovalStatus)
         {
             try
             {
@@ -934,7 +932,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         x.desig.DesignationName.Contains(searchText)
                     );
                 }
-
+                if (!string.IsNullOrWhiteSpace(ApprovalStatus))
+                {
+                    query = query.Where(x => x.elc.ApprovalStatus.ToUpper() == ApprovalStatus.ToUpper());
+                }
                 // 📅 Year filter (optional)
                 if (idYear > 0)
                 {
@@ -964,8 +965,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         EmployeeName = ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
                         JoingDate = x.emp.JoiningDate ?? DateTime.MinValue,
                         DepartmentName = x.dept.DepartmentName,
-                        DesignationName = x.desig.DesignationName
-                    })
+                        DesignationName = x.desig.DesignationName,
+                        ApprovalStatus = x.elc.ApprovalStatus,
+                        IdApprovedBy = x.elc.IdApprovedBy
+                        
+                    }).OrderBy(em=>em.EmployeeName)
                     .AsNoTracking().ToListAsync();
 
                 return configs;
@@ -1716,30 +1720,33 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     query = query.Where(x => x.la.FromDate >= fromDate.Value.Date);
 
                 var data = await query
-                    .AsNoTracking()
-                    .Select(x => new LeaveApplicationListDto
-                    {
-                        IdLeaveApplication = x.la.IdLeaveApplication,
-                        IdEmployee = x.la.IdEmployee,
-                        EmployeeCode = x.emp.EmployeeCode,
-                        IdLeaveTemplateDetail = x.la.IdLeaveTemplateDetail,
-                        IdLeaveType = x.la.IdLeaveType,
-                        LeaveTypeName = x.la.LeaveTypeName,
-                        FromDate = x.la.FromDate,
-                        ToDate = x.la.ToDate,
-                        TotalLeaveDays = x.la.TotalLeaveDays,
-                        ApprovalStatus = x.la.ApprovalStatus,
-                        ApplicationStatus = x.la.ApplicationStatus ?? "",
-                        AppliedOn = x.la.AppliedOn,
-                        EmployeeName = ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
-                        DesignationName = x.desig.DesignationName,
-                        DepartmentName = x.dept.DepartmentName,
-                        Reason = x.la.Reason,
-                        ActionStatusByUser = x.awa.ActionStatus,
-                        ActionStatusDateByUser = x.awa.ActionDate,
-                        LeaveApprovalHistories = x.la.LeaveApprovalDetails
-                    })
-                    .ToListAsync();
+                          .AsNoTracking()
+                          .Select(x => new LeaveApplicationListDto
+                          {
+                              IdLeaveApplication = x.la.IdLeaveApplication,
+                              IdEmployee = x.la.IdEmployee,
+                              EmployeeCode = x.emp.EmployeeCode,
+                              IdLeaveTemplateDetail = x.la.IdLeaveTemplateDetail,
+                              IdLeaveType = x.la.IdLeaveType,
+                              LeaveTypeName = x.la.LeaveTypeName,
+                              FromDate = x.la.FromDate,
+                              ToDate = x.la.ToDate,
+                              TotalLeaveDays = x.la.TotalLeaveDays,
+                              ApprovalStatus = x.la.ApprovalStatus,
+                              ApplicationStatus = x.la.ApplicationStatus ?? "",
+                              AppliedOn = x.la.AppliedOn,
+                              EmployeeName = ((x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? "")).Trim(),
+                              DesignationName = x.desig.DesignationName,
+                              DepartmentName = x.dept.DepartmentName,
+                              Reason = x.la.Reason,
+                              ActionStatusByUser = x.awa.ActionStatus,
+                              ActionStatusDateByUser = x.awa.ActionDate,
+
+                              // ✅ EXISTS check (translated to SQL EXISTS)
+                              HasDocuments = _dbContext.LeaveApplicationDocuments
+                                  .Any(d => d.IdLeaveApplication == x.la.IdLeaveApplication)
+                          })
+                          .ToListAsync();
 
                 return data;
             }
@@ -1946,9 +1953,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     remarks = "";
                 foreach (var la in leaveApplications)
                 {
-                    //la.Reason = remarks;
                     la.ApprovedBy = loggedInEmployeeId;
-
                     var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
                         la.IdLeaveApplication,
                         "LEAVE_" + la.IdLeaveTemplateDetail,
@@ -1957,7 +1962,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         remarks,
                         1
                     );
-                    //await UpdateApproverStatus(la.IdLeaveApplication,result,loggedInEmployeeId);
                 }
 
                 await _dbContext.SaveChangesAsync();
@@ -2108,14 +2112,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var today = DateTime.Now.Date;
 
-                var empLeaveConfigDetails = await GetLeaveSetupOfAnEmployee(dto.IdEmployee,null, dto.ToDate);
-                var empLeaveTypeConfig = empLeaveConfigDetails.Details.Where(el => el.IdLeaveType == dto.IdLeaveType).FirstOrDefault();
-
+                var empLeaveConfigDetails = await GetLeaveSetupOfAnEmployee(dto.IdEmployee, null, dto.ToDate);
+                
                 if (empLeaveConfigDetails == null)
-                    throw new ArgumentException("Employee does not have an active leave setup.");
+                    throw new ArgumentException("You are not authorized to apply leave for the given date");
 
-                if (empLeaveTypeConfig == null)
-                    throw new ArgumentException("Leave type is not configured for this employee.");
+                var empLeaveTypeConfig = empLeaveConfigDetails.Details.Where(el => el.IdLeaveType == dto.IdLeaveType).FirstOrDefault();
 
                 // ✅ (4) Half-day rules
                 if (dto.IsHalfDay)
@@ -2749,94 +2751,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             // ===============================
             // STEP 1: FETCH RAW DATA (NO GROUP BY)
             // ===============================
-            var rawData = await
+            var result = await
             (
                 from ec in _dbContext.EmployeeLeaveConfigs
                 join ecd in _dbContext.EmployeeLeaveConfigDetails
                     on ec.IdEmployeeLeaveConfig equals ecd.IdEmployeeLeaveConfig
-
-                join ltd in _dbContext.LeaveTemplateDetails
-                    on ecd.IdLeaveTemplateDetail equals ltd.IdLeaveTemplateDetails
-
-                // LEFT OUTER JOIN LeaveApplications
-                join la in _dbContext.LeaveApplications
-                    on new
-                    {
-                        ec.IdEmployee,
-                        ecd.IdLeaveType,
-                        IdYear = idYear
-                    }
-                    equals new
-                    {
-                        la.IdEmployee,
-                        la.IdLeaveType,
-                        la.IdYear
-                    }
-                    into laGroup
-                from la in laGroup.DefaultIfEmpty()
-
+                join ltd in _dbContext.LeaveTemplateDetails on ecd.IdLeaveTemplateDetail equals ltd.IdLeaveTemplateDetails
                 where ec.IdEmployee == idEmployee
-                      && ec.EffectiveFrom.Year == idYear
+                      && ltd.IdYear == idYear
 
-                select new
+                select new LeaveDashboardDto
                 {
-                    ec.IdEmployee,
-                    ecd.IdLeaveType,
-                    ltd.LeaveTypeName,
-                    ecd.TotalAllocatedDays,
-                    la
+                    IdEmployee = ec.IdEmployee,
+                    IdLeaveType = ecd.IdLeaveType,
+                    LeaveTypeCode  = ltd.LeaveCode,
+                    LeaveTypeName = ltd.LeaveTypeName,
+                    TotalAllocated = ecd.TotalAllocatedDays,
+                    TotalTaken  = ecd.UsedLeaveDays,
+                    TotalApproved  = 0,
+                    TotalRejected = 0,
+                    TotalBalance = ecd.BalanceLeaveDays
                 }
             ).ToListAsync();
-
-            // ===============================
-            // STEP 2: GROUP & CALCULATE IN MEMORY
-            // ===============================
-            var result = rawData
-                .GroupBy(x => new
-                {
-                    x.IdEmployee,
-                    x.IdLeaveType,
-                    x.LeaveTypeName,
-                    x.TotalAllocatedDays
-                })
-                .Select(g => new LeaveDashboardDto
-                {
-                    IdEmployee = g.Key.IdEmployee,
-                    IdLeaveType = g.Key.IdLeaveType,
-                    LeaveTypeName = g.Key.LeaveTypeName,
-
-                    TotalAllocated = g.Key.TotalAllocatedDays,
-
-                    TotalTaken = g.Sum(x =>
-                        x.la != null ? x.la.TotalLeaveDays : 0),
-
-                    TotalApproved = g.Sum(x =>
-                        x.la != null && x.la.ApprovalStatus == "APPROVED"
-                            ? x.la.TotalLeaveDays
-                            : 0),
-
-                    TotalRejected = g.Sum(x =>
-                        x.la != null && x.la.ApprovalStatus == "REJECTED"
-                            ? x.la.TotalLeaveDays
-                            : 0),
-
-                    TotalBalance =
-                        g.Key.TotalAllocatedDays -
-                        g.Sum(x =>
-                            x.la != null &&
-                            (x.la.ApprovalStatus == "APPROVED" ||
-                             x.la.ApprovalStatus == "SUBMITTED")
-                                ? x.la.TotalLeaveDays
-                                : 0)
-                })
-                .OrderBy(x => x.IdLeaveType)
-                .ToList();
-
             return result;
         }
-
-
-
 
         public async Task<List<MonthlyLeaveDashboardDto>>GetLeaveDashboardEmployeeMonthWise(int idEmployee, int idYear)
         {
