@@ -1946,7 +1946,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     remarks = "";
                 foreach (var la in leaveApplications)
                 {
-                    la.Reason = remarks;
+                    //la.Reason = remarks;
                     la.ApprovedBy = loggedInEmployeeId;
 
                     var result = await _approvalWorkflowService.InitiateApprovalWorkflow(

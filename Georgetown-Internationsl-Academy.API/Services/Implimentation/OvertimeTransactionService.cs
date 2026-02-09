@@ -817,12 +817,7 @@ CASE
 
     ELSE NULL
 END AS ApprovalAuthorityIdEmployees,
-
-                    -- ApprovalStatus (Pending or actioned-by name)
-                    CASE
-                        WHEN ap.ActionDate IS NULL THEN 'Pending'
-                        ELSE CONCAT(act.FirstName, ' ', COALESCE(act.MiddleName, ''), ' ', act.LastName)
-                    END AS ApprovalStatus,
+                   
 
                     ap.ActionDate,
 
