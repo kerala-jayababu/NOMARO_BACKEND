@@ -778,6 +778,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                         awa.LevelNumber,
                         awa.ActionedBy,
                         awa.ActionDate,
+                 awa.ActionStatus as ApprovalStatus,  
                         ROW_NUMBER() OVER (
                             PARTITION BY awa.EntityTablePrimaryKeyID, awa.LevelNumber
                             ORDER BY awa.ActionDate DESC, awa.IdApprovalWorkFlow DESC
@@ -793,7 +794,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                     ex.ApprovalAuthorityType,
                     ex.ApprovalAuthorityID,
                     ex.ApprovalStatusName,
-
+                    ap.ApprovalStatus AS ApprovalStatus,
                     -- ApprovalAuthorityName
                     CASE
                         WHEN ex.ApprovalAuthorityType = 'REPOFFICER'
