@@ -18,7 +18,8 @@
         public DateTime CreatedAt { get; set; }
         public int? UpdatedBy { get; set; }
         public DateTime? UpdatedAt { get; set; }
-
+        public string? ApprovalStatus { get; set; }
+        public int? IdApprovedBy { get; set; }
         // Details
         public List<EmployeeLeaveSetupDetailDto> Details { get; set; } = new();
     }

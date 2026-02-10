@@ -24,9 +24,10 @@
         public string? ActionStatusByUser { get; set; }
         public DateTime? ActionStatusDateByUser { get; set; }
         public string LeaveApprovalHistories { get; set; }
+        public bool HasDocuments { get; set; }
 
     }
-    
+
     public class LeaveApprovalHistory
     {
         public int IdHistory { get; set; }

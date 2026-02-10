@@ -63,22 +63,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             ";
 
             const string hierarchyQuery = @"
-    SELECT 
-        e.IdEmployee,
-        e.EmployeeCode,
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-        e.IdDesignation,
-        des.DesignationName,
-        e.IdDepartment,
-        d.DepartmentName,
-        e.ReportingTo,
-        CONCAT(r.FirstName, ' ', COALESCE(r.MiddleName, ''), ' ', r.LastName) AS IdReportingToName
-    FROM Employees e
-    INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-    LEFT JOIN Employees r ON e.ReportingTo = r.IdEmployee
-    WHERE e.ReportingTo = @EmployeeId OR e.IdEmployee = @EmployeeId;
-";
+                SELECT 
+                    e.IdEmployee,
+                    e.EmployeeCode,
+                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                    e.IdDesignation,
+                    des.DesignationName,
+                    e.IdDepartment,
+                    d.DepartmentName,
+                    e.ReportingTo,
+                    CONCAT(r.FirstName, ' ', COALESCE(r.MiddleName, ''), ' ', r.LastName) AS IdReportingToName
+                FROM Employees e
+                INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+                INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+                LEFT JOIN Employees r ON e.ReportingTo = r.IdEmployee
+                WHERE e.ReportingTo = @EmployeeId OR e.IdEmployee = @EmployeeId;
+            ";
 
             try
             {

@@ -15,7 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
 
         Task<bool> AddOrUpdateLeaveTemplateDetails(LeaveTemplateDetailsDto dto, int loggedInEmployeeId);
         Task<LeaveTemplateDetailsDto> GetLeaveTemplateDetailById(int idLeaveTemplateDetails);
-        Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? IdYear);
+        Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? IdYear, string? ApprovalStatus);
         Task<EmployeeLeaveSetupDto> GetLeaveSetupOfAnEmployee(int idEmployee, int? idYear, DateTime? dateTo);
         Task<bool> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigsPostDto dto, int loggedInEmployeeId);
         Task<bool> SubmitEmployeeLeaveConfigForApproval(int IdEmployeeLeaveConfig, int loggedInEmployeeId);

@@ -471,12 +471,6 @@ namespace YourNamespace.Services.Implementation
         }
 
 
-
-
-
-
-
-
         public async Task<dynamic> ExportSalaryGenerationDetailsForApproved(string employeeIds, int idSalaryMonth)
         {
             if (string.IsNullOrWhiteSpace(employeeIds))

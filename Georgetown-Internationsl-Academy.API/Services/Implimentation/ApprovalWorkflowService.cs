@@ -423,7 +423,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             LogoText = notificationConfig.LogoText,
                             NotificationLink = notificationConfig.NotificationLink
                         };
-
+                        //Create Mobile Notification
+                        /*MobileNotificationPostDto mobDto = new MobileNotificationPostDto();
+                        mobDto.IdEmployee = entity.IdEmployee;
+                        mobDto.NotificationType = "OVERTIME";
+                        mobDto.EntityTablePrimaryKeyID = entity.IdOvertimeTransaction;
+                        CreateMobileNotificationForEmployee(mobDto);*/
                         await _dbContext.Notifications.AddAsync(obj);
                         await _dbContext.SaveChangesAsync();
                     }
@@ -683,8 +688,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 // --- notifications ---
                 var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
-                bool isRejected = finalStatus == "REJECTED";         
-                await UpdateApproverStatus(leaveApp.IdLeaveApplication, finalStatus, loggedInEmployeeId ?? 0);
+                bool isRejected = finalStatus == "REJECTED";       
+                if(finalStatus != "SUBMITTED")
+                await UpdateApproverStatus(leaveApp.IdLeaveApplication, finalStatus, loggedInEmployeeId ?? 0);  
 
                 // 3) reload to get the updated LeaveApprovalDetails before building HTML
                 await _dbContext.Entry(leaveApp).ReloadAsync();
@@ -1222,9 +1228,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
 
 
-
-
-
         /// <summary>
         /// Fetches target employees based on the approval authority type.
         /// </summary>
@@ -1301,5 +1304,24 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("An error occurred while fetching approval workflows. Please try again later.");
             }
         }
+
+        public async Task<bool> CreateMobileNotificationForEmployee(MobileNotificationPostDto dto)
+        {
+            var notification = new MobileNotifications
+            {
+                IdEmployee = dto.IdEmployee,
+                ViewType = "EMP",
+                NotificationType = dto.NotificationType,
+                EntityTablePrimaryKeyID = dto.EntityTablePrimaryKeyID,
+                NotificationMessage = dto.NotificationMessage,
+                CreatedDate = DateTime.UtcNow,
+                ReadStatus = false
+            };
+
+            _dbContext.MobileNotifications.Add(notification);
+            await _dbContext.SaveChangesAsync();
+            return true;
+        }
+
     }
 }

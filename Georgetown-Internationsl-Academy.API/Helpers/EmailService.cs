@@ -97,11 +97,8 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
             }
         }
 
-        public static async Task<bool> SendMailWithCcToMany(
-    IEnumerable<string> toEmails,
-    IEnumerable<string>? ccEmails,
-    string subject,
-    string htmlBody)
+        public static async Task<bool> SendMailWithCcToMany(IEnumerable<string> toEmails,
+                IEnumerable<string>? ccEmails,string subject, string htmlBody)
         {
             try
             {

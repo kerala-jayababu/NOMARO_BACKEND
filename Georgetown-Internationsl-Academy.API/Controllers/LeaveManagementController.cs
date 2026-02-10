@@ -433,13 +433,11 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
         #region EmployeeLeaveManagement
         [HttpGet("GetEmployeeLeaveSetup")]
-        public async Task<IActionResult> GetEmployeeLeaveSetup(string? searchText, int IdYear)
+        public async Task<IActionResult> GetEmployeeLeaveSetup(string? searchText, int IdYear, string? ApprovalStatus)
         {
             try
             {
-
-                var result = await _leaveService.GetEmployeesLeaveSetup(searchText, IdYear);
-
+                var result = await _leaveService.GetEmployeesLeaveSetup(searchText, IdYear, ApprovalStatus);
                 return Ok(ApiResponseDto<List<EmployeeLeaveSetupDto>>
                     .CreateSuccess(result, "Employee leave setup retrieved successfully."));
             }

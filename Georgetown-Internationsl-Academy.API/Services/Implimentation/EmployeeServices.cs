@@ -731,9 +731,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<IEnumerable<SalaryDetailsEmployeeDto>> GetSalaryDetailsEmployee(int idEmployee, int idSalaryMonthFrom, int idSalaryMonthTo)
+        public async Task<IEnumerable<SalaryDetailsEmployeeDto>> GetSalaryDetailsEmployee(
+          int idEmployee,
+          int idSalaryMonthFrom,
+          int idSalaryMonthTo)
         {
-            var query = new StringBuilder(@"
+            var sql = @"
         SELECT 
             e.IdEmployee,
             e.EmployeeCode,
@@ -749,6 +752,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.PhoneNumber2,
             e.CurrentStatus,
             e.OverTimeAllowedStatus,
+
             s.IdEmployeeSalary,
             s.SalaryMonthText AS SalaryMonthName,
             s.TotalEarnings,
@@ -758,11 +762,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         INNER JOIN Employees e ON s.IdEmployee = e.IdEmployee
         INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
         INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-        WHERE s.IdEmployee = @IdEmployee 
+        WHERE s.IdEmployee = @IdEmployee
           AND s.IdSalaryMonth BETWEEN @IdSalaryMonthFrom AND @IdSalaryMonthTo
           AND s.ApprovalStatus = 'Approved'
         ORDER BY s.IdSalaryMonth;
-    ");
+    ";
 
             var parameters = new DynamicParameters();
             parameters.Add("IdEmployee", idEmployee);
@@ -775,31 +779,27 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (connection.State == ConnectionState.Closed)
                     await connection.OpenAsync();
 
-                var data = await connection.QueryAsync<SalaryDetailsEmployeeDto, EmployeeSalariesDto, SalaryDetailsEmployeeDto>(
-                    query.ToString(),
+                var lookup = new Dictionary<int, SalaryDetailsEmployeeDto>();
+
+                await connection.QueryAsync<SalaryDetailsEmployeeDto, EmployeeSalariesDto, SalaryDetailsEmployeeDto>(
+                    sql,
                     (employee, salary) =>
                     {
-                        if (employee.EmployeeSalaries == null)
-                            employee.EmployeeSalaries = new List<EmployeeSalariesDto>();
+                        if (!lookup.TryGetValue(employee.IdEmployee, out var emp))
+                        {
+                            emp = employee;
+                            emp.EmployeeSalaries = new List<EmployeeSalariesDto>();
+                            lookup.Add(emp.IdEmployee, emp);
+                        }
 
-                        employee.EmployeeSalaries.Add(salary);
-                        return employee;
+                        emp.EmployeeSalaries!.Add(salary);
+                        return emp;
                     },
                     splitOn: "IdEmployeeSalary",
                     param: parameters
                 );
 
-                // Group by employee to avoid duplicates
-                var grouped = data
-                    .GroupBy(e => e.EmployeeCode)
-                    .Select(g =>
-                    {
-                        var emp = g.First();
-                        emp.EmployeeSalaries = g.SelectMany(e => e.EmployeeSalaries!).ToList();
-                        return emp;
-                    });
-
-                return grouped;
+                return lookup.Values;
             }
             catch (Exception ex)
             {
@@ -807,6 +807,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
 
         public async Task<OTPDto> SetOTP(string emailID)
         {
@@ -1158,8 +1159,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 employee.EmergencyContactNumbers = dto.EmergencyContactNumbers;
                 employee.PassportNumber = dto.PassportNumber;
                 employee.WorkExpirationDate = dto.WorkExpirationDate;
-                employee.CitizenShip = dto.EmployeeWorkType;
-
+                employee.CitizenShip = dto.CitizenShip;
+                employee.WhatsAppNumber = dto.WhatsAppNumber;
 
                 // Handle photo upload (if new photo provided)
                 if (dto.EmployeePhoto != null)

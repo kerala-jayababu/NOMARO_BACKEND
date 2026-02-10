@@ -5,6 +5,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO
     public class SalaryDetailsEmployeeDto
     {
         [NotMapped]
+        public int IdEmployee { get; set; }
+        [NotMapped]
         public string? EmployeeCode { get; set; }
         [NotMapped]
         public string? EmployeeName { get; set; }
