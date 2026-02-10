@@ -664,7 +664,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
 
             }
         }
-        public async Task<IEnumerable<OvertimeTransactionFullDto>> GetOvertimeTransactionsFullDetails(int EmployeeId)
+        public async Task<IEnumerable<OvertimeTransactionFullDto>> GetOvertimeTransactionsFullDetails(int EmployeeId, DateTime? dateFrom, DateTime? dateTo)
         {
             const string entityCode = "OVERTIME";
 
@@ -687,7 +687,7 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
             WHERE UPPER(LTRIM(RTRIM(EntityCode))) = UPPER(LTRIM(RTRIM(@EntityCode)));
             ";
 
-                        const string overtimeQuery = @"
+                         string overtimeQuery = @"
             SELECT 
                 ot.IdOvertimeTransaction,
                 ot.IdEmployee,
@@ -714,9 +714,20 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
             INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
             INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
             INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-            WHERE ot.IdEmployee IN @EmployeeIds
-            ORDER BY ot.StartDate ASC;
+            WHERE ot.IdEmployee IN @EmployeeIds           
             ";
+            // Dynamically apply date filters if DateFrom and DateTo are provided
+            if (dateFrom.HasValue)
+            {
+                overtimeQuery += " AND CAST(ot.CreatedOn AS DATE) >= CAST(@DateFrom AS DATE)";
+            }
+
+            if (dateTo.HasValue)
+            {
+                overtimeQuery += " AND CAST(ot.CreatedOn AS DATE) <= CAST(@DateTo AS DATE)";
+            }
+
+            overtimeQuery += " ORDER BY ot.StartDate ASC;";
 
             // ✅ Approvals from WCD (master) + optional overlay from AWA
             const string approvalsQuery = @"
@@ -870,7 +881,7 @@ END AS ApprovalAuthorityIdEmployees,
             // 3) Overtime list
             var overtimeList = (await connection.QueryAsync<OvertimeTransactionFullDto>(
                 overtimeQuery,
-                new { EmployeeIds = employeeIds }
+                new { EmployeeIds = employeeIds, DateFrom = dateFrom, DateTo = dateTo }
             )).ToList();
 
             if (!overtimeList.Any())
