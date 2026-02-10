@@ -386,6 +386,17 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                     throw new ArgumentException("Overtime Transaction is not permitted for you");
 
                 }
+                //To check whether more than 2 OT is already submitted for the same period
+                var currentOTCount = await _dbContext.OvertimeTransactions
+                    .Where(e =>
+                        e.IdEmployee == transactionDto.IdEmployee &&
+                        transactionDto.StartDate <= e.EndDate &&
+                        transactionDto.EndDate >= e.StartDate
+                    ).CountAsync();
+                if(currentOTCount >2)
+                {
+                    throw new ArgumentException("There are Overtime Transactions already submitted for these given period");
+                }
 
                 // 🔹 Map DTO to entity
                 var transactionEntity = _mapper.Map<OvertimeTransactionEntity>(transactionDto);

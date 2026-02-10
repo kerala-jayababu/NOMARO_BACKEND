@@ -1051,7 +1051,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                          CreatedAt = elc.CreatedAt,
                          UpdatedBy = elc.UpdatedBy,
                          UpdatedAt = elc.UpdatedAt,
-
+                         ApprovalStatus = elc.ApprovalStatus,
                          EmployeeName =
                              ((emp.FirstName ?? "") + " " + (emp.LastName ?? "")).Trim(),
                          JoingDate = emp.JoiningDate ?? DateTime.MinValue,
@@ -1204,6 +1204,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.EffectiveTo = dto.EffectiveTo;
                     entity.UpdatedAt = DateTime.Now;
                     entity.UpdatedBy = loggedInEmployeeId;
+                    entity.ApprovalStatus = "SUBMITTED";
                     await _dbContext.SaveChangesAsync();
 
                 }
@@ -1216,7 +1217,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         EffectiveFrom = dto.EffectiveFrom,
                         EffectiveTo = dto.EffectiveTo,
                         CreatedAt = DateTime.Now,
+                        ApprovalStatus = "SUBMITTED",
                         CreatedBy = loggedInEmployeeId
+
                     };
                     await _dbContext.EmployeeLeaveConfigs.AddAsync(entity);
                     await _dbContext.SaveChangesAsync();
@@ -1424,7 +1427,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     throw new ArgumentException("IdLeaveTemplate is required.");
 
                 var template = await _dbContext.EmployeeLeaveConfigs
-                    .FirstOrDefaultAsync(x => x.IdLeaveTemplate == IdEmployeeLeaveConfig);
+                    .FirstOrDefaultAsync(x => x.IdEmployeeLeaveConfig == IdEmployeeLeaveConfig);
 
                 if (template == null)
                     throw new ArgumentException("Leave template not found.");

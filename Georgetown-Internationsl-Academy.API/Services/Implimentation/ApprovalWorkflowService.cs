@@ -313,7 +313,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         await _dbContext.SaveChangesAsync();
                     }
                 }
-
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"])
             {
@@ -423,17 +422,24 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             LogoText = notificationConfig.LogoText,
                             NotificationLink = notificationConfig.NotificationLink
                         };
-                        //Create Mobile Notification
-                        /*MobileNotificationPostDto mobDto = new MobileNotificationPostDto();
-                        mobDto.IdEmployee = entity.IdEmployee;
-                        mobDto.NotificationType = "OVERTIME";
-                        mobDto.EntityTablePrimaryKeyID = entity.IdOvertimeTransaction;
-                        CreateMobileNotificationForEmployee(mobDto);*/
+
                         await _dbContext.Notifications.AddAsync(obj);
                         await _dbContext.SaveChangesAsync();
+
+                        //Create Mobile Notification
+                        MobileNotificationPostDto mobDto = new MobileNotificationPostDto();
+                        mobDto.IdEmployee = entity.IdEmployee;
+                        mobDto.NotificationType = "OVERTIME";
+                        mobDto.NotificationMessage = "The Overtime created by you for the day " +
+                               DateFunctions.ConvertDateToGuyanaDateFormatString(entity.StartDate) + " " +
+                               "hase been " + finalStatus;
+                        if (finalStatus != "APPROVED" && finalStatus != "REJECTED")
+                            mobDto.NotificationMessage += ". Sent for next level Approval";
+                        mobDto.EntityTablePrimaryKeyID = entity.IdOvertimeTransaction;
+                        CreateMobileNotificationForEmployee(mobDto);
+
                     }
                 }
-
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeServiceChange"])
             {
@@ -508,7 +514,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     if (notificationConfig != null)
                     {
-
                     
                     var toEmail = emp["Email"];
                     if (!string.IsNullOrWhiteSpace(toEmail))
@@ -607,8 +612,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         await _dbContext.SaveChangesAsync();
                     }
                 }
-
-              
 
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeAction"])
@@ -814,7 +817,28 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         NotificationLink = notificationConfig.NotificationLink
                     });
                 }
-
+                //Create Mobile Notification
+                MobileNotificationPostDto mobDto = new MobileNotificationPostDto();
+                mobDto.IdEmployee = leaveApp.IdEmployee;
+                if (leaveApp.FromDate.Day != leaveApp.ToDate.Day)
+                {
+                    mobDto.NotificationType = "LEAVE";
+                    mobDto.NotificationMessage = "The leave applied by you for the period" +
+                           DateFunctions.ConvertDateToGuyanaDateFormatString(leaveApp.FromDate) + " to " +
+                           DateFunctions.ConvertDateToGuyanaDateFormatString(leaveApp.ToDate) +
+                           "hase been " + finalStatus;
+                }
+                else
+                {
+                    mobDto.NotificationType = "LEAVE";
+                    mobDto.NotificationMessage = "The leave applied by you for the day" +
+                           DateFunctions.ConvertDateToGuyanaDateFormatString(leaveApp.FromDate) + 
+                           "hase been " + finalStatus;
+                }
+                if (finalStatus != "APPROVED" && finalStatus != "REJECTED")
+                    mobDto.NotificationMessage += ". Sent for next level Approval";
+                mobDto.EntityTablePrimaryKeyID = leaveApp.IdLeaveApplication;
+                CreateMobileNotificationForEmployee(mobDto);
                 await _dbContext.SaveChangesAsync();
             }
 
@@ -1024,16 +1048,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var sb = new StringBuilder();
 
                 sb.AppendLine(@"
-<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;'>
-  <thead>
-    <tr>
-      <th align='left'>Level</th>
-      <th align='left'>Approver</th>
-      <th align='left'>Status</th>
-      <th align='left'>Status Date</th>
-    </tr>
-  </thead>
-  <tbody>");
+                <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;'>
+                  <thead>
+                    <tr>
+                      <th align='left'>Level</th>
+                      <th align='left'>Approver</th>
+                      <th align='left'>Status</th>
+                      <th align='left'>Status Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>");
 
                 foreach (var r in rows)
                 {
@@ -1046,17 +1070,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         dateText = r.StatusDate.Value.ToString("dd-MM-yyyy");
 
                     sb.AppendLine($@"
-    <tr>
-      <td>{System.Net.WebUtility.HtmlEncode(levelText)}</td>
-      <td>{System.Net.WebUtility.HtmlEncode(approverText)}</td>
-      <td>{System.Net.WebUtility.HtmlEncode(statusText)}</td>
-      <td>{System.Net.WebUtility.HtmlEncode(dateText)}</td>
-    </tr>");
-                }
+                    <tr>
+                      <td>{System.Net.WebUtility.HtmlEncode(levelText)}</td>
+                      <td>{System.Net.WebUtility.HtmlEncode(approverText)}</td>
+                      <td>{System.Net.WebUtility.HtmlEncode(statusText)}</td>
+                      <td>{System.Net.WebUtility.HtmlEncode(dateText)}</td>
+                    </tr>");
+                                }
 
-                sb.AppendLine(@"
-  </tbody>
-</table>");
+                                sb.AppendLine(@"
+                  </tbody>
+                </table>");
 
                 return sb.ToString();
             }
@@ -1066,6 +1090,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return "";
             }
         }
+
 
         private class LeaveApprovalRow
         {
@@ -1314,13 +1339,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 NotificationType = dto.NotificationType,
                 EntityTablePrimaryKeyID = dto.EntityTablePrimaryKeyID,
                 NotificationMessage = dto.NotificationMessage,
-                CreatedDate = DateTime.UtcNow,
+                CreatedDate = DateTime.Now,
                 ReadStatus = false
             };
 
             _dbContext.MobileNotifications.Add(notification);
             await _dbContext.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<List<MobileNotifications>> GetMobileNotificationsForEmployee(int IdEmployee)
+        {
+            var mobNotifications = await _dbContext.MobileNotifications.
+                Where(m => m.IdEmployee == IdEmployee && m.ReadStatus == false).ToListAsync();
+            return mobNotifications;
         }
 
     }
