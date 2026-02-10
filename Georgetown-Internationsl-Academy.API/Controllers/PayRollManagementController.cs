@@ -399,7 +399,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         [HttpGet("GetOvertimeTransactionsFullDetails")]
-        public async Task<IActionResult> GetOvertimeTransactionsFullDetails()
+        public async Task<IActionResult> GetOvertimeTransactionsFullDetails([FromQuery] DateTime? dateFrom,[FromQuery] DateTime? dateTo)
         {
             try
             {
@@ -409,8 +409,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 {
                     return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
                 }
-               
-                var data = await _overtimeTransactionService.GetOvertimeTransactionsFullDetails(int.Parse(IdEmployee));
+                if (dateFrom.HasValue && dateTo.HasValue)
+                {
+                    // Strip the time part by comparing the Date only
+                    if (dateFrom.Value.Date > dateTo.Value.Date)
+                    {
+                        return BadRequest(ApiResponseDto<string>.CreateFailure("'DateFrom' cannot be later than 'DateTo'."));
+                    }
+                }
+                var data = await _overtimeTransactionService.GetOvertimeTransactionsFullDetails(int.Parse(IdEmployee), dateFrom, dateTo);
 
                 return Ok(ApiResponseDto<IEnumerable<OvertimeTransactionFullDto>>
                     .CreateSuccess(data ?? Enumerable.Empty<OvertimeTransactionFullDto>(),
