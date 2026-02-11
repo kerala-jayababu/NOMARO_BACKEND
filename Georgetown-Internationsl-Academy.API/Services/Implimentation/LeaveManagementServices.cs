@@ -2627,11 +2627,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 // Check if file exists first
                 string fullPath = filePath;
-                
+
                 // If it's a relative path, construct full path
                 if (!Path.IsPathRooted(filePath))
                 {
-                    fullPath = Path.Combine(_env?.WebRootPath ?? Directory.GetCurrentDirectory(), filePath.TrimStart('/').Replace("/", "\\"));
+                    // Ensure the file path starts from 'wwwroot' directory
+                    fullPath = Path.Combine(_env?.WebRootPath ?? Directory.GetCurrentDirectory(), "wwwroot", filePath.TrimStart('/').Replace("/", "\\"));
                 }
 
                 // Check file existence
@@ -2640,25 +2641,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     _logger.LogWarning("File not found at path: {FilePath}", fullPath);
                     return null;
                 }
-
-                // If it's already a relative path (starts with /uploads or uploads)
-                if (filePath.StartsWith("/uploads") || filePath.StartsWith("uploads"))
-                {
-                    return filePath.Replace("\\", "/").TrimStart('/');
-                }
-
-                // If it's an absolute path, convert to relative
-                if (Path.IsPathRooted(filePath))
-                {
-                    var webRootPath = _env?.WebRootPath;
-                    if (!string.IsNullOrWhiteSpace(webRootPath) && filePath.StartsWith(webRootPath))
-                    {
-                        return filePath.Substring(webRootPath.Length).Replace("\\", "/").TrimStart('/');
-                    }
-                }
-
+            
                 // Fallback: just normalize slashes
-                return filePath.Replace("\\", "/");
+                return fullPath.Replace("\\", "/");
             }
             catch (Exception ex)
             {
@@ -2912,16 +2897,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     d.UploadedAt
                 })
                 .ToListAsync(); // 👈 materialize here
+                var documents = new List<LeaveApplicationDocumentDto>();
 
-                // Step 2: Process paths in memory
-                var documents = records.Select(d => new LeaveApplicationDocumentDto
+                foreach (var record in records)
                 {
-                    IdLeaveApplicationDocument = d.IdLeaveApplicationDocument,
-                    FileType = d.FileType,
-                    FileName = d.FileName,
-                    FileUrl = ConvertPathToUrl(d.FilePath),
-                    UploadedAt = d.UploadedAt
-                }).ToList();
+                    var documentDto = new LeaveApplicationDocumentDto
+                    {
+                        IdLeaveApplicationDocument = record.IdLeaveApplicationDocument,
+                        FileType = record.FileType,
+                        FileName = record.FileName,
+                        FileUrl = ConvertPathToUrl(record.FilePath), // Convert path to URL
+                        UploadedAt = record.UploadedAt
+                    };
+
+                    // Check if the file exists and convert to binary (byte array)
+                    string filePath = documentDto.FileUrl;
+                    if (File.Exists(filePath))
+                    {
+                        documentDto.FileBinary = await File.ReadAllBytesAsync(filePath); // Converting file to binary
+                    }
+
+                    documents.Add(documentDto);
+                }
+
+              
 
                 return documents;
             }
