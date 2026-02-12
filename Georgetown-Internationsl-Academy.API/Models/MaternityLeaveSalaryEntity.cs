@@ -15,6 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public decimal? TotalEarnings { get; set; }
         public decimal? TotalDeductions { get; set; }
         public string? DocumentFilePath { get; set; }
+        public string? ApprovalStatus {  get; set; }
 
     }
 }

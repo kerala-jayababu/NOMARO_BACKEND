@@ -3,6 +3,7 @@ using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -15,13 +16,16 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
     private readonly IMapper _mapper;
     private readonly ILogger<MaternityLeaveSalaryService> _logger;
     private readonly IWebHostEnvironment _webHostEnvironment;
-
-    public MaternityLeaveSalaryService(ApplicationDBContext dbContext,  IMapper mapper, ILogger<MaternityLeaveSalaryService> logger, IWebHostEnvironment webHostEnvironment)
+    private readonly IConfiguration _configuration;
+    private readonly IApprovalWorkflowService _approvalWorkflowService;
+    public MaternityLeaveSalaryService(ApplicationDBContext dbContext,  IMapper mapper, ILogger<MaternityLeaveSalaryService> logger, IWebHostEnvironment webHostEnvironment, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
         _webHostEnvironment = webHostEnvironment;
+        _configuration = configuration;
+        _approvalWorkflowService = approvalWorkflowService;
     }
 
     public async Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries(string? searchText = null, DateTime? fromDate = null)
@@ -256,7 +260,21 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             }
 
             await _dbContext.SaveChangesAsync();
+            var entityCode = _configuration["WorkflowEntityCodes:MaternityLeaveSalary"];
 
+            //var approvalResult = await _approvalWorkflowService
+            //    .InitiateApprovalWorkflow(
+            //        (int)maternityLeaveSalary.IdMaternityLeaveSalary,
+            //        entityCode,
+            //        EmployeeId,
+            //        "SUBMITTED",
+            //        null,
+            //        null);
+
+            //if (approvalResult != "Approval workflow initiated.")
+            //{
+            //    throw new Exception(approvalResult);
+            //}
             await transaction.CommitAsync();
 
             return _mapper.Map< MaternityLeaveSalaryDto >(maternityLeaveSalary);
@@ -390,7 +408,21 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             }
 
             await _dbContext.SaveChangesAsync();
+            var entityCode = _configuration["WorkflowEntityCodes:MaternityLeaveSalary"];
 
+            //var approvalResult = await _approvalWorkflowService
+            //    .InitiateApprovalWorkflow(
+            //        (int)existingSalary.IdMaternityLeaveSalary,
+            //        entityCode,
+            //        updatedBy,
+            //        "SUBMITTED",
+            //        null,
+            //        null);
+
+            //if (approvalResult != "Approval workflow initiated.")
+            //{
+            //    throw new Exception(approvalResult);
+            //}
             await transaction.CommitAsync();
 
             // Map and return updated DTO
