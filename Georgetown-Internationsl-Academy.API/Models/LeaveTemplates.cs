@@ -35,7 +35,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         /// <summary>
         /// SUBMITTED / APPROVED / REJECTED
         /// </summary>
-        public string ApprovlStatus { get; set; } 
+        public string? ApprovlStatus { get; set; } 
 
         /// <summary>
         /// User who approved the template

@@ -427,8 +427,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return employees;
         }
 
-
-
         public async Task<bool> SubmitLeaveTemplateForApproval(int idLeaveTemplate,int loggedInEmployeeId)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
@@ -460,10 +458,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
                     idLeaveTemplate,entityCode, loggedInEmployeeId, "SUBMITTED", null,null);
-
-                    // Optional strict check: rollback if workflow fails
-                    if (result != "Approval workflow initiated.")
-                        throw new Exception(result);
                 await transaction.CommitAsync();
                 return true;
             }
@@ -502,9 +496,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
                     idLeaveTemplate, entityCode, loggedInEmployeeId, approvalStatus, null, null);
 
-                // Optional strict check: rollback if workflow fails
-                if (result != "Approval workflow initiated.")
-                    throw new Exception(result);
                 await transaction.CommitAsync();
                 return true;
             }
@@ -1399,10 +1390,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
                     IdEmployeeLeaveConfig, entityCode, loggedInEmployeeId, "SUBMITTED", null, null);
-
-                // Optional strict check: rollback if workflow fails
-                if (result != "Approval workflow initiated.")
-                    throw new Exception(result);
                 await transaction.CommitAsync();
                 return true;
             }
@@ -1440,10 +1427,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
                     IdEmployeeLeaveConfig, entityCode, loggedInEmployeeId, approvalStatus, null, null);
-
-                // Optional strict check: rollback if workflow fails
-                if (result != "Approval workflow initiated.")
-                    throw new Exception(result);
                 await transaction.CommitAsync();
                 return true;
             }

@@ -114,30 +114,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     // Step 3: Fetch overtime transactions
                     var query = new StringBuilder(@"
-SELECT 
-    ot.IdOvertimeTransaction,
-    ot.IdEmployee,
-    ot.IdOvertimeType,    
-    ot.StartDate,
-    ot.StartTime,
-    ot.EndDate,
-    ot.EndTime,
-    ot.DurationInHours,
-    ot.ReasonForOvertime,
-    ot.Attachment,
-    ot.AttachmentDescription,
-    ot.ApprovalStatus,
-    e.EmployeeCode,    
-    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-    e.IdDepartment,
-    e.IdDesignation,
-    d.DepartmentName AS Department,
-    des.DesignationName AS Designation
-FROM OvertimeTransactions ot
-INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
-INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-WHERE ot.IdEmployee IN @EmployeeIds ");
+                SELECT 
+                    ot.IdOvertimeTransaction,
+                    ot.IdEmployee,
+                    ot.IdOvertimeType,    
+                    ot.StartDate,
+                    ot.StartTime,
+                    ot.EndDate,
+                    ot.EndTime,
+                    ot.DurationInHours,
+                    ot.ReasonForOvertime,
+                    ot.Attachment,
+                    ot.AttachmentDescription,
+                    ot.ApprovalStatus,
+                    e.EmployeeCode,    
+                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                    e.IdDepartment,
+                    e.IdDesignation,
+                    d.DepartmentName AS Department,
+                    des.DesignationName AS Designation
+                FROM OvertimeTransactions ot
+                INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
+                INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+                INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+                WHERE ot.IdEmployee IN @EmployeeIds ");
 
                     var parameters = new DynamicParameters();
                     parameters.Add("EmployeeIds", employeeIds);
@@ -146,12 +146,12 @@ WHERE ot.IdEmployee IN @EmployeeIds ");
                     if (!string.IsNullOrEmpty(searchText))
                     {
                         query.Append(@"
-    AND (
-        e.EmployeeCode LIKE @SearchText 
-        OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
-        OR d.DepartmentName LIKE @SearchText
-        OR des.DesignationName LIKE @SearchText
-    ) ");
+                    AND (
+                        e.EmployeeCode LIKE @SearchText 
+                        OR CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText
+                        OR d.DepartmentName LIKE @SearchText
+                        OR des.DesignationName LIKE @SearchText
+                    ) ");
                         parameters.Add("SearchText", $"%{searchText}%");
                     }
 

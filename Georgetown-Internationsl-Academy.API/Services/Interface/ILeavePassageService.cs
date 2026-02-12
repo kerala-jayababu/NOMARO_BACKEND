@@ -11,5 +11,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<LeavePassageDto?> UpdateLeavePassage(LeavePassageDto leavePassage, int IdEmployee);
         Task<IEnumerable<LeavePassageAmountDto>> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null);
         Task<bool> SubmitLeavePassageAsync(List<LeavePassageAmountDetailsDto> leavePassages);
+
+        Task<List<WorkMonthsInYearDto>> GetCurrentWorkYearMonths();
+
     }
 }

@@ -6,6 +6,8 @@ using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using iText.Commons.Actions.Contexts;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Asn1.Esf;
+using System.Net.Mime;
 using System.Text;
 using static Georgetown_Internationsl_Academy.API.Services.Implimentation.LeavePassageService;
 
@@ -37,34 +39,34 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             var query = new StringBuilder(@"
         SELECT 
-    lp.IdLeavePassage,
-    lp.IdEmployee,
-    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-    e.EmployeeCode,
-    e.IdDesignation,
-    des.DesignationName,
-    e.IdDepartment,
-    dept.DepartmentName,
-    e.JoiningDate,
-    e.Gender,
-    e.EmailID,
-    e.PhoneNumber1,
-    e.PhoneNumber2,
-    lp.IdFinancialYear,
-	fy.FinancialYearFrom,
-	fy.FinancialYearTo,
-  lp.IdSalaryMonth,
-  smFrom.SalaryMonthText,
-  lp.Remarks,
-  lp.ApprovalStatus
-FROM LeavePassages lp
-INNER JOIN Employees e ON lp.IdEmployee = e.IdEmployee
-INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
-LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
-LEFT JOIN FinancialYears fy ON lp.IdSalaryMonth = fy.IdFinancialYear
-WHERE 1 = 1
-    ");
+                lp.IdLeavePassage,
+                lp.IdEmployee,
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                e.EmployeeCode,
+                e.IdDesignation,
+                des.DesignationName,
+                e.IdDepartment,
+                dept.DepartmentName,
+                e.JoiningDate,
+                e.Gender,
+                e.EmailID,
+                e.PhoneNumber1,
+                e.PhoneNumber2,
+                lp.IdFinancialYear,
+	            fy.FinancialYearFrom,
+	            fy.FinancialYearTo,
+              lp.IdSalaryMonth,
+              smFrom.SalaryMonthText,
+              lp.Remarks,
+              lp.ApprovalStatus
+            FROM LeavePassages lp
+            INNER JOIN Employees e ON lp.IdEmployee = e.IdEmployee
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+            LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
+            LEFT JOIN WorkYears fy ON lp.IdSalaryMonth = fy.IdWorkYear
+            WHERE 1 = 1
+                ");
 
             var parameters = new DynamicParameters();
 
@@ -156,7 +158,7 @@ INNER JOIN Employees e ON lp.IdEmployee = e.IdEmployee
 INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
 INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
 LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
-LEFT JOIN FinancialYears fy ON lp.IdSalaryMonth = fy.IdFinancialYear
+LEFT JOIN WorkYears fy ON lp.IdSalaryMonth = fy.IdWorkYear
 WHERE lp.IdEmployee = @IdEmployee
         ORDER BY e.FirstName, e.LastName;
     ");
@@ -201,8 +203,8 @@ WHERE lp.IdEmployee = @IdEmployee
         e.PhoneNumber2,
         lp.IdFinancialYear,
         lp.LeavePassageAmount,
-        fy.FinancialYearFrom,
-        fy.FinancialYearTo,
+        fy.WorkDateFrom as FinancialYearFrom,
+        fy.WorkDateTo as FinancialYearTo,
         lp.IdSalaryMonth,
         smFrom.SalaryMonthText,
         lp.Remarks,
@@ -213,7 +215,7 @@ WHERE lp.IdEmployee = @IdEmployee
     INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
     INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
     LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
-    LEFT JOIN FinancialYears fy ON lp.IdSalaryMonth = fy.IdFinancialYear
+    LEFT JOIN WorkYears fy ON lp.IdSalaryMonth = fy.IdWorkYear
  LEFT JOIN LeavePassageAmounts lpa 
      ON lp.IdEmployee = lpa.IdEmployee 
      AND lp.IdFinancialYear = lpa.IdFinancialYear
@@ -245,12 +247,21 @@ WHERE lp.IdEmployee = @IdEmployee
         {
             try
             {
+                var existingRec = await _dbContext.LeavePassages
+                    .Where(l => l.IdFinancialYear == leavePassage.IdFinancialYear && l.IdEmployee == leavePassage.IdEmployee).FirstOrDefaultAsync();
+
+                if (existingRec != null)
+                {
+                    throw new ArgumentException("Leave Passage already requested for the given year");
+                }
+
                 var leavePassageEntity = _mapper.Map<LeavePassage>(leavePassage);
 
                 leavePassageEntity.IdLeavePassage=null;
                 leavePassageEntity.ApprovalStatus = "SUBMITTED";
                 leavePassageEntity.CreatedDate = DateTime.Now;
 
+               
                 // Add record to database
                 await _dbContext.LeavePassages.AddAsync(leavePassageEntity);
                 await _dbContext.SaveChangesAsync();
@@ -270,9 +281,6 @@ WHERE lp.IdEmployee = @IdEmployee
                 return null;
             }
         }
-
-
-
 
         public async Task<LeavePassageDto?> UpdateLeavePassage(LeavePassageDto leavePassageDto, int IdEmployee)
         {
@@ -311,55 +319,53 @@ WHERE lp.IdEmployee = @IdEmployee
         public async Task<IEnumerable<LeavePassageAmountDto>> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null)
         {
             var query = new StringBuilder(@"
-SELECT 
-    e.IdEmployee,
-    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-    e.EmployeeCode,
-    e.IdDesignation,
-    des.DesignationName,
-    e.IdDepartment,
-    dept.DepartmentName,
-    e.JoiningDate,
-    e.Gender,
-    e.EmailID,
-    e.PhoneNumber1,
-    e.PhoneNumber2,
+                SELECT 
+                    e.IdEmployee,
+                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                    e.EmployeeCode,
+                    e.IdDesignation,
+                    des.DesignationName,
+                    e.IdDepartment,
+                    dept.DepartmentName,
+                    e.JoiningDate,
+                    e.Gender,
+                    e.EmailID,
+                    e.PhoneNumber1,
+                    e.PhoneNumber2,
 
-    lpa.IdLeavePassageAmount,
-    lpa.IdFinancialYear,
-    lpa.DateFrom,
-    lpa.DateTo,
-    lpa.LeavePassageAmount,
+                    lpa.IdLeavePassageAmount,
+                    lpa.IdFinancialYear,
+                    lpa.DateFrom,
+                    lpa.DateTo,
+                    lpa.LeavePassageAmount,
 
-    fy.FinancialYearName,
-    fy.FinancialYearFrom,
-    fy.FinancialYearTo
+                    fy.WorkDateFrom as FinancialYearFrom,
+                        fy.WorkDateTo as FinancialYearTo
+                FROM Employees e
+                INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+                INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
 
-FROM Employees e
-INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+                -- bring the selected WorkYear row (only when financialYear is provided)
+                LEFT JOIN WorkYears wy
+                    ON (@FinancialYear IS NOT NULL AND wy.IdWorkYear = @FinancialYear)
 
--- bring the selected WorkYear row (only when financialYear is provided)
-LEFT JOIN WorkYears wy
-    ON (@FinancialYear IS NOT NULL AND wy.IdWorkYear = @FinancialYear)
+                -- FILTER LeavePassageAmounts using WorkYears date range
+                LEFT JOIN LeavePassageAmounts lpa 
+                    ON e.IdEmployee = lpa.IdEmployee
+                    AND (@FinancialYear IS NULL OR lpa.IdFinancialYear = @FinancialYear)
+                    AND (
+                        @FinancialYear IS NULL
+                        OR (
+                            lpa.DateFrom >= wy.WorkDateFrom
+                            AND lpa.DateTo   <= wy.WorkDateTo
+                        )
+                    )
+                LEFT JOIN WorkYears fy 
+                    ON lpa.IdFinancialYear = fy.IdWorkYear
 
--- FILTER LeavePassageAmounts using WorkYears date range
-LEFT JOIN LeavePassageAmounts lpa 
-    ON e.IdEmployee = lpa.IdEmployee
-    AND (@FinancialYear IS NULL OR lpa.IdFinancialYear = @FinancialYear)
-    AND (
-        @FinancialYear IS NULL
-        OR (
-            lpa.DateFrom >= wy.WorkDateFrom
-            AND lpa.DateTo   <= wy.WorkDateTo
-        )
-    )
-LEFT JOIN FinancialYears fy 
-    ON lpa.IdFinancialYear = fy.IdFinancialYear
-
-WHERE e.CurrentStatus = 'WORKING'
-  AND e.IdEmployee >= 1000
-");
+                WHERE e.CurrentStatus = 'WORKING'
+                  AND e.IdEmployee >= 1000
+                ");
 
             var parameters = new DynamicParameters();
 
@@ -457,11 +463,52 @@ WHERE e.CurrentStatus = 'WORKING'
         }
 
 
+        public async Task<List<WorkMonthsInYearDto>> GetCurrentWorkYearMonths()
+        {
+            var today = DateTime.Today;
 
+            // Step 1: Get current work year
 
+            var workYear = await _dbContext.WorkYears.FirstOrDefaultAsync(w =>
+                    today >= w.WorkDateFrom.Value && today <= w.WorkDateTo.Value);
 
+            if (workYear == null || workYear.WorkDateFrom == null || workYear.WorkDateTo == null)
+                return new List<WorkMonthsInYearDto>();
 
+            var months = new List<WorkMonthsInYearDto>();
 
+            // Step 2: Define start and end dates properly
+            var start = new DateTime(workYear.WorkDateFrom.Value.Year, workYear.WorkDateFrom.Value.Month, 1);
+
+            var end = new DateTime(workYear.WorkDateTo.Value.Year, workYear.WorkDateTo.Value.Month, 1);
+
+            // Step 3: Get all salary months in one query (optimization)
+            var salaryMonths = await _dbContext.SalaryMonths
+                .Where(s => s.SalaryMonthDate >= start && s.SalaryMonthDate <= workYear.WorkDateTo)
+                .ToListAsync();
+
+            // Step 4: Loop month by month
+            int Order = 1;
+            while (start <= end)
+            {
+                var salaryMonth = salaryMonths
+                    .FirstOrDefault(s => s.SalaryMonthDate.Year == start.Year &&
+                                         s.SalaryMonthDate.Month == start.Month);
+
+                months.Add(new WorkMonthsInYearDto
+                {
+                    IdOrder = Order,
+                    MonthName = start.ToString("MMMM yyyy"),
+                    IdSalaryMonth = salaryMonth?.IdSalaryMonth ?? 0,
+                    IdWorkYEar = workYear.IdWorkYear
+                });
+
+                Order++;
+                start = start.AddMonths(1);
+            }
+
+            return months;
+        }
 
     }
 }

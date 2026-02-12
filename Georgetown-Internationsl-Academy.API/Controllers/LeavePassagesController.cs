@@ -238,7 +238,25 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
+        [HttpGet("GetCurrentWorkYearMonths")]
+        public async Task<IActionResult> GetCurrentWorkYearMonths()
+        {
+            try
+            {
+                var result = await _leavePassageServices.GetCurrentWorkYearMonths();
 
+                if (result == null || !result.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<WorkMonthsInYearDto>>.CreateSuccess(Enumerable.Empty<WorkMonthsInYearDto>(), "No records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<WorkMonthsInYearDto>>.CreateSuccess(result, "Months retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
         #endregion
 
 
