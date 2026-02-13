@@ -138,6 +138,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                                                   IdSalaryMonthFrom = (int)mls.IdSalaryMonthFrom,
                                                   FromSalaryMonthText = smFrom.SalaryMonthText,
                                                   IdSalaryMonthTo = (int)mls.IdSalaryMonthTo,
+                                                  ApprovalStatus = mls.ApprovalStatus,
                                                   ToSalaryMonthText = smTo.SalaryMonthText,
                                                   MaternityLeaveFrom = mls.MaternityLeaveFrom,
                                                   DocumentFilePath = mls.DocumentFilePath,
@@ -156,14 +157,17 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
 
             // Fetch Maternity Leave Salary Details
             maternityLeaveSalary.MaternityLeaveSalaryDetailDto = await (from mld in _dbContext.MaternityLeaveSalaryDetail
+                                                                        join sh in _dbContext.SalaryHeads
+                                                                        on mld.IdSalaryHead equals sh.IdSalaryHead into shJoin
+                                                                        from sh in shJoin.DefaultIfEmpty()
                                                                         where mld.IdMaternityLeaveSalary == idMaternityLeaveSalary
                                                                         select new MaternityLeaveSalaryDetailDto
                                                                         {
                                                                             IdMaternityLeaveSalary= mld.IdMaternityLeaveSalary,
                                                                             IdMaternityLeaveSalaryDetail=mld.IdMaternityLeaveSalaryDetail,
                                                                             IdSalaryHead = mld.IdSalaryHead,
-                                                                            SalaryHeadName = mld.SalaryHeadName,
-                                                                            SalaryHeadType = mld.SalaryHeadType,
+                                                                            SalaryHeadName = !string.IsNullOrEmpty(mld.SalaryHeadName) ? mld.SalaryHeadName : (sh != null ? sh.SalaryHeadName : ""),
+                                                                            SalaryHeadType = !string.IsNullOrEmpty(mld.SalaryHeadType) ? mld.SalaryHeadType : (sh != null ? sh.HeadType : ""),
                                                                             Amount = mld.Amount,
                                                                             AmountInUSD = mld.AmountInUSD,
                                                                             CreatedBy = mld.CreatedBy,
@@ -262,19 +266,19 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             await _dbContext.SaveChangesAsync();
             var entityCode = _configuration["WorkflowEntityCodes:MaternityLeaveSalary"];
 
-            //var approvalResult = await _approvalWorkflowService
-            //    .InitiateApprovalWorkflow(
-            //        (int)maternityLeaveSalary.IdMaternityLeaveSalary,
-            //        entityCode,
-            //        EmployeeId,
-            //        "SUBMITTED",
-            //        null,
-            //        null);
+            var approvalResult = await _approvalWorkflowService
+                .InitiateApprovalWorkflow(
+                    (int)maternityLeaveSalary.IdMaternityLeaveSalary,
+                    entityCode,
+                    EmployeeId,
+                    "SUBMITTED",
+                    null,
+                    null);
 
-            //if (approvalResult != "Approval workflow initiated.")
-            //{
-            //    throw new Exception(approvalResult);
-            //}
+            if (approvalResult != "Approval workflow initiated.")
+            {
+                throw new Exception(approvalResult);
+            }
             await transaction.CommitAsync();
 
             return _mapper.Map< MaternityLeaveSalaryDto >(maternityLeaveSalary);
@@ -410,19 +414,19 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             await _dbContext.SaveChangesAsync();
             var entityCode = _configuration["WorkflowEntityCodes:MaternityLeaveSalary"];
 
-            //var approvalResult = await _approvalWorkflowService
-            //    .InitiateApprovalWorkflow(
-            //        (int)existingSalary.IdMaternityLeaveSalary,
-            //        entityCode,
-            //        updatedBy,
-            //        "SUBMITTED",
-            //        null,
-            //        null);
+            var approvalResult = await _approvalWorkflowService
+                .InitiateApprovalWorkflow(
+                    (int)existingSalary.IdMaternityLeaveSalary,
+                    entityCode,
+                    updatedBy,
+                    "SUBMITTED",
+                    null,
+                    null);
 
-            //if (approvalResult != "Approval workflow initiated.")
-            //{
-            //    throw new Exception(approvalResult);
-            //}
+            if (approvalResult != "Approval workflow initiated.")
+            {
+                throw new Exception(approvalResult);
+            }
             await transaction.CommitAsync();
 
             // Map and return updated DTO

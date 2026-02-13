@@ -263,7 +263,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var entity = await _dbContext.SalaryTemplates.FindAsync(entityTablePrimaryKeyID);
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
-                if ( finalStatus == "REJECTED"|| nextLevelNumber ==99)
+                if (finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
                     targetEmployeeIdsForNextLevel = sourceIdEmployee.ToString();
                 }
@@ -318,7 +318,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var entity = await _dbContext.EmployeeSalaryConfig.FindAsync(entityTablePrimaryKeyID);
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
-                if ( finalStatus == "REJECTED" || nextLevelNumber == 99)
+                if (finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
                     targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
                 }
@@ -377,6 +377,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var entity = await _dbContext.MaternityLeaveSalaries
                     .FindAsync(entityTablePrimaryKeyID);
 
+                var entitydetails = await _dbContext.MaternityLeaveSalaryDetail.Where(x => x.IdMaternityLeaveSalary == entity.IdMaternityLeaveSalary).FirstOrDefaultAsync();
+                                  
+
+
                 var workflowConfig = await _dbContext.WorkFlowConfig
                     .Where(x => x.EntityCode == entityCode)
                     .FirstOrDefaultAsync();
@@ -384,7 +388,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // If rejected OR final level
                 if (finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
-                    //targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
+                    targetEmployeeIdsForNextLevel = entitydetails.CreatedBy.ToString();
                 }
 
                 if (entity != null)
@@ -1372,6 +1376,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             break;
                         case "LEAVEPASS":
                             notificationLink = "leave-passages";
+                            break;
+                        case "MATERNITYSAL":
+                            notificationLink = "maternity-leave-salaries";
                             break;
                         default:
                             notificationLink = "config-approvals";

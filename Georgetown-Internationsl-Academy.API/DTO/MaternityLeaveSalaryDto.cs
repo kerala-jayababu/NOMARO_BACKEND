@@ -17,6 +17,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public decimal? DefaultNetSalary { get; set; }        
         public string? FromSalaryMonthText { get; set; }
         public string? ToSalaryMonthText { get; set; }
+        public string? ApprovalStatus { get; set; }
 
         public IFormFile? File { get; set; }
         public string? DocumentFilePath { get; set; }

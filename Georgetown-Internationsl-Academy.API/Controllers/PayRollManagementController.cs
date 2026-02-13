@@ -768,6 +768,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+
         [HttpPost("AddMaternityLeaveSalary")]
         public async Task<IActionResult> AddMaternityLeaveSalary([FromForm] MaternityLeaveSalaryDto dto)
         {
