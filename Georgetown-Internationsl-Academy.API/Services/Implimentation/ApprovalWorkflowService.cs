@@ -865,7 +865,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     reason: leaveApp.Reason,
                     approvalWorkflow: approvalWorkflowHtml
                 );
-
+                notificationConfig.AppNotificationText = BuildLeaveAppNotificationText(
+                    leaveEntityCodeForNotification,
+                    creatorName,
+                    senderName,
+                    nextLevelNumber,
+                    finalStatus
+                );
                 if (notificationConfig == null) return;
 
                 // ✅ SEND ONE EMAIL
@@ -928,7 +934,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (finalStatus != "APPROVED" && finalStatus != "REJECTED")
                     mobDto.NotificationMessage += ". Sent for next level Approval";
                 mobDto.EntityTablePrimaryKeyID = leaveApp.IdLeaveApplication;
-                CreateMobileNotificationForEmployee(mobDto);
+               await CreateMobileNotificationForEmployee(mobDto);
                 await _dbContext.SaveChangesAsync();
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeLeaveConfig"])
@@ -1127,7 +1133,38 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return false;
             }
         }
+        string BuildLeaveAppNotificationText(
+            string templateEntityCode,
+            string applicantName,
+            string approverName,
+            int? nextLevelNo,
+            string finalStatus)
+        {
+            // To CREATOR (final approval / rejected)
+            if (templateEntityCode == "LEAVE_FINALAPPROVAL" || templateEntityCode == "LEAVE")
+            {
+                // You can change wording if you want; mapping matches your requirement.
+                if (finalStatus == "REJECTED")
+                    return $"Your leave request has been REJECTED.";
+                return $"Your leave request has been APPROVED.";
+            }
 
+            // To NEXT APPROVER (multi-level)
+            // Level 1: no "approved by"
+            // Level 2+: include previous approver (current actor)
+            if (templateEntityCode == "LEAVE_MULTILEVEL")
+            {
+                int lvl = nextLevelNo ?? 0;
+
+                if (lvl <= 1)
+                    return $"{applicantName} applied for a leave – Requires your Action";
+
+                return $"{applicantName} applied for a leave, which is approved by {approverName} – Requires your Action";
+            }
+
+            // fallback
+            return $"{applicantName} leave request update – Requires your Action";
+        }
         public async Task<NotificationConfigDto> GetNotificationConfigForLevaeApplicationEntity(
       string EntityCode,
       int LevelNumber,
@@ -1196,7 +1233,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Replace("#REASON#", reason ?? "");
 
                 // Notification link (you said: simple)
-                string notificationLink = "leave-applications";
+                string notificationLink = "leave-approval";
 
                 return new NotificationConfigDto
                 {
@@ -1533,7 +1570,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 ReadStatus = false
             };
             _dbContext.MobileNotifications.Add(notification);
-            _dbContext.SaveChangesAsync();
+          await  _dbContext.SaveChangesAsync();
             return true;
         }
 
