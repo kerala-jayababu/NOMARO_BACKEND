@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Dapper;
 using Georgetown_International_Academy.API.Database;
+using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.DTO.Shift;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
@@ -123,6 +124,56 @@ public class ShiftService : IShiftService
             throw new Exception("An error occurred while retrieving clock-in/out details. Please try again later.");
         }
     }
+
+    public async Task<List<ClockInOutDetailsDateGroupedDto>> GetClockInClockOutDetailsOfEmployeeGroupedByDate(
+        int idEmployee,DateTime dateFrom,DateTime dateTo)
+    {
+        try
+        {
+            var result = new List<ClockInOutDetailsDateGroupedDto>();
+
+            DateTime currentDate = dateTo.Date;
+            int orderNumber = 1;
+
+            while (currentDate >= dateFrom.Date)
+            {
+                var clockDetails = await _dbContext.ClockInOutDetails
+                    .Where(c =>
+                        c.IdEmployee == idEmployee &&
+                        c.ClockDate.Date == currentDate)
+                    .Select(c => new EmployeeClockDetails
+                    {
+                        IdClockDetails = c.IdClockDetails,
+                        INTime = c.INTime,
+                        OUTTime = c.OUTTime,
+                        TotalINHours = c.TotalINHours,
+                        TotalInminutes = c.TotalInMinutes,
+                        TotalInHoursText = c.TotalInHoursText,
+                        StatusDetails = c.StatusDetails
+                    }).OrderBy(cc=>cc.INTime)
+                    .ToListAsync();
+
+                var grouped = new ClockInOutDetailsDateGroupedDto
+                {
+                    ClockDate = currentDate,
+                    OrderNumber = orderNumber,
+                    ClockDetails = clockDetails
+                };
+
+                result.Add(grouped);
+                currentDate = currentDate.AddDays(-1);
+                orderNumber++;
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving clock-in/out details.");
+            throw new Exception("An error occurred while retrieving clock-in/out details. Please try again later.");
+        }
+    }
+
 
     public async Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
     DateTime dateFrom,
@@ -324,9 +375,5 @@ public class ShiftService : IShiftService
             throw;
         }
     }
-
-
-
-
 
 }

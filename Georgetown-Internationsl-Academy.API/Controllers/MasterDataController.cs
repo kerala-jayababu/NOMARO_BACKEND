@@ -1026,6 +1026,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
         #endregion
 
         #region VactionMode
@@ -1211,6 +1212,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         #endregion
+
+
 
     }
 }

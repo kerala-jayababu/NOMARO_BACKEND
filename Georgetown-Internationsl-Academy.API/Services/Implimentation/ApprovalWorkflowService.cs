@@ -526,7 +526,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         if (finalStatus != "APPROVED" && finalStatus != "REJECTED")
                             mobDto.NotificationMessage += ". Sent for next level Approval";
                         mobDto.EntityTablePrimaryKeyID = entity.IdOvertimeTransaction;
-                        CreateMobileNotificationForEmployee(mobDto);
+                        await CreateMobileNotificationForEmployee(mobDto);
    
                     }
                 }
@@ -934,8 +934,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (finalStatus != "APPROVED" && finalStatus != "REJECTED")
                     mobDto.NotificationMessage += ". Sent for next level Approval";
                 mobDto.EntityTablePrimaryKeyID = leaveApp.IdLeaveApplication;
-               await CreateMobileNotificationForEmployee(mobDto);
-                await _dbContext.SaveChangesAsync();
+                await CreateMobileNotificationForEmployee(mobDto);
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:EmployeeLeaveConfig"])
             {
@@ -1569,16 +1568,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 CreatedDate = DateTime.Now,
                 ReadStatus = false
             };
-            _dbContext.MobileNotifications.Add(notification);
-          await  _dbContext.SaveChangesAsync();
-            return true;
-        }
 
-        public async Task<List<MobileNotifications>> GetMobileNotificationsForEmployee(int IdEmployee)
-        {
-            var mobNotifications = await _dbContext.MobileNotifications.
-                Where(m => m.IdEmployee == IdEmployee && m.ReadStatus == false).ToListAsync();
-            return mobNotifications;
+            // Add the notification to the database and save it asynchronously
+            _dbContext.MobileNotifications.Add(notification);
+            await _dbContext.SaveChangesAsync();  // Ensure async save
+            return true;
         }
 
     }

@@ -1,4 +1,5 @@
-﻿using Georgetown_Internationsl_Academy.API.DTO.Shift;
+﻿using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.DTO.Shift;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using System.Threading.Tasks;
 
@@ -17,6 +18,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface.Shift
         Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos);
 
         Task<bool> UpdateAttendanceShortTimeDetailsAsync(UpdateShortTimeReasonDto dto);
+
+        Task<List<ClockInOutDetailsDateGroupedDto>> GetClockInClockOutDetailsOfEmployeeGroupedByDate(
+                int idEmployee, DateTime dateFrom, DateTime dateTo);
+
 
     }
 }

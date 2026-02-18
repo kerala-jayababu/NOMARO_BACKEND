@@ -488,7 +488,27 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<List<MobileNotifications>> GetMobileNotificationsForEmployee(int IdEmployee)
+        {
+            var mobNotifications = await _dbContext.MobileNotifications.
+                Where(m => m.IdEmployee == IdEmployee && m.ReadStatus == false).ToListAsync();
+            return mobNotifications;
+        }
+        public async Task<bool> UpdateMobileNotificationReadStatus(int idMobileNotification)
+        {
+            var notification = await _dbContext.MobileNotifications
+                .FirstOrDefaultAsync(m => m.IdMobileNotification == idMobileNotification);
 
+            if (notification == null)
+                return false;
+
+            notification.ReadStatus = true;
+            notification.ReadDate = DateTime.Now;
+
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
 
     }
 }

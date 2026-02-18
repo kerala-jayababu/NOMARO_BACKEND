@@ -373,8 +373,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transactionDto, int idEmployee)
         {
-            try
-            {
+            
 
                 var result = await _dbContext.Employees
                        .Where(e => e.IdEmployee == transactionDto.IdEmployee)
@@ -393,7 +392,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         transactionDto.StartDate <= e.EndDate &&
                         transactionDto.EndDate >= e.StartDate
                     ).CountAsync();
-                if(currentOTCount >2)
+                if(currentOTCount >1)
                 {
                     throw new ArgumentException("There are Overtime Transactions already submitted for these given period");
                 }
@@ -423,12 +422,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await HandleApprovalWorkflow(transactionEntity, idEmployee, insertedId,false);
 
                 return _mapper.Map<OvertimeTransactionDto>(transactionEntity);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error adding overtime transaction: {@Dto}.", transactionDto);
-                return null;
-            }
+           
         }
 
         #region Helpers

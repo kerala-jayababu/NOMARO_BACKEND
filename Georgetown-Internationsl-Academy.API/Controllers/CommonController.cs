@@ -1,9 +1,12 @@
 ﻿using Asp.Versioning;
 using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
+using Georgetown_Internationsl_Academy.API.Validators.Time___Attendance.Shift;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -287,7 +290,42 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetMobileNotificationsForEmployee")]
+        public async Task<IActionResult> GetMobileNotificationsForEmployee(int IdEmployee)
+        {
+            try
+            {
+                var result = await _optionService.GetMobileNotificationsForEmployee(IdEmployee);
+                return Ok(ApiResponseDto<List<MobileNotifications>>
+                    .CreateSuccess(result, "Mobile Notifications retrieved Successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>
+                    .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
+        [HttpPost("UpdateMobileNotificationReadStatus")]
+        public async Task<IActionResult> UpdateMobileNotificationReadStatus(int idMobileNotification)
+        {
+            try
+            {
+                var result = await _optionService.UpdateMobileNotificationReadStatus(idMobileNotification);
 
+                if (!result)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Notification Read Status updated"));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Notification Read Status updated"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
     }
 }

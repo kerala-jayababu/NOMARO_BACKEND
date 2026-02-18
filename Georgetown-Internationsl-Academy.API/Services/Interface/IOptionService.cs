@@ -23,5 +23,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<CountryDto>> GetCountries();
         Task<IEnumerable<DocumentTypeDto>> GetDocumentTypes();
         Task<List<EmployeeTypeDto>> GetEmployeeWorkTypes();
+        Task<List<MobileNotifications>> GetMobileNotificationsForEmployee(int IdEmployee);
+        Task<bool> UpdateMobileNotificationReadStatus(int idMobileNotification);
     }
 }

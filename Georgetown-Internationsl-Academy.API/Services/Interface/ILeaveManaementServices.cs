@@ -17,9 +17,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<LeaveTemplateDetailsDto> GetLeaveTemplateDetailById(int idLeaveTemplateDetails);
         Task<List<EmployeeLeaveSetupDto>> GetEmployeesLeaveSetup(string? searchText, int? IdYear, string? ApprovalStatus);
         Task<EmployeeLeaveSetupDto> GetLeaveSetupOfAnEmployee(int idEmployee, int? idYear, DateTime? dateTo);
+        Task<List<EmpLeaveConfigDetailsDto>> GetEmployeesLeaveConfigStatusDetails(int idWorkYear, int? IdDepartment, int? IdDesignation);
+
         Task<bool> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigsPostDto dto, int loggedInEmployeeId);
         Task<bool> SubmitEmployeeLeaveConfigForApproval(int IdEmployeeLeaveConfig, int loggedInEmployeeId);
         Task<bool> ApproveEmployeeLeaveConfig(int IdEmployeeLeaveConfig, string approvalStatus, int loggedInEmployeeId);
+        Task<List<int>> GetEmployeeLeaveConfigApprovers();
+        Task<List<int>> GetLeaveTemplateApprovers();
+
         Task<bool> AddUpdateEmployeeLeaveConfigDetails(EmployeeLeaveConfigDetailsPostDto dto, int loggedInEmployeeId);
         Task<PagedResultDto<LeaveApplicationListDto>> GetLeaveApplications(
             int loggedInEmployeeId,
@@ -45,5 +50,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<LeaveApplicationDocumentDto>> GetLeaveApplicationDocuments(int idLeaveApplication);
         Task<bool> DeleteLeaveTemplateDetail(int idLeaveTemplateDetail);
         Task<List<EmployeeNameList>> GetEmployeesNotConfiguredLeave(int idWorkYear);
+        Task<int> AddUpdateEmployeeLeaveConfigWithDetails(EmployeeLeaveConfigWithDetailsPostDto dto, int loggedInEmployeeId);
+
+        Task<List<LeaveTemplateApplyResult>> ApplyLeaveTemplateToMultipleEmployees(List<int> Idemployees, int IdLeaveTemplate, int IdYear, int loggedInEmployeeId);
+
     }
 }

@@ -504,11 +504,32 @@ public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, D
             }
         }
 
+        [HttpGet("GetClockInClockOutDetailsOfEmployeeGroupedByDate")]
+        public async Task<IActionResult> GetClockInClockOutDetailsOfEmployeeGroupedByDate(int idEmployee, DateTime dateFrom, DateTime dateTo)
+        {
 
+            try
+            {
+                var details = await _shiftService.GetClockInClockOutDetailsOfEmployeeGroupedByDate(idEmployee,dateFrom,dateTo);
+
+                if (details == null || !details.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ClockInOutDetailsDateGroupedDto>>.CreateSuccess(
+                        Enumerable.Empty<ClockInOutDetailsDateGroupedDto>(),
+                        "No clock-in/out records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<ClockInOutDetailsDateGroupedDto>>.CreateSuccess(details, "Clock-in/out details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
         #endregion
 
-        
+
 
     }
 }

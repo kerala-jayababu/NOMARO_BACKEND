@@ -302,13 +302,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             try
             {
                 //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var result = await _overtimeTransactionService.AddOvertimeTransaction(dto, int.Parse(IdEmployee));
-                if (result == null)
-                {
-                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add overtime transaction."));
-                }
+                var result = await _overtimeTransactionService.AddOvertimeTransaction(dto, int.Parse(IdEmployee));              
 
                 return Ok(ApiResponseDto<string>.CreateSuccess("Overtime transaction added successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {

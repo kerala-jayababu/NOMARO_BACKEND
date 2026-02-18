@@ -429,6 +429,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+
         #endregion
 
         #region EmployeeLeaveManagement
@@ -452,6 +453,51 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpPost("AddUpdateEmployeeLeaveConfigWithDetails")]
+        public async Task<IActionResult> AddUpdateEmployeeLeaveConfigWithDetails([FromBody] EmployeeLeaveConfigWithDetailsPostDto dto)
+        {
+            try
+            {
+                // 🔹 Get logged in user
+                var userId = HttpContext.User?
+                    .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(
+                        ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                // 🔹 Permission check
+                var screenCode = _configuration["ScreenCodes:EmployeeLeaveConfig"];
+
+                var hasPermission = await _roleBasedService
+                    .CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
+
+                if (!hasPermission)
+                    return StatusCode(403,
+                        ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                // 🔹 Call Service
+                var resultId = await _leaveService
+                    .AddUpdateEmployeeLeaveConfigWithDetails(dto, loggedInEmployeeId);
+
+                return Ok(ApiResponseDto<int>.CreateSuccess(resultId,
+                    "Employee Leave Configuration saved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure(
+                        "An unexpected error occurred."));
+            }
+        }
+
+
         [HttpGet("GetLeaveSetupOfAnEmployee")]
         public async Task<IActionResult> GetLeaveSetupOfAnEmployee(int IdEmployee, int? IdYear, DateTime? DateTo)
         {
@@ -473,6 +519,30 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     .CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+
+        [HttpGet("GetEmployeesLeaveConfigStatusDetails")]
+        public async Task<IActionResult> GetEmployeesLeaveConfigStatusDetails(int IdYear, int? IdDepartment, int? IdDesignation)
+        {
+            try
+            {
+
+                var result = await _leaveService.GetEmployeesLeaveConfigStatusDetails(IdYear,IdDepartment, IdDesignation);
+
+                return Ok(ApiResponseDto<List<EmpLeaveConfigDetailsDto>>
+                    .CreateSuccess(result, "Employee leave setup retrieved successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>
+                    .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpPost("AddUpdateEmployeeLeaveConfig")]
         public async Task<IActionResult> AddUpdateEmployeeLeaveConfig([FromBody] EmployeeLeaveConfigsPostDto dto)
         {
@@ -554,6 +624,57 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+
+        [HttpGet("GetEmployeeLeaveConfigApprovers")]
+        public async Task<IActionResult> GetEmployeeLeaveConfigApprovers()
+        {
+            try
+            {
+                var userId = HttpContext.User?
+                    .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(
+                        ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var result = await _leaveService.GetEmployeeLeaveConfigApprovers();
+
+                return Ok(ApiResponseDto<List<int>>
+                    .CreateSuccess(result, "Approvers fetched successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure("An unexpected error occurred."));
+            }
+        }
+        [HttpGet("GetLeaveTemplateApprovers")]
+
+        public async Task<IActionResult> GetLeaveTemplateApprovers()
+        {
+            try
+            {
+                var userId = HttpContext.User?
+                    .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(
+                        ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+                var result = await _leaveService.GetLeaveTemplateApprovers();
+
+                return Ok(ApiResponseDto<List<int>>
+                    .CreateSuccess(result, "Approvers fetched successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure("An unexpected error occurred."));
+            }
+        }
         #endregion
 
 
@@ -804,6 +925,60 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        [HttpPost("ApplyLeaveTemplateToMultipleEmployees")]
+        public async Task<IActionResult> ApplyLeaveTemplateToMultipleEmployees([FromBody] ApplyLeaveTemplateMultileEmployeesDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return BadRequest(ApiResponseDto<string>
+                        .CreateFailure("Request body is required."));
+
+                if (dto.IdLeaveTemplate <= 0)
+                    return BadRequest(ApiResponseDto<string>
+                        .CreateFailure("IdLeaveTemplate is required."));
+
+                if (dto.IdYear <= 0)
+                    return BadRequest(ApiResponseDto<string>
+                        .CreateFailure("IdYear is required."));
+
+                if (dto.IdEmployees == null || !dto.IdEmployees.Any())
+                    return BadRequest(ApiResponseDto<string>
+                        .CreateFailure("At least one employee must be selected."));
+
+                var userId = HttpContext.User?
+                    .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>
+                        .CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var result = await _leaveService
+                    .ApplyLeaveTemplateToMultipleEmployees(
+                        dto.IdEmployees,
+                        dto.IdLeaveTemplate,
+                        dto.IdYear,
+                        loggedInEmployeeId);
+
+                return Ok(ApiResponseDto<List<LeaveTemplateApplyResult>>
+                    .CreateSuccess(result, "Template application processed successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>
+                    .CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>
+                        .CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
 
         [HttpGet("GetLeaveDashboardEmployee")]
         public async Task<IActionResult> GetLeaveDashboardEmployee(int idEmployee, int idYear)
