@@ -16,5 +16,9 @@ namespace Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift
         public string? TotalInHoursText { get; set; }
         public string? StatusDetails { get; set; }
         public string? Remarks { get; set; }
+        public string? MissingEntryApproveStatus { get; set; }
+        public DateTime? MissingEntryApprovedDate { get; set; }
+        public int? IdMissingEntryApprovedBy { get; set; }
+
     }
 }

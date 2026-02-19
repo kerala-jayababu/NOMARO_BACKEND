@@ -372,6 +372,69 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
             }
+            else if (entityCode == _configuration["WorkflowEntityCodes:MissingEntry"])
+            {
+                var entity = await _dbContext.ClockInOutDetails.FindAsync(entityTablePrimaryKeyID);
+                var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
+                if (finalStatus == "REJECTED" || nextLevelNumber == 99)
+                {
+                    targetEmployeeIdsForNextLevel = entity.IdEmployee.ToString();
+                }
+                //var employeedetails = await _dbContext.Employees.Where(x => x.IdEmployee == entity.IdEmployee).FirstOrDefaultAsync();
+                //var employeename = string.Concat(employeedetails.FirstName, employeedetails.MiddleName, employeedetails.LastName);
+                if (entity != null)
+                {
+                    entity.MissingEntryApproveStatus = finalStatus;
+                    if(finalStatus == "APPROVED" || nextLevelNumber == 99)
+                    {
+                        entity.IdMissingEntryApprovedBy = loggedInEmployeeId;
+                        entity.MissingEntryApprovedDate = DateTime.Now;
+                    }                        
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
+                var employeeIdList = ParseEmployeeIds(targetEmployeeIdsForNextLevel);
+                var employees = await GetEmployeesByIds(employeeIdList);
+                var receiverNames = string.Join(", ", employees.Select(e => e["Name"]));
+                var receiverEmails = employees.Select(e => e["Email"]).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                var notificationConfig = await GetNotificationConfigForEntity(entityCode, nextLevelNumber ?? 0, senderName, receiverNames, rejectReason);
+                foreach (var emp in employees)
+                {
+                    var toEmail = emp["Email"];
+                    if (!string.IsNullOrWhiteSpace(toEmail))
+                    {
+                        EmailService.SendMail(toEmail, notificationConfig.EmailSubject, notificationConfig.EmailContent);
+                    }
+                    var employeeDetails = await _dbContext.Employees.Where(x => x.EmailID == toEmail).FirstOrDefaultAsync();
+
+                    if (employeeDetails != null)
+                    {
+                        Notification obj = new Notification
+                        {
+                            IdNotificationConfig = notificationConfig.IdNotificationConfig,
+                            NotificationType = notificationConfig.NotificationType,
+                            SentByIdEmployee = loggedInEmployeeId,
+                            ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            AppNotificationText = notificationConfig.AppNotificationText,
+                            EmailSubject = notificationConfig.EmailSubject,
+                            EmailContent = notificationConfig.EmailContent,
+                            EmailSentStatus = "SENT",
+                            IsReadAppNotification = false,
+                            CreatedAt = DateTime.Now,
+                            Status = "SENT",
+                            RelatedRecordID = entityTablePrimaryKeyID,
+                            RelatedRecordType = entityCode,
+                            LogoText = notificationConfig.LogoText,
+                            NotificationLink = notificationConfig.NotificationLink
+                        };
+
+                        await _dbContext.Notifications.AddAsync(obj);
+                        await _dbContext.SaveChangesAsync();
+                    }
+                }
+
+            }
             else if (entityCode == _configuration["WorkflowEntityCodes:MaternityLeaveSalary"])
             {
                 var entity = await _dbContext.MaternityLeaveSalaries
