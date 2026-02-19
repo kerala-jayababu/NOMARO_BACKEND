@@ -9,6 +9,7 @@ using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attend
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attendance.Shift;
+using iText.Kernel.XMP.Impl;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -384,6 +385,12 @@ public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, D
             if (dtos == null || !dtos.Any())
                 return BadRequest(ApiResponseDto<string>.CreateFailure("No entries provided."));
 
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
             foreach (var dto in dtos)
             {
                 var validationResult = await _updateClockInOutMissingEntryValidator.ValidateAsync(dto);
@@ -394,7 +401,7 @@ public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, D
                 }
             }
 
-            var success = await _shiftService.UpdateClockInOutMissingEntriesAsync(dtos);
+            var success = await _shiftService.UpdateClockInOutMissingEntriesAsync(dtos,int.Parse(IdEmployee));
             if (!success)
                 return BadRequest(ApiResponseDto<string>.CreateFailure("One or more records could not be updated."));
 

@@ -15,7 +15,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface.Shift
         Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
             DateTime dateFrom, DateTime dateTo , List<int> idEmployees, int? idDepartment = null);
         Task<bool> ApproveTimesheetAsync(List<ApproveTimesheetDto> dtos, int employeeId);
-        Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos);
+        Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos,int employeeId);
 
         Task<bool> UpdateAttendanceShortTimeDetailsAsync(UpdateShortTimeReasonDto dto);
 

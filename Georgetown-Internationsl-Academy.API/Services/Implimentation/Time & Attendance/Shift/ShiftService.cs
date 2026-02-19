@@ -6,6 +6,7 @@ using Georgetown_Internationsl_Academy.API.DTO.Shift;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
+using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -17,12 +18,16 @@ public class ShiftService : IShiftService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<ShiftService> _logger;
+    private readonly IConfiguration _configuration;
+    private readonly IApprovalWorkflowService _approvalWorkflowService;
 
-    public ShiftService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ShiftService> logger)
+    public ShiftService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ShiftService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _configuration = configuration;
+        _approvalWorkflowService = approvalWorkflowService;
     }
 
     public async Task<IEnumerable<ShiftDto>> GetShiftList()
@@ -296,7 +301,7 @@ public class ShiftService : IShiftService
     }
 
 
-    public async Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos)
+    public async Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos,int employeeid)
     {
         try
         {
@@ -341,6 +346,28 @@ public class ShiftService : IShiftService
             }
 
             _dbContext.UpdateRange(records);
+            var entityCode = _configuration["WorkflowEntityCodes:MissingEntry"];
+            int count = 1;
+
+            // Trigger the approval workflow for each updated record (clock entry)
+            foreach (var record in records)
+            {
+                var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    record.IdClockDetails, // Assuming IdClockDetails as the entity identifier
+                    entityCode,
+                    employeeid, // You need to pass the employee who initiated the update
+                    "SUBMITTED", // Or use an appropriate status for this workflow
+                    null, // Additional parameters if required by the workflow
+                    null, // Any additional required data
+                    count // A count to uniquely identify the steps
+                );
+                count++;
+
+                if (!result.Contains("Approval workflow initiated", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception($"Failed to initiate approval workflow for ClockInOut ID: {record.IdClockDetails}. Error: {result}");
+                }
+            }
             await _dbContext.SaveChangesAsync();
             return true;
         }
