@@ -531,8 +531,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
                 if( finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
+                    entity.ApprovalStatusDate = DateTime.Now;
                     targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
                 }
+
+               
                 
                 if (entity != null)
                 {
