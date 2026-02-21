@@ -21,7 +21,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface.Shift
 
         Task<List<ClockInOutDetailsDateGroupedDto>> GetClockInClockOutDetailsOfEmployeeGroupedByDate(
                 int idEmployee, DateTime dateFrom, DateTime dateTo);
+        Task<List<MissingEntryForApprovalDto>> GetMissingEntryDetailsForApproval(int IdLoginnedEmployee, DateTime? dateFrom,
+          string? approvalStatus);
 
+        Task<bool> TogglingMissingEntry(int IdClockInDetail);
 
     }
 }

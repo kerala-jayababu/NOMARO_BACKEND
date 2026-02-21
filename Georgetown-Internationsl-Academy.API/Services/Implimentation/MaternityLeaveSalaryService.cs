@@ -58,7 +58,8 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
         mls.DocumentFilePath,
         mls.TotalDeductions,
         mls.MaternityLeaveNetSalary,
-        esc.NetSalary AS DefaultNetSalary
+        esc.NetSalary AS DefaultNetSalary,
+        mls.ApprovalStatus
     FROM MaternityLeaveSalaries mls
     INNER JOIN Employees e ON mls.IdEmployee = e.IdEmployee
     INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
@@ -145,7 +146,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                                                   TotalEarnings =mls.TotalEarnings,
                                                   TotalDeductions =mls.TotalDeductions,                                                  
                                                   MaternityLeaveTo = mls.MaternityLeaveTo,
-                                                  MaternityLeaveNetSalary = mls.MaternityLeaveNetSalary, // Corrected column name
+                                                  MaternityLeaveNetSalary = mls.MaternityLeaveNetSalary, // Corrected column name                                                 
                                                   MaternityLeaveSalaryDetailDto = new List<MaternityLeaveSalaryDetailDto>()
                                               }).FirstOrDefaultAsync();
 

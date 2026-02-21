@@ -534,6 +534,51 @@ public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, D
             }
         }
 
+        [HttpGet("GetMissingEntryDetailsForApproval")]
+        public async Task<IActionResult> GetMissingEntryDetailsForApproval(DateTime? dateFrom, string? approvalStatus)
+        {
+            try
+            {
+                var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(employeeId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                var details = await _shiftService.GetMissingEntryDetailsForApproval(Convert.ToInt32( employeeId), dateFrom, approvalStatus);
+
+                if (details == null || !details.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<MissingEntryForApprovalDto>>.CreateSuccess(
+                        Enumerable.Empty<MissingEntryForApprovalDto>(),
+                        "No clock-in/out records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<MissingEntryForApprovalDto>>.CreateSuccess(details, "Clock-in/out details for approval retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpPost("TogglingMissingEntry")]
+        public async Task<IActionResult> TogglingMissingEntry(int IdClockInDetail)
+        {
+            try
+            {
+                var result = await _shiftService.TogglingMissingEntry(IdClockInDetail);
+
+                if (!result)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Could not toggle records"));
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Clock-in/Out Toggling updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
 
 

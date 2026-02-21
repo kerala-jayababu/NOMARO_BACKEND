@@ -19,5 +19,7 @@
         public string TotalHoursText { get; set; }
         public string ClockType { get; set; }
         public string StatusDetails { get; set; }
+        public string Remarks { get; set; }
+
     }
 }

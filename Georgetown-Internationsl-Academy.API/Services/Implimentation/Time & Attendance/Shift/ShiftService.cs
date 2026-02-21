@@ -4,6 +4,7 @@ using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.DTO.Shift;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
+using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Models.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
@@ -401,6 +402,99 @@ public class ShiftService : IShiftService
             _logger.LogError(ex, "Error updating short time reason for IdDayAttendance {Id}", dto.IdDayAttendance);
             throw;
         }
+
+    }
+
+    public async Task<List<MissingEntryForApprovalDto>> GetMissingEntryDetailsForApproval(int IdLoginnedEmployee, DateTime? dateFrom,
+         string? approvalStatus)
+    {
+        var query =
+            from ci in _dbContext.ClockInOutDetails
+            join af in _dbContext.ApprovalWorkFlowAllocations
+                on ci.IdClockDetails equals af.EntityTablePrimaryKeyID
+            join emp in _dbContext.Employees
+                on ci.IdEmployee equals emp.IdEmployee
+            join desig in _dbContext.Designations
+                on emp.IdDesignation equals desig.IdDesignation
+            join dept in _dbContext.Departments
+                on emp.IdDepartment equals dept.IdDepartment
+            where af.EntityCode == "MISSINGENTRY"
+                  && af.TargetIdEmployee == IdLoginnedEmployee.ToString()
+            select new { ci, emp, desig, dept };
+
+        // Apply conditional filters
+        if (dateFrom.HasValue)
+        {
+            query = query.Where(x => x.ci.ClockDate == dateFrom.Value);
+        }
+
+        if (!string.IsNullOrEmpty(approvalStatus))
+        {
+            query = query.Where(x => x.ci.MissingEntryApproveStatus == approvalStatus);
+        }
+
+        var result = await query
+            .Select(x => new MissingEntryForApprovalDto
+            {
+                IdClockInDetail = x.ci.IdClockDetails,
+                Idemployee = x.emp.IdEmployee.Value,
+                EmployeeName = (x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? ""),
+                DesignationName = x.desig.DesignationName,
+                DepartmentName = x.dept.DepartmentName,
+                MissingEntryDate = x.ci.ClockDate,
+
+                MissingManualEntryTime =
+                    x.ci.StatusDetails != null && x.ci.StatusDetails.Contains("ManualIn")
+                        ? x.ci.INTime
+                        : x.ci.OUTTime,
+
+                ManualEntryType =
+                    x.ci.StatusDetails != null && x.ci.StatusDetails.Contains("ManualIn")
+                        ? "IN"
+                        : "OUT",
+
+                Reason = x.ci.Remarks,
+                ApprovalStatus = x.ci.MissingEntryApproveStatus,
+                StatusDetails = x.ci.StatusDetails
+            })
+            .AsNoTracking()
+            .ToListAsync();
+
+        return result;
+    }
+
+    public async Task<bool> TogglingMissingEntry(int IdClockInDetail)
+    {
+        try
+        {
+            var record = await _dbContext.ClockInOutDetails.Where(c => c.IdClockDetails == IdClockInDetail).FirstOrDefaultAsync();
+            if (record == null)
+                throw new Exception("Record not found");
+
+            _dbContext.Update(record);
+            await _dbContext.SaveChangesAsync();
+            if(record.INTime == null)
+            {
+                record.INTime = record.OUTTime;
+                record.OUTTime = null;
+                record.Remarks = "Entry Toggled from OUT to IN";
+            }
+            else
+            {
+                record.OUTTime = record.INTime;
+                record.INTime = null;
+                record.Remarks = "Entry Toggled from IN to OUT";
+            }
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in Toggling the Clock Details");
+            throw;
+        }
+
     }
 
 }
