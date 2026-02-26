@@ -1479,9 +1479,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         case "LEAVEPASS":
                             notificationLink = "leave-passages";
                             break;
+                        case "EMPLEAVECONFIG":
+                            notificationLink = "emp-leave-config-approval";
+                            break;
                         case "MATERNITYSAL":
                             notificationLink = "maternity-leave-salaries";
                             break;
+                        case "LEAVETEMPLATE":
+                            notificationLink = "leave-template-approval";
+                            break;                        
                         default:
                             notificationLink = "config-approvals";
                             break;
