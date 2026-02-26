@@ -430,6 +430,37 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
 
+        [HttpPost("ApproveEmployeeLeaveConfigMultiple")]
+        public async Task<IActionResult> ApproveEmployeeLeaveConfigMultiple(List<int> IdEmployeeLeaveConfigs, string approvalStatus, string? reason)
+        {
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+
+                var screenCode = _configuration["ScreenCodes:EmployeeLeaveConfigApproval"];
+                var hasPermission = await _roleBasedService.CheckEmployeePermission(loggedInEmployeeId, screenCode, "A");
+
+                if (!hasPermission)
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("Permission denied."));
+
+                var result = await _leaveService.ApproveEmployeeLeaveConfigMultiple(IdEmployeeLeaveConfigs, approvalStatus, loggedInEmployeeId, reason);
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee Leave Config Approved"));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
 
         #region EmployeeLeaveManagement

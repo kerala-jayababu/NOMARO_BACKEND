@@ -347,37 +347,37 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 
         #region ClockInClockOutDeatils
        [HttpGet("GetClockInClockOutDetails")]
-public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, DateTime? dateFrom,DateTime? dateTo,int? idDepartment,bool? missingEntryOnly)
-{
-    if (!dateFrom.HasValue)
-        return BadRequest(ApiResponseDto<string>.CreateFailure("Start date (dateFrom) is required."));
-
-    if (!dateTo.HasValue)
-        return BadRequest(ApiResponseDto<string>.CreateFailure("End date (dateTo) is required."));
-
-    try
-    {
-        var details = await _shiftService.GetClockInClockOutDetailsAsync(
-            string.IsNullOrWhiteSpace(idEmployee) ? null : idEmployee,
-            dateFrom.Value,
-            dateTo.Value,
-            idDepartment,
-            missingEntryOnly);
-
-        if (details == null || !details.Any())
+        public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, DateTime? dateFrom,DateTime? dateTo,int? idDepartment,bool? missingEntryOnly)
         {
-            return Ok(ApiResponseDto<IEnumerable<ClockInOutDto>>.CreateSuccess(
-                Enumerable.Empty<ClockInOutDto>(), 
-                "No clock-in/out records found."));
-        }
+            if (!dateFrom.HasValue)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Start date (dateFrom) is required."));
 
-        return Ok(ApiResponseDto<IEnumerable<ClockInOutDto>>.CreateSuccess(details, "Clock-in/out details retrieved successfully."));
-    }
-    catch (Exception ex)
-    {
-        return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
-    }
-}
+            if (!dateTo.HasValue)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("End date (dateTo) is required."));
+
+            try
+            {
+                var details = await _shiftService.GetClockInClockOutDetailsAsync(
+                    string.IsNullOrWhiteSpace(idEmployee) ? null : idEmployee,
+                    dateFrom.Value,
+                    dateTo.Value,
+                    idDepartment,
+                    missingEntryOnly);
+
+                if (details == null || !details.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ClockInOutDto>>.CreateSuccess(
+                        Enumerable.Empty<ClockInOutDto>(), 
+                        "No clock-in/out records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<ClockInOutDto>>.CreateSuccess(details, "Clock-in/out details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
 
         [HttpPost("UpdateClockInOutMissingEntries")]
         public async Task<IActionResult> UpdateClockInOutMissingEntries([FromBody] List<UpdateClockInOutMissingEntryDto> dtos)
@@ -408,12 +408,32 @@ public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, D
             return Ok(ApiResponseDto<string>.CreateSuccess("All entries updated successfully."));
         }
 
+        [HttpPost("ForgotAccessCardMissingEntry")]
+        public async Task<IActionResult> ForgotAccessCardMissingEntry([FromBody] ForgotAccessCardMissingEntryDto dto)
+        {
+            if (dto == null)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("No entries provided."));
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+     
+            var success = await _shiftService.ForgotAccessCardMissingEntry(dto);
+            if (!success)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("One or more records could not be updated."));
+
+            return Ok(ApiResponseDto<string>.CreateSuccess("Successfully updated."));
+        }
+
+
         #endregion
 
         #region Dayttendance
         [HttpGet("GetDayAttendanceDetails")]
-        public async Task<IActionResult> GetDayAttendanceDetails(
-    DateTime dateFrom , DateTime dateTo , string? idEmployee = null, int? idDepartment = null)
+        public async Task<IActionResult> GetDayAttendanceDetails(DateTime dateFrom , DateTime dateTo , string? idEmployee = null, int? idDepartment = null)
         {
 
             if (dateFrom == default || dateTo == default)

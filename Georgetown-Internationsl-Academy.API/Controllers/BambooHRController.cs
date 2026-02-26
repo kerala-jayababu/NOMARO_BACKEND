@@ -69,9 +69,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, $"Error syncing time off requests: {ex.Message}");
             }
         }
-
-
     }
-
 
 }

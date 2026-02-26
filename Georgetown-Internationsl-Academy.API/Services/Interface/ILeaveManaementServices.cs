@@ -22,6 +22,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> AddUpdateEmployeeLeaveConfig(EmployeeLeaveConfigsPostDto dto, int loggedInEmployeeId);
         Task<bool> SubmitEmployeeLeaveConfigForApproval(int IdEmployeeLeaveConfig, int loggedInEmployeeId);
         Task<bool> ApproveEmployeeLeaveConfig(int IdEmployeeLeaveConfig, string approvalStatus, int loggedInEmployeeId);
+        Task<bool> ApproveEmployeeLeaveConfigMultiple(List<int> IdEmployeeLeaveConfigs, string approvalStatus, int loggedInEmployeeId, string? reason);
         Task<List<int>> GetEmployeeLeaveConfigApprovers();
         Task<List<int>> GetLeaveTemplateApprovers();
 

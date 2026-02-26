@@ -11,8 +11,10 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Shift;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Pqc.Crypto.Lms;
 using System.Data;
 using System.Text;
+using static iTextSharp.text.pdf.AcroFields;
 
 public class ShiftService : IShiftService
 {
@@ -154,7 +156,9 @@ public class ShiftService : IShiftService
                         OUTTime = c.OUTTime,
                         TotalINHours = c.TotalINHours,
                         TotalInminutes = c.TotalInMinutes,
-                        TotalInHoursText = c.TotalInHoursText,
+                        TotalInHoursText = c.TotalInHoursText
+                                        .Replace(" hrs ", "hr ")
+                                        .Replace("minutes", "min"),
                         StatusDetails = c.StatusDetails
                     }).OrderBy(cc=>cc.INTime)
                     .ToListAsync();
@@ -425,7 +429,7 @@ public class ShiftService : IShiftService
         // Apply conditional filters
         if (dateFrom.HasValue)
         {
-            query = query.Where(x => x.ci.ClockDate == dateFrom.Value);
+            query = query.Where(x => x.ci.ClockDate >= dateFrom.Value);
         }
 
         if (!string.IsNullOrEmpty(approvalStatus))
@@ -495,6 +499,104 @@ public class ShiftService : IShiftService
             throw;
         }
 
+    }
+
+    public async Task<bool> ForgotAccessCardMissingEntry(ForgotAccessCardMissingEntryDto entryDetails)
+    {
+        try
+        {
+            string recordStatus = string.Empty;
+
+            var sameDayRecords = await _dbContext.ClockInOutDetails
+                .Where(c => c.ClockDate == entryDetails.EntryDate
+                         && c.IdEmployee == entryDetails.IdEmployee)
+                .ToListAsync();
+
+            if (entryDetails.EntryDate != DateTime.Now.Date)
+            {
+                throw new Exception("You can enter Forgot Card details for today only");
+            }
+
+            if (entryDetails.EntryTime > DateTime.Now.AddMinutes(1))
+            {
+                throw new Exception("Invalid Time. Should be less than current time");
+            }
+
+            if (sameDayRecords.Count > 1)
+            {
+                throw new Exception("Multiple clock-in/out records exist for this day. Forgot card entry is not allowed.");
+            }
+
+            var existingRecord = sameDayRecords.FirstOrDefault();
+
+            // 🔹 Determine record status
+            if (existingRecord == null)
+            {
+                if (entryDetails.EntryType != "IN")
+                    throw new Exception("Please enter IN time first.");
+                recordStatus = "IN";
+            }
+            else
+            {
+                if (existingRecord.StatusDetails == "IN and OUT Recorded")
+                    throw new Exception("Both IN and OUT times are already recorded.");
+                if (entryDetails.EntryType != "OUT")
+                    throw new Exception("IN time is already recorded. Please enter OUT time.");
+                if (existingRecord.OUTTime != null)
+                    throw new Exception("OUT time has already been recorded.");
+
+                recordStatus = "OUT";
+            }
+
+            if (recordStatus == "IN")
+            {
+                var newRecord = new ClockInOutDetails
+                {
+                    IdEmployee = entryDetails.IdEmployee,
+                    ClockDate = entryDetails.EntryTime.Date,
+                    INTime = entryDetails.EntryTime,
+                    DeviceUser = "MANUAL",
+                    StatusDetails = "IN Punch Recorded",
+                    Remarks = "Forgot Access Card: " + entryDetails.Reason,
+                    MissingEntryApproveStatus = "SUBMITTED"
+                };
+
+                _dbContext.ClockInOutDetails.Add(newRecord);
+            }
+            else
+            {
+
+                existingRecord.OUTTime = entryDetails.EntryTime;
+                existingRecord.StatusDetails = "IN and OUT Recorded";
+                existingRecord.Remarks = "Forgot Access Card: " + entryDetails.Reason;
+                existingRecord.MissingEntryApproveStatus = "SUBMITTED";
+
+                // 🔹 Calculate total working time
+                if (existingRecord.INTime.HasValue)
+                {
+                    var totalMinutes = (int)(existingRecord.OUTTime.Value - existingRecord.INTime.Value).TotalMinutes;
+
+                    if (totalMinutes < 0)
+                        throw new Exception("OUT time cannot be earlier than IN time.");
+
+                    existingRecord.TotalInMinutes = totalMinutes;
+                    existingRecord.TotalINHours = Math.Round((decimal)totalMinutes / 60, 2);
+
+                    int hours = totalMinutes / 60;
+                    int minutes = totalMinutes % 60;
+
+                    existingRecord.TotalInHoursText = $"{hours}hrs {minutes}minutes";
+                }
+            }
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ForgotAccessCardMissingEntry");
+            throw;
+        }
     }
 
 }

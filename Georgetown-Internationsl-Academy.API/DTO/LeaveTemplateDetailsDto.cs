@@ -29,8 +29,9 @@ namespace Georgetown_Internationsl_Academy.API.DTO
             /// Percentage (0–100). Nullable as per DB
             /// </summary>
             public decimal? SalaryDeductionPercent { get; set; } = 0;
+        public int? SalaryDeductAfterDays { get; set; }
 
-            public bool AllowHalfDay { get; set; } = true;
+        public bool AllowHalfDay { get; set; } = true;
 
             public bool RequiresApproval { get; set; } = false;
 
