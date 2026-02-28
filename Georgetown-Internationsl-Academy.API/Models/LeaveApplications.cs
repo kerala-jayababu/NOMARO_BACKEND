@@ -30,5 +30,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? LeaveAttachmentFilePath {get;set;}
         public int IdYear { get; set; }
         public string? LeaveApprovalDetails { get; set; }
+        public int? BambooHRLeaveRequestID { get; set; }
     }
 }

@@ -69,6 +69,20 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, $"Error syncing time off requests: {ex.Message}");
             }
         }
+        [HttpGet("SyncTimeOffRequestsForLeave")]
+        public async Task<IActionResult> SyncTimeOffRequestsForLeave([FromQuery] DateTime start, [FromQuery] DateTime end)
+        {
+            try
+            {
+                var result = await _bambooservice.SyncTimeOffRequestsForLeave(start, end);
+                return Ok(result); // Return success message
+            }
+            catch (Exception ex)
+            {
+             
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
 
 
     }

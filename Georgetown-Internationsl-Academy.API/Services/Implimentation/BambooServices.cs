@@ -783,6 +783,177 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("An error occurred while processing BambooHR Details. Please try again.");
             }
         }
+
+        public async Task<string> SyncTimeOffRequestsForLeave(DateTime start, DateTime end)
+        {
+            var baseUrl = "https://api.bamboohr.com";
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var subdomain = _configuration["BambooHR:Subdomain"];
+
+            var client = new RestClient(new RestClientOptions(baseUrl) { MaxTimeout = -1 });
+            var url = $"/api/gateway.php/{subdomain}/v1/time_off/requests/?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
+            var request = new RestRequest(url, Method.Get);
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            // Fetch BambooHR time off requests
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"BambooHR API failed: {response.StatusCode} - {response.Content}");
+
+            // Deserialize XML response
+            var serializer = new XmlSerializer(typeof(TimeOffRequestsDto));
+            using var reader = new StringReader(response.Content);
+            var requests = serializer.Deserialize(reader) as TimeOffRequestsDto;
+
+            if (requests?.Requests == null || !requests.Requests.Any())
+                return "No requests found in the date range.";
+
+            var logsToInsert = new List<BambooHRIntegrationLogs>();
+            var leavesToInsertOrUpdate = new List<LeaveApplications>(); // For Leave Application Table
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                foreach (var req in requests.Requests)
+                {
+                    // Check if employee exists
+                    var internalEmpId = await GetInternalEmployeeIdFromBambooId(req.Employee.Id);
+                    if (internalEmpId == 0) // Employee not found
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Employee {req.Employee.Id} not found in payroll system"
+                        });
+                        continue; // Skip processing this request
+                    }
+
+                    // Check Leave Type (ensure leave type exists)
+                    var leaveType = await _dbContext.LeaveTypes.FirstOrDefaultAsync(l => l.LeaveTypeName == req.Type.Value);
+                    if (leaveType == null)
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Leave Type {req.Type.Value} not found"
+                        });
+                        continue; // Skip processing this request
+                    }
+
+               
+                   
+
+                    // Check if leave request with the same BambooHRRequestId exists
+                    var existingLeaveApplication = await _dbContext.LeaveApplications
+                        .FirstOrDefaultAsync(l => l.BambooHRLeaveRequestID == req.Id && l.IdEmployee == internalEmpId);
+
+                    if (existingLeaveApplication != null)
+                    {
+                        // Update existing leave application
+                        existingLeaveApplication.FromDate = req.Start;
+                        existingLeaveApplication.ToDate = req.End;
+                        existingLeaveApplication.TotalLeaveDays = req.Amount.Value;
+                        existingLeaveApplication.AppliedOn = req.Created;
+                        existingLeaveApplication.Reason = req.Notes.Notes.FirstOrDefault(n => n.From == "employee")?.Value;
+                        existingLeaveApplication.ApprovalStatus = req.Status.Value.ToUpper();
+                        existingLeaveApplication.CancelledDate = req.Status.Value.ToUpper() == "canceled" ? req.Status.LastChanged : (DateTime?)null;
+                        existingLeaveApplication.ReasonForCancellation = req.Status.Value.ToUpper() == "canceled"
+                            ? req.Notes.Notes.FirstOrDefault(n => n.From == "manager")?.Value
+                            : null;
+
+                        leavesToInsertOrUpdate.Add(existingLeaveApplication);
+
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "UPDATE",
+                            IntegrationStatus = "COMPLETED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Updated leave application for employee {internalEmpId}, request ID: {req.Id}"
+                        });
+                    }
+                    else
+                    {
+                        // Check for date overlap
+                        var overlappingLeave = await _dbContext.LeaveApplications
+                       .Where(l => l.IdEmployee == internalEmpId &&
+                                   ((l.FromDate <= req.End && l.ToDate >= req.Start) ||
+                                    (l.FromDate >= req.Start && l.ToDate <= req.End)))
+                       .FirstOrDefaultAsync();
+
+                        if (overlappingLeave != null)
+                        {
+                            // Log the overlap situation
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "INSERT",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Leave request overlaps with an existing leave for employee {internalEmpId}, request ID: {req.Id}"
+                            });
+                            continue; // Skip processing this request
+                        }
+
+                        // Prepare the leave application for insertion
+                        var leaveApplication = new LeaveApplications
+                        {
+                            IdEmployee = internalEmpId,
+                            IdLeaveType = leaveType.IdLeaveType,
+                            FromDate = req.Start,
+                            ToDate = req.End,
+                            TotalLeaveDays = req.Amount.Value,
+                            AppliedOn = req.Created,
+                            Reason = req.Notes.Notes.FirstOrDefault(n => n.From == "employee")?.Value,
+                            ApprovalStatus = req.Status.Value.ToUpper(),
+                            BambooHRLeaveRequestID = req.Id,
+                            CancelledDate = req.Status.Value.ToUpper() == "canceled" ? req.Status.LastChanged : (DateTime?)null,
+                            ReasonForCancellation = req.Status.Value.ToUpper() == "canceled"
+                                ? req.Notes.Notes.FirstOrDefault(n => n.From == "manager")?.Value
+                                : null
+                        };
+
+                        leavesToInsertOrUpdate.Add(leaveApplication);
+
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "COMPLETED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Inserted leave application for employee {internalEmpId}, request ID: {req.Id}"
+                        });
+                    }
+                }
+
+                // Insert/Update leave applications into the database
+                if (leavesToInsertOrUpdate.Any())
+                    await _dbContext.LeaveApplications.AddRangeAsync(leavesToInsertOrUpdate);
+
+                // Insert BambooHR integration logs
+                if (logsToInsert.Any())
+                    await _dbContext.BambooHRIntegrationLogs.AddRangeAsync(logsToInsert);
+
+                // Commit the transaction
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return "Sync Completed Successfully";
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "SyncTimeOffRequests failed fro leave");
+                throw new Exception("Time-off sync failed. Rolled back.");
+            }
+        }
     }
 
 }

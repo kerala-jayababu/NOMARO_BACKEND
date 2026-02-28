@@ -38,8 +38,26 @@ namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
         [XmlArray("dates")]
         [XmlArrayItem("date")]
         public List<LeaveDateDto> Dates { get; set; }
+
+        [XmlElement("notes", IsNullable = true)]
+        public NotesDto Notes { get; set; }
+    }
+    public class NotesDto
+    {
+        [XmlElement("note")]
+        public List<NoteDto> Notes { get; set; } // List of notes, if there are any
+
     }
 
+    // Define a class for the note itself
+    public class NoteDto
+    {
+        [XmlAttribute("from")]
+        public string From { get; set; }
+
+        [XmlText]
+        public string Value { get; set; }
+    }
     public class EmployeeDto
     {
         [XmlAttribute("id")]

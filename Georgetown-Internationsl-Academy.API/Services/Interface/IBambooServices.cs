@@ -8,6 +8,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
 
         Task<string> SyncTimeOffRequests(DateTime start, DateTime end);
         Task<DateTime?> BambooHRLeaveIntegrationLastRun();
-        
+        Task<string> SyncTimeOffRequestsForLeave(DateTime start, DateTime end);
+
     }
 }
