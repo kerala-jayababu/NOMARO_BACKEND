@@ -42,6 +42,8 @@
         public string ApplicableGender { get; set; } = "BOTH";
         public bool IsPaid { get; set; } = true;
         public decimal? SalaryDeductionPercent { get; set; } = 0;
+        public int? SalaryDeductAfterDays { get; set; }
+
         public bool AllowHalfDay { get; set; } = true;
         public bool RequiresApproval { get; set; } = false;
         public int? RequiredApprovalLevel { get; set; } = 0;

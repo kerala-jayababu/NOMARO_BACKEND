@@ -248,7 +248,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         ApplicableGender = x.ApplicableGender,
                         IsPaid = x.IsPaid,
                         SalaryDeductionPercent = x.SalaryDeductionPercent,
-
+                        SalaryDeductAfterDays = x.SalaryDeductAfterDays,
                         AllowHalfDay = x.AllowHalfDay,
                         RequiresApproval = x.RequiresApproval,
                         RequiredApprovalLevel = x.RequiredApprovalLevel,
@@ -716,6 +716,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entity.ApplicableGender = dto.ApplicableGender;
                     entity.IsPaid = dto.IsPaid;
                     entity.SalaryDeductionPercent = dto.SalaryDeductionPercent;
+                    entity.SalaryDeductAfterDays = dto.SalaryDeductAfterDays;
                     entity.AllowHalfDay = dto.AllowHalfDay;
                     entity.RequiresApproval = dto.RequiresApproval;
                     entity.RequiredApprovalLevel = dto.RequiredApprovalLevel;
@@ -746,6 +747,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         ApplicableGender = dto.ApplicableGender,
                         IsPaid = dto.IsPaid,
                         SalaryDeductionPercent = dto.SalaryDeductionPercent,
+                        SalaryDeductAfterDays = dto.SalaryDeductAfterDays,
                         AllowHalfDay = dto.AllowHalfDay,
                         RequiresApproval = dto.RequiresApproval,
                         RequiredApprovalLevel = dto.RequiredApprovalLevel,
@@ -896,7 +898,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         AllowHalfDay = x.AllowHalfDay,
                         RequiresApproval = x.RequiresApproval,
                         RequiredApprovalLevel = x.RequiredApprovalLevel,
-
+                        SalaryDeductAfterDays = x.SalaryDeductAfterDays,
                         RequiresDocument = x.RequiresDocument,
                         DocumentRequiredAfterDays = x.DocumentRequiredAfterDays,
 
@@ -1139,10 +1141,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                          TotalAllocatedDays = elcd.TotalAllocatedDays,
                          UsedLeaveDays = elcd.UsedLeaveDays,
                          BalanceLeaveDays = elcd.BalanceLeaveDays,
-
+                         SalaryDeductAfterDays = ltd.SalaryDeductAfterDays,
                          ApplicableGender = ltd.ApplicableGender,
                          IsPaid = ltd.IsPaid,
                          SalaryDeductionPercent = ltd.SalaryDeductionPercent,
+                         
                          AllowHalfDay = ltd.AllowHalfDay,
                          RequiresApproval = ltd.RequiresApproval,
                          RequiredApprovalLevel = ltd.RequiredApprovalLevel,
@@ -1751,6 +1754,59 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+
+
+        public async Task<bool> ApproveEmployeeLeaveConfigMultiple(List<int> IdEmployeeLeaveConfigs, string approvalStatus, int loggedInEmployeeId,
+                            string? reason)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                if (IdEmployeeLeaveConfigs == null || !IdEmployeeLeaveConfigs.Any())
+                    throw new ArgumentException("At least one EmployeeLeaveConfig Id is required.");
+
+                if (approvalStatus == "REJECTED" && string.IsNullOrWhiteSpace(reason))
+                    throw new ArgumentException("Reason is required when rejecting.");
+
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeLeaveConfig"];
+
+                var templates = await _dbContext.EmployeeLeaveConfigs
+                    .Where(x => IdEmployeeLeaveConfigs.Contains(x.IdEmployeeLeaveConfig))
+                    .ToListAsync();
+
+                if (!templates.Any())
+                    throw new ArgumentException("No leave config records found.");
+
+                foreach (var template in templates)
+                {
+                    if (template.ApprovalStatus == "APPROVED")
+                        throw new ArgumentException(
+                            $"Leave config {template.IdEmployeeLeaveConfig} is already approved.");
+
+                    await _approvalWorkflowService.InitiateApprovalWorkflow(
+                        template.IdEmployeeLeaveConfig,
+                        entityCode,
+                        loggedInEmployeeId,
+                        approvalStatus,
+                        0,
+                        reason);
+                }
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+
+                _logger.LogError(ex,
+                    "Error processing multiple EmployeeLeaveConfig approvals.");
+
+                throw;
+            }
+        }
+
         #endregion
 
         #region LeaveApplications
@@ -2511,7 +2567,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     throw new ArgumentException("IdLeaveType is required.");
 
                 if (string.IsNullOrWhiteSpace(dto.Reason))
-                    throw new ArgumentException("Reason is required.");
+                    throw new ArgumentException("Reason for Leave is required.");
 
                 if (dto.ToDate.Date < dto.FromDate.Date)
                     throw new ArgumentException("ToDate cannot be earlier than FromDate.");
@@ -2521,7 +2577,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var empLeaveConfigDetails = await GetLeaveSetupOfAnEmployee(dto.IdEmployee, null, dto.ToDate);
                 
                 if (empLeaveConfigDetails == null)
-                    throw new ArgumentException("You are not authorized to apply leave for the given date");
+                    throw new ArgumentException("There is no Approved Leave Configuration exists for the given date");
 
                 var empLeaveTypeConfig = empLeaveConfigDetails.Details.Where(el => el.IdLeaveType == dto.IdLeaveType).FirstOrDefault();
 
@@ -2557,18 +2613,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     && x.FromDate <= toDate
                     && x.ToDate >=fromDate
                 );
+                dto.FromDate = dto.FromDate.Date;
+                dto.ToDate = dto.ToDate.Date;
+                var holidaydetFrom = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.HolidayDate == dto.FromDate);
 
-                var holidaydet = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.HolidayDate == dto.FromDate);
-
-                if (holidaydet != null)
+                if (holidaydetFrom != null)
                 {
-                    throw new ArgumentException("Leave From Date given is Holiday");
+                    throw new ArgumentException("Leave From Date is Holiday");
                 }
-                var holidaydet2 = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.HolidayDate == dto.ToDate);
+                var holidaydetTo = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.HolidayDate == dto.ToDate);
 
-                if (holidaydet2 != null)
+                if (holidaydetTo != null)
                 {
-                    throw new ArgumentException("Leave To Date given is Holiday");
+                    throw new ArgumentException("Leave To Date is Holiday");
                 }
 
 
@@ -2609,8 +2666,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     foreach (var month in appliedSplit)
                     {
-                        int alreadyTaken = alreadyTakenSplit.ContainsKey(month.Key)? alreadyTakenSplit[month.Key]: 0;
-
+                        int alreadyTaken = alreadyTakenSplit.ContainsKey(month.Key)? alreadyTakenSplit[month.Key]: 0;                      
                         int applyingNow = month.Value;
                         int totalForMonth = alreadyTaken + applyingNow;
 
@@ -2622,7 +2678,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             throw new ArgumentException(
                                 $"You can apply a maximum of {empLeaveTypeConfig.MaxLeavesPerMonth} " +
                                 $"leave days for the selected leave type in {monthName}. " +
-                                $"Already taken: {alreadyTaken}, Applying now: {applyingNow}."
+                                $"Already taken: {alreadyTaken}"
                             );
                         }
                     }

@@ -25,6 +25,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface.Shift
           string? approvalStatus);
 
         Task<bool> TogglingMissingEntry(int IdClockInDetail);
+        Task<bool> ForgotAccessCardMissingEntry(ForgotAccessCardMissingEntryDto entryDetails);
 
     }
 }
