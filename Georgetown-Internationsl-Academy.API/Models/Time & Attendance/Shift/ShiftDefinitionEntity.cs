@@ -9,5 +9,7 @@ namespace Georgetown_Internationsl_Academy.API.Models.Shift
 
         [Required, MaxLength(50)]
         public string ShiftName { get; set; } = string.Empty;
+        public bool IsRegularShiftJustTimeChange { get; set; }
+
     }
 }

@@ -78,6 +78,8 @@ ORDER BY sa.StartDate DESC";
 
                 var idShiftSchedule = assignments.First().IdShiftSchedule;
 
+                var shiftSchedule = await _dbContext.ShiftSchedules.Where(sa => sa.IdShiftSchedule == idShiftSchedule).FirstOrDefaultAsync();
+
                 // Get existing assignments for the schedule
                 var existingAssignments = await _dbContext.ShiftAssignments
                     .Where(sa => sa.IdShiftSchedule == idShiftSchedule)
@@ -111,8 +113,8 @@ ORDER BY sa.StartDate DESC";
                             existing.IdShift = dto.IdShift;
                             existing.IdEmployee = dto.IdEmployee;
                             existing.IdShiftSchedule = dto.IdShiftSchedule;
-                            existing.StartDate = dto.StartDate;
-                            existing.EndDate = dto.EndDate;
+                            existing.StartDate = dto.StartDate.Date.Add(shiftSchedule.StartTime);
+                            existing.EndDate = dto.EndDate.Date.Add(shiftSchedule.EndTime);
                             existing.TotalDurationMinutes = dto.TotalDurationMinutes;
                             existing.TotalDurationHours = dto.TotalDurationHours;
                             existing.AttendanceStatus = dto.AttendanceStatus;
@@ -125,6 +127,9 @@ ORDER BY sa.StartDate DESC";
                     {
                         // Add new
                         var entity = _mapper.Map<ShiftAssignment>(dto);
+                        entity.StartDate = dto.StartDate.Date.Add(shiftSchedule.StartTime);
+                        entity.EndDate = dto.EndDate.Date.Add(shiftSchedule.EndTime);
+
                         var result = await _dbContext.ShiftAssignments.AddAsync(entity);
                         resultDtos.Add(_mapper.Map<ShiftAssignmentDto>(result.Entity));
                     }

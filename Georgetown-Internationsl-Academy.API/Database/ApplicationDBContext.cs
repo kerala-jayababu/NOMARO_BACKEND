@@ -131,6 +131,15 @@ namespace Georgetown_International_Academy.API.Database
             modelBuilder.Entity<EmployeeHierarchyView>()
                 .HasNoKey()
                 .ToView("vw_EmployeeHierarchy");
+            modelBuilder.Entity<ShiftDefinitionEntity>(entity =>
+            {
+                entity.HasKey(e => e.IdShift);
+
+                entity.Property(e => e.IdShift)
+                      .ValueGeneratedOnAdd();  // important
+            });
+
+            base.OnModelCreating(modelBuilder);
         }
 
         #endregion
