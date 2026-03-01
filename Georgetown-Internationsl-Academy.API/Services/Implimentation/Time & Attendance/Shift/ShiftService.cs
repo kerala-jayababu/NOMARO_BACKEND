@@ -89,6 +89,7 @@ public class ShiftService : IShiftService
             }
 
             existing.ShiftName = shiftDto.ShiftName;
+            existing.IsRegularShiftJustTimeChange = shiftDto.IsRegularShiftJustTimeChange;
             _dbContext.ShiftDefinitions.Update(existing);
             await _dbContext.SaveChangesAsync();
             return _mapper.Map<ShiftDto>(existing);

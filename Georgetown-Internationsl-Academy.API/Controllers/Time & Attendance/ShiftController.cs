@@ -291,7 +291,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
         public async Task<IActionResult> ManageShiftEmployees(List<ShiftEmployeeDto> employees)
         {
 
-
             if (employees == null || !employees.Any())
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Employee list cannot be empty."));
 
