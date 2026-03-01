@@ -103,4 +103,16 @@ namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
         public decimal Amount { get; set; }
     }
 
+    public class LeaveTemplateQueryDto
+    {
+        public int IdEmployee { get; set; }
+        public int IdEmployeeLeaveConfigDetails { get; set; }
+        public int IdLeaveType { get; set; }
+        public string LeaveTypeName { get; set; }
+        public int IdLeaveTemplateDetails { get; set; }
+        public DateTime EffectiveFrom { get; set; }
+        public DateTime EffectiveTo { get; set; }
+        public string LeaveTemplateName { get; set; }
+        public int IdYear { get; set; }
+    }
 }

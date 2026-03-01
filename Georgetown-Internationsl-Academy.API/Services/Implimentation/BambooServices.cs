@@ -10,6 +10,7 @@ using Georgetown_Internationsl_Academy.API.Services.Interface;
 using iText.Kernel.Pdf.Canvas.Wmf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
+using Newtonsoft.Json;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Crmf;
@@ -784,8 +785,32 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+
         public async Task<string> SyncTimeOffRequestsForLeave(DateTime start, DateTime end)
         {
+            var workYears = await _dbContext.WorkYears.ToListAsync();
+            var leaveConfigQuery =
+                from a in _dbContext.EmployeeLeaveConfigs
+                join b in _dbContext.EmployeeLeaveConfigDetails
+                    on a.IdEmployeeLeaveConfig equals b.IdEmployeeLeaveConfig
+                join c in _dbContext.LeaveTemplateDetails
+                    on new { b.IdLeaveType, b.IdLeaveTemplateDetail }
+                    equals new { IdLeaveType = c.IdLeaveType, IdLeaveTemplateDetail = c.IdLeaveTemplateDetails }
+                join d in _dbContext.LeaveTemplates
+                    on c.IdLeaveTemplate equals d.IdLeaveTemplate
+                where start >= a.EffectiveFrom && start <= a.EffectiveTo
+                select new LeaveTemplateQueryDto
+                {
+                    IdEmployee = a.IdEmployee,
+                    IdLeaveType = b.IdLeaveType,
+                    LeaveTypeName = c.LeaveTypeName,
+                    IdLeaveTemplateDetails = c.IdLeaveTemplateDetails,
+                    EffectiveFrom = a.EffectiveFrom,
+                    EffectiveTo = (DateTime)a.EffectiveTo,
+                    LeaveTemplateName = d.LeaveTemplateName,
+                    IdYear = d.IdYear
+                };
+
             var baseUrl = "https://api.bamboohr.com";
             var apiKey = _configuration["BambooHR:ApiKey"];
             var subdomain = _configuration["BambooHR:Subdomain"];
@@ -810,7 +835,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 return "No requests found in the date range.";
 
             var logsToInsert = new List<BambooHRIntegrationLogs>();
-            var leavesToInsertOrUpdate = new List<LeaveApplications>(); // For Leave Application Table
+            var leavesToInsert = new List<LeaveApplications>(); // For New Leave Application Insert
+            var leavesToUpdate = new List<LeaveApplications>(); // For Updating Existing Records
 
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
@@ -847,9 +873,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         continue; // Skip processing this request
                     }
 
-               
-                   
-
                     // Check if leave request with the same BambooHRRequestId exists
                     var existingLeaveApplication = await _dbContext.LeaveApplications
                         .FirstOrDefaultAsync(l => l.BambooHRLeaveRequestID == req.Id && l.IdEmployee == internalEmpId);
@@ -868,7 +891,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             ? req.Notes.Notes.FirstOrDefault(n => n.From == "manager")?.Value
                             : null;
 
-                        leavesToInsertOrUpdate.Add(existingLeaveApplication);
+                        // Add to update list (don't set IdLeaveApplication, it is used by EF for update)
+                        leavesToUpdate.Add(existingLeaveApplication);
 
                         logsToInsert.Add(new BambooHRIntegrationLogs
                         {
@@ -883,14 +907,29 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     {
                         // Check for date overlap
                         var overlappingLeave = await _dbContext.LeaveApplications
-                       .Where(l => l.IdEmployee == internalEmpId &&
-                                   ((l.FromDate <= req.End && l.ToDate >= req.Start) ||
-                                    (l.FromDate >= req.Start && l.ToDate <= req.End)))
-                       .FirstOrDefaultAsync();
+                        .Where(l => l.IdEmployee == internalEmpId &&
+                                    ((l.FromDate <= req.End && l.ToDate >= req.Start) ||
+                                     (l.FromDate >= req.Start && l.ToDate <= req.End)))
+                        .FirstOrDefaultAsync();
+
+                        var leaveTemplate = await leaveConfigQuery
+                            .FirstOrDefaultAsync(l => l.LeaveTypeName == req.Type.Value);
+
+                        if (leaveTemplate == null || leaveTemplate.IdLeaveTemplateDetails == 0)
+                        {
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "INSERT",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Leave template details not found for request ID: {req.Id}, employee {internalEmpId}"
+                            });
+                            continue; // Skip processing this request
+                        }
 
                         if (overlappingLeave != null)
                         {
-                            // Log the overlap situation
                             logsToInsert.Add(new BambooHRIntegrationLogs
                             {
                                 EntityType = "LEAVE",
@@ -898,6 +937,23 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                 IntegrationStatus = "FAILED",
                                 IntegrationDate = DateTime.UtcNow,
                                 IntegrationActionDetails = $"Leave request overlaps with an existing leave for employee {internalEmpId}, request ID: {req.Id}"
+                            });
+                            continue; // Skip processing this request
+                        }
+
+                        var workYear = workYears
+                            .Where(w => req.Start >= w.WorkDateFrom && req.End <= w.WorkDateTo)
+                            .ToList();
+
+                        if (workYear.Count != 1)
+                        {
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "INSERT",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Leave request spans across multiple work years or does not match any work year for employee {internalEmpId}, request ID: {req.Id}"
                             });
                             continue; // Skip processing this request
                         }
@@ -914,13 +970,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             Reason = req.Notes.Notes.FirstOrDefault(n => n.From == "employee")?.Value,
                             ApprovalStatus = req.Status.Value.ToUpper(),
                             BambooHRLeaveRequestID = req.Id,
+                            LeaveTypeName = leaveTemplate.LeaveTemplateName,
+                            IdYear = workYear.FirstOrDefault().IdWorkYear,
+                            IdLeaveTemplateDetail = leaveTemplate.IdLeaveTemplateDetails,
                             CancelledDate = req.Status.Value.ToUpper() == "canceled" ? req.Status.LastChanged : (DateTime?)null,
                             ReasonForCancellation = req.Status.Value.ToUpper() == "canceled"
                                 ? req.Notes.Notes.FirstOrDefault(n => n.From == "manager")?.Value
                                 : null
                         };
 
-                        leavesToInsertOrUpdate.Add(leaveApplication);
+                        leavesToInsert.Add(leaveApplication);
 
                         logsToInsert.Add(new BambooHRIntegrationLogs
                         {
@@ -933,9 +992,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
 
-                // Insert/Update leave applications into the database
-                if (leavesToInsertOrUpdate.Any())
-                    await _dbContext.LeaveApplications.AddRangeAsync(leavesToInsertOrUpdate);
+                // Insert new records (leavesToInsert)
+                if (leavesToInsert.Any())
+                    await _dbContext.LeaveApplications.AddRangeAsync(leavesToInsert);
+
+                // Update existing records (leavesToUpdate)
+                if (leavesToUpdate.Any())
+                    _dbContext.LeaveApplications.UpdateRange(leavesToUpdate);
 
                 // Insert BambooHR integration logs
                 if (logsToInsert.Any())
@@ -950,7 +1013,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "SyncTimeOffRequests failed fro leave");
+                _logger.LogError(ex, "SyncTimeOffRequests failed for leave");
                 throw new Exception("Time-off sync failed. Rolled back.");
             }
         }

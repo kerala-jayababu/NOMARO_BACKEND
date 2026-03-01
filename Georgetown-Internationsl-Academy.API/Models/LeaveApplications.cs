@@ -1,11 +1,13 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class LeaveApplications
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int IdLeaveApplication { get; set; }
         public int IdEmployee { get; set; }
         public int? IdLeaveTemplateDetail { get; set; }
