@@ -788,6 +788,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<string> SyncTimeOffRequestsForLeave(DateTime start, DateTime end)
         {
+            start = start.Date;
+            end = end.Date;
+
             var workYears = await _dbContext.WorkYears.ToListAsync();
             var leaveConfigQuery =
                 from a in _dbContext.EmployeeLeaveConfigs
@@ -973,7 +976,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             LeaveTypeName = leaveTemplate.LeaveTemplateName,
                             IdYear = workYear.FirstOrDefault().IdWorkYear,
                             IdLeaveTemplateDetail = leaveTemplate.IdLeaveTemplateDetails,
-                            CancelledDate = req.Status.Value.ToUpper() == "canceled" ? req.Status.LastChanged : (DateTime?)null,
+                            CancelledDate = req.Status.Value == "canceled" ? req.Status.LastChanged : (DateTime?)null,
                             ReasonForCancellation = req.Status.Value.ToUpper() == "canceled"
                                 ? req.Notes.Notes.FirstOrDefault(n => n.From == "manager")?.Value
                                 : null
@@ -1007,6 +1010,23 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Commit the transaction
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+                var lastRun = await _dbContext.BambooHRLeaveIntegrationLastRun.FirstOrDefaultAsync();
+
+                if (lastRun != null)
+                {
+                    lastRun.LeaveIntegrationLastRunDate = DateTime.UtcNow.Date;
+                    _dbContext.BambooHRLeaveIntegrationLastRun.Update(lastRun);
+                }
+                else
+                {
+                    await _dbContext.BambooHRLeaveIntegrationLastRun.AddAsync(
+                        new BambooHRLeaveIntegrationLastRun
+                        {
+                            LeaveIntegrationLastRunDate = DateTime.UtcNow.Date
+                        });
+                }
+
+                await _dbContext.SaveChangesAsync();
 
                 return "Sync Completed Successfully";
             }

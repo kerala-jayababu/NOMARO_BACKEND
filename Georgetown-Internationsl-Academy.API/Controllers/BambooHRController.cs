@@ -70,11 +70,20 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         [HttpGet("SyncTimeOffRequestsForLeave")]
-        public async Task<IActionResult> SyncTimeOffRequestsForLeave([FromQuery] DateTime start, [FromQuery] DateTime end)
+        public async Task<IActionResult> SyncTimeOffRequestsForLeave([FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             try
             {
-                var result = await _bambooservice.SyncTimeOffRequestsForLeave(start, end);
+                var lastRunDate = await _bambooservice.BambooHRLeaveIntegrationLastRun();
+              
+                var fromDate = start ?? lastRunDate ?? DateTime.UtcNow;
+
+                // If end passed → override
+                // else use today
+                var toDate = end ?? DateTime.UtcNow;
+
+                var result = await _bambooservice.SyncTimeOffRequestsForLeave(fromDate, toDate);
+             
                 return Ok(result); // Return success message
             }
             catch (Exception ex)
