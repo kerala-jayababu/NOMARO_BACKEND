@@ -19,6 +19,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
 
         [XmlElement("status")]
         public StatusDto Status { get; set; }
+    
 
         [XmlElement("start")]
         public DateTime Start { get; set; }
@@ -71,6 +72,8 @@ namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
     {
         [XmlAttribute("lastChanged")]
         public DateTime LastChanged { get; set; }
+        [XmlAttribute("lastChangedByUserId")]
+        public string LastChangedByUserId { get; set; }
 
         [XmlText]
         public string Value { get; set; }
@@ -114,5 +117,34 @@ namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
         public DateTime EffectiveTo { get; set; }
         public string LeaveTemplateName { get; set; }
         public int IdYear { get; set; }
+    }
+    [XmlRoot("users")]
+    public class BambooUsersDto
+    {
+        [XmlElement("user")]
+        public List<BambooUserDto> Users { get; set; }
+    }
+    public class BambooUserDto
+    {
+        [XmlAttribute("id")]
+        public string Id { get; set; }
+
+        [XmlAttribute("employeeId")]
+        public string EmployeeId { get; set; }
+
+        [XmlElement("firstName")]
+        public string FirstName { get; set; }
+
+        [XmlElement("lastName")]
+        public string LastName { get; set; }
+
+        [XmlElement("email")]
+        public string Email { get; set; }
+
+        [XmlElement("lastLogin")]
+        public DateTime LastLogin { get; set; }
+
+        [XmlElement("status")]
+        public string Status { get; set; }
     }
 }

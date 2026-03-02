@@ -790,7 +790,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             start = start.Date;
             end = end.Date;
-
+            var bambooUsers = await GetBambooUsersAsync();
             var workYears = await _dbContext.WorkYears.ToListAsync();
             var leaveConfigQuery =
                 from a in _dbContext.EmployeeLeaveConfigs
@@ -960,6 +960,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             });
                             continue; // Skip processing this request
                         }
+                        var approvedByInternalId = 0;
+
+                        if (!string.IsNullOrEmpty(req.Status.LastChangedByUserId))
+                        {
+                            if (bambooUsers.TryGetValue(req.Status.LastChangedByUserId, out var bambooEmployeeId))
+                            {
+                                approvedByInternalId = await GetInternalEmployeeIdFromBambooId(Convert.ToInt32(bambooEmployeeId));
+                            }
+                        }
+
+
+                        if (approvedByInternalId == 0)
+                        {
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "APPROVER_CHECK",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Approver not found for Bamboo user {req.Status.LastChangedByUserId}"
+                            });
+                            continue; // Skip processing this request
+                        }
+
 
                         // Prepare the leave application for insertion
                         var leaveApplication = new LeaveApplications
@@ -975,6 +999,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             BambooHRLeaveRequestID = req.Id,
                             LeaveTypeName = leaveTemplate.LeaveTemplateName,
                             IdYear = workYear.FirstOrDefault().IdWorkYear,
+                            ApprovedBy = approvedByInternalId,
                             IdLeaveTemplateDetail = leaveTemplate.IdLeaveTemplateDetails,
                             CancelledDate = req.Status.Value == "canceled" ? req.Status.LastChanged : (DateTime?)null,
                             ReasonForCancellation = req.Status.Value.ToUpper() == "canceled"
@@ -1037,6 +1062,32 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw new Exception("Time-off sync failed. Rolled back.");
             }
         }
+        private async Task<Dictionary<string, string>> GetBambooUsersAsync()
+        {
+            var baseUrl = "https://api.bamboohr.com";
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var subdomain = _configuration["BambooHR:Subdomain"];
+
+            var client = new RestClient(new RestClientOptions(baseUrl));
+            var request = new RestRequest($"/api/gateway.php/{subdomain}/v1/meta/users", Method.Get);
+
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            var response = await client.ExecuteAsync(request);
+
+            if (!response.IsSuccessful)
+                throw new Exception("Failed to fetch Bamboo users");
+
+            var serializer = new XmlSerializer(typeof(BambooUsersDto));
+            using var reader = new StringReader(response.Content);
+            var result = serializer.Deserialize(reader) as BambooUsersDto;
+
+            // Dictionary<UserId, EmployeeId>
+            return result.Users.ToDictionary(u => u.Id, u => u.EmployeeId);
+        }
     }
+
+
 
 }
