@@ -1085,6 +1085,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             NotificationType = notificationConfig.NotificationType,
                             SentByIdEmployee = loggedInEmployeeId,
                             ReceivedByIdEmployee = employeeDetails.IdEmployee,
+                            NotificationLink=notificationConfig.NotificationLink,
                             AppNotificationText = notificationConfig.AppNotificationText,
                             EmailSubject = notificationConfig.EmailSubject,
                             EmailContent = notificationConfig.EmailContent,
