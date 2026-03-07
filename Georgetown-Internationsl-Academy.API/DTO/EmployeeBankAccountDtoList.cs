@@ -11,5 +11,6 @@
         public string? BranchCode { get; set; }
         public decimal SalaryPercentageDistributed { get; set; }
         public string CurrencyCode { get; set; }
+        public int? OrderNumber { get; set; }
     }
 }

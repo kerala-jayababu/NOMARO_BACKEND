@@ -28,6 +28,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? State { get; set; }
         public string? ZipCode { get; set; }
         public DateTime? DateOfBirth { get; set; }
+        public int? BambooHREmployeeID { get; set; }
         public string? ChildCountDocumentFilePath { get; set; }
 
         public DateTime? JoiningDate { get; set; }

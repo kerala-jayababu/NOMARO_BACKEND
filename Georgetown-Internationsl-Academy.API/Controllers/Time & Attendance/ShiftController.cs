@@ -423,8 +423,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             var success = await _shiftService.ForgotAccessCardMissingEntry(dto);
             if (!success)
                 return BadRequest(ApiResponseDto<string>.CreateFailure("One or more records could not be updated."));
+            string msg = "";
+            if(dto.EntryType == "IN")
+                msg = "Your Entry Time Saved Successfully. Please Remember to Update Exit Time When You Leave";
+            else
+                msg = "Your Exit Time Saved Successfully";
 
-            return Ok(ApiResponseDto<string>.CreateSuccess("Successfully updated."));
+            return Ok(ApiResponseDto<string>.CreateSuccess(msg));
         }
 
 

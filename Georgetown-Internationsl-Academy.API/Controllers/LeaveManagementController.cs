@@ -53,6 +53,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetLeaveTypesEmployee")]
+        public async Task<IActionResult> GetLeaveTypesEmployee(int idEmployee, int idYear)
+        {
+            try
+            {
+                var result = await _leaveService.GetLeaveTypesEmployee(idEmployee, idYear);
+
+                if (!result.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<LeaveTypesDto>>
+                        .CreateSuccess(Enumerable.Empty<LeaveTypesDto>(), "No leave types available."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<LeaveTypesDto>>
+                    .CreateSuccess(result, "Leave types retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpPost("AddOrUpdateLeaveTypes")]
         public async Task<IActionResult> AddOrUpdateLeaveTypes([FromBody] LeaveTypesDto leaveTypeDto)
         {
@@ -1088,6 +1111,103 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return NotFound("No documents found for this leave application.");
 
             return Ok(documents);
+        }
+
+        [HttpGet("GetTodaySummary")]
+        public async Task<IActionResult> GetTodaySummary(DateTime? date = null)
+        {
+            try
+            {
+                var targetDate = (date ?? DateTime.Today).Date;
+
+                var result = await _leaveService.GetTodaySummaryAsync(targetDate);
+
+                if (result == null)
+                {
+                    return Ok(ApiResponseDto<TodayAtAGlanceDto>
+                        .CreateSuccess(null, "No data available for the selected date."));
+                }
+
+                return Ok(ApiResponseDto<TodayAtAGlanceDto>
+                    .CreateSuccess(result, "Today summary retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        [HttpGet("GetLeaveRequests")]
+        public async Task<IActionResult> GetLeaveRequests(DateTime? from = null, DateTime? to = null, int? idDepartment = null,
+            int? idDesignation = null, string? status = null, string? searchText = null) 
+        {
+            try
+            {
+                var result = await _leaveService.GetLeaveRequestsAsync(
+                    from, to, idDepartment, idDesignation, status, searchText);
+
+                if (result == null || !result.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<LeaveRequestRowDto>>
+                        .CreateSuccess(Enumerable.Empty<LeaveRequestRowDto>(),
+                            "No leave requests found for the given filters."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<LeaveRequestRowDto>>
+                    .CreateSuccess(result, "Leave requests retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetTodayStatusDetails")]
+        public async Task<IActionResult> GetTodayStatusDetails(DateTime Date, string QueryType)
+        {
+            try
+            {
+                var result = await _leaveService.GetTodayStatusDetails(Date, QueryType);
+
+                if (result == null)
+                {
+                    return Ok(ApiResponseDto<IEnumerable<LeaveRequestRowDto>>
+                        .CreateSuccess(null, "No data available for the selected date."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<LeaveRequestRowDto>>
+                    .CreateSuccess(result, "Today Details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpGet("GetNotClockedInWithShiftAsync")]
+        public async Task<IActionResult> GetNotClockedInWithShiftAsync(DateTime Date)
+        {
+            try
+            {
+                var result = await _leaveService.GetNotClockedInWithShiftAsync(Date);
+
+                if (result == null)
+                {
+                    return Ok(ApiResponseDto<IEnumerable<NotClockedEmployeeWithShiftDto>>
+                        .CreateSuccess(null, "No data available for the selected date."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<NotClockedEmployeeWithShiftDto>>
+                    .CreateSuccess(result, "Details retrieved successfully."));
+            }
+          catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
         }
     }
 }

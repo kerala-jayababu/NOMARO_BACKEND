@@ -147,4 +147,6 @@ namespace Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift
         [XmlElement("status")]
         public string Status { get; set; }
     }
+
+
 }

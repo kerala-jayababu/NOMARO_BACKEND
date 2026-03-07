@@ -20,6 +20,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public string? BankName { get; set; }
         [NotMapped]
         public string? BranchName { get; set; }
+        public int? OrderNumber { get; set; }
 
     }
 

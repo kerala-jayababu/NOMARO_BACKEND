@@ -315,7 +315,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
              eba.BranchCode,
              bb.ABARoutingNumber,
              eba.SalaryPercentageDistributed,
-             eba.CurrencyCode
+             eba.CurrencyCode,
+            eba.OrderNumber
          FROM 
              EmployeeBankAccounts eba
 	         left join BankBranches bb on eba.IdBankBranch = bb.IdBankBranches
@@ -456,7 +457,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (existingAccount != null)
                     {
-                        // Update existing account
+                        //Update existing account
                         existingAccount.IdBank = accountDto.IdBank;
                         existingAccount.IdBankBranch = accountDto.IdBankBranch;
                         existingAccount.AccountNumber = accountDto.AccountNumber;
@@ -464,7 +465,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         existingAccount.DisbursementType    = accountDto.DisbursementType;
                         existingAccount.SalaryPercentageDistributed = accountDto.SalaryPercentageDistributed;
                         existingAccount.CurrencyCode = accountDto.CurrencyCode.ToUpper().Trim();
-
+                        existingAccount.OrderNumber = accountDto.OrderNumber;
                         _dbContext.EmployeeBankAccounts.Update(existingAccount);
                     }
                     else
@@ -480,7 +481,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             DisbursementType= accountDto.DisbursementType,
                             SalaryPercentageDistributed = accountDto.SalaryPercentageDistributed,
                             CurrencyCode = accountDto.CurrencyCode.ToUpper().Trim(),
-                        };
+                            OrderNumber = accountDto.OrderNumber
+                    };
 
                         await _dbContext.EmployeeBankAccounts.AddAsync(newAccount);
                     }

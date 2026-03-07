@@ -46,5 +46,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         /// Balance available leave days
         /// </summary>
         public decimal BalanceLeaveDays { get; set; } = 0;
+        public int IdYear { get; set; }
     }
 }

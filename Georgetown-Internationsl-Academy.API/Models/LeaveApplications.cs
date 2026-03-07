@@ -6,8 +6,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
 {
     public class LeaveApplications
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Key]       
         public int IdLeaveApplication { get; set; }
         public int IdEmployee { get; set; }
         public int? IdLeaveTemplateDetail { get; set; }
@@ -18,7 +17,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public bool IsHalfDay { get; set; }
         public char? HalfDayType { get; set; }
         public decimal TotalLeaveDays { get; set; }
-        public string Reason { get; set; }
+        public string? Reason { get; set; }
         public DateTime AppliedOn { get; set; }
         public string? ApplicationStatus { get; set; }
         public DateTime? CancelledDate { get; set; }
@@ -30,7 +29,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? IdSalaryMonth { get; set; }
         public decimal? DeductedAmount { get; set; }
         public string? LeaveAttachmentFilePath {get;set;}
-        public int IdYear { get; set; }
+        public int? IdYear { get; set; }
         public string? LeaveApprovalDetails { get; set; }
         public int? BambooHRLeaveRequestID { get; set; }
     }

@@ -5,6 +5,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
     public interface ILeaveManaementServices
     {
         Task<IEnumerable<LeaveTypesDto>> GetLeaveTypes();
+        Task<IEnumerable<LeaveTypesDto>> GetLeaveTypesEmployee(int idEmployee, int idYear);
         Task<bool> AddOrUpdateLeaveTypes(LeaveTypesDto leaveTypeDto);
         Task<IEnumerable<LeaveTemplateDto>> GetLeaveTemplates(int? IdYear, string Status, string? searchText = null);
         Task<LeaveTemplateDto> GetLeaveTemplateByID(int idLeaveTemplate);
@@ -54,6 +55,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<int> AddUpdateEmployeeLeaveConfigWithDetails(EmployeeLeaveConfigWithDetailsPostDto dto, int loggedInEmployeeId);
 
         Task<List<LeaveTemplateApplyResult>> ApplyLeaveTemplateToMultipleEmployees(List<int> Idemployees, int IdLeaveTemplate, int IdYear, int loggedInEmployeeId);
+        Task<TodayAtAGlanceDto> GetTodaySummaryAsync(DateTime date);
+        Task<List<LeaveRequestRowDto>> GetLeaveRequestsAsync(DateTime? from, DateTime? to, int? idDepartment, int? idDesignation, string status, string search);
+        Task<List<NotClockedEmployeeWithShiftDto>> GetNotClockedInWithShiftAsync(DateTime date);
+        Task<List<LeaveRequestRowDto>> GetTodayStatusDetails(DateTime Date, string QueryType);
+
 
     }
 }

@@ -101,8 +101,6 @@ public class ShiftService : IShiftService
         }
     }
 
-
-
     public async Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string? idEmployee,DateTime dateFrom,DateTime dateTo,int? idDepartment,bool? missingEntryOnly)
     {
         try
@@ -160,7 +158,8 @@ public class ShiftService : IShiftService
                         TotalInHoursText = c.TotalInHoursText
                                         .Replace(" hrs ", "hr ")
                                         .Replace("minutes", "min"),
-                        StatusDetails = c.StatusDetails
+                        StatusDetails = c.StatusDetails,
+                        Remarks = c.Remarks
                     }).OrderBy(cc=>cc.INTime)
                     .ToListAsync();
 
@@ -184,7 +183,6 @@ public class ShiftService : IShiftService
             throw new Exception("An error occurred while retrieving clock-in/out details. Please try again later.");
         }
     }
-
 
     public async Task<IEnumerable<DayAttendanceDto>> GetDayAttendanceDetails(
     DateTime dateFrom,
@@ -322,18 +320,48 @@ public class ShiftService : IShiftService
 
             foreach (var dto in dtos)
             {
+                DateTime? previousIN = null;
+                DateTime? previousOut = null;
                 var record = records.FirstOrDefault(r => r.IdClockDetails == dto.IdClockDetail);
+                
                 if (record == null)
                     return false;
 
+
                 if (dto.ClockType == "IN")
                 {
+                    // Get previous record for same employee and date, with smaller Id
+                    var previousRecord = await _dbContext.Set<ClockInOutDetails>()
+                        .Where(c => c.IdEmployee == record.IdEmployee
+                                 && c.ClockDate == record.ClockDate
+                                 && c.IdClockDetails < record.IdClockDetails)
+                        .OrderByDescending(c => c.IdClockDetails)
+                        .FirstOrDefaultAsync();
+
+                    if (previousRecord != null)
+                    {
+                        previousIN = previousRecord.INTime;
+                        previousOut = previousRecord.OUTTime;
+                    }
+
+                    if (record.OUTTime.HasValue && dto.Time >= record.OUTTime.Value)
+                        throw new Exception("IN time must be earlier than OUT time");
+
+                    if (previousOut != null && dto.Time <= previousOut.Value)
+                        throw new Exception("IN time must be greater than previous OUT time");
+
+                    // Finally, set new INTime
                     record.INTime = dto.Time;
                     record.StatusDetails = "Missing-ManualInEntry";
                 }
-                    
+
                 else if (dto.ClockType == "OUT")
                 {
+                    if (!record.INTime.HasValue)
+                        throw new Exception("OUT time cannot be set before IN time");
+                    if (dto.Time <= record.INTime.Value)
+                        throw new Exception("OUT time must be later than IN time");
+
                     record.StatusDetails = "Missing-ManualOutEntry";
                     record.OUTTime = dto.Time;
                 }                  
@@ -566,7 +594,6 @@ public class ShiftService : IShiftService
             }
             else
             {
-
                 existingRecord.OUTTime = entryDetails.EntryTime;
                 existingRecord.StatusDetails = "IN and OUT Recorded";
                 existingRecord.Remarks = "Forgot Access Card: " + entryDetails.Reason;
@@ -575,6 +602,7 @@ public class ShiftService : IShiftService
                 // 🔹 Calculate total working time
                 if (existingRecord.INTime.HasValue)
                 {
+
                     var totalMinutes = (int)(existingRecord.OUTTime.Value - existingRecord.INTime.Value).TotalMinutes;
 
                     if (totalMinutes < 0)
@@ -599,5 +627,4 @@ public class ShiftService : IShiftService
             throw;
         }
     }
-
 }

@@ -189,8 +189,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
-
-
         #region LeavePassageAmount
         [HttpGet("GetLeavePassageAmountDetails")]
         public async Task<IActionResult> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null)

@@ -128,6 +128,8 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<EmployeeHierarchyView> EmployeeHierarchyView { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<EmployeeShiftResult>()
+            .HasNoKey().ToView(null);
             modelBuilder.Entity<EmployeeHierarchyView>()
                 .HasNoKey()
                 .ToView("vw_EmployeeHierarchy");
@@ -141,6 +143,8 @@ namespace Georgetown_International_Academy.API.Database
 
             base.OnModelCreating(modelBuilder);
         }
+
+        public DbSet<EmployeeShiftResult> EmployeeShiftResults { get; set; } // add this
 
         #endregion
 

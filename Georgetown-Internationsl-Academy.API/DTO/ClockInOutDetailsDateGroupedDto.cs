@@ -20,6 +20,7 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         public int? TotalInminutes { get; set; }
         public string? TotalInHoursText { get; set; }
         public string? StatusDetails { get; set; }
+        public string? Remarks { get; set; }
 
     }
 }

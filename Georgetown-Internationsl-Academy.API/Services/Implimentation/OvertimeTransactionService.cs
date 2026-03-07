@@ -247,7 +247,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     d.DepartmentName AS Department,
                     des.DesignationName AS Designation,
                     sm.SalaryMonthText,
-	                SalaryAccountedAmount
+	                SalaryAccountedAmount,
+                DATEDIFF(
+                        MINUTE,
+                        DATEADD(DAY, 0, StartDate) + CAST(StartTime AS datetime),
+                        DATEADD(DAY, 0, EndDate)   + CAST(EndTime   AS datetime)
+                    ) AS TotalMinutes,
+                    -- formatted: ""x Hrs y Minutes""
+                    CAST(DATEDIFF(
+                            MINUTE,
+                            DATEADD(DAY, 0, StartDate) + CAST(StartTime AS datetime),
+                            DATEADD(DAY, 0, EndDate)   + CAST(EndTime   AS datetime)
+                        ) / 60 AS varchar(10))
+                    + ' Hrs '
+                    + CAST(DATEDIFF(
+                            MINUTE,
+                            DATEADD(DAY, 0, StartDate) + CAST(StartTime AS datetime),
+                            DATEADD(DAY, 0, EndDate)   + CAST(EndTime   AS datetime)
+                        ) % 60 AS varchar(10))
+                    + ' Min' AS DurationText
                 FROM OvertimeTransactions ot
                 INNER JOIN Employees e ON ot.IdEmployee = e.IdEmployee
                 INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
@@ -373,7 +391,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transactionDto, int idEmployee)
         {
-            
 
                 var result = await _dbContext.Employees
                        .Where(e => e.IdEmployee == transactionDto.IdEmployee)
@@ -591,6 +608,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .FirstOrDefaultAsync(x => x.IdOvertimeTransaction == transactionDto.IdOvertimeTransaction);
 
                 if (transactionEntity == null) return null;
+
+                var newStart = transactionDto.StartDate.Date + transactionDto.StartTime;
+                var newEnd = transactionDto.EndDate.Date + transactionDto.EndTime;
+
+                bool exists = await _dbContext.OvertimeTransactions.AnyAsync(x =>
+                    x.IdOvertimeTransaction != transactionDto.IdOvertimeTransaction &&
+                    x.IdEmployee == idEmployee &&
+                    x.ApprovalStatus != "REJECTED" &&
+                    x.ApprovalStatus != "CANCELLED" &&
+                    x.StartDate == transactionDto.StartDate 
+                );
+
+                if (exists)
+                    throw new InvalidOperationException("An overtime request already exists overlapping this period.");
 
                 // 🔹 Update attachment if new file uploaded
                 if (transactionDto.File != null)

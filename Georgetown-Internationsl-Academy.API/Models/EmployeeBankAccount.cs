@@ -14,5 +14,6 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? DisbursementType { get; set; }
         public decimal SalaryPercentageDistributed { get; set; }
         public string CurrencyCode { get; set; }
+        public int? OrderNumber { get; set; }
     }
 }
