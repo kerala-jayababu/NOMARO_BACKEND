@@ -305,7 +305,7 @@ public class ShiftService : IShiftService
     }
 
 
-    public async Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos,int employeeid)
+    public async Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos, int employeeid)
     {
         try
         {
@@ -318,61 +318,94 @@ public class ShiftService : IShiftService
             if (records.Count != dtos.Count)
                 return false; // Some records not found
 
+            // Load all day-records for all involved employees/dates in one go
+            var employeeIds = records.Select(r => r.IdEmployee).Distinct().ToList();
+            var dates = records.Select(r => r.ClockDate).Distinct().ToList();
+
+            var allDayRecords = await _dbContext.Set<ClockInOutDetails>()
+                .Where(c => employeeIds.Contains(c.IdEmployee)
+                         && dates.Contains(c.ClockDate))
+                .OrderBy(c => c.IdEmployee)
+                .ThenBy(c => c.ClockDate)
+                .ThenBy(c => c.IdClockDetails)
+                .ToListAsync();
+
             foreach (var dto in dtos)
             {
-                DateTime? previousIN = null;
-                DateTime? previousOut = null;
                 var record = records.FirstOrDefault(r => r.IdClockDetails == dto.IdClockDetail);
-                
                 if (record == null)
                     return false;
 
+                // All records for this employee+date
+                var dayRecords = allDayRecords
+                    .Where(c => c.IdEmployee == record.IdEmployee
+                             && c.ClockDate == record.ClockDate)
+                    .OrderBy(c => c.IdClockDetails)
+                    .ToList();
+
+                var index = dayRecords.FindIndex(r => r.IdClockDetails == record.IdClockDetails);
+                if (index == -1)
+                    throw new Exception("Clock record not found in day records.");
+
+                var previousRecord = index > 0 ? dayRecords[index - 1] : null;
+                var nextRecord = index < dayRecords.Count - 1 ? dayRecords[index + 1] : null;
 
                 if (dto.ClockType == "IN")
                 {
-                    // Get previous record for same employee and date, with smaller Id
-                    var previousRecord = await _dbContext.Set<ClockInOutDetails>()
-                        .Where(c => c.IdEmployee == record.IdEmployee
-                                 && c.ClockDate == record.ClockDate
-                                 && c.IdClockDetails < record.IdClockDetails)
-                        .OrderByDescending(c => c.IdClockDetails)
-                        .FirstOrDefaultAsync();
+                    DateTime? previousOut = previousRecord?.OUTTime;
+                    DateTime? nextIN = nextRecord?.INTime;
+                    DateTime? nextOUT = nextRecord?.OUTTime;
 
-                    if (previousRecord != null)
-                    {
-                        previousIN = previousRecord.INTime;
-                        previousOut = previousRecord.OUTTime;
-                    }
-
+                    // New IN must be earlier than this record's OUT (if exists)
                     if (record.OUTTime.HasValue && dto.Time >= record.OUTTime.Value)
                         throw new Exception("IN time must be earlier than OUT time");
 
+                    // New IN must be after previous OUT (if exists)
                     if (previousOut != null && dto.Time <= previousOut.Value)
                         throw new Exception("IN time must be greater than previous OUT time");
 
-                    // Finally, set new INTime
+                    // New IN must be earlier than next IN (if exists)
+                    if (nextIN != null && dto.Time >= nextIN.Value)
+                        throw new Exception("IN time must be earlier than next IN time");
+
+                    // Optionally, earlier than next OUT (if exists)
+                    if (nextOUT != null && dto.Time >= nextOUT.Value)
+                        throw new Exception("IN time must be earlier than next OUT time");
+
                     record.INTime = dto.Time;
                     record.StatusDetails = "Missing-ManualInEntry";
                 }
-
                 else if (dto.ClockType == "OUT")
                 {
+                    DateTime? previousOUT = previousRecord?.OUTTime;
+                    DateTime? nextIN = nextRecord?.INTime;
+
                     if (!record.INTime.HasValue)
                         throw new Exception("OUT time cannot be set before IN time");
+
+                    // OUT must be later than its own IN
                     if (dto.Time <= record.INTime.Value)
                         throw new Exception("OUT time must be later than IN time");
 
-                    record.StatusDetails = "Missing-ManualOutEntry";
+                    // OUT must be later than previous OUT (if exists)
+                    if (previousOUT != null && dto.Time <= previousOUT.Value)
+                        throw new Exception("OUT time must be greater than previous OUT time");
+
+                    // OUT must be earlier than next IN (if exists)
+                    if (nextIN != null && dto.Time >= nextIN.Value)
+                        throw new Exception("OUT time must be earlier than next IN time");
+
                     record.OUTTime = dto.Time;
-                }                  
+                    record.StatusDetails = "Missing-ManualOutEntry";
+                }
 
                 record.Remarks = dto.Reason;
+
                 if (record.INTime != null && record.OUTTime != null)
                 {
                     var totalDuration = record.OUTTime.Value - record.INTime.Value;
                     record.TotalINHours = (decimal?)Math.Round(totalDuration.TotalHours, 2);
                     record.TotalInMinutes = (int)totalDuration.TotalMinutes;
-
                     int hours = totalDuration.Hours;
                     int minutes = totalDuration.Minutes;
                     record.TotalInHoursText = $"{hours} hrs {minutes} minutes";
@@ -380,28 +413,30 @@ public class ShiftService : IShiftService
             }
 
             _dbContext.UpdateRange(records);
+
             var entityCode = _configuration["WorkflowEntityCodes:MissingEntry"];
             int count = 1;
 
-            // Trigger the approval workflow for each updated record (clock entry)
             foreach (var record in records)
             {
                 var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
-                    record.IdClockDetails, // Assuming IdClockDetails as the entity identifier
+                    record.IdClockDetails,
                     entityCode,
-                    employeeid, // You need to pass the employee who initiated the update
-                    "SUBMITTED", // Or use an appropriate status for this workflow
-                    null, // Additional parameters if required by the workflow
-                    null, // Any additional required data
-                    count // A count to uniquely identify the steps
-                );
+                    employeeid,
+                    "SUBMITTED",
+                    null,
+                    null,
+                    count);
+
                 count++;
 
                 if (!result.Contains("Approval workflow initiated", StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new Exception($"Failed to initiate approval workflow for ClockInOut ID: {record.IdClockDetails}. Error: {result}");
+                    throw new Exception(
+                        $"Failed to initiate approval workflow for ClockInOut ID: {record.IdClockDetails}. Error: {result}");
                 }
             }
+
             await _dbContext.SaveChangesAsync();
             return true;
         }
@@ -411,7 +446,6 @@ public class ShiftService : IShiftService
             return false;
         }
     }
-
 
     public async Task<bool> UpdateAttendanceShortTimeDetailsAsync(UpdateShortTimeReasonDto dto)
     {

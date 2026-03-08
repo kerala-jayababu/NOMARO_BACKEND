@@ -322,7 +322,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 	         left join BankBranches bb on eba.IdBankBranch = bb.IdBankBranches
 	         left join Banks b on eba.IdBank=b.IdBank
          WHERE 
-            eba.IdEmployee = @IdEmployee;";
+            eba.IdEmployee = @IdEmployee Order by OrderNumber;";
 
             try
             {
@@ -1362,6 +1362,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     join emp in _dbContext.Employees
                         on q.IdEmployee equals emp.IdEmployee
                     where q.IdEmployee == idEmployee
+                    orderby q.YearOfCompletion descending
                     select new EmployeeQualificationDto
                     {
                         IdEmployeeQualification = q.IdEmployeeQualification,
