@@ -3286,7 +3286,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 leaveStatusDetails = LeaveStatus; // fallback safety
             }
 
-            using var con = (SqlConnection)_dbContext.Database.GetDbConnection();
+            var connStr = _configuration.GetConnectionString("DbContext");
+            if (string.IsNullOrWhiteSpace(connStr))
+            {
+                throw new InvalidOperationException("Database connection string 'DbContext' is not configured.");
+            }
+
+            using var con = new SqlConnection(connStr);
             using var cmd = new SqlCommand(@"
                         UPDATE DayAttendance
                         SET StatusDetails = CONCAT('Leave ', @StatusDetails),
@@ -3303,9 +3309,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             cmd.Parameters.AddWithValue("@FromDate", LeaveFromDate.Date);
             cmd.Parameters.AddWithValue("@ToDate", LeaveToDate.Date);
 
-            if (con.State != ConnectionState.Open)
-                con.Open();
-
+            con.Open();
             cmd.ExecuteNonQuery();
         }
 
