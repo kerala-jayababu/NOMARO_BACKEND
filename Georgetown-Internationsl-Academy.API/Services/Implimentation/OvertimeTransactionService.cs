@@ -632,14 +632,37 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var newStart = transactionDto.StartDate.Date + transactionDto.StartTime;
                 var newEnd = transactionDto.EndDate.Date + transactionDto.EndTime;
 
-                bool exists = await _dbContext.OvertimeTransactions.AnyAsync(x =>
-                    x.IdOvertimeTransaction != transactionDto.IdOvertimeTransaction &&
-                    x.IdEmployee == idEmployee &&
-                    x.ApprovalStatus != "REJECTED" &&
-                    x.ApprovalStatus != "CANCELLED" && x.StartDate == transactionDto.StartDate.Date);
+                // 🔹 Check for overlapping entries and log full details if found
+                var overlappingTransactions = await _dbContext.OvertimeTransactions
+                    .Where(x =>
+                        x.IdOvertimeTransaction != transactionDto.IdOvertimeTransaction &&
+                        x.IdEmployee == idEmployee &&
+                        x.ApprovalStatus != "REJECTED" &&
+                        x.ApprovalStatus != "CANCELLED" &&
+                        x.StartDate == transactionDto.StartDate.Date)
+                    .Select(x => new
+                    {
+                        x.IdOvertimeTransaction,
+                        x.IdEmployee,
+                        x.StartDate,
+                        x.EndDate,
+                        x.StartTime,
+                        x.EndTime,
+                        x.ApprovalStatus
+                    })
+                    .ToListAsync();
 
-                if (exists)
+                if (overlappingTransactions.Any())
+                {
+                    _logger.LogWarning(
+                        "Overtime overlap check failed for employee {EmployeeId}, incoming OT Id {IncomingId}, StartDate {StartDate}. Overlapping records: {@Overlaps}",
+                        idEmployee,
+                        transactionDto.IdOvertimeTransaction,
+                        transactionDto.StartDate.Date,
+                        overlappingTransactions);
+
                     throw new InvalidOperationException("An overtime request already exists overlapping this period.");
+                }
                 if(newStart > newEnd)
                     throw new InvalidOperationException("Invalid Start/End Date");
 
