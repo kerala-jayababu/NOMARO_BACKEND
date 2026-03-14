@@ -2484,8 +2484,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                                       && (x.ApprovalStatus == "APPROVED" || x.ApprovalStatus == "SUBMITTED")
                                   ).SumAsync(x => x.TotalLeaveDays);
 
-                        empLeaveConfigDetailEntity.UsedLeaveDays = (int)usedLeaveDays;
-                        empLeaveConfigDetailEntity.BalanceLeaveDays = empLeaveConfigDetailEntity.TotalAllocatedDays - (int)usedLeaveDays;
+                        empLeaveConfigDetailEntity.UsedLeaveDays = (decimal)usedLeaveDays;
+                        empLeaveConfigDetailEntity.BalanceLeaveDays = empLeaveConfigDetailEntity.TotalAllocatedDays - (decimal)usedLeaveDays;
                         _dbContext.EmployeeLeaveConfigDetails.Update(empLeaveConfigDetailEntity);
                         await _dbContext.SaveChangesAsync();
                     }
@@ -3573,7 +3573,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var approvalStatus = application.ApprovalStatus?.Trim().ToUpperInvariant();
                 var appStatus = application.ApplicationStatus?.Trim().ToUpperInvariant();
 
-                if (application.FromDate < DateTime.Now)
+                if (application.FromDate < DateTime.Now &&  ( 
+                    application.ApprovalStatus == "APPROVED"))
                     throw new ArgumentException("Cancellation of past-dated leave applications is not allowed.");
 
                 // ✅ Cancel the leave
@@ -3628,9 +3629,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         public async Task<List<LeaveDashboardDto>> GetLeaveDashboardEmployee(int idEmployee, int idYear)
         {
-            // ===============================
-            // STEP 1: FETCH RAW DATA (NO GROUP BY)
-            // ===============================
             var result = await
             (
                 from ec in _dbContext.EmployeeLeaveConfigs
@@ -3638,8 +3636,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     on ec.IdEmployeeLeaveConfig equals ecd.IdEmployeeLeaveConfig
                 join ltd in _dbContext.LeaveTemplateDetails on ecd.IdLeaveTemplateDetail equals ltd.IdLeaveTemplateDetails
                 where ec.IdEmployee == idEmployee
-                      && ltd.IdYear == idYear && ecd.TotalAllocatedDays >0
-
+                      && ltd.IdYear == idYear && ecd.TotalAllocatedDays > 0
                 select new LeaveDashboardDto
                 {
                     IdEmployee = ec.IdEmployee,
@@ -3653,7 +3650,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     TotalBalance = ecd.BalanceLeaveDays
                 }
             ).ToListAsync();
+
+            // Post-process to format decimal values
+            result.ForEach(item =>
+            {
+                item.TotalAllocated = FormatDecimal(item.TotalAllocated);
+                item.TotalTaken = FormatDecimal(item.TotalTaken);
+                item.TotalBalance = FormatDecimal(item.TotalBalance);
+            });
+
             return result;
+        }
+
+        private decimal FormatDecimal(decimal value)
+        {
+            // If no decimal part, return as whole number; otherwise keep decimals
+            return value == Math.Floor(value) ? Math.Floor(value) : value;
         }
 
         public async Task<List<MonthlyLeaveDashboardDto>>GetLeaveDashboardEmployeeMonthWise(int idEmployee, int idYear)
@@ -4071,6 +4083,246 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 .ToList();
 
             return result;
+        }
+        #endregion
+
+        #region Annual Leave Dashboard
+        // ── 1. KPI Summary ────────────────────────────────
+        public async Task<LeaveKpiSummaryDto> GetKpiSummaryAsync(int idYear)
+        {
+            try
+            {
+                var data = await _dbContext.VwLeaveApplications
+                    .Where(x => x.IdYear == idYear)
+                    .ToListAsync();
+
+                var totalEmployees = data.Select(x => x.IdEmployee).Distinct().Count();
+                var totalDays = data.Sum(x => x.TotalLeaveDays);
+                var avgLeave = totalEmployees > 0
+                    ? Math.Round(totalDays / totalEmployees, 1)
+                    : 0;
+
+                // Highest leave type by total days
+                var highestType = data
+                    .GroupBy(x => new { x.LeaveTypeName, x.LeaveCode })
+                    .Select(g => new
+                    {
+                        g.Key.LeaveTypeName,
+                        TotalDays = g.Sum(x => x.TotalLeaveDays)
+                    })
+                    .OrderByDescending(x => x.TotalDays)
+                    .FirstOrDefault();
+
+                return new LeaveKpiSummaryDto
+                {
+                    TotalEmployees = totalEmployees,
+                    TotalLeaveDays = totalDays,
+                    AvgLeavePerEmployee = avgLeave,
+                    HighestLeaveType = highestType?.LeaveTypeName ?? "-",
+                    HighestLeaveTypeDays = highestType?.TotalDays ?? 0
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave KPI Summary for Year: {IdYear}", idYear);
+                throw;
+            }
+        }
+
+        // ── 2. Leave by Type (Pie Chart) ──────────────────
+        public async Task<IEnumerable<LeaveByTypeDto>> GetLeaveByTypeAsync(int idYear)
+        {
+            try
+            {
+                var data = await _dbContext.VwLeaveApplications
+                    .Where(x => x.IdYear == idYear)
+                    .GroupBy(x => new { x.LeaveTypeName, x.LeaveCode })
+                    .Select(g => new LeaveByTypeDto
+                    {
+                        LeaveTypeName = g.Key.LeaveTypeName,
+                        LeaveCode = g.Key.LeaveCode,
+                        TotalDays = g.Sum(x => x.TotalLeaveDays)
+                    })
+                    .OrderByDescending(x => x.TotalDays)
+                    .ToListAsync();
+
+                return data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave by Type for Year: {IdYear}", idYear);
+                throw;
+            }
+        }
+
+        // ── 3. Monthly Leave Trend (Line Chart) ───────────
+        public async Task<IEnumerable<MonthlyLeaveTrendDto>> GetMonthlyTrendAsync(int idYear)
+        {
+            try
+            {
+                var data = await _dbContext.VwLeaveApplications
+                    .Where(x => x.IdYear == idYear)
+                    .ToListAsync();
+
+                // Group by month of FromDate
+                var grouped = data
+                    .GroupBy(x => x.FromDate.Month)
+                    .Select(g => new MonthlyLeaveTrendDto
+                    {
+                        Month = g.Key,
+                        MonthName = new DateTime(idYear, g.Key, 1).ToString("MMM"),
+                        TotalLeaveDays = g.Sum(x => x.TotalLeaveDays)
+                    })
+                    .OrderBy(x => x.Month)
+                    .ToList();
+
+                // Fill missing months with 0 so chart always shows Jan–Dec
+                var allMonths = Enumerable.Range(1, 12).Select(m => new MonthlyLeaveTrendDto
+                {
+                    Month = m,
+                    MonthName = new DateTime(idYear, m, 1).ToString("MMM"),
+                    TotalLeaveDays = grouped.FirstOrDefault(g => g.Month == m)?.TotalLeaveDays ?? 0
+                });
+
+                return allMonths;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Monthly Leave Trend for Year: {IdYear}", idYear);
+                throw;
+            }
+        }
+
+        // ── 4. Department Summary (Bar Chart + Table) ─────
+        public async Task<IEnumerable<DepartmentLeaveDto>> GetDepartmentSummaryAsync(int idYear)
+        {
+            try
+            {
+                var data = await _dbContext.VwLeaveApplications
+                    .Where(x => x.IdYear == idYear)
+                    .ToListAsync();
+
+                var result = data
+                    .GroupBy(x => x.DepartmentName)
+                    .Select(dg => new DepartmentLeaveDto
+                    {
+                        DepartmentName = dg.Key,
+                        TotalLeaveDays = dg.Sum(x => x.TotalLeaveDays),
+                        LeaveBreakdown = dg
+                            .GroupBy(x => new { x.LeaveTypeName, x.LeaveCode })
+                            .Select(lg => new LeaveTypeBreakdownDto
+                            {
+                                LeaveTypeName = lg.Key.LeaveTypeName,
+                                LeaveCode = lg.Key.LeaveCode,
+                                TotalDays = lg.Sum(x => x.TotalLeaveDays)
+                            })
+                            .OrderBy(x => x.LeaveTypeName)
+                            .ToList()
+                    })
+                    .OrderBy(x => x.DepartmentName)
+                    .ToList();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Department Leave Summary for Year: {IdYear}", idYear);
+                throw;
+            }
+        }
+
+        // ── 5. Designation Summary (Bar Chart + Table) ────
+        public async Task<IEnumerable<DesignationLeaveDto>> GetDesignationSummaryAsync(int idYear)
+        {
+            try
+            {
+                var data = await _dbContext.VwLeaveApplications
+                    .Where(x => x.IdYear == idYear)
+                    .ToListAsync();
+
+                var result = data
+                    .GroupBy(x => x.DesignationName)
+                    .Select(dg => new DesignationLeaveDto
+                    {
+                        DesignationName = dg.Key,
+                        TotalLeaveDays = dg.Sum(x => x.TotalLeaveDays),
+                        LeaveBreakdown = dg
+                            .GroupBy(x => new { x.LeaveTypeName, x.LeaveCode })
+                            .Select(lg => new LeaveTypeBreakdownDto
+                            {
+                                LeaveTypeName = lg.Key.LeaveTypeName,
+                                LeaveCode = lg.Key.LeaveCode,
+                                TotalDays = lg.Sum(x => x.TotalLeaveDays)
+                            })
+                            .OrderBy(x => x.LeaveTypeName)
+                            .ToList()
+                    })
+                    .OrderBy(x => x.DesignationName)
+                    .ToList();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Designation Leave Summary for Year: {IdYear}", idYear);
+                throw;
+            }
+        }
+
+        // ── 6. Employee Leave Details (Employee Tab) ──────
+        public async Task<IEnumerable<EmployeeLeaveDetailDto>> GetEmployeeLeaveDetailsAsync(int idYear, int IdDepartment,
+            int IdDesignation)
+        {
+            try
+            {
+                var query = _dbContext.VwLeaveApplications
+                    .Where(x => x.IdYear == idYear);
+
+                // Optional filters
+                if (IdDepartment > 0)
+                    query = query.Where(x => x.IdDepartment == IdDepartment);
+
+                if (IdDesignation > 0)
+                    query = query.Where(x => x.IdDesignation == IdDesignation);
+
+                var data = await query.ToListAsync();
+
+                var result = data
+                    .GroupBy(x => new
+                    {
+                        x.IdEmployee,
+                        x.EmployeeName,
+                        x.DepartmentName,
+                        x.DesignationName
+                    })
+                    .Select(eg => new EmployeeLeaveDetailDto
+                    {
+                        IdEmployee = eg.Key.IdEmployee,
+                        EmployeeName = eg.Key.EmployeeName,
+                        DepartmentName = eg.Key.DepartmentName,
+                        DesignationName = eg.Key.DesignationName,
+                        TotalLeaveDays = eg.Sum(x => x.TotalLeaveDays),
+                        LeaveBreakdown = eg
+                            .GroupBy(x => new { x.LeaveTypeName, x.LeaveCode })
+                            .Select(lg => new LeaveTypeBreakdownDto
+                            {
+                                LeaveTypeName = lg.Key.LeaveTypeName,
+                                LeaveCode = lg.Key.LeaveCode,
+                                TotalDays = lg.Sum(x => x.TotalLeaveDays)
+                            })
+                            .OrderBy(x => x.LeaveTypeName)
+                            .ToList()
+                    })
+                    .OrderBy(x => x.EmployeeName)
+                    .ToList();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Employee Leave Details for Year: {IdYear}", idYear);
+                throw;
+            }
         }
         #endregion
 

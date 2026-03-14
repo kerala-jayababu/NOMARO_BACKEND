@@ -1,4 +1,5 @@
 ﻿using Georgetown_Internationsl_Academy.API.DTO;
+using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Interface
@@ -49,5 +50,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<bool> ApproveServiceChanges(List<int> idChanges, string approvalStatus, string? remarks, int loggedInEmployeeId);
         Task<bool> DeleteEmployeeServiceChanges(int idEmployeeServiceChange, int loggedInEmployeeId, bool isHrManager);
         Task<List<OrganizationHierarchyDto>> GetEmployeeHierarchyWithPhotoBinary();
+        Task<int> AddChildren([FromForm] EmployeeChildrenDto dto);
+        Task<bool> UpdateChildren(int idEmployeeChildren, EmployeeChildrenDto dto);
+        Task<bool> DeleteChildren(int idEmployeeChildren);
+        Task<List<EmployeeChildrenDto>> GetChildrenByEmployee(int idEmployee);
     }
 }

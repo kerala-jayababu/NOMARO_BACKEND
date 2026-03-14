@@ -6,10 +6,12 @@ using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Claims;
+using static iText.StyledXmlParser.Jsoup.Select.Evaluator;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Model;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
@@ -29,6 +31,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         private readonly IRoleBasedScreenService _roleBasedService;
         private readonly IValidator<EmployeeEntityDto> _employeeEntityvalidator;
         private readonly IValidator<List<EmployeeExperienceDto>> _employeeExperienceValidator;
+
         public EmployeeController(IEmployeeServices employeeservice, IValidator<List<EmployeeBankAccountDtoList>> employeeBankAccountvalidator,
     IConfiguration configuration, IRoleBasedScreenService roleBasedService, IValidator<List<EmployeeOvertimeConfigDtoList>> employeeOverTimevalidator,
     IValidator<EmployeeEntityDto> employeeEntityvalidator, IValidator<List<EmployeeActionPostDto>> employeeActionValidator, IValidator<List<EmployeeExperienceDto>> employeeExperienceValidator)
@@ -41,6 +44,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             _employeeEntityvalidator = employeeEntityvalidator;
             _employeeActionValidator = employeeActionValidator;
             _employeeExperienceValidator = employeeExperienceValidator;
+
         }
 
 
@@ -325,7 +329,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to manage employee bank accounts."));
                 }
 
-                return Ok(ApiResponseDto<string>.CreateSuccess("Employee bank accounts managed successfully."));
+              return Ok(ApiResponseDto<string>.CreateSuccess("Employee bank accounts managed successfully."));
             }
             catch (Exception ex)
             {
@@ -886,6 +890,158 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpPost("AddEmployeeChild")]
+        public async Task<IActionResult> AddEmployeeChild([FromForm] EmployeeChildrenDto dto)
+        {
+            if (dto.IdEmployee <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Employee ID."));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+
+            var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
+            var actionType = "A";
+
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission to add child details."));
+            }
+
+            try
+            {
+                var insertedId = await _employeeservice.AddChildren(dto);
+
+                if (insertedId <= 0)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add employee child."));
+                }
+
+                return Ok(ApiResponseDto<int>.CreateSuccess(insertedId, "Employee child added successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"Error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPut("UpdateEmployeeChild")]
+        public async Task<IActionResult> UpdateEmployeeChild(int idEmployeeChildren, [FromForm] EmployeeChildrenDto dto)
+        {
+            if (idEmployeeChildren <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid child ID."));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+
+            var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
+            var actionType = "U";
+
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission to update child details."));
+            }
+
+            try
+            {
+                var updateResult = await _employeeservice.UpdateChildren(idEmployeeChildren, dto);
+
+                if (!updateResult)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update employee child."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee child updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"Error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpDelete("DeleteEmployeeChild")]
+        public async Task<IActionResult> DeleteEmployeeChild(int idEmployeeChildren)
+        {
+            if (idEmployeeChildren <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid child ID."));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+
+            var screenCode = _configuration["ScreenCodes:EmployeeProfile"];
+            var actionType = "D";
+
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission to delete child details."));
+            }
+
+            try
+            {
+                var result = await _employeeservice.DeleteChildren(idEmployeeChildren);
+
+                if (!result)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to delete employee child."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Employee child deleted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"Error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetEmployeeChildren")]
+        public async Task<IActionResult> GetEmployeeChildren(int idEmployee)
+        {
+            if (idEmployee <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Employee ID."));
+            }
+
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+
+            try
+            {
+                var result = await _employeeservice.GetChildrenByEmployee(idEmployee);
+
+                return Ok(ApiResponseDto<List<EmployeeChildrenDto>>.CreateSuccess(result));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"Error occurred: {ex.Message}"));
+            }
+        }
         #region EMPLOYEE SERVICE CHANGES
 
         [HttpGet("GetEmployeeServiceChanges")]

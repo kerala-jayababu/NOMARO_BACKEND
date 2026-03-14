@@ -65,6 +65,8 @@ public class ShiftService : IShiftService
     {
         try
         {
+            if (shiftDto.IsRegularShiftJustTimeChange == null)
+                shiftDto.IsRegularShiftJustTimeChange = false;
             var entity = _mapper.Map<ShiftDefinitionEntity>(shiftDto);
             var result = await _dbContext.ShiftDefinitions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
@@ -89,6 +91,9 @@ public class ShiftService : IShiftService
             }
 
             existing.ShiftName = shiftDto.ShiftName;
+            if (shiftDto.IsRegularShiftJustTimeChange == null)
+                existing.IsRegularShiftJustTimeChange = false;
+
             existing.IsRegularShiftJustTimeChange = shiftDto.IsRegularShiftJustTimeChange;
             _dbContext.ShiftDefinitions.Update(existing);
             await _dbContext.SaveChangesAsync();
@@ -100,6 +105,7 @@ public class ShiftService : IShiftService
             return null;
         }
     }
+
 
     public async Task<List<ClockInOutDto>> GetClockInClockOutDetailsAsync(string? idEmployee,DateTime dateFrom,DateTime dateTo,int? idDepartment,bool? missingEntryOnly)
     {

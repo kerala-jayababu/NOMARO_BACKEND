@@ -1209,5 +1209,131 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        #region Annual Leave Dashboard
+        [HttpGet("GetKpiSummary")]
+        public async Task<IActionResult> GetKpiSummary([FromQuery] int idYear)
+        {
+            try
+            {
+                var result = await _leaveService.GetKpiSummaryAsync(idYear);
+                return Ok(ApiResponseDto<LeaveKpiSummaryDto>
+                    .CreateSuccess(result, "Leave KPI summary retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        // ── GET /api/LeaveDashboard/GetLeaveByType?idYear=2025
+        [HttpGet("GetLeaveByType")]
+        public async Task<IActionResult> GetLeaveByType([FromQuery] int idYear)
+        {
+            try
+            {
+                var result = await _leaveService.GetLeaveByTypeAsync(idYear);
+                if (!result.Any())
+                    return Ok(ApiResponseDto<IEnumerable<LeaveByTypeDto>>
+                        .CreateSuccess(Enumerable.Empty<LeaveByTypeDto>(), "No leave data available."));
+
+                return Ok(ApiResponseDto<IEnumerable<LeaveByTypeDto>>
+                    .CreateSuccess(result, "Leave by type retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        // ── GET /api/LeaveDashboard/GetMonthlyTrend?idYear=2025
+        [HttpGet("GetMonthlyTrend")]
+        public async Task<IActionResult> GetMonthlyTrend([FromQuery] int idYear)
+        {
+            try
+            {
+                var result = await _leaveService.GetMonthlyTrendAsync(idYear);
+                if (!result.Any())
+                    return Ok(ApiResponseDto<IEnumerable<MonthlyLeaveTrendDto>>
+                        .CreateSuccess(Enumerable.Empty<MonthlyLeaveTrendDto>(), "No monthly trend data available."));
+
+                return Ok(ApiResponseDto<IEnumerable<MonthlyLeaveTrendDto>>
+                    .CreateSuccess(result, "Monthly leave trend retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        // ── GET /api/LeaveDashboard/GetDepartmentSummary?idYear=2025
+        [HttpGet("GetDepartmentSummary")]
+        public async Task<IActionResult> GetDepartmentSummary([FromQuery] int idYear)
+        {
+            try
+            {
+                var result = await _leaveService.GetDepartmentSummaryAsync(idYear);
+                if (!result.Any())
+                    return Ok(ApiResponseDto<IEnumerable<DepartmentLeaveDto>>
+                        .CreateSuccess(Enumerable.Empty<DepartmentLeaveDto>(), "No department leave data available."));
+
+                return Ok(ApiResponseDto<IEnumerable<DepartmentLeaveDto>>
+                    .CreateSuccess(result, "Department leave summary retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        // ── GET /api/LeaveDashboard/GetDesignationSummary?idYear=2025
+        [HttpGet("GetDesignationSummary")]
+        public async Task<IActionResult> GetDesignationSummary([FromQuery] int idYear)
+        {
+            try
+            {
+                var result = await _leaveService.GetDesignationSummaryAsync(idYear);
+                if (!result.Any())
+                    return Ok(ApiResponseDto<IEnumerable<DesignationLeaveDto>>
+                        .CreateSuccess(Enumerable.Empty<DesignationLeaveDto>(), "No designation leave data available."));
+
+                return Ok(ApiResponseDto<IEnumerable<DesignationLeaveDto>>
+                    .CreateSuccess(result, "Designation leave summary retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        // ── GET /api/LeaveDashboard/GetEmployeeLeaveDetails
+        //        ?idYear=2025&departmentName=HR&designationName=Manager
+        [HttpGet("GetEmployeeLeaveDetails")]
+        public async Task<IActionResult> GetEmployeeLeaveDetails([FromQuery] int idYear,[FromQuery] int IdDepartment, int IdDesignation)
+        {
+            try
+            {
+                var result = await _leaveService
+                    .GetEmployeeLeaveDetailsAsync(idYear, IdDepartment, IdDesignation);
+
+                if (!result.Any())
+                    return Ok(ApiResponseDto<IEnumerable<EmployeeLeaveDetailDto>>
+                        .CreateSuccess(Enumerable.Empty<EmployeeLeaveDetailDto>(), "No employee leave records found."));
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeeLeaveDetailDto>>
+                    .CreateSuccess(result, "Employee leave details retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500,
+                    ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+        #endregion
     }
 }

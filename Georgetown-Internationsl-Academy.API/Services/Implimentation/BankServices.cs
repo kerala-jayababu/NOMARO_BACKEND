@@ -157,7 +157,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         }
 
 
-
         public async Task<bool> AddOrUpdateBanks(List<BankDto> bankDtoList)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();

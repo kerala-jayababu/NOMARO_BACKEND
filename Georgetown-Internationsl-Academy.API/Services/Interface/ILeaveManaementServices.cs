@@ -60,6 +60,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<List<NotClockedEmployeeWithShiftDto>> GetNotClockedInWithShiftAsync(DateTime date);
         Task<List<LeaveRequestRowDto>> GetTodayStatusDetails(DateTime Date, string QueryType);
 
+        Task<LeaveKpiSummaryDto> GetKpiSummaryAsync(int idYear);
+        Task<IEnumerable<LeaveByTypeDto>> GetLeaveByTypeAsync(int idYear);
+        Task<IEnumerable<MonthlyLeaveTrendDto>> GetMonthlyTrendAsync(int idYear);
+        Task<IEnumerable<DepartmentLeaveDto>> GetDepartmentSummaryAsync(int idYear);
+        Task<IEnumerable<DesignationLeaveDto>> GetDesignationSummaryAsync(int idYear);
+        Task<IEnumerable<EmployeeLeaveDetailDto>> GetEmployeeLeaveDetailsAsync(int idYear, int IdDepartment, int IdDesignation);
+
 
     }
 }

@@ -10,7 +10,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         
          Task<OvertimeTransactionDto?> GetOvertimeTransactionById(int id);
         Task<OvertimeTransactionDto?> AddOvertimeTransaction(OvertimeTransactionDto transaction,int IdEmployee);
-        Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transaction, int IdEmployee);
+        Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionUpdateDto transaction, int IdEmployee);
         Task<decimal> GetOverTimeAmount(int IdEmployee, DateTime OvertimeDate, decimal DurationInHours);
         Task<bool> IsOverTimeTransactionAllowed(int IdEmployee);
         Task<IEnumerable<OvertimeTransactionFullDto>> GetOvertimeTransactionsFullDetails(int EmployeeId, DateTime? dateFrom, DateTime? dateTo);

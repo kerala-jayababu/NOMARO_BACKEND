@@ -111,6 +111,7 @@ namespace Georgetown_International_Academy.API.Database
 
         // Leave Applications
         public DbSet<LeaveApplications> LeaveApplications { get; set; }
+        public DbSet<VwLeaveApplication> VwLeaveApplications { get; set; }
         public DbSet<LeaveApplicationDocuments> LeaveApplicationDocuments { get; set; }
         public DbSet<EmployeeServiceChanges> EmployeeServiceChanges { get; set; }
 
@@ -124,7 +125,7 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<ExitCaseClearanceAssignment> ExitCaseClearanceAssignments { get; set; }
         public DbSet<ExitCaseDepartmentClearanceLine> ExitCaseDepartmentClearanceLines { get; set; }
         public DbSet<MobileNotifications> MobileNotifications { get; set; }
-
+        public DbSet<AuditLogs> AuditLogs { get; set; }
         public DbSet<EmployeeHierarchyView> EmployeeHierarchyView { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -152,9 +153,10 @@ namespace Georgetown_International_Academy.API.Database
         public DbSet<EmployeeLeave> EmployeeLeaves { get; set; }
         public DbSet<EmployeeLeaveDetail> EmployeeLeaveDetails { get; set; }
         public DbSet<BambooHRLeaveIntegrationLastRun> BambooHRLeaveIntegrationLastRun { get; set; }
+        public DbSet<EmployeeChildren> EmployeeChildren { get; set; }
 
 
         #endregion
-      
+
     }
 }

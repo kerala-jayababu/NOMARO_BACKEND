@@ -7,8 +7,11 @@ using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
+using iText.Commons.Actions.Contexts;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -27,8 +30,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly IApprovalWorkflowService _approvalWorkflowService;
         private readonly IConfiguration _configuration;
+        private readonly IAuditService _audit;
 
-        public EmployeeServices(ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, IWebHostEnvironment webHostEnvironment, IMapper mapper, ILogger<EmployeeServices> logger, IConfiguration configuration)
+        public EmployeeServices(ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, IWebHostEnvironment webHostEnvironment, IMapper mapper, ILogger<EmployeeServices> logger, IConfiguration configuration,IAuditService audit)
         {
             _dbContext = dbContext;
             _mapper = mapper;
@@ -36,6 +40,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _approvalWorkflowService = approveWorkflowService;
             _logger = logger;
             _configuration = configuration;
+            _audit = audit;
         }
 
         public async Task<EmployeeDetailsDto> GetEmployeeDetailsByID(int id)
@@ -256,9 +261,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
-
-        
-
        public async Task<bool> DeleteEmployeeAttachment(int EmployeeId)
         {
             try
@@ -432,7 +434,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-
+        /*
         public async Task<bool> ManageEmployeeBankAccounts(List<EmployeeBankAccountDtoList> bankAccounts)
         {
             if (bankAccounts == null || !bankAccounts.Any())
@@ -485,6 +487,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
 
                         await _dbContext.EmployeeBankAccounts.AddAsync(newAccount);
+
+                        await _audit.LogAuditAsync(
+                        actionType: "Create",
+                        entityName: "Employee",
+                        entityId: newAccount.IdEmployeeBankAccount,
+                        actionDetails: new
+                        {
+                            Created = newAccount,
+                            Remark = "Employee permanently deleted"
+                        });
                     }
                 }
 
@@ -502,12 +514,183 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 // Save changes
                 await _dbContext.SaveChangesAsync();
-
                 return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error managing bank accounts for Employee ID: {EmployeeId}", bankAccounts.FirstOrDefault()?.IdEmployee);
+                throw;
+            }
+        }
+        */
+        public async Task<bool> ManageEmployeeBankAccounts(List<EmployeeBankAccountDtoList> bankAccounts)
+        {
+            if (bankAccounts == null || !bankAccounts.Any())
+                throw new ArgumentException("Bank accounts list cannot be null or empty.");
+
+            // Get the Employee ID from the first item in the list
+            var employeeId = bankAccounts.First().IdEmployee;
+
+            try
+            {
+                // ── Fetch existing accounts for this employee ──────────────────
+                var existingAccounts = await _dbContext.EmployeeBankAccounts
+                    .Where(x => x.IdEmployee == employeeId)
+                    .ToListAsync();
+
+                // ── ADD / UPDATE ───────────────────────────────────────────────
+                foreach (var accountDto in bankAccounts)
+                {
+                    var existingAccount = existingAccounts
+                        .FirstOrDefault(x => x.IdEmployeeBankAccount == accountDto.IdEmployeeBankAccount);
+
+                    if (existingAccount != null)
+                    {
+                        // ── Capture BEFORE state for audit ─────────────────────
+                        var beforeSnapshot = new
+                        {
+                            existingAccount.IdEmployeeBankAccount,
+                            existingAccount.IdBank,
+                            existingAccount.IdBankBranch,
+                            existingAccount.AccountNumber,
+                            existingAccount.BranchCode,
+                            existingAccount.DisbursementType,
+                            existingAccount.SalaryPercentageDistributed,
+                            existingAccount.CurrencyCode,
+                            existingAccount.OrderNumber
+                        };
+
+                        // ── Apply updates ──────────────────────────────────────
+                        existingAccount.IdBank = accountDto.IdBank;
+                        existingAccount.IdBankBranch = accountDto.IdBankBranch;
+                        existingAccount.AccountNumber = accountDto.AccountNumber;
+                        existingAccount.BranchCode = accountDto.BranchCode;
+                        existingAccount.DisbursementType = accountDto.DisbursementType;
+                        existingAccount.SalaryPercentageDistributed = accountDto.SalaryPercentageDistributed;
+                        existingAccount.CurrencyCode = accountDto.CurrencyCode.ToUpper().Trim();
+                        existingAccount.OrderNumber = accountDto.OrderNumber;
+
+                        _dbContext.EmployeeBankAccounts.Update(existingAccount);
+
+                        // ── Audit: UPDATE ──────────────────────────────────────
+                        await _audit.LogAuditAsync(
+                            actionType: "Update",
+                            entityName: "EmployeeBankAccount",
+                            entityId: existingAccount.IdEmployeeBankAccount,
+                            actionDetails: new
+                            {
+                                Before = beforeSnapshot,
+                                After = new
+                                {
+                                    existingAccount.IdEmployeeBankAccount,
+                                    existingAccount.IdBank,
+                                    existingAccount.IdBankBranch,
+                                    existingAccount.AccountNumber,
+                                    existingAccount.BranchCode,
+                                    existingAccount.DisbursementType,
+                                    existingAccount.SalaryPercentageDistributed,
+                                    existingAccount.CurrencyCode,
+                                    existingAccount.OrderNumber
+                                },
+                                Remark = "Employee bank account updated."
+                            });
+                    }
+                    else
+                    {
+                        // ── Add new account ────────────────────────────────────
+                        var newAccount = new EmployeeBankAccount
+                        {
+                            IdEmployee = employeeId,
+                            IdBank = accountDto.IdBank,
+                            IdBankBranch = accountDto.IdBankBranch,
+                            AccountNumber = accountDto.AccountNumber,
+                            BranchCode = accountDto.BranchCode,
+                            DisbursementType = accountDto.DisbursementType,
+                            SalaryPercentageDistributed = accountDto.SalaryPercentageDistributed,
+                            CurrencyCode = accountDto.CurrencyCode.ToUpper().Trim(),
+                            OrderNumber = accountDto.OrderNumber
+                        };
+
+                        await _dbContext.EmployeeBankAccounts.AddAsync(newAccount);
+
+                        // ── SaveChanges here so EF generates the new PK ────────
+                        // (needed so audit captures the real IdEmployeeBankAccount)
+                        await _dbContext.SaveChangesAsync();
+
+                        // ── Audit: CREATE ──────────────────────────────────────
+                        await _audit.LogAuditAsync(
+                            actionType: "Create",
+                            entityName: "EmployeeBankAccount",       // BUG FIX: was "Employee"
+                            entityId: newAccount.IdEmployeeBankAccount, // BUG FIX: now has real PK
+                            actionDetails: new
+                            {
+                                Created = new
+                                {
+                                    newAccount.IdEmployeeBankAccount,
+                                    newAccount.IdEmployee,
+                                    newAccount.IdBank,
+                                    newAccount.IdBankBranch,
+                                    newAccount.AccountNumber,
+                                    newAccount.BranchCode,
+                                    newAccount.DisbursementType,
+                                    newAccount.SalaryPercentageDistributed,
+                                    newAccount.CurrencyCode,
+                                    newAccount.OrderNumber
+                                },
+                                Remark = "New employee bank account added."  // BUG FIX: was "deleted"
+                            });
+                    }
+                }
+
+                // ── DELETE accounts not present in the incoming list ───────────
+                var accountIdsToKeep = bankAccounts
+                    .Where(x => x.IdEmployeeBankAccount.HasValue)
+                    .Select(x => x.IdEmployeeBankAccount.Value)
+                    .ToList();
+
+                var accountsToDelete = existingAccounts
+                    .Where(x => !accountIdsToKeep.Contains(x.IdEmployeeBankAccount))
+                    .ToList();
+
+                if (accountsToDelete.Any())
+                {
+                    _dbContext.EmployeeBankAccounts.RemoveRange(accountsToDelete);
+
+                    // ── Audit: DELETE (one entry per deleted account) ──────────
+                    foreach (var deleted in accountsToDelete)
+                    {
+                        await _audit.LogAuditAsync(
+                            actionType: "Delete",
+                            entityName: "EmployeeBankAccount",
+                            entityId: deleted.IdEmployeeBankAccount,
+                            actionDetails: new
+                            {
+                                Deleted = new
+                                {
+                                    deleted.IdEmployeeBankAccount,
+                                    deleted.IdEmployee,
+                                    deleted.IdBank,
+                                    deleted.IdBankBranch,
+                                    deleted.AccountNumber,
+                                    deleted.BranchCode,
+                                    deleted.DisbursementType,
+                                    deleted.SalaryPercentageDistributed,
+                                    deleted.CurrencyCode,
+                                    deleted.OrderNumber
+                                },
+                                Remark = "Employee bank account removed — not present in update list."
+                            });
+                    }
+                }
+
+                // ── Final save for updates + deletes ───────────────────────────
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error managing bank accounts for Employee ID: {EmployeeId}", employeeId);
                 throw;
             }
         }
@@ -2650,6 +2833,135 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 throw;
             }
         }
+        public async Task<int> AddChildren([FromForm] EmployeeChildrenDto dto)
+        {
+            try
+            {
+                if (dto.DateOfBirth.HasValue)
+                {
+                    dto.DateOfBirth = dto.DateOfBirth.Value.Date;
+                    if (dto.DateOfBirth > DateTime.Now.Date)
+                    {
+                        throw new Exception("Invalid Date of Birth");
+                    }
+                }
+                var child = new EmployeeChildren
+                {
+                    IdEmployee = dto.IdEmployee,
+                    ChildName = dto.ChildName,
+                    DateOfBirth = dto.DateOfBirth,
+                    Gender = dto.Gender,
+                    CertificateNumber = dto.CertificateNumber,
+                    DivisionNumber = dto.DivisionNumber                
+                };
 
+                _dbContext.EmployeeChildren.Add(child);
+                await _dbContext.SaveChangesAsync();
+                var childCount = await _dbContext.EmployeeChildren.CountAsync(x => x.IdEmployee == dto.IdEmployee);
+
+                // ✅ Update Employee table
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(x => x.IdEmployee == dto.IdEmployee);
+
+                if (employee != null)
+                {
+                    employee.ChildrenCount = childCount;
+                    await _dbContext.SaveChangesAsync();
+                }
+                return child.IdEmployeeChildren;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating a Child record");
+                throw;
+            }
+        }
+
+        public async Task<bool> UpdateChildren(int idEmployeeChildren, EmployeeChildrenDto dto)
+        {
+            try
+            {
+                var child = await _dbContext.EmployeeChildren
+                    .FirstOrDefaultAsync(x => x.IdEmployeeChildren == idEmployeeChildren);
+
+                if (child == null)
+                    return false;
+
+                // Validate DateOfBirth
+                if (dto.DateOfBirth.HasValue)
+                {
+                    var dob = dto.DateOfBirth.Value.Date;
+
+                    if (dob > DateTime.Now.Date)
+                    {
+                        throw new Exception("Invalid Date of Birth. Date cannot be in the future.");
+                    }
+
+                    child.DateOfBirth = dob;
+                }
+
+                child.ChildName = dto.ChildName;
+                child.Gender = dto.Gender;
+                child.CertificateNumber = dto.CertificateNumber;
+                child.DivisionNumber = dto.DivisionNumber;
+
+                await _dbContext.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating employee child record. IdEmployeeChildren: {IdEmployeeChildren}", idEmployeeChildren);
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteChildren(int idEmployeeChildren)
+        {
+            try
+            {
+                var child = await _dbContext.EmployeeChildren
+                    .FirstOrDefaultAsync(x => x.IdEmployeeChildren == idEmployeeChildren);
+
+                if (child == null)
+                    return false;
+
+                _dbContext.EmployeeChildren.Remove(child);
+                await _dbContext.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting employee child record");
+                throw;
+            }
+        }
+
+        public async Task<List<EmployeeChildrenDto>> GetChildrenByEmployee(int idEmployee)
+        {
+            try
+            {
+                var children = await _dbContext.EmployeeChildren
+                    .Where(x => x.IdEmployee == idEmployee)
+                    .Select(x => new EmployeeChildrenDto
+                    {
+                        IdEmployeeChildren = x.IdEmployeeChildren,
+                        IdEmployee = x.IdEmployee,
+                        ChildName = x.ChildName,
+                        DateOfBirth = x.DateOfBirth,
+                        Gender = x.Gender,
+                        CertificateNumber = x.CertificateNumber,
+                        DivisionNumber = x.DivisionNumber
+                    }).OrderBy(ee=>ee.IdEmployeeChildren)
+                    .ToListAsync();
+
+                return children;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching children for employee. IdEmployee: {IdEmployee}", idEmployee);
+                throw;
+            }
+        }
     }
 }

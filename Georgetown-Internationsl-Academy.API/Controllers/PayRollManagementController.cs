@@ -337,14 +337,14 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateOvertimeTransaction")]
-        public async Task<IActionResult> UpdateOvertimeTransaction([FromForm] OvertimeTransactionDto dto)
+        public async Task<IActionResult> UpdateOvertimeTransaction([FromForm] OvertimeTransactionUpdateDto dto)
         {
-            var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
+           /* var validationResult = await _overtimeTransactionValidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
                 return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed: {errors}"));
-            }
+            }*/
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 

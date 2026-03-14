@@ -52,4 +52,24 @@ namespace Georgetown_Internationsl_Academy.API.DTO
         [NotMapped]
         public List<EmployeeOvertimeConfigDto> OvertimeConfigs { get; set; } = new();
     }
+
+    public class OvertimeTransactionUpdateDto
+    {
+        public int IdOvertimeTransaction { get; set; }
+        public int IdEmployee { get; set; }
+        public int? IdOvertimeType { get; set; }
+        public DateTime StartDate { get; set; }
+        public TimeSpan StartTime { get; set; }
+        public DateTime EndDate { get; set; }
+        public TimeSpan EndTime { get; set; }
+        public decimal DurationInHours { get; set; }
+        public string? ReasonForOvertime { get; set; } = string.Empty;
+        public string? Attachment { get; set; }
+        public string? AttachmentDescription { get; set; }
+        public byte[]? AttachmentBlob { get; set; }
+        public IFormFile? File { get; set; }
+        public string? ApprovalStatus { get; set; }
+        public string? DayType { get; set; }
+        public string? Apptype { get; set; }
+    }
 }

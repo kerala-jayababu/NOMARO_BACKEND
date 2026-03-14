@@ -409,7 +409,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         transactionDto.StartDate <= e.EndDate &&
                         transactionDto.EndDate >= e.StartDate
                     ).CountAsync();
-                if(currentOTCount >1)
+                if(currentOTCount >=1)
                 {
                     throw new ArgumentException("There are Overtime Transactions already submitted for these given period");
                 }
@@ -418,7 +418,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var transactionEntity = _mapper.Map<OvertimeTransactionEntity>(transactionDto);
 
                 // 🔹 Attach file if uploaded
-                (string filePath, string fileName) = await SaveAttachmentAsync(transactionDto);
+                (string filePath, string fileName) = await SaveAttachmentAsyncAdd(transactionDto);
                 transactionEntity.Attachment = filePath;
                 transactionEntity.AttachmentDescription = fileName;
 
@@ -428,6 +428,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // 🔹 Audit fields
                 transactionEntity.CreatedBy = idEmployee;
                 transactionEntity.CreatedOn = DateTime.Now;
+                transactionEntity.DurationInHours =
+                Convert.ToDecimal((transactionEntity.EndTime - transactionEntity.StartTime).TotalHours); 
                 transactionEntity.ApprovalStatus = "SUBMITTED";
 
                 // 🔹 Save transaction
@@ -444,7 +446,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
         #region Helpers
 
-        private async Task<(string FilePath, string FileName)> SaveAttachmentAsync(OvertimeTransactionDto dto)
+        private async Task<(string FilePath, string FileName)> SaveAttachmentAsyncAdd(OvertimeTransactionDto dto)
         {
             if (dto.File == null) return (null, null);
 
@@ -463,6 +465,26 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             return (filePath, fileName);
         }
+        private async Task<(string FilePath, string FileName)> SaveAttachmentAsyncUpdate(OvertimeTransactionUpdateDto dto)
+        {
+            if (dto.File == null) return (null, null);
+
+            string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/OvertimeTransactions");
+            if (!Directory.Exists(uploadFolderPath))
+            {
+                Directory.CreateDirectory(uploadFolderPath);
+            }
+
+            string fileName = dto.File.FileName;
+            string uniqueFileName = $"{Guid.NewGuid()}_{dto.IdEmployee}_{fileName}";
+            string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
+
+            using var stream = new FileStream(filePath, FileMode.Create);
+            await dto.File.CopyToAsync(stream);
+
+            return (filePath, fileName);
+        }
+
 
         private async Task SetDayTypeAsync(OvertimeTransactionEntity entity)
         {
@@ -598,9 +620,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             return result;
         }
 
-        
-
-        public async Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionDto transactionDto, int idEmployee)
+        public async Task<OvertimeTransactionDto?> UpdateOvertimeTransaction(OvertimeTransactionUpdateDto transactionDto, int idEmployee)
         {
             try
             {
@@ -616,12 +636,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     x.IdOvertimeTransaction != transactionDto.IdOvertimeTransaction &&
                     x.IdEmployee == idEmployee &&
                     x.ApprovalStatus != "REJECTED" &&
-                    x.ApprovalStatus != "CANCELLED" &&
-                    x.StartDate == transactionDto.StartDate 
-                );
+                    x.ApprovalStatus != "CANCELLED" && x.StartDate == transactionDto.StartDate.Date);
 
                 if (exists)
                     throw new InvalidOperationException("An overtime request already exists overlapping this period.");
+                if(newStart > newEnd)
+                    throw new InvalidOperationException("Invalid Start/End Date");
+
+                if (String.IsNullOrEmpty(transactionDto.ReasonForOvertime))
+                    throw new InvalidOperationException("Reason for Overtime should not be empty");
 
                 // 🔹 Update attachment if new file uploaded
                 if (transactionDto.File != null)
@@ -632,7 +655,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         File.Delete(transactionEntity.Attachment);
                     }
 
-                    (string filePath, string fileName) = await SaveAttachmentAsync(transactionDto);
+                    (string filePath, string fileName) = await SaveAttachmentAsyncUpdate(transactionDto);
                     transactionEntity.Attachment = filePath;
                     transactionEntity.AttachmentDescription = fileName;
                 }
@@ -645,7 +668,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 transactionEntity.EndTime = transactionDto.EndTime;
                 transactionEntity.StartDate = transactionDto.StartDate;
                 transactionEntity.EndDate = transactionDto.EndDate;
-                transactionEntity.DurationInHours = transactionDto.DurationInHours;
+                transactionEntity.DurationInHours =
+                Convert.ToDecimal((transactionEntity.EndTime - transactionEntity.StartTime).TotalHours); 
                 transactionEntity.ReasonForOverTime = transactionDto.ReasonForOvertime;
                 transactionEntity.ApprovalStatus = "SUBMITTED"; // always reset to submitted when updated
 

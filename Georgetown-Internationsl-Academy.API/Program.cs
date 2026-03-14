@@ -216,7 +216,8 @@ builder.Services.AddScoped<ILeaveManaementServices, LeaveManaementServices>();
 builder.Services.AddScoped<IEmployeeOffBoarding, EmployeeOffBoardingService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SendSMSOTP>();
-
+builder.Services.AddHttpContextAccessor();           // Required for IP/Claims
+builder.Services.AddScoped<IAuditService, AuditService>();
 var app = builder.Build();
 
 // Configure HTTP request pipeline

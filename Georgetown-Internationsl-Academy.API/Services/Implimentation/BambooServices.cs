@@ -1240,6 +1240,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             status == "DENIED" ? "REJECTED" :
                             status == "CANCELED" ? "CANCELLED" :
                             status == "REQUESTED" ? "SUBMITTED" :
+                            status == "SUPERCEDED" ? "APPROVED" :
                             status;
 
                         existingLeaveApplication.CancelledDate =
@@ -1366,6 +1367,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                              status == "DENIED" ? "REJECTED" :
                             status == "CANCELED" ? "CANCELLED" :
                             status == "SUPERCEDED" ? "APPROVED" :
+                            status == "REQUESTED" ? "SUBMITTED" :
                             status,
                         BambooHRLeaveRequestID = req.Id,
                         LeaveTypeName = leaveTemplate.LeaveTypeName,
