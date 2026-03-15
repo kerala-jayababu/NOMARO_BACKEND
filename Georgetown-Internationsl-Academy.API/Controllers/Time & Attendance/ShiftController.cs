@@ -406,7 +406,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 
             return Ok(ApiResponseDto<string>.CreateSuccess("All entries updated successfully."));
         }
-
         [HttpPost("ForgotAccessCardMissingEntry")]
         public async Task<IActionResult> ForgotAccessCardMissingEntry([FromBody] ForgotAccessCardMissingEntryDto dto)
         {
@@ -419,17 +418,30 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             {
                 return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
             }
-     
-            var success = await _shiftService.ForgotAccessCardMissingEntry(dto);
-            if (!success)
-                return BadRequest(ApiResponseDto<string>.CreateFailure("One or more records could not be updated."));
-            string msg = "";
-            if(dto.EntryType == "IN")
-                msg = "Your Entry Time Saved Successfully. Please Remember to Update Exit Time When You Leave";
-            else
-                msg = "Your Exit Time Saved Successfully";
 
-            return Ok(ApiResponseDto<string>.CreateSuccess(msg));
+            try
+            {
+                var success = await _shiftService.ForgotAccessCardMissingEntry(dto);
+
+                if (!success)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("One or more records could not be updated."));
+
+                string msg = "";
+                if (dto.EntryType == "IN")
+                    msg = "Your Entry Time Saved Successfully. Please Remember to Update Exit Time When You Leave";
+                else
+                    msg = "Your Exit Time Saved Successfully";
+
+                return Ok(ApiResponseDto<string>.CreateSuccess(msg));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure("An error occurred while processing the request."));
+            }
         }
 
 

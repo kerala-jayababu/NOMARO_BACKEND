@@ -576,43 +576,65 @@ public class ShiftService : IShiftService
         {
             string recordStatus = string.Empty;
 
+            var guyanaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Guyana");
+            var currentGuyanaTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, guyanaTimeZone);
+
             var sameDayRecords = await _dbContext.ClockInOutDetails
-                .Where(c => c.ClockDate == entryDetails.EntryDate
+                .Where(c => c.ClockDate == entryDetails.EntryDate.Date
                          && c.IdEmployee == entryDetails.IdEmployee)
                 .ToListAsync();
 
-            if (entryDetails.EntryDate != DateTime.Now.Date)
+            if (entryDetails.EntryDate.Date != currentGuyanaTime.Date)
             {
-                throw new Exception("You can enter Forgot Card details for today only");
+                throw new ArgumentException(
+                    $"You can enter Forgot Card details only for today. Server date: {currentGuyanaTime:yyyy-MM-dd}"
+                );
             }
 
-            if (entryDetails.EntryTime > DateTime.Now.AddMinutes(1))
+            if (entryDetails.EntryTime > currentGuyanaTime.AddMinutes(1))
             {
-                throw new Exception("Invalid Time. Should be less than current time");
+                throw new ArgumentException(
+                    $"Invalid Time. Entry time must be less than current time. Server time: {currentGuyanaTime:yyyy-MM-dd HH:mm:ss}"
+                );
             }
-
             if (sameDayRecords.Count > 1)
             {
-                throw new Exception("Multiple clock-in/out records exist for this day. Forgot card entry is not allowed.");
+                throw new ArgumentException(
+                    $"Multiple clock-in/out records already exist for this employee on {entryDetails.EntryDate:yyyy-MM-dd}. Forgot card entry is not allowed."
+                );
             }
 
             var existingRecord = sameDayRecords.FirstOrDefault();
 
-            // 🔹 Determine record status
             if (existingRecord == null)
             {
                 if (entryDetails.EntryType != "IN")
-                    throw new Exception("Please enter IN time first.");
+                    throw new ArgumentException("Please enter IN time first.");
+
                 recordStatus = "IN";
             }
             else
             {
                 if (existingRecord.StatusDetails == "IN and OUT Recorded")
-                    throw new Exception("Both IN and OUT times are already recorded.");
+                {
+                    throw new ArgumentException(
+                        $"Attendance already completed for {existingRecord.ClockDate:yyyy-MM-dd}. IN: {existingRecord.INTime:HH:mm}, OUT: {existingRecord.OUTTime:HH:mm}."
+                    );
+                }
+
                 if (entryDetails.EntryType != "OUT")
-                    throw new Exception("IN time is already recorded. Please enter OUT time.");
+                {
+                    throw new ArgumentException(
+                        $"IN time already recorded at {existingRecord.INTime:HH:mm}. Please submit OUT time."
+                    );
+                }
+
                 if (existingRecord.OUTTime != null)
-                    throw new Exception("OUT time has already been recorded.");
+                {
+                    throw new ArgumentException(
+                        $"OUT time already recorded at {existingRecord.OUTTime:HH:mm}. Duplicate OUT entry is not allowed."
+                    );
+                }
 
                 recordStatus = "OUT";
             }
@@ -639,14 +661,16 @@ public class ShiftService : IShiftService
                 existingRecord.Remarks = "Forgot Access Card: " + entryDetails.Reason;
                 existingRecord.MissingEntryApproveStatus = "SUBMITTED";
 
-                // 🔹 Calculate total working time
                 if (existingRecord.INTime.HasValue)
                 {
-
                     var totalMinutes = (int)(existingRecord.OUTTime.Value - existingRecord.INTime.Value).TotalMinutes;
 
                     if (totalMinutes < 0)
-                        throw new Exception("OUT time cannot be earlier than IN time.");
+                    {
+                        throw new ArgumentException(
+                            $"Invalid time sequence. OUT time ({existingRecord.OUTTime:HH:mm}) cannot be earlier than IN time ({existingRecord.INTime:HH:mm})."
+                        );
+                    }
 
                     existingRecord.TotalInMinutes = totalMinutes;
                     existingRecord.TotalINHours = Math.Round((decimal)totalMinutes / 60, 2);
@@ -657,9 +681,13 @@ public class ShiftService : IShiftService
                     existingRecord.TotalInHoursText = $"{hours}hrs {minutes}minutes";
                 }
             }
-            await _dbContext.SaveChangesAsync();
 
+            await _dbContext.SaveChangesAsync();
             return true;
+        }
+        catch (ArgumentException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
