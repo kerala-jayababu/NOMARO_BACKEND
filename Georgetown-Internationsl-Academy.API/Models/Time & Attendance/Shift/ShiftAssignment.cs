@@ -1,10 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift
 {
     public class ShiftAssignment
     {
-        [Key]
+        [Key]  
         public int? IdShiftAssignment { get; set; }
         public int IdEmployee { get; set; }
         public int IdShift { get; set; }

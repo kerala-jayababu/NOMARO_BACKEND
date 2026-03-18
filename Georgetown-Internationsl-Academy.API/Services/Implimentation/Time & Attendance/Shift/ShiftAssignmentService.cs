@@ -87,7 +87,7 @@ ORDER BY sa.StartDate DESC";
 
                 // Get incoming IDs (i.e., assignments to keep or update)
                 var incomingIds = assignments
-                    .Where(sa => sa.IdShiftAssignment.HasValue)
+                    .Where(sa => sa.IdShiftAssignment.HasValue && sa.IdShiftAssignment > 0)
                     .Select(sa => sa.IdShiftAssignment.Value)
                     .ToHashSet();
 
@@ -126,7 +126,11 @@ ORDER BY sa.StartDate DESC";
                     else
                     {
                         // Add new
+                        // Ensure we don't attempt to insert an explicit identity value (e.g. 0)
+                        dto.IdShiftAssignment = null;
+
                         var entity = _mapper.Map<ShiftAssignment>(dto);
+                        entity.IdShiftAssignment = null;
                         entity.StartDate = dto.StartDate.Date.Add(shiftSchedule.StartTime);
                         entity.EndDate = dto.EndDate.Date.Add(shiftSchedule.EndTime);
 
