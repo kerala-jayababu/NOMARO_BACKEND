@@ -95,7 +95,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     DeviceInfo = userAgent
                 };
 
-                await _db.AuditLogs.AddAsync(audit);
+                await _db.AuditLog.AddAsync(audit);
                 await _db.SaveChangesAsync();
             }
             catch (Exception ex)

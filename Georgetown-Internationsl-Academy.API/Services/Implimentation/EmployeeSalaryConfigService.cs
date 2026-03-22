@@ -16,14 +16,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ILogger<EmployeeSalaryConfigService> _logger;
         private readonly IConfiguration _configuration;
         private readonly IApprovalWorkflowService _approvalWorkflowService;
+        private readonly IAuditService _auditService;
 
-        public EmployeeSalaryConfigService(ApplicationDBContext dbContext, IMapper mapper, ILogger<EmployeeSalaryConfigService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
+        public EmployeeSalaryConfigService(
+            ApplicationDBContext dbContext,
+            IMapper mapper,
+            ILogger<EmployeeSalaryConfigService> logger,
+            IConfiguration configuration,
+            IApprovalWorkflowService approvalWorkflowService,
+            IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
             _configuration = configuration;
             _approvalWorkflowService = approvalWorkflowService;
+            _auditService = auditService;
         }
 
         #region EmployeeSalaryConfig
@@ -687,6 +695,102 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 throw new Exception("An error occurred while updating the configuration. Please try again later.");
             }
         }
+
+        public async Task<EmployeeSalaryConfigDto?> SubmitForApprovalAsync(int idEmployeeSalaryConfig, int idEmployee)
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var configEntity = await _dbContext.EmployeeSalaryConfig
+                    .FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == idEmployeeSalaryConfig);
+                if (configEntity == null)
+                {
+                    _logger.LogWarning("Submit for approval: Employee Salary Configuration {Id} not found.", idEmployeeSalaryConfig);
+                    return null;
+                }
+
+                var detailCount = await _dbContext.EmployeeSalaryConfigDetails
+                    .CountAsync(d => d.IdEmployeeSalaryConfig == idEmployeeSalaryConfig);
+
+                var before = BuildSalaryConfigAuditSnapshot(configEntity, detailCount);
+
+                configEntity.ApprovalStatus = "SUBMITTED";
+                _dbContext.EmployeeSalaryConfig.Update(configEntity);
+                await _dbContext.SaveChangesAsync();
+
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
+                if (string.IsNullOrWhiteSpace(entityCode))
+                {
+                    throw new InvalidOperationException("WorkflowEntityCodes:EmployeeSalaryConfig is not configured.");
+                }
+
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    idEmployeeSalaryConfig,
+                    entityCode,
+                    idEmployee,
+                    "SUBMITTED",
+                    null,
+                    null);
+
+                await _dbContext.Entry(configEntity).ReloadAsync();
+                var after = BuildSalaryConfigAuditSnapshot(configEntity, detailCount);
+
+                await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "EmployeeSalaryConfig",
+                    entityId: idEmployeeSalaryConfig,
+                    actionDetails: new
+                    {
+                        before,
+                        after,
+                        remark = "Employee salary configuration submitted for approval (approval status set to SUBMITTED).",
+                        approvalWorkflowResult = approvalResult
+                    });
+
+                return await GetConfigById(idEmployeeSalaryConfig);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error submitting Employee Salary Configuration {Id} for approval.", idEmployeeSalaryConfig);
+                throw new Exception("An error occurred while submitting the configuration for approval. Please try again later.");
+            }
+        }
+
+        private static SalaryConfigAuditSnapshot BuildSalaryConfigAuditSnapshot(EmployeeSalaryConfig entity, int detailLineCount)
+        {
+            return new SalaryConfigAuditSnapshot(
+                entity.IdEmployeeSalaryConfig,
+                entity.IdEmployee,
+                entity.ValidFrom,
+                entity.ValidTo,
+                entity.IdSalaryTemplate,
+                entity.CreatedBy,
+                entity.CreatedOn,
+                entity.ApprovalStatus,
+                entity.ActiveStatus,
+                entity.TotalEarnings,
+                entity.TotalDeductions,
+                entity.NetSalary,
+                detailLineCount);
+        }
+
+        private sealed record SalaryConfigAuditSnapshot(
+            int IdEmployeeSalaryConfig,
+            int IdEmployee,
+            DateTime ValidFrom,
+            DateTime? ValidTo,
+            int? IdSalaryTemplate,
+            int? CreatedBy,
+            DateTime? CreatedOn,
+            string? ApprovalStatus,
+            bool? ActiveStatus,
+            decimal? TotalEarnings,
+            decimal? TotalDeductions,
+            decimal? NetSalary,
+            int DetailLineCount);
 
         public async Task<int?> GetNotConfiguredEmployeeCount()
         {

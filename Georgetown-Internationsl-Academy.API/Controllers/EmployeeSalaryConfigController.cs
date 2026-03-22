@@ -274,6 +274,47 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Sets approval status to SUBMITTED, restarts the approval workflow, and writes an audit log (before/after snapshot).
+        /// </summary>
+        [HttpPost("SubmitEmployeeSalaryConfigForApproval")]
+        public async Task<IActionResult> SubmitEmployeeSalaryConfigForApproval([FromBody] SubmitEmployeeSalaryConfigForApprovalDto request)
+        {
+            if (request == null || request.IdEmployeeSalaryConfig <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployeeSalaryConfig is required."));
+            }
+
+            var idEmployeeClaim = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(idEmployeeClaim) || !int.TryParse(idEmployeeClaim, out var idEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+
+            var screenCode = _configuration["ScreenCodes:EmployeeSalaryConfig"];
+            var actionType = "U";
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(idEmployee, screenCode, actionType);
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+            }
+
+            try
+            {
+                var result = await _employeeSalaryConfigService.SubmitForApprovalAsync(request.IdEmployeeSalaryConfig, idEmployee);
+                if (result == null)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Salary configuration not found."));
+                }
+
+                return Ok(ApiResponseDto<EmployeeSalaryConfigDto>.CreateSuccess(result, "Configuration submitted for approval successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
 
      
