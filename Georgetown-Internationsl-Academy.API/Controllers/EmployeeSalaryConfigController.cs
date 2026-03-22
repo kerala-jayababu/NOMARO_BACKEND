@@ -211,7 +211,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 if (result == null)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add configuration."));
                 return Ok(ApiResponseDto<string>.CreateSuccess("EmployeeSalaryConfig added successfully."));
-
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {

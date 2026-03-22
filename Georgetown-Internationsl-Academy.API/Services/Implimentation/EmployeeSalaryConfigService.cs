@@ -542,6 +542,16 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
+                if (dto.ValidFrom.HasValue && dto.IdEmployee > 0)
+                {
+                    var exists = await EmployeeSalaryConfigExistsForEmployeeOnValidFromDateAsync(dto.IdEmployee, dto.ValidFrom.Value);
+                    if (exists)
+                    {
+                        throw new InvalidOperationException(
+                            "A salary configuration with this Valid From date already exists for this employee.");
+                    }
+                }
+
                 // Map and insert EmployeeSalaryConfig
                 var configEntity = _mapper.Map<EmployeeSalaryConfig>(dto);
                 configEntity.ApprovalStatus = "SUBMITTED";
@@ -586,12 +596,25 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 await transaction.CommitAsync();
                 return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
             }
+            catch (InvalidOperationException)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error adding Employee Salary Configuration and Details.");
                 throw new Exception("An error occurred while adding the configuration. Please try again later.");
             }
+        }
+
+        private Task<bool> EmployeeSalaryConfigExistsForEmployeeOnValidFromDateAsync(int idEmployee, DateTime validFrom)
+        {
+            var dayStart = validFrom.Date;
+            var dayEnd = dayStart.AddDays(1);
+            return _dbContext.EmployeeSalaryConfig.AsNoTracking()
+                .AnyAsync(c => c.IdEmployee == idEmployee && c.ValidFrom >= dayStart);
         }
 
 
