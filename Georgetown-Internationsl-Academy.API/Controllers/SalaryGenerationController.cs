@@ -15,6 +15,8 @@ using System.Security.Claims;
 using Georgetown_Internationsl_Academy.API.Helpers;
 using System.Net.Mail;
 using System.Diagnostics;
+using Georgetown_International_Academy.API.Database;
+using Microsoft.EntityFrameworkCore;
 
 namespace Georgetown_Internationsl_Academy.API.Controllers
 {
@@ -1188,6 +1190,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 using var scope = _serviceProvider.CreateScope();
                 var salaryService = scope.ServiceProvider.GetRequiredService<ISalaryGenerationService>();
                 var notificationConfigService = scope.ServiceProvider.GetRequiredService<INotificationConfigService>();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDBContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SalaryGenerationController>>();
                 try
                 {
@@ -1200,11 +1203,12 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         return;
                     }
 
-                    // grab template once
-                    var notificationList = await notificationConfigService.GetNotificationConfigList(false);
-                    var template = notificationList
-                        .FirstOrDefault(c => c.EntityCode == "SALARY")
-                        ?? throw new InvalidOperationException("Missing SALARY template");
+                    // grab template once - get entity for helper method
+                    var notificationConfig = await dbContext.NotificationsConfig
+                        .FirstOrDefaultAsync(c => c.EntityCode == "SALARY");
+                    
+                    if (notificationConfig == null)
+                        throw new InvalidOperationException("Missing SALARY template");
 
                     // process in parallel, up to 10 at once
                     var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
@@ -1239,9 +1243,13 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         }
 
                         // 2) build email body
-                        var body = template.EmailContent
-                            .Replace("#EMPLOYEENAME#", emp.EmployeeName)
-                            .Replace("#SALARYMONTH#", emp.Period);
+                        var replacements = new Dictionary<string, string>
+                        {
+                            { "#EMPLOYEENAME#", emp.EmployeeName ?? "" },
+                            { "#SALARYMONTH#", emp.Period ?? "" }
+                        };
+
+                        var body = await notificationConfigService.GetProcessedNotificationContentAsync(notificationConfig, replacements);
 
                         var disbHtml = string.Join("<br/>", emp.BankRemittance.Select(r =>
                         {
@@ -1250,7 +1258,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                                      : r.Currency == "GYD" ? "G$" : "";
                             return $"Bank: {r.BankName}, Account: {r.AccountNumber}, Amount: {sym} {amt:N2}";
                         }));
-                        body = body.Replace(
+                        body = body?.Replace(
                             "[[Bank : #BANKNAME#, Account Number : #ACCOUNTNUMBER#, Amount : #AMOUNT#]]",
                             disbHtml
                         );
@@ -1262,7 +1270,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                         {
                             await EmailService.SendMail(
                                 emp.EmailID,
-                                template.EmailSubject,
+                                notificationConfig.EmailSubject,
                                 body,
                                 pdfBytes,
                                 fileName

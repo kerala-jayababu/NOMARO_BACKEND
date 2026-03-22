@@ -9,6 +9,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<NotificationConfigDto?> GetNotificationConfigById(int id, bool includeHtmlTemplateFileContent = true);
         Task<NotificationConfigDto> AddNotificationConfig(NotificationConfigDto dto);
         Task<NotificationConfigDto> UpdateNotificationConfig(NotificationConfigDto dto);
-
+        Task<string?> GetProcessedNotificationContentAsync(NotificationConfig config, Dictionary<string, string> replacements);
     }
 }

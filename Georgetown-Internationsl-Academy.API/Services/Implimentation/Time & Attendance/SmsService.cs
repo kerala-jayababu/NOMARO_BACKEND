@@ -1,11 +1,13 @@
 ﻿using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
+using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attendance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -18,17 +20,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
         private readonly ILogger<SmsService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly INotificationConfigService _notificationConfigService;
 
         public SmsService(
             ApplicationDBContext dbContext,
             IHttpClientFactory httpClientFactory,
             ILogger<SmsService> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            INotificationConfigService notificationConfigService)
         {
             _dbContext = dbContext;
             _logger = logger;
            _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _notificationConfigService = notificationConfigService;
         }
 
         public async Task<bool> SendSmsMissingEntryAsync(int idEmployee, int loggedInEmployeeId, string mobileNumber, string employeeName, DateTime exitDateTime)
@@ -92,15 +97,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
                 .Where(n => n.EntityCode == entityCode)
                 .FirstOrDefaultAsync();
 
-            if (cfg == null || string.IsNullOrWhiteSpace(cfg.EmailContent))
+            if (cfg == null || (string.IsNullOrWhiteSpace(cfg.EmailContent) && cfg.TemplateSelection != "HTMLFILE"))
                 return null;
 
             var dtText = datetimeValue.ToString("dd-MMM-yyyy hh:mm tt");
 
-            string processedContent = cfg.EmailContent
-                .Replace("#RECEIVER#", receiverName)
-                .Replace("#DATETIMME#", dtText)
-                .Replace("#CURRENTDATETIME#", dtText);
+            // Build replacement dictionary
+            var replacements = new Dictionary<string, string>
+            {
+                { "#RECEIVER#", receiverName ?? "" },
+                { "#DATETIMME#", dtText },
+                { "#CURRENTDATETIME#", dtText }
+            };
+
+            // Get processed content using helper method
+            string processedContent = await _notificationConfigService.GetProcessedNotificationContentAsync(cfg, replacements);
 
             return new NotificationConfigDto
             {

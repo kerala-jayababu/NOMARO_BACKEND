@@ -213,5 +213,70 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 _logger.LogError(ex, "Error reading HTML template file: {Path}", path);
             }
         }
+
+        /// <summary>
+        /// Gets the processed notification content based on TemplateSelection.
+        /// If TemplateSelection == "HTMLFILE", reads from HTMLTemplatePath and replaces variables.
+        /// If TemplateSelection == "HTMLTEXT" or null, uses EmailContent directly.
+        /// </summary>
+        public async Task<string?> GetProcessedNotificationContentAsync(NotificationConfig config, Dictionary<string, string> replacements)
+        {
+            if (config == null)
+                return null;
+
+            string content = null;
+
+            // Check if it's an HTML file template
+            if (config.TemplateSelection == "HTMLFILE" && !string.IsNullOrWhiteSpace(config.HTMLTemplatePath))
+            {
+                try
+                {
+                    var path = config.HTMLTemplatePath.Trim();
+
+                    // Convert to full path if it's relative
+                    if (!Path.IsPathRooted(path))
+                    {
+                        path = Path.Combine(
+                            _webHostEnvironment.ContentRootPath,
+                            path.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar));
+                    }
+
+                    // Check if file exists
+                    if (!File.Exists(path))
+                    {
+                        _logger.LogWarning("HTML template file not found: {Path}", path);
+                        // Fall back to EmailContent if file doesn't exist
+                        content = config.EmailContent;
+                    }
+                    else
+                    {
+                        // Read file content
+                        content = await File.ReadAllTextAsync(path);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error reading HTML template file from path: {Path}", config.HTMLTemplatePath);
+                    // Fall back to EmailContent if there's an error
+                    content = config.EmailContent;
+                }
+            }
+            else
+            {
+                // Use EmailContent for HTMLTEXT or when TemplateSelection is not specified
+                content = config.EmailContent;
+            }
+
+            // Apply replacements to the content
+            if (!string.IsNullOrWhiteSpace(content) && replacements != null && replacements.Count > 0)
+            {
+                foreach (var kvp in replacements)
+                {
+                    content = content.Replace(kvp.Key, kvp.Value ?? "");
+                }
+            }
+
+            return content;
+        }
     }
 }

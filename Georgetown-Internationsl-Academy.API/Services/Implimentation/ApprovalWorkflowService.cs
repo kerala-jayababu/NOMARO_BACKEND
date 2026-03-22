@@ -26,13 +26,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IConfiguration _configuration;
         private readonly IAccountService _accountService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly INotificationConfigService _notificationConfigService;
         
-        public ApprovalWorkflowService(ApplicationDBContext dbContext,  IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IAccountService accountService)
+        public ApprovalWorkflowService(ApplicationDBContext dbContext,  IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IAccountService accountService, INotificationConfigService notificationConfigService)
         {
             _dbContext = dbContext;
             _configuration = configuration;
             _accountService = accountService;
             _httpContextAccessor = httpContextAccessor;
+            _notificationConfigService = notificationConfigService;
         }
 
         public async Task<string> InitiateApprovalWorkflow(int entityTablePrimaryKeyID, string entityCode, int loggedInEmployeeId, string? status, decimal? LeavePassageAmount, string? rejectReason, int count=1)
@@ -1312,57 +1314,49 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                
-
                 var nConfig = await _dbContext.NotificationsConfig
                     .Where(n => n.EntityCode == EntityCode)
                     .FirstOrDefaultAsync();
 
-                if (nConfig == null || string.IsNullOrEmpty(nConfig.EmailContent))
+                if (nConfig == null || (string.IsNullOrEmpty(nConfig.EmailContent) && nConfig.TemplateSelection != "HTMLFILE"))
                     return null;
 
                 string fromDateStr = fromDate.ToString("dd-MMM-yyyy");
                 string toDateStr = toDate.ToString("dd-MMM-yyyy");
                 string totalDaysStr = totalDays.ToString("0.##");
-
                 string approvalWorkflowText = approvalWorkflow ?? "";
 
-                // Email content replacements
-                string emailContent = nConfig.EmailContent
-                    .Replace("#SENDER#", SenderName)
-                    .Replace("#RECEIVER#", ReceiverName)
-                    .Replace("#APPROVERNAME#", SenderName)
-                    .Replace("#APPROVERNAME#", SenderName)
-                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
-                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
-                    .Replace("#ApprovalWorkflow#", approvalWorkflowText)
+                // Build replacement dictionary
+                var replacements = new Dictionary<string, string>
+                {
+                    { "#SENDER#", SenderName ?? "" },
+                    { "#RECEIVER#", ReceiverName ?? "" },
+                    { "#APPROVERNAME#", SenderName ?? "" },
+                    { "#REJECTIONREASON#", rejectReason ?? "" },
+                    { "#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt") },
+                    { "#ApprovalWorkflow#", approvalWorkflowText },
+                    { "#EMPLOYEENAME#", employeeName ?? "" },
+                    { "#LEAVETYPE#", leaveType ?? "" },
+                    { "#FROMDATE#", fromDateStr },
+                    { "#TODATE#", toDateStr },
+                    { "#TOTALDAYS#", totalDaysStr },
+                    { "#REASON#", reason ?? "" }
+                };
 
-                    // Leave placeholders
-                    .Replace("#EMPLOYEENAME#", employeeName ?? "")
-                    .Replace("#LEAVETYPE#", leaveType ?? "")
-                    .Replace("#FROMDATE#", fromDateStr)
-                    .Replace("#TODATE#", toDateStr)
-                    .Replace("#TOTALDAYS#", totalDaysStr)
-                    .Replace("#REASON#", reason ?? "");
+                // Get processed email content using helper method
+                string emailContent = await _notificationConfigService.GetProcessedNotificationContentAsync(nConfig, replacements);
 
-                // App content replacements
-                string appContent = (nConfig.AppNotificationText ?? "")
-                    .Replace("#SENDER#", SenderName)
-                    .Replace("#RECEIVER#", ReceiverName)
-                    .Replace("#APPROVERNAME#", SenderName)
-                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
-                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"))
-                    .Replace("#ApprovalWorkflow#", approvalWorkflowText)
+                // Process app notification content
+                string appContent = nConfig.AppNotificationText;
+                if (!string.IsNullOrWhiteSpace(appContent))
+                {
+                    foreach (var kvp in replacements)
+                    {
+                        appContent = appContent.Replace(kvp.Key, kvp.Value);
+                    }
+                }
 
-                    // Leave placeholders
-                    .Replace("#EMPLOYEENAME#", employeeName ?? "")
-                    .Replace("#LEAVETYPE#", leaveType ?? "")
-                    .Replace("#FROMDATE#", fromDateStr)
-                    .Replace("#TODATE#", toDateStr)
-                    .Replace("#TOTALDAYS#", totalDaysStr)
-                    .Replace("#REASON#", reason ?? "");
-
-                // Notification link (you said: simple)
+                // Notification link
                 string notificationLink = "leave-approval";
 
                 return new NotificationConfigDto
@@ -1499,26 +1493,34 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 
                 var nConfig = await _dbContext.NotificationsConfig.Where(n => n.EntityCode == EntityCode && n.LevelNumber == LevelNumber).FirstOrDefaultAsync();
 
-                if (nConfig == null || string.IsNullOrEmpty(nConfig.EmailContent))
+                if (nConfig == null || (string.IsNullOrEmpty(nConfig.EmailContent) && nConfig.TemplateSelection != "HTMLFILE"))
                 {
                     return null; // or new NotificationConfigDto() if you prefer
                 }
 
-                // Prepare processed content
-                string emailContent = nConfig.EmailContent
-                    .Replace("#SENDER#", SenderName)
-                    .Replace("#RECEIVER#", ReceiverName)
-                    .Replace("#ApprovedBy",SenderName)
-                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
-                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"));
+                // Build replacement dictionary
+                var replacements = new Dictionary<string, string>
+                {
+                    { "#SENDER#", SenderName ?? "" },
+                    { "#RECEIVER#", ReceiverName ?? "" },
+                    { "#ApprovedBy", SenderName ?? "" },
+                    { "#APPROVERNAME#", SenderName ?? "" },
+                    { "#REJECTIONREASON#", rejectReason ?? "" },
+                    { "#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt") }
+                };
 
-                string appContent = nConfig.AppNotificationText?
-                    .Replace("#SENDER#", SenderName)
-                    .Replace("#RECEIVER#", ReceiverName)
-                       .Replace("#APPROVERNAME#", SenderName)
-                    .Replace("#REJECTIONREASON#", rejectReason ?? "")
-                    .Replace("#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt"));
+                // Get processed content using helper method
+                string emailContent = await _notificationConfigService.GetProcessedNotificationContentAsync(nConfig, replacements);
 
+                // Process app notification content
+                string appContent = nConfig.AppNotificationText;
+                if (!string.IsNullOrWhiteSpace(appContent))
+                {
+                    foreach (var kvp in replacements)
+                    {
+                        appContent = appContent.Replace(kvp.Key, kvp.Value);
+                    }
+                }
 
                 string notificationLink;
 

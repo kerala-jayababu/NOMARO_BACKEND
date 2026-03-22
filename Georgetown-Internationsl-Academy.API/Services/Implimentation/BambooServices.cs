@@ -30,17 +30,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IConfiguration _configuration;
         private readonly ILogger<BambooServices> _logger;
         private readonly ApplicationDBContext _dbContext;
+        private readonly INotificationConfigService _notificationConfigService;
         private bool IsDataChangedInBambooHR;
         private string DataChanges;
         private bool IsNewEmployee;
         private string DesignationName;
         private string DepartmentName;
         private string ReportingTo;
-        public BambooServices(IConfiguration configuration, ILogger<BambooServices> logger, ApplicationDBContext dbContext)
+        public BambooServices(IConfiguration configuration, ILogger<BambooServices> logger, ApplicationDBContext dbContext, INotificationConfigService notificationConfigService)
         {
             _configuration = configuration;
             _logger = logger;
             _dbContext = dbContext;
+            _notificationConfigService = notificationConfigService;
         }
 
         public async Task<List<BambooHRDetailsDto>> SyncEmployeesFromBambooHR()
@@ -599,8 +601,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 {
                     string newEmployeeName = $"{empDetails.FirstName} {empDetails.MiddleName} {empDetails.LastName}".Replace("  ", " ").Trim();
 
-                    string emailBody = notificationConfig.EmailContent
-                        .Replace("#NEWEMPLOYEENAME#", newEmployeeName);
+                    // Build replacement dictionary
+                    var replacements = new Dictionary<string, string>
+                    {
+                        { "#NEWEMPLOYEENAME#", newEmployeeName }
+                    };
+
+                    // Get processed email content using helper method
+                    string emailBody = await _notificationConfigService.GetProcessedNotificationContentAsync(notificationConfig, replacements);
 
                     // Get employee(s) with Department = 4 and Designation = 19 or 37
                     var notifyEmployees = await _dbContext.Employees
