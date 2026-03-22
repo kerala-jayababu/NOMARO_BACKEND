@@ -1564,6 +1564,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // 4️⃣ Process Details
                 // ============================
 
+                var lvtemplate = await _dbContext.LeaveTemplates
+                  .Where(lt => lt.IdLeaveTemplate == dto.IdLeaveTemplate)
+                  .FirstOrDefaultAsync();
+                int idyear = 0;
+                if (lvtemplate != null)
+                    idyear = lvtemplate.IdYear;
+
                 foreach (var detailDto in dto.Details)
                 {
                     if (detailDto.IdLeaveType <= 0)
@@ -1608,7 +1615,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             CarryForwardDays = 0,
                             UsedLeaveDays = 0,
                             TotalAllocatedDays = detailDto.AllocatedDaysInYear,
-                            BalanceLeaveDays = detailDto.AllocatedDaysInYear
+                            BalanceLeaveDays = detailDto.AllocatedDaysInYear,
+                            IdYear = idyear
                         };
 
                         await _dbContext.EmployeeLeaveConfigDetails.AddAsync(entity);
@@ -3874,10 +3882,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
             // Active employees
             var activeEmployees = await _dbContext.Employees
-                .Where(e => e.CurrentStatus == "Working")
-                .Select(e => (int?)e.IdEmployee)
-                .ToListAsync();
-
+                .Where(e => e.CurrentStatus == "Working" && e.IdEmployee > 1000)
+                .Select(e => (int?)e.IdEmployee).ToListAsync();
             // Use HashSet<int?> so Contains takes int?
             var onLeaveSet = onLeaveIds.ToHashSet();     // HashSet<int?>
             var clockedSet = clockedIds.ToHashSet();     // HashSet<int?>
@@ -3910,9 +3916,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 select new { la, e, d, g };
 
             if (from.HasValue)
-                query = query.Where(x => x.la.FromDate >= from.Value.Date);
+                query = query.Where(x => x.la.FromDate <= to.Value.Date);
             if (to.HasValue)
-                query = query.Where(x => x.la.ToDate <= to.Value.Date);
+                query = query.Where(x => x.la.ToDate >= from.Value.Date);
 
             if (idDepartment.HasValue)
                 query = query.Where(x => x.e.IdDepartment == idDepartment.Value);
@@ -3986,7 +3992,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     on e.IdDepartment equals d.IdDepartment
                 join g in _dbContext.Designations
                     on e.IdDesignation equals g.IdDesignation
-                where la.FromDate <= Date && la.ToDate >= Date
+                where la.FromDate <= Date && la.ToDate >= Date && (la.ApprovalStatus.Contains("APPROVED") || la.ApprovalStatus=="SUBMITTED")
                 select new
                 {
                     LeaveApplication = la,
@@ -4013,7 +4019,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     IdLeaveApplication = x.LeaveApplication.IdLeaveApplication,
                     IdEmployee = x.Employee.IdEmployee.Value,
                     EmployeeCode = x.Employee.EmployeeCode,
-                    EmployeeName = (x.Employee.LastName ?? "") + ", " + x.Employee.FirstName,
+                    EmployeeName =  x.Employee.FirstName + " " + (x.Employee.LastName ?? ""),
                     Department = x.Department.DepartmentName,
                     Designation = x.Designation.DesignationName,
                     LeaveTypeName = x.LeaveApplication.LeaveTypeName,
@@ -4024,8 +4030,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     ApplicationStatus = x.LeaveApplication.ApplicationStatus,
                     PhoneNumber1 = x.Employee.PhoneNumber1,
                     PhoneNumber2 = x.Employee.PhoneNumber2
-                })
-                .ToListAsync();
+                }).ToListAsync();
         }
 
         public async Task<List<NotClockedEmployeeWithShiftDto>> GetNotClockedInWithShiftAsync(DateTime date)
@@ -4061,26 +4066,27 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             // 4) Join shiftConfig with employees in memory and filter:
             //    working day, not on leave, not clocked
             var result =
-                (from s in shiftConfig
-                 join emp in employees
-                     on s.IdEmployee equals emp.e.IdEmployee into empGroup
-                 from emp in empGroup.DefaultIfEmpty()
-                 where s.IsWorkingDay == "Y"
-                       && s.IsOnLeave != "Y"
-                       && !clockedSet.Contains(s.IdEmployee)
-                 select new NotClockedEmployeeWithShiftDto
-                 {
-                     IdEmployee = s.IdEmployee,
-                     EmployeeCode = emp?.e.EmployeeCode,
-                     EmployeeName = s.EmployeeName,              // from stored proc
-                     EmailId = s.EmailId,                   // from stored proc
-                     DepartmentName = emp?.d.DepartmentName ?? "", // from master data
-                     DesignationName = emp?.g.DesignationName ?? "",
-                     ExpectedStartTime = s.StartTime,
-                     ExpectedEndTime = s.EndTime,
-                     StatusDetails = s.StatusDetails
-                 })
-                .ToList();
+                    (from s in shiftConfig
+                     join emp in employees
+                         on s.IdEmployee equals emp.e.IdEmployee into empGroup
+                     from emp in empGroup.DefaultIfEmpty()
+                     where s.IsWorkingDay == "Y"
+                           && s.IsOnLeave != "Y"
+                           && !clockedSet.Contains(s.IdEmployee)
+                     select new NotClockedEmployeeWithShiftDto
+                     {
+                         IdEmployee = s.IdEmployee,
+                         EmployeeCode = emp?.e.EmployeeCode,
+                         EmployeeName = s.EmployeeName,
+                         EmailId = s.EmailId,
+                         DepartmentName = emp?.d.DepartmentName ?? "",
+                         DesignationName = emp?.g.DesignationName ?? "",
+                         ExpectedStartTime = s.StartTime,
+                         ExpectedEndTime = s.EndTime,
+                         StatusDetails = s.StatusDetails
+                     })
+                    .OrderBy(e => e.EmployeeName)
+                    .ToList();
 
             return result;
         }

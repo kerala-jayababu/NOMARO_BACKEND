@@ -342,10 +342,30 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
+        [HttpPost("DeleteShiftAssignment")]
+        public async Task<IActionResult> DeleteShiftAssignment(int IdShiftAssignment, int IdEmployee)
+        {
+            
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+                var result = await _shiftAssignmentService.DeleteShiftAssignment(IdShiftAssignment, IdEmployee, loggedInEmployeeId);
+                return Ok(ApiResponseDto<List<ShiftAssignmentDto>>.CreateSuccess(null, "Shift assignment Deleted"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         #endregion
 
         #region ClockInClockOutDeatils
-       [HttpGet("GetClockInClockOutDetails")]
+        [HttpGet("GetClockInClockOutDetails")]
         public async Task<IActionResult> GetClockInClockOutDetails(string? idEmployee, DateTime? dateFrom,DateTime? dateTo,int? idDepartment,bool? missingEntryOnly)
         {
             if (!dateFrom.HasValue)
@@ -421,7 +441,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
 
             try
             {
-                var success = await _shiftService.ForgotAccessCardMissingEntry(dto);
+                var success = await _shiftService.ForgotAccessCardMissingEntry(dto, Convert.ToInt32(IdEmployee));
 
                 if (!success)
                     return BadRequest(ApiResponseDto<string>.CreateFailure("One or more records could not be updated."));
@@ -615,9 +635,33 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
+
+        [HttpGet("GetForgotCardEntryDetailsForApproval")]
+        public async Task<IActionResult> GetForgotCardEntryDetailsForApproval(DateTime? dateFrom, string? approvalStatus)
+        {
+            try
+            {
+                var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(employeeId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                var details = await _shiftService.GetForgotCardEntryDetailsForApproval(Convert.ToInt32(employeeId), dateFrom, approvalStatus);
+
+                if (details == null || !details.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<ForgotCardEntryForApprovalDto>>.CreateSuccess(
+                        Enumerable.Empty<ForgotCardEntryForApprovalDto>(),
+                        "No clock-in/out records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<ForgotCardEntryForApprovalDto>>.CreateSuccess(details, "Clock-in/out details for approval retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
         #endregion
-
-
 
     }
 }

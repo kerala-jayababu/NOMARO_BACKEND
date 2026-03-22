@@ -1102,7 +1102,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 };
 
 
-
             // -------- BambooHR call --------
             var baseUrl = "https://api.bamboohr.com";
             var apiKey = _configuration["BambooHR:ApiKey"];
@@ -1182,6 +1181,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 foreach (var req in requests)
                 {
+                    if(req.Type.Value == "Time Off During The Workday")
+                    {
+                        int p = 100;
+                    }
                     // Employee lookup
                     if (!employeeMap.TryGetValue(req.Employee.Id, out var internalEmpId) || internalEmpId == 0)
                     {
@@ -1354,13 +1357,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         continue;
                     }
 
+                    decimal totalLeaveDays = req.Amount.Value;
+                    if(req.Amount.Unit.ToUpper() == "HOURS")
+                    {
+                        totalLeaveDays = req.Amount.Value / 8;
+                    }
                     var newLeave = new LeaveApplications
                     {
+
                         IdEmployee = internalEmpId.Value,
                         IdLeaveType = leaveType.IdLeaveType,
                         FromDate = req.Start,
                         ToDate = req.End,
-                        TotalLeaveDays = req.Amount.Value,
+                        TotalLeaveDays = totalLeaveDays,
                         AppliedOn = req.Created,
                         Reason = reasonTxt,
                         ApprovalStatus =

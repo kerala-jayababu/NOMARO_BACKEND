@@ -31,23 +31,23 @@ public class ShiftEmployeeService : IShiftEmployeeService
                     await connection.OpenAsync();
 
                 var query = @"
-SELECT 
-    se.IdShiftEmployee,
-    se.IdShift,
-    se.IdEmployee,
-    s.ShiftName,
-    e.EmployeeCode,
-    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-    e.IdDepartment,
-    e.IdDesignation,
-    d.DepartmentName AS Department,
-    des.DesignationName AS Designation
-FROM ShiftEmployees se
-INNER JOIN Employees e ON se.IdEmployee = e.IdEmployee
-INNER JOIN ShiftDefinitions s ON se.IdShift = s.IdShift
-INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-WHERE se.IdShift = @IdShift";
+            SELECT 
+                se.IdShiftEmployee,
+                se.IdShift,
+                se.IdEmployee,
+                s.ShiftName,
+                e.EmployeeCode,
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                e.IdDepartment,
+                e.IdDesignation,
+                d.DepartmentName AS Department,
+                des.DesignationName AS Designation
+            FROM ShiftEmployees se
+            INNER JOIN Employees e ON se.IdEmployee = e.IdEmployee
+            INNER JOIN ShiftDefinitions s ON se.IdShift = s.IdShift
+            INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+            INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+            WHERE se.IdShift = @IdShift Order by e.FirstName";
 
                 var parameters = new DynamicParameters();
                 parameters.Add("IdShift", idShift);

@@ -6,5 +6,6 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attenda
     {
         Task<List<ShiftAssignmentDto>> GetShiftAssignmentsByShiftAsync(int idShift);
         Task<List<ShiftAssignmentDto>> ManageShiftAssignmentsAsync(List<ShiftAssignmentDto> assignments);
+        Task<bool> DeleteShiftAssignment(int IdShiftAssignment, int IdEmployee, int IdLoginnedEmployee);
     }
 }

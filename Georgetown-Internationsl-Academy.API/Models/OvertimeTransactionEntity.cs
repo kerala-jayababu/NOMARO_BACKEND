@@ -21,7 +21,7 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string? ApprovalStatus { get; set; }
         public string? DayType { get; set; }
         public int? IdSalaryMonthAccounted { get; set; }
-        public int? SalaryAccountedAmount { get; set; }
+        public decimal? SalaryAccountedAmount { get; set; }
         public DateTime? ApprovalStatusDate { get; set; }
 
         

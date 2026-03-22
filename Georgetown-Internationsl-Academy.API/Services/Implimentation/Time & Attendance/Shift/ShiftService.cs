@@ -310,7 +310,6 @@ public class ShiftService : IShiftService
         }
     }
 
-
     public async Task<bool> UpdateClockInOutMissingEntriesAsync(List<UpdateClockInOutMissingEntryDto> dtos, int employeeid)
     {
         try
@@ -380,6 +379,7 @@ public class ShiftService : IShiftService
 
                     record.INTime = dto.Time;
                     record.StatusDetails = "Missing-ManualInEntry";
+
                 }
                 else if (dto.ClockType == "OUT")
                 {
@@ -403,19 +403,22 @@ public class ShiftService : IShiftService
 
                     record.OUTTime = dto.Time;
                     record.StatusDetails = "Missing-ManualOutEntry";
+
+
+                    if (record.INTime != null && record.OUTTime != null)
+                    {
+                        var totalDuration = record.OUTTime.Value - record.INTime.Value;
+                        record.TotalINHours = (decimal?)Math.Round(totalDuration.TotalHours, 2);
+                        record.TotalInMinutes = (int)totalDuration.TotalMinutes;
+                        int hours = totalDuration.Hours;
+                        int minutes = totalDuration.Minutes;
+                        record.TotalInHoursText = $"{hours} hrs {minutes} minutes";
+                    }
+
                 }
 
                 record.Remarks = dto.Reason;
 
-                if (record.INTime != null && record.OUTTime != null)
-                {
-                    var totalDuration = record.OUTTime.Value - record.INTime.Value;
-                    record.TotalINHours = (decimal?)Math.Round(totalDuration.TotalHours, 2);
-                    record.TotalInMinutes = (int)totalDuration.TotalMinutes;
-                    int hours = totalDuration.Hours;
-                    int minutes = totalDuration.Minutes;
-                    record.TotalInHoursText = $"{hours} hrs {minutes} minutes";
-                }
             }
 
             _dbContext.UpdateRange(records);
@@ -444,6 +447,20 @@ public class ShiftService : IShiftService
             }
 
             await _dbContext.SaveChangesAsync();
+            foreach(var updattendance in dtos)
+            {
+                if (updattendance.ClockType== "OUT")
+                {
+
+                    await _dbContext.Database.ExecuteSqlRawAsync(
+                        "EXEC UpdateDayAttendanceEmployee @AttendanceDate, @IdEmployee",
+                        new SqlParameter("@AttendanceDate", updattendance.Time.Date),
+                        new SqlParameter("@IdEmployee", updattendance.IdEmployee)
+                    );
+
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
             return true;
         }
         catch (Exception ex)
@@ -570,7 +587,7 @@ public class ShiftService : IShiftService
 
     }
 
-    public async Task<bool> ForgotAccessCardMissingEntry(ForgotAccessCardMissingEntryDto entryDetails)
+    public async Task<bool> ForgotAccessCardMissingEntry(ForgotAccessCardMissingEntryDto entryDetails, int IdLogginedEmployee)
     {
         try
         {
@@ -587,20 +604,20 @@ public class ShiftService : IShiftService
             if (entryDetails.EntryDate.Date != currentGuyanaTime.Date)
             {
                 throw new ArgumentException(
-                    $"You can enter Forgot Card details only for today. Server date: {currentGuyanaTime:yyyy-MM-dd}"
+                    $"You can enter Forgot Card details only for today"
                 );
             }
 
             if (entryDetails.EntryTime > currentGuyanaTime.AddMinutes(1))
             {
                 throw new ArgumentException(
-                    $"Invalid Time. Entry time must be less than current time. Server time: {currentGuyanaTime:yyyy-MM-dd HH:mm:ss}"
+                    $"Invalid Time. Entry time must be less than current time"
                 );
             }
             if (sameDayRecords.Count > 1)
             {
                 throw new ArgumentException(
-                    $"Multiple clock-in/out records already exist for this employee on {entryDetails.EntryDate:yyyy-MM-dd}. Forgot card entry is not allowed."
+                    $"Multiple clock-in/out records already exist. Forgot card entry is not allowed."
                 );
             }
 
@@ -618,7 +635,7 @@ public class ShiftService : IShiftService
                 if (existingRecord.StatusDetails == "IN and OUT Recorded")
                 {
                     throw new ArgumentException(
-                        $"Attendance already completed for {existingRecord.ClockDate:yyyy-MM-dd}. IN: {existingRecord.INTime:HH:mm}, OUT: {existingRecord.OUTTime:HH:mm}."
+                        $"Attendance already completed"
                     );
                 }
 
@@ -648,7 +665,7 @@ public class ShiftService : IShiftService
                     INTime = entryDetails.EntryTime,
                     DeviceUser = "MANUAL",
                     StatusDetails = "IN Punch Recorded",
-                    Remarks = "Forgot Access Card: " + entryDetails.Reason,
+                    Remarks = "Forgot Access Card: " + entryDetails.Reason.Replace("Forgot Access Card: ","").Trim(),
                     MissingEntryApproveStatus = "SUBMITTED"
                 };
 
@@ -679,9 +696,17 @@ public class ShiftService : IShiftService
                     int minutes = totalMinutes % 60;
 
                     existingRecord.TotalInHoursText = $"{hours}hrs {minutes}minutes";
+                    var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                            existingRecord.IdClockDetails, "FORGOTCARD", IdLogginedEmployee, "SUBMITTED", null,null,1);
+
+                    if (!result.Contains("Approval workflow initiated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new Exception(
+                            $"Failed to initiate approval workflow");
+                    }
                 }
             }
-
+          
             await _dbContext.SaveChangesAsync();
             return true;
         }
@@ -694,5 +719,54 @@ public class ShiftService : IShiftService
             _logger.LogError(ex, "Error in ForgotAccessCardMissingEntry");
             throw;
         }
+    }
+
+    public async Task<List<ForgotCardEntryForApprovalDto>> GetForgotCardEntryDetailsForApproval(int IdLoginnedEmployee, DateTime? dateFrom,
+         string? approvalStatus)
+    {
+        var query =
+            from ci in _dbContext.ClockInOutDetails
+            join af in _dbContext.ApprovalWorkFlowAllocations
+                on ci.IdClockDetails equals af.EntityTablePrimaryKeyID
+            join emp in _dbContext.Employees
+                on ci.IdEmployee equals emp.IdEmployee
+            join desig in _dbContext.Designations
+                on emp.IdDesignation equals desig.IdDesignation
+            join dept in _dbContext.Departments
+                on emp.IdDepartment equals dept.IdDepartment
+            where af.EntityCode == "FORGOTCARD"
+                  && af.TargetIdEmployee == IdLoginnedEmployee.ToString()
+            select new { ci, emp, desig, dept };
+
+        // Apply conditional filters
+        if (dateFrom.HasValue)
+        {
+            query = query.Where(x => x.ci.ClockDate >= dateFrom.Value);
+        }
+
+        if (!string.IsNullOrEmpty(approvalStatus))
+        {
+            query = query.Where(x => x.ci.MissingEntryApproveStatus == approvalStatus);
+        }
+
+        var result = await query
+            .Select(x => new ForgotCardEntryForApprovalDto
+            {
+                IdClockInDetail = x.ci.IdClockDetails,
+                Idemployee = x.emp.IdEmployee.Value,
+                EmployeeName = (x.emp.FirstName ?? "") + " " + (x.emp.LastName ?? ""),
+                DesignationName = x.desig.DesignationName,
+                DepartmentName = x.dept.DepartmentName,
+                ForgotCardEntryDate = x.ci.ClockDate,
+                EntryTime = x.ci.INTime,
+                ExitTime = x.ci.OUTTime,
+                Reason = x.ci.Remarks,
+                ApprovalStatus = x.ci.MissingEntryApproveStatus,
+                StatusDetails = x.ci.StatusDetails
+            })
+            .AsNoTracking()
+            .ToListAsync();
+
+        return result;
     }
 }

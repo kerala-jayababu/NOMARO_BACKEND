@@ -25,7 +25,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             try
             {
-                var notificationConfigs = await _dbContext.NotificationsConfig.ToListAsync();
+                var notificationConfigs = await _dbContext.NotificationsConfig.OrderBy(n=>n.NotificationType).ToListAsync();
                 return _mapper.Map<IEnumerable<NotificationConfigDto>>(notificationConfigs);
             }
             catch (Exception ex)

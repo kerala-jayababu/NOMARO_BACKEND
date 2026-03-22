@@ -33,30 +33,30 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
                     await connection.OpenAsync();
 
                 var query = @"
-SELECT 
-    sa.IdShiftAssignment,
-    sa.IdShift,
-    sa.IdEmployee,
-    sa.IdShiftSchedule,
-    sa.StartDate,
-    sa.EndDate,
-    sa.TotalDurationMinutes,
-    sa.TotalDurationHours,
-    sa.AttendanceStatus,
-    s.ShiftName,
-    e.EmployeeCode,
-    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-    e.IdDepartment,
-    e.IdDesignation,
-    d.DepartmentName AS Department,
-    des.DesignationName AS Designation
-FROM ShiftAssignments sa
-INNER JOIN Employees e ON sa.IdEmployee = e.IdEmployee
-INNER JOIN ShiftDefinitions s ON sa.IdShift = s.IdShift
-INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
-INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-WHERE sa.IdShift = @IdShift
-ORDER BY sa.StartDate DESC";
+                        SELECT 
+                            sa.IdShiftAssignment,
+                            sa.IdShift,
+                            sa.IdEmployee,
+                            sa.IdShiftSchedule,
+                            sa.StartDate,
+                            sa.EndDate,
+                            sa.TotalDurationMinutes,
+                            sa.TotalDurationHours,
+                            sa.AttendanceStatus,
+                            s.ShiftName,
+                            e.EmployeeCode,
+                            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                            e.IdDepartment,
+                            e.IdDesignation,
+                            d.DepartmentName AS Department,
+                            des.DesignationName AS Designation
+                        FROM ShiftAssignments sa
+                        INNER JOIN Employees e ON sa.IdEmployee = e.IdEmployee
+                        INNER JOIN ShiftDefinitions s ON sa.IdShift = s.IdShift
+                        INNER JOIN Departments d ON e.IdDepartment = d.IdDepartment
+                        INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+                        WHERE sa.IdShift = @IdShift
+                        ORDER BY sa.StartDate DESC, e.FirstName";
 
                 return (await connection.QueryAsync<ShiftAssignmentDto>(query, new { IdShift = idShift })).ToList();
             }
@@ -147,6 +147,22 @@ ORDER BY sa.StartDate DESC";
                 _logger.LogError(ex, "Error managing shift assignments.");
                 return new List<ShiftAssignmentDto>();
             }
+        }
+        public async Task<bool> DeleteShiftAssignment(int IdShiftAssignment, int IdEmployee, int IdLoginnedEmployee)
+        {
+            var record = await _dbContext.ShiftAssignments
+                .FirstOrDefaultAsync(sa => sa.IdShiftAssignment == IdShiftAssignment
+                                       && sa.IdEmployee == IdEmployee);
+
+            if (record == null)
+            {
+                return false; // Not found
+            }
+
+            _dbContext.ShiftAssignments.Remove(record);
+            await _dbContext.SaveChangesAsync();
+
+            return true; // Success
         }
 
     }
