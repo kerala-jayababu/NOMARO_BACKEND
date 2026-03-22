@@ -1,4 +1,4 @@
-﻿using Georgetown_Internationsl_Academy.API.DTO;
+using Georgetown_Internationsl_Academy.API.DTO;
 
 namespace Georgetown_Internationsl_Academy.API.Services.Interface
 {
@@ -7,6 +7,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigs(string? searchText = null, string? dropdownFilter =null, DateTime? date = null);
         Task<IEnumerable<EmployeeSalaryConfigDto>> GetAllConfigsSp(string? searchText = null, string? dropdownFilter = null, bool isLatest = true);
         Task<EmployeeSalaryConfigDto?> GetConfigById(int id);
+        Task<LatestApprovedEmployeeSalaryConfigResponseDto?> GetLatestApprovedConfigByEmployeeId(int idEmployee);
         Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto, int IdEmployee);
         Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto, int IdEmployee);
         Task<int?> GetNotConfiguredEmployeeCount();

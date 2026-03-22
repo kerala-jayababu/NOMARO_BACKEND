@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
@@ -313,27 +313,37 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
             INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
             WHERE esc.IdEmployeeSalaryConfig = @ConfigId";
 
-                using var connection = _dbContext.Database.GetDbConnection();
-                if (connection.State == System.Data.ConnectionState.Closed)
+                // Do not dispose this connection — it is owned by the DbContext. Disposing it breaks later EF queries
+                // on the same context (e.g. GetLatestApprovedConfigByEmployeeId → BuildSalaryConfigApprovalStepsAsync).
+                var connection = _dbContext.Database.GetDbConnection();
+                var wasClosed = connection.State == System.Data.ConnectionState.Closed;
+                if (wasClosed)
                     await connection.OpenAsync();
-
-                var employeeInfo = await connection.QueryFirstOrDefaultAsync<EmployeeSalaryConfigDto>(query, new { ConfigId = id });
-
-                if (employeeInfo != null)
+                try
                 {
-                    config.EmployeeCode = employeeInfo.EmployeeCode;
-                    config.EmployeeName = employeeInfo.EmployeeName;
-                    config.IdDesignation = employeeInfo.IdDesignation;
-                    config.DesignationName = employeeInfo.DesignationName;
-                    config.IdDepartment = employeeInfo.IdDepartment;
-                    config.DepartmentName = employeeInfo.DepartmentName;
-                    config.JoiningDate = employeeInfo.JoiningDate;
-                    config.Gender = employeeInfo.Gender;
-                    config.EmailID = employeeInfo.EmailID;
-                    config.PhoneNumber1 = employeeInfo.PhoneNumber1;
-                    config.PhoneNumber2 = employeeInfo.PhoneNumber2;
-                    config.CurrentStatus = employeeInfo.CurrentStatus;
-                    config.OverTimeAllowedStatus = employeeInfo.OverTimeAllowedStatus;
+                    var employeeInfo = await connection.QueryFirstOrDefaultAsync<EmployeeSalaryConfigDto>(query, new { ConfigId = id });
+
+                    if (employeeInfo != null)
+                    {
+                        config.EmployeeCode = employeeInfo.EmployeeCode;
+                        config.EmployeeName = employeeInfo.EmployeeName;
+                        config.IdDesignation = employeeInfo.IdDesignation;
+                        config.DesignationName = employeeInfo.DesignationName;
+                        config.IdDepartment = employeeInfo.IdDepartment;
+                        config.DepartmentName = employeeInfo.DepartmentName;
+                        config.JoiningDate = employeeInfo.JoiningDate;
+                        config.Gender = employeeInfo.Gender;
+                        config.EmailID = employeeInfo.EmailID;
+                        config.PhoneNumber1 = employeeInfo.PhoneNumber1;
+                        config.PhoneNumber2 = employeeInfo.PhoneNumber2;
+                        config.CurrentStatus = employeeInfo.CurrentStatus;
+                        config.OverTimeAllowedStatus = employeeInfo.OverTimeAllowedStatus;
+                    }
+                }
+                finally
+                {
+                    if (wasClosed && connection.State == System.Data.ConnectionState.Open)
+                        await connection.CloseAsync();
                 }
 
                 return config;
@@ -344,6 +354,177 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 return null;
             }
         }
+
+        public async Task<LatestApprovedEmployeeSalaryConfigResponseDto?> GetLatestApprovedConfigByEmployeeId(int idEmployee)
+        {
+            try
+            {
+                var approvedStatuses = new[] { "APPROVED", "FINAL APPROVED" };
+
+                var configId = await _dbContext.EmployeeSalaryConfig
+                    .AsNoTracking()
+                    .Where(c => c.IdEmployee == idEmployee && c.ApprovalStatus != null && approvedStatuses.Contains(c.ApprovalStatus))
+                    .OrderByDescending(c => c.ValidFrom)
+                    .ThenByDescending(c => c.IdEmployeeSalaryConfig)
+                    .Select(c => c.IdEmployeeSalaryConfig)
+                    .FirstOrDefaultAsync();
+
+                if (configId == 0)
+                {
+                    return null;
+                }
+
+                var config = await GetConfigById(configId);
+                if (config == null)
+                {
+                    return null;
+                }
+
+                var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"] ?? "EMPLSALCONFIG";
+                var steps = await BuildSalaryConfigApprovalTimelineAsync(configId, entityCode, config);
+
+                return new LatestApprovedEmployeeSalaryConfigResponseDto
+                {
+                    Config = config,
+                    ApprovalWorkflowSteps = steps
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching latest approved Employee Salary Configuration for employee {IdEmployee}.", idEmployee);
+                return null;
+            }
+        }
+
+        private async Task<List<SalaryConfigApprovalTimelineStepDto>> BuildSalaryConfigApprovalTimelineAsync(
+            int configId,
+            string entityCode,
+            EmployeeSalaryConfigDto config)
+        {
+            var timeline = new List<SalaryConfigApprovalTimelineStepDto>();
+
+            var allocations = await _dbContext.ApprovalWorkFlowAllocations
+                .AsNoTracking()
+                .Where(a => a.EntityTablePrimaryKeyID == configId && a.EntityCode == entityCode)
+                .ToListAsync();
+
+            var rowList = new List<(ApprovalWorkFlowAllocation awa, WorkFlowConfigDetails? wfd)>();
+            if (allocations.Count > 0)
+            {
+                var maxCycle = allocations.Max(a => a.CycleIndex);
+                var queried = await (
+                    from awa in _dbContext.ApprovalWorkFlowAllocations.AsNoTracking()
+                    join wfd in _dbContext.WorkFlowConfigDetails.AsNoTracking()
+                        on new { awa.IdWorkFlowConfig, awa.LevelNumber } equals new { wfd.IdWorkFlowConfig, wfd.LevelNumber } into wfdGroup
+                    from wfd in wfdGroup.DefaultIfEmpty()
+                    where awa.EntityTablePrimaryKeyID == configId
+                        && awa.EntityCode == entityCode
+                        && awa.CycleIndex == maxCycle
+                    orderby awa.LevelNumber
+                    select new { awa, wfd }
+                ).ToListAsync();
+                rowList = queried.Select(x => (x.awa, x.wfd)).ToList();
+            }
+
+            var employeeIds = rowList
+                .SelectMany(r => new int?[] { r.awa.ActionedBy, r.awa.SourceIdEmployee })
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Append(config.CreatedBy)
+                .Distinct()
+                .ToList();
+
+            var employeeLookup = await BuildSalaryConfigEmployeeLookupAsync(employeeIds);
+
+            if (config.CreatedBy > 0 && config.CreatedOn != default)
+            {
+                employeeLookup.TryGetValue(config.CreatedBy, out var creator);
+                timeline.Add(new SalaryConfigApprovalTimelineStepDto
+                {
+                    EventKind = "CREATED",
+                    DisplayLabel = "Configuration created",
+                    EventDate = config.CreatedOn,
+                    ActorEmployeeId = config.CreatedBy,
+                    ActorName = !string.IsNullOrWhiteSpace(config.CreatedByValue)
+                        ? config.CreatedByValue.Trim()
+                        : creator?.Name,
+                    ActorDesignationName = creator?.DesignationName,
+                    WorkflowLevelNumber = null,
+                    IdApprovalWorkFlow = null
+                });
+            }
+
+            if (rowList.Count == 0)
+            {
+                return timeline;
+            }
+
+            var firstLevel = rowList[0].awa;
+            employeeLookup.TryGetValue(firstLevel.SourceIdEmployee, out var submitter);
+            timeline.Add(new SalaryConfigApprovalTimelineStepDto
+            {
+                EventKind = "SUBMITTED",
+                DisplayLabel = "Submitted for approval",
+                EventDate = firstLevel.SentDate,
+                ActorEmployeeId = firstLevel.SourceIdEmployee,
+                ActorName = submitter?.Name,
+                ActorDesignationName = submitter?.DesignationName,
+                WorkflowLevelNumber = null,
+                IdApprovalWorkFlow = firstLevel.IdApprovalWorkFlow
+            });
+
+            foreach (var (awa, wfd) in rowList)
+            {
+                if (!awa.ActionedBy.HasValue || !awa.ActionDate.HasValue)
+                {
+                    continue;
+                }
+
+                employeeLookup.TryGetValue(awa.ActionedBy.Value, out var approver);
+                var levelLabel = wfd?.ApprovalStatusName;
+                var displayLabel = !string.IsNullOrWhiteSpace(awa.ActionStatus)
+                    ? awa.ActionStatus
+                    : (!string.IsNullOrWhiteSpace(levelLabel) ? levelLabel : "Approved");
+
+                timeline.Add(new SalaryConfigApprovalTimelineStepDto
+                {
+                    EventKind = "APPROVED",
+                    DisplayLabel = displayLabel,
+                    EventDate = awa.ActionDate.Value,
+                    ActorEmployeeId = awa.ActionedBy,
+                    ActorName = approver?.Name,
+                    ActorDesignationName = approver?.DesignationName,
+                    WorkflowLevelNumber = awa.LevelNumber,
+                    IdApprovalWorkFlow = awa.IdApprovalWorkFlow
+                });
+            }
+
+            return timeline;
+        }
+
+        private async Task<Dictionary<int, SalaryConfigEmployeeBrief>> BuildSalaryConfigEmployeeLookupAsync(IEnumerable<int> employeeIds)
+        {
+            var ids = employeeIds.Distinct().ToList();
+            if (ids.Count == 0)
+            {
+                return new Dictionary<int, SalaryConfigEmployeeBrief>();
+            }
+
+            return await (
+                from e in _dbContext.Employees.AsNoTracking()
+                join d in _dbContext.Designations.AsNoTracking() on e.IdDesignation equals d.IdDesignation into desigJoin
+                from d in desigJoin.DefaultIfEmpty()
+                where e.IdEmployee != null && ids.Contains(e.IdEmployee.Value)
+                select new
+                {
+                    Id = e.IdEmployee!.Value,
+                    Name = (e.FirstName + " " + (e.MiddleName ?? "") + " " + e.LastName).Trim(),
+                    DesignationName = d != null ? d.DesignationName : null
+                }
+            ).ToDictionaryAsync(x => x.Id, x => new SalaryConfigEmployeeBrief(x.Name, x.DesignationName));
+        }
+
+        private sealed record SalaryConfigEmployeeBrief(string Name, string? DesignationName);
 
 
 

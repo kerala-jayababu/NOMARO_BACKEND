@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
@@ -95,6 +95,28 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 return Ok(ApiResponseDto<EmployeeSalaryConfigDto>.CreateSuccess(config, "EmployeeSalaryConfigById retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Latest approved salary configuration for an employee (by ValidFrom), including details and approval timeline for the latest workflow cycle.
+        /// </summary>
+        [HttpGet("GetLatestApprovedEmployeeSalaryConfigByEmployeeId")]
+        public async Task<IActionResult> GetLatestApprovedEmployeeSalaryConfigByEmployeeId(int idEmployee)
+        {
+            try
+            {
+                var result = await _employeeSalaryConfigService.GetLatestApprovedConfigByEmployeeId(idEmployee);
+                if (result == null || result.Config == null)
+                {
+                    return Ok(ApiResponseDto<LatestApprovedEmployeeSalaryConfigResponseDto>.CreateSuccess(null, "No approved salary configuration found for this employee."));
+                }
+
+                return Ok(ApiResponseDto<LatestApprovedEmployeeSalaryConfigResponseDto>.CreateSuccess(result, "Latest approved employee salary configuration retrieved successfully."));
             }
             catch (Exception ex)
             {
