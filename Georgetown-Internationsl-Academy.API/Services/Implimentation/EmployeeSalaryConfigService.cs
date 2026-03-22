@@ -719,7 +719,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
             }
         }
 
-        public async Task<EmployeeSalaryConfigDto?> SubmitForApprovalAsync(int idEmployeeSalaryConfig, int idEmployee)
+        public async Task<EmployeeSalaryConfigDto?> UnApproveEmployeeSalaryConfig(int idEmployeeSalaryConfig, int idEmployee)
         {
             await using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try

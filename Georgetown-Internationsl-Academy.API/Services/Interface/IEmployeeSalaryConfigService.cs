@@ -10,7 +10,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Interface
         Task<LatestApprovedEmployeeSalaryConfigResponseDto?> GetLatestApprovedConfigByEmployeeId(int idEmployee);
         Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto, int IdEmployee);
         Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto, int IdEmployee);
-        Task<EmployeeSalaryConfigDto?> SubmitForApprovalAsync(int idEmployeeSalaryConfig, int idEmployee);
+        Task<EmployeeSalaryConfigDto?> UnApproveEmployeeSalaryConfig(int idEmployeeSalaryConfig, int idEmployee);
         Task<int?> GetNotConfiguredEmployeeCount();
         
     }

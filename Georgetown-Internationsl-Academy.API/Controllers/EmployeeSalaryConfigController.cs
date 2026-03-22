@@ -280,8 +280,8 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         /// <summary>
         /// Sets approval status to SUBMITTED, restarts the approval workflow, and writes an audit log (before/after snapshot).
         /// </summary>
-        [HttpPost("SubmitEmployeeSalaryConfigForApproval")]
-        public async Task<IActionResult> SubmitEmployeeSalaryConfigForApproval([FromBody] SubmitEmployeeSalaryConfigForApprovalDto request)
+        [HttpPost("UnApproveEmployeeSalaryConfig")]
+        public async Task<IActionResult> UnApproveEmployeeSalaryConfig([FromBody] SubmitEmployeeSalaryConfigForApprovalDto request)
         {
             if (request == null || request.IdEmployeeSalaryConfig <= 0)
             {
@@ -304,7 +304,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var result = await _employeeSalaryConfigService.SubmitForApprovalAsync(request.IdEmployeeSalaryConfig, idEmployee);
+                var result = await _employeeSalaryConfigService.UnApproveEmployeeSalaryConfig(request.IdEmployeeSalaryConfig, idEmployee);
                 if (result == null)
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("Salary configuration not found."));
