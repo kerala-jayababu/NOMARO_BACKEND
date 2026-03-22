@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
@@ -948,7 +948,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             }
 
-            var existingNotificationConfig = (await _notificationConfigService.GetNotificationConfigList())
+            var existingNotificationConfig = (await _notificationConfigService.GetNotificationConfigList(false))
                 .FirstOrDefault(n => n.NotificationType == dto.NotificationType);
 
             if (existingNotificationConfig != null)
@@ -973,7 +973,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
         }
 
         [HttpPost("UpdateNotificationConfig")]
-        public async Task<IActionResult> UpdateNotificationConfig([FromBody] NotificationConfigDto dto)
+        public async Task<IActionResult> UpdateNotificationConfig([FromForm] NotificationConfigDto dto)
         {
             var validationResult = await _notificationvalidator.ValidateAsync(dto);
             if (!validationResult.IsValid)
@@ -1007,7 +1007,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
 
             try
             {
-                var existingNotificationConfig = await _notificationConfigService.GetNotificationConfigById(dto.IdNotificationConfig);
+                var existingNotificationConfig = await _notificationConfigService.GetNotificationConfigById(dto.IdNotificationConfig, false);
                 if (existingNotificationConfig == null)
                 {
                     return NotFound(ApiResponseDto<string>.CreateFailure("Notification configuration not found."));
@@ -1020,6 +1020,10 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 }
 
                 return Ok(ApiResponseDto<string>.CreateSuccess("Notification configuration updated successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {

@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using FluentValidation;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
@@ -1201,7 +1201,7 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                     }
 
                     // grab template once
-                    var notificationList = await notificationConfigService.GetNotificationConfigList();
+                    var notificationList = await notificationConfigService.GetNotificationConfigList(false);
                     var template = notificationList
                         .FirstOrDefault(c => c.EntityCode == "SALARY")
                         ?? throw new InvalidOperationException("Missing SALARY template");

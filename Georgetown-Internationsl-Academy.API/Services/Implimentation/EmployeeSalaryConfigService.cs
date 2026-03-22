@@ -728,7 +728,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     .FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == idEmployeeSalaryConfig);
                 if (configEntity == null)
                 {
-                    _logger.LogWarning("Submit for approval: Employee Salary Configuration {Id} not found.", idEmployeeSalaryConfig);
+                    _logger.LogWarning("Unapprove: Employee Salary Configuration {Id} not found.", idEmployeeSalaryConfig);
                     return null;
                 }
 
@@ -745,6 +745,15 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 if (string.IsNullOrWhiteSpace(entityCode))
                 {
                     throw new InvalidOperationException("WorkflowEntityCodes:EmployeeSalaryConfig is not configured.");
+                }
+
+                var existingWorkflowRows = await _dbContext.ApprovalWorkFlowAllocations
+                    .Where(a => a.EntityCode == entityCode && a.EntityTablePrimaryKeyID == idEmployeeSalaryConfig)
+                    .ToListAsync();
+                if (existingWorkflowRows.Count > 0)
+                {
+                    _dbContext.ApprovalWorkFlowAllocations.RemoveRange(existingWorkflowRows);
+                    await _dbContext.SaveChangesAsync();
                 }
 
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(
@@ -768,7 +777,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     {
                         before,
                         after,
-                        remark = "Employee salary configuration submitted for approval (approval status set to SUBMITTED).",
+                        remark = "Employee salary configuration unapproved / reset to SUBMITTED; prior workflow allocations removed and workflow re-initiated.",
                         approvalWorkflowResult = approvalResult
                     });
 
@@ -777,8 +786,8 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error submitting Employee Salary Configuration {Id} for approval.", idEmployeeSalaryConfig);
-                throw new Exception("An error occurred while submitting the configuration for approval. Please try again later.");
+                _logger.LogError(ex, "Error unapproving Employee Salary Configuration {Id}.", idEmployeeSalaryConfig);
+                throw new Exception("An error occurred while unapproving the configuration. Please try again later.");
             }
         }
 
