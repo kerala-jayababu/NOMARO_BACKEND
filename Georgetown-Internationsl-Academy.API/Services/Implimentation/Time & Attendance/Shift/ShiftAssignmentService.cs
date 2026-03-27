@@ -165,6 +165,146 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
             return true; // Success
         }
 
+        public async Task<bool> DeleteShiftAssignmentOfASchedule(int IdShiftSchedule, DateTime ShiftStartDateTime, int loggedInEmployeeId)
+        {
+            var record = await _dbContext.ShiftAssignments.
+                    Where(sa => sa.IdShiftSchedule == IdShiftSchedule && sa.StartDate == ShiftStartDateTime).ToListAsync();
+
+            if (record == null)
+            {
+                return false; // Not found
+            }
+
+            _dbContext.ShiftAssignments.RemoveRange(record);
+            await _dbContext.SaveChangesAsync();
+
+            return true; // Success
+        }
+
+        public async Task<List<ShiftAssignmentDto>> CopyShiftAssignmentsByDateAsync(int IdShift, DateTime sourceDate, DateTime targetDate)
+        {
+            var resultDtos = new List<ShiftAssignmentDto>();
+            try
+            {
+                // Get the shift schedule
+                var shiftSchedule = await _dbContext.ShiftSchedules
+                    .Where(ss => ss.IdShift == IdShift)
+                    .FirstOrDefaultAsync();
+
+                if (shiftSchedule == null)
+                {
+                    _logger.LogWarning("ShiftSchedule with ID {IdShiftSchedule} not found.", IdShift);
+                    return resultDtos;
+                }
+
+                // Get source assignments (from sourceDate)
+                var sourceAssignments = await _dbContext.ShiftAssignments
+                    .Where(sa => sa.IdShift == IdShift
+                              && sa.StartDate.Date == sourceDate.Date)
+                    .ToListAsync();
+
+                if (!sourceAssignments.Any())
+                {
+                    _logger.LogWarning("No shift assignments found for source date {SourceDate}.", sourceDate.Date);
+                    return resultDtos;
+                }
+
+                // Get the day name of the target date (e.g. "MONDAY")
+                string targetDayName = targetDate.DayOfWeek.ToString().ToUpper();
+
+                // Get all shift schedules for the same IdShift
+                // and check which ones are enabled for the target day
+                var allShiftSchedules = await _dbContext.ShiftSchedules
+                    .Where(ss => ss.IdShift == shiftSchedule.IdShift)
+                    .ToListAsync();
+
+                // Build a set of IdShiftSchedule values that are valid for the target day
+                var validShiftScheduleIds = allShiftSchedules
+                    .Where(ss =>
+                        !string.IsNullOrWhiteSpace(ss.WorkDays) &&
+                        ss.WorkDays
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(d => d.Trim().ToUpper())
+                            .Contains(targetDayName)
+                    )
+                    .Select(ss => ss.IdShiftSchedule)
+                    .ToHashSet();
+
+                // Filter source assignments — only copy those whose IdShiftSchedule
+                // is enabled for the target day
+                var assignmentsToCopy = sourceAssignments
+                    .Where(sa => validShiftScheduleIds.Contains((int)sa.IdShiftSchedule))
+                    .ToList();
+
+                if (!assignmentsToCopy.Any())
+                {
+                    _logger.LogWarning(
+                        "No eligible shift assignments to copy to {TargetDate}. " +
+                        "All source shifts are disabled for {DayName}.",
+                        targetDate.Date, targetDayName);
+                    return resultDtos;
+                }
+
+                // Delete existing assignments on the target date
+                // Only delete those whose IdShiftSchedule is valid for the target day
+                // (avoid deleting shifts that were manually added for that day outside the copy)
+                var targetAssignments = await _dbContext.ShiftAssignments
+                    .Where(sa => validShiftScheduleIds.Contains((int)sa.IdShiftSchedule)
+                              && sa.StartDate.Date == targetDate.Date)
+                    .ToListAsync();
+
+                if (targetAssignments.Any())
+                {
+                    _dbContext.ShiftAssignments.RemoveRange(targetAssignments);
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                // Copy eligible assignments to target date
+                foreach (var source in assignmentsToCopy)
+                {
+                    // Get the specific shift schedule for this assignment
+                    // to apply its correct StartTime and EndTime
+                    var sourceSchedule = allShiftSchedules
+                        .FirstOrDefault(ss => ss.IdShiftSchedule == source.IdShiftSchedule);
+
+                    if (sourceSchedule == null) continue;
+
+                    var newAssignment = new ShiftAssignment
+                    {
+                        IdShiftAssignment = null,
+                        IdEmployee = source.IdEmployee,
+                        IdShift = source.IdShift,
+                        IdShiftSchedule = source.IdShiftSchedule,
+                        StartDate = targetDate.Date.Add(sourceSchedule.StartTime),
+                        EndDate = targetDate.Date.Add(sourceSchedule.EndTime),
+                        TotalDurationMinutes = source.TotalDurationMinutes,
+                        TotalDurationHours = source.TotalDurationHours,
+                        AttendanceStatus = source.AttendanceStatus,
+                    };
+
+                    var result = await _dbContext.ShiftAssignments.AddAsync(newAssignment);
+                    resultDtos.Add(_mapper.Map<ShiftAssignmentDto>(result.Entity));
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Copied {Count} assignment(s) from {Source} to {Target}. " +
+                    "{Skipped} assignment(s) skipped (shift not enabled for {Day}).",
+                    resultDtos.Count,
+                    sourceDate.Date,
+                    targetDate.Date,
+                    sourceAssignments.Count - assignmentsToCopy.Count,
+                    targetDayName);
+
+                return resultDtos;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error copying shift assignments from {SourceDate} to {TargetDate}.", sourceDate, targetDate);
+                return new List<ShiftAssignmentDto>();
+            }
+        }
     }
 
 }

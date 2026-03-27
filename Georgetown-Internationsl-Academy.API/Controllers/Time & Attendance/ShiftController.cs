@@ -362,6 +362,48 @@ namespace Georgetown_Internationsl_Academy.API.Controllers.Time___Attendance
             }
         }
 
+
+
+        [HttpPost("DeleteShiftAssignmentOfASchedule")]
+        public async Task<IActionResult> DeleteShiftAssignmentOfASchedule(int IdShiftSchedule, DateTime ShiftDateTime)
+        {
+
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+                var result = await _shiftAssignmentService.DeleteShiftAssignmentOfASchedule(IdShiftSchedule, ShiftDateTime, loggedInEmployeeId);
+                return Ok(ApiResponseDto<List<ShiftAssignmentDto>>.CreateSuccess(null, "Shift assignment Deleted"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+
+        [HttpPost("CopyShiftAssignmentsByDateAsync")]
+        public async Task<IActionResult> CopyShiftAssignmentsByDateAsync([FromBody] CopyShiftAssignmentsRequest request)
+        {
+
+            try
+            {
+                var userId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                int loggedInEmployeeId = int.Parse(userId);
+                var result = await _shiftAssignmentService.CopyShiftAssignmentsByDateAsync(request.IdShif, request.SourceDate, request.TargetDate);
+                return Ok(ApiResponseDto<List<ShiftAssignmentDto>>.CreateSuccess(null, "Shift assignment Copied"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
         #endregion
 
         #region ClockInClockOutDeatils

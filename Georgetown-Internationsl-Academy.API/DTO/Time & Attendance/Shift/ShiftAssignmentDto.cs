@@ -22,4 +22,11 @@
         public int IdDesignation { get; set; }
     }
 
+    public class CopyShiftAssignmentsRequest
+    {
+        public int IdShif { get; set; }
+        public DateTime SourceDate { get; set; }
+        public DateTime TargetDate { get; set; }
+    }
+
 }

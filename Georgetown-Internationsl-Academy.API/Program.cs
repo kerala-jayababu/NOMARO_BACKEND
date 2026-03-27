@@ -3,6 +3,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_International_Academy.API.Services.Implementations.TimeAndAttendance;
+using Georgetown_Internationsl_Academy.API.Helpers;
 using Georgetown_Internationsl_Academy.API.Services.Implementation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation;
 using Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___Attendance;
@@ -238,6 +239,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<UserActivityMiddleware>();
 app.UseRateLimiter();
 
 app.MapControllers();

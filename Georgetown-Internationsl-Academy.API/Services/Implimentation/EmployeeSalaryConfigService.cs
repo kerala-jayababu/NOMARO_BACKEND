@@ -548,7 +548,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     if (exists)
                     {
                         throw new InvalidOperationException(
-                            "A salary configuration with this Valid From date already exists for this employee.");
+                            "A salary configuration with the same Valid From Date already exists for this employee.");
                     }
                 }
 
@@ -630,6 +630,13 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 {
                     _logger.LogWarning("Attempt to update a non-existent Employee Salary Configuration with ID: {Id}.", dto.IdEmployeeSalaryConfig);
                     return null;
+                }
+                // Check whether another record already exists for the same From Date
+                var configEntity2 = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig != dto.IdEmployeeSalaryConfig
+                    && c.ValidFrom.Date == dto.ValidFrom.Value.Date);
+                if (configEntity2 != null)
+                {
+                    throw new InvalidOperationException("A salary configuration already exists for the selected 'Valid From' date.");
                 }
 
                 // Manual mapping for update
@@ -731,6 +738,28 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     _logger.LogWarning("Unapprove: Employee Salary Configuration {Id} not found.", idEmployeeSalaryConfig);
                     return null;
                 }
+                if (configEntity.ValidFrom.Month != DateTime.Now.Month || configEntity.ValidFrom.Year != DateTime.Now.Year)
+                {
+                    throw new InvalidOperationException(
+                            "Unapproval is allowed only for salary configurations within the current month.");
+                }
+
+                var lastDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1)
+                        .AddMonths(1)
+                        .AddDays(-1);
+                var salaryMonth = await _dbContext.SalaryMonths
+                  .FirstOrDefaultAsync(s=>s.SalaryMonthDate == lastDayOfMonth.Date);
+
+                if (salaryMonth != null)
+                {
+                    var alreadySalaryDone = await _dbContext.EmployeeSalaries
+                       .FirstOrDefaultAsync(c => c.IdSalaryMonth == salaryMonth.IdSalaryMonth && c.IdEmployee == configEntity.IdEmployee);
+                    if(alreadySalaryDone != null)
+                    {
+                        throw new InvalidOperationException(
+                                                    "Unapproval is not allowed because Salary already generated for the current month");
+                    }
+                }
 
                 var detailCount = await _dbContext.EmployeeSalaryConfigDetails
                     .CountAsync(d => d.IdEmployeeSalaryConfig == idEmployeeSalaryConfig);
@@ -787,7 +816,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
             {
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error unapproving Employee Salary Configuration {Id}.", idEmployeeSalaryConfig);
-                throw new Exception("An error occurred while unapproving the configuration. Please try again later.");
+                throw new Exception(ex.Message);
             }
         }
 
