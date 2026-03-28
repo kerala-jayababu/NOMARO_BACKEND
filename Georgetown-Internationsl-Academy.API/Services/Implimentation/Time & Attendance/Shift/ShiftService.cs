@@ -359,11 +359,28 @@ public class ShiftService : IShiftService
                 .ThenBy(c => c.IdClockDetails)
                 .ToListAsync();
 
+            var auditLogs = new List<(string actionType, string entityName, int entityId, object actionDetails)>();
+
             foreach (var dto in dtos)
             {
                 var record = records.FirstOrDefault(r => r.IdClockDetails == dto.IdClockDetail);
                 if (record == null)
                     return false;
+
+                var beforeRecord = new ClockInOutDetails
+                {
+                    IdClockDetails = record.IdClockDetails,
+                    IdEmployee = record.IdEmployee,
+                    ClockDate = record.ClockDate,
+                    INTime = record.INTime,
+                    OUTTime = record.OUTTime,
+                    TotalINHours = record.TotalINHours,
+                    TotalInMinutes = record.TotalInMinutes,
+                    TotalInHoursText = record.TotalInHoursText,
+                    StatusDetails = record.StatusDetails,
+                    Remarks = record.Remarks,
+                    MissingEntryApproveStatus = record.MissingEntryApproveStatus
+                };
 
                 // All records for this employee+date
                 var dayRecords = allDayRecords
@@ -443,6 +460,12 @@ public class ShiftService : IShiftService
 
                 record.Remarks = dto.Reason;
 
+                auditLogs.Add((
+                    actionType: "Update",
+                    entityName: "ClockInOutDetails",
+                    entityId: record.IdClockDetails,
+                    actionDetails: new { before = beforeRecord, after = record }
+                ));
             }
 
             _dbContext.UpdateRange(records);
@@ -471,6 +494,16 @@ public class ShiftService : IShiftService
             }
 
             await _dbContext.SaveChangesAsync();
+
+            foreach (var log in auditLogs)
+            {
+                await _auditService.LogAuditAsync(
+                    actionType: log.actionType,
+                    entityName: log.entityName,
+                    entityId: log.entityId,
+                    actionDetails: log.actionDetails);
+            }
+
             foreach(var updattendance in dtos)
             {
                 if (updattendance.ClockType== "OUT")
@@ -504,10 +537,22 @@ public class ShiftService : IShiftService
             if (record == null)
                 return false;
 
+            var beforeRecord = new DayAttendance
+            {
+                IdDayAttendance = record.IdDayAttendance,
+                ReasonForShortTime = record.ReasonForShortTime
+            };
+
             record.ReasonForShortTime = dto.ReasonForShortTime;
 
             _dbContext.Update(record);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "DayAttendance",
+                entityId: record.IdDayAttendance,
+                actionDetails: new { before = beforeRecord, after = record });
 
             return true;
         }
@@ -585,6 +630,21 @@ public class ShiftService : IShiftService
             if (record == null)
                 throw new Exception("Record not found");
 
+            var beforeRecord = new ClockInOutDetails
+            {
+                IdClockDetails = record.IdClockDetails,
+                IdEmployee = record.IdEmployee,
+                ClockDate = record.ClockDate,
+                INTime = record.INTime,
+                OUTTime = record.OUTTime,
+                StatusDetails = record.StatusDetails,
+                Remarks = record.Remarks,
+                TotalINHours = record.TotalINHours,
+                TotalInMinutes = record.TotalInMinutes,
+                TotalInHoursText = record.TotalInHoursText,
+                MissingEntryApproveStatus = record.MissingEntryApproveStatus
+            };
+
             _dbContext.Update(record);
             await _dbContext.SaveChangesAsync();
             if(record.INTime == null)
@@ -601,6 +661,12 @@ public class ShiftService : IShiftService
             }
             await _dbContext.SaveChangesAsync();
 
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "ClockInOutDetails",
+                entityId: record.IdClockDetails,
+                actionDetails: new { before = beforeRecord, after = record });
+
             return true;
         }
         catch (Exception ex)
@@ -616,6 +682,7 @@ public class ShiftService : IShiftService
         try
         {
             string recordStatus = string.Empty;
+            var auditLogs = new List<(string actionType, string entityName, int entityId, object actionDetails)>();
 
             var guyanaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Guyana");
             var currentGuyanaTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, guyanaTimeZone);
@@ -689,49 +756,91 @@ public class ShiftService : IShiftService
                     INTime = entryDetails.EntryTime,
                     DeviceUser = "MANUAL",
                     StatusDetails = "IN Punch Recorded",
-                    Remarks = "Forgot Access Card: " + entryDetails.Reason.Replace("Forgot Access Card: ","").Trim(),
+                    Remarks = "Forgot Access Card: " + entryDetails.Reason.Replace("Forgot Access Card: ", "").Trim(),
                     MissingEntryApproveStatus = "SUBMITTED"
                 };
 
                 _dbContext.ClockInOutDetails.Add(newRecord);
-            }
-            else
-            {
-                existingRecord.OUTTime = entryDetails.EntryTime;
-                existingRecord.StatusDetails = "IN and OUT Recorded";
-                existingRecord.Remarks = "Forgot Access Card: " + entryDetails.Reason;
-                existingRecord.MissingEntryApproveStatus = "SUBMITTED";
 
-                if (existingRecord.INTime.HasValue)
+                await _dbContext.SaveChangesAsync();
+
+                auditLogs.Add((
+                    actionType: "Insert",
+                    entityName: "ClockInOutDetails",
+                    entityId: newRecord.IdClockDetails,
+                    actionDetails: new { after = newRecord }
+                ));
+
+                foreach (var log in auditLogs)
                 {
-                    var totalMinutes = (int)(existingRecord.OUTTime.Value - existingRecord.INTime.Value).TotalMinutes;
+                    await _auditService.LogAuditAsync(log.actionType, log.entityName, log.entityId, log.actionDetails);
+                }
 
-                    if (totalMinutes < 0)
-                    {
-                        throw new ArgumentException(
-                            $"Invalid time sequence. OUT time ({existingRecord.OUTTime:HH:mm}) cannot be earlier than IN time ({existingRecord.INTime:HH:mm})."
-                        );
-                    }
+                return true;
+            }
 
-                    existingRecord.TotalInMinutes = totalMinutes;
-                    existingRecord.TotalINHours = Math.Round((decimal)totalMinutes / 60, 2);
+            var beforeExisting = new ClockInOutDetails
+            {
+                IdClockDetails = existingRecord.IdClockDetails,
+                IdEmployee = existingRecord.IdEmployee,
+                ClockDate = existingRecord.ClockDate,
+                INTime = existingRecord.INTime,
+                OUTTime = existingRecord.OUTTime,
+                StatusDetails = existingRecord.StatusDetails,
+                Remarks = existingRecord.Remarks,
+                TotalINHours = existingRecord.TotalINHours,
+                TotalInMinutes = existingRecord.TotalInMinutes,
+                TotalInHoursText = existingRecord.TotalInHoursText,
+                MissingEntryApproveStatus = existingRecord.MissingEntryApproveStatus
+            };
 
-                    int hours = totalMinutes / 60;
-                    int minutes = totalMinutes % 60;
+            existingRecord.OUTTime = entryDetails.EntryTime;
+            existingRecord.StatusDetails = "IN and OUT Recorded";
+            existingRecord.Remarks = "Forgot Access Card: " + entryDetails.Reason;
+            existingRecord.MissingEntryApproveStatus = "SUBMITTED";
 
-                    existingRecord.TotalInHoursText = $"{hours}hrs {minutes}minutes";
-                    var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
-                            existingRecord.IdClockDetails, "FORGOTCARD", IdLogginedEmployee, "SUBMITTED", null,null,1);
+            if (existingRecord.INTime.HasValue)
+            {
+                var totalMinutes = (int)(existingRecord.OUTTime.Value - existingRecord.INTime.Value).TotalMinutes;
 
-                    if (!result.Contains("Approval workflow initiated", StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new Exception(
-                            $"Failed to initiate approval workflow");
-                    }
+                if (totalMinutes < 0)
+                {
+                    throw new ArgumentException(
+                        $"Invalid time sequence. OUT time ({existingRecord.OUTTime:HH:mm}) cannot be earlier than IN time ({existingRecord.INTime:HH:mm})."
+                    );
+                }
+
+                existingRecord.TotalInMinutes = totalMinutes;
+                existingRecord.TotalINHours = Math.Round((decimal)totalMinutes / 60, 2);
+
+                int hours = totalMinutes / 60;
+                int minutes = totalMinutes % 60;
+
+                existingRecord.TotalInHoursText = $"{hours}hrs {minutes}minutes";
+                var result = await _approvalWorkflowService.InitiateApprovalWorkflow(
+                        existingRecord.IdClockDetails, "FORGOTCARD", IdLogginedEmployee, "SUBMITTED", null, null, 1);
+
+                if (!result.Contains("Approval workflow initiated", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(
+                        $"Failed to initiate approval workflow");
                 }
             }
-          
+
             await _dbContext.SaveChangesAsync();
+
+            auditLogs.Add((
+                actionType: "Update",
+                entityName: "ClockInOutDetails",
+                entityId: existingRecord.IdClockDetails,
+                actionDetails: new { before = beforeExisting, after = existingRecord }
+            ));
+
+            foreach (var log in auditLogs)
+            {
+                await _auditService.LogAuditAsync(log.actionType, log.entityName, log.entityId, log.actionDetails);
+            }
+
             return true;
         }
         catch (ArgumentException)
