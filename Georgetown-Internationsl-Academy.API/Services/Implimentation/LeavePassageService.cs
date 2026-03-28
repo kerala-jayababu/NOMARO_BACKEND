@@ -295,6 +295,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (leavePassage == null) return null;
 
+                var beforeUpdate = _mapper.Map<LeavePassage>(leavePassage);
+
                 // Update fields
                 leavePassage.IdEmployee = leavePassageDto.IdEmployee;
                 leavePassage.IdFinancialYear = leavePassageDto.IdFinancialYear;
@@ -309,7 +311,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "LeavePassage",
                     entityId: leavePassage.IdLeavePassage ?? 0,
-                    actionDetails: new { after = leavePassage });
+                    actionDetails: new { before = beforeUpdate, after = leavePassage });
 
                 var entityCode = _configuration["WorkflowEntityCodes:LEAVEPASS"];
 
@@ -427,6 +429,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (financialYears == null || !financialYears.Any())
                     return false;
 
+                var auditLogs = new List<(string actionType, string entityName, int entityId, object actionDetails)>();
+
                 foreach (var dto in leavePassages)
                 {
                     var year = financialYears.FirstOrDefault(x => x.IdFinancialYear == dto.IdFinancialYear);
@@ -444,6 +448,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         };
 
                         _dbContext.LeavePassageAmounts.Add(entity);
+
+                        // Collect audit log for insert (entityId will be set after SaveChangesAsync)
+                        auditLogs.Add(("Add", "LeavePassageAmount", 0, new { after = entity }));
                     }
                     else // Update
                     {
@@ -452,6 +459,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                         if (entity == null) return false;
 
+                        var beforeUpdate = new LeavePassageAmounts
+                        {
+                            IdLeavePassageAmount = entity.IdLeavePassageAmount,
+                            IdEmployee = entity.IdEmployee,
+                            LeavePassageAmount = entity.LeavePassageAmount,
+                            IdFinancialYear = entity.IdFinancialYear,
+                            DateFrom = entity.DateFrom,
+                            DateTo = entity.DateTo
+                        };
+
                         entity.IdEmployee = dto.IdEmployee;
                         entity.LeavePassageAmount = dto.Amount;
                         entity.IdFinancialYear = dto.IdFinancialYear;
@@ -459,10 +476,32 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         entity.DateTo = year.FinancialYearTo;
 
                         _dbContext.LeavePassageAmounts.Update(entity);
+
+                        // Collect audit log for update
+                        auditLogs.Add(("Update", "LeavePassageAmount", entity.IdLeavePassageAmount, new { before = beforeUpdate, after = entity }));
                     }
                 }
 
                 await _dbContext.SaveChangesAsync();
+
+                // Now log audits with correct entityIds for inserts
+                foreach (var (actionType, entityName, entityId, actionDetails) in auditLogs)
+                {
+                    int actualEntityId = entityId;
+                    if (actionType == "Add" && actualEntityId == 0)
+                    {
+                        // For inserts, find the entityId from the actionDetails
+                        var afterEntity = (LeavePassageAmounts)((dynamic)actionDetails).after;
+                        actualEntityId = afterEntity.IdLeavePassageAmount;
+                    }
+
+                    await _auditService.LogAuditAsync(
+                        actionType: actionType,
+                        entityName: entityName,
+                        entityId: actualEntityId,
+                        actionDetails: actionDetails);
+                }
+
                 return true;
             }
             catch (Exception ex)

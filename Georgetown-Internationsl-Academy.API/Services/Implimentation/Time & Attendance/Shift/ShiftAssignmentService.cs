@@ -3,6 +3,7 @@ using Dapper;
 using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Models.Time___Attendance.Shift;
+using Georgetown_Internationsl_Academy.API.Services.Interface;
 using Georgetown_Internationsl_Academy.API.Services.Interface.Time___Attendance.Shift;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -15,12 +16,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<ShiftAssignmentService> _logger;
-
-        public ShiftAssignmentService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ShiftAssignmentService> logger)
+        private readonly IAuditService _auditService;
+        public ShiftAssignmentService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ShiftAssignmentService> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
 
         public async Task<List<ShiftAssignmentDto>> GetShiftAssignmentsByShiftAsync(int idShift)
@@ -110,6 +112,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
                         var existing = await _dbContext.ShiftAssignments.FindAsync(dto.IdShiftAssignment);
                         if (existing != null)
                         {
+                            await _auditService.LogAuditAsync(
+                            actionType: "Update",
+                            entityName: "ShiftAssignment",
+                            entityId: (int)existing.IdShiftAssignment,
+                            actionDetails: new { before = existing, after = dto });
                             existing.IdShift = dto.IdShift;
                             existing.IdEmployee = dto.IdEmployee;
                             existing.IdShiftSchedule = dto.IdShiftSchedule;
@@ -134,11 +141,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation.Time___At
                         entity.StartDate = dto.StartDate.Date.Add(shiftSchedule.StartTime);
                         entity.EndDate = dto.EndDate.Date.Add(shiftSchedule.EndTime);
 
-                        var result = await _dbContext.ShiftAssignments.AddAsync(entity);
-                        resultDtos.Add(_mapper.Map<ShiftAssignmentDto>(result.Entity));
+                        await _dbContext.ShiftAssignments.AddAsync(entity);
+
+                        // Persist now so we get the identity value from DB before audit logging.
+                        await _dbContext.SaveChangesAsync();
+
+                        await _auditService.LogAuditAsync(
+                              actionType: "Add",
+                              entityName: "ShiftAssignment",
+                              entityId: entity.IdShiftAssignment ?? 0,
+                              actionDetails: new { after = entity });
+
+                        resultDtos.Add(_mapper.Map<ShiftAssignmentDto>(entity));
                     }
                 }
 
+                // If update rows exist, SaveChanges has not been run yet for them; run again safely.
                 await _dbContext.SaveChangesAsync();
                 return resultDtos;
             }

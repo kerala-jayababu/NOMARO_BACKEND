@@ -380,7 +380,12 @@ WHERE e.CurrentStatus = 'WORKING'
 
             await _dbContext.RentFreeQuarterAllowance.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
-
+            await _auditService.LogAuditAsync(
+           actionType: "Add",
+           entityName: "RentFreeQuarterAllowance",
+           entityId: entity.IdRentFreeQuarterAllowance, // Capture the newly created entity's ID
+           actionDetails: new { after = entity }
+       );
             dto.IdRentFreeQuarterAllowance = entity.IdRentFreeQuarterAllowance;
             return dto;
         }
@@ -404,6 +409,22 @@ WHERE e.CurrentStatus = 'WORKING'
                 _logger.LogWarning("RentFreeQuarterAllowance with ID {Id} not found for update.", dto.IdRentFreeQuarterAllowance);
                 return null;
             }
+            var beforeUpdate = new RentFreeQuarterAllowance
+            {
+                IdRentFreeQuarterAllowance = entity.IdRentFreeQuarterAllowance,
+                IdEmployee = entity.IdEmployee,
+                Duration = entity.Duration,
+                FinancialYear = entity.FinancialYear,
+                AllottedSqft = entity.AllottedSqft,
+                SqFtRate = entity.SqFtRate,
+                AnnualRFQAllowance = entity.AnnualRFQAllowance,
+                TaxFreeAllowance = entity.TaxFreeAllowance,
+                TaxableAmount = entity.TaxableAmount,
+                TaxAmount = entity.TaxAmount,
+                TaxRate = entity.TaxRate,
+                NetRFQAllowance = entity.NetRFQAllowance,
+                UpdatedDate = entity.UpdatedDate
+            };
 
             entity.IdEmployee = dto.IdEmployee;
             entity.Duration = dto.Duration;
@@ -419,7 +440,12 @@ WHERE e.CurrentStatus = 'WORKING'
             entity.UpdatedDate = DateTime.Now;
             _dbContext.RentFreeQuarterAllowance.Update(entity);
             await _dbContext.SaveChangesAsync();
-
+            await _auditService.LogAuditAsync(
+          actionType: "Update",
+          entityName: "RentFreeQuarterAllowance",
+          entityId: entity.IdRentFreeQuarterAllowance, // The ID of the updated entity
+          actionDetails: new { before = beforeUpdate, after = entity }
+      );
             return dto;
         }
         catch (Exception ex)

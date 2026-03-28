@@ -23,14 +23,15 @@ public class ShiftService : IShiftService
     private readonly ILogger<ShiftService> _logger;
     private readonly IConfiguration _configuration;
     private readonly IApprovalWorkflowService _approvalWorkflowService;
-
-    public ShiftService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ShiftService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
+    private readonly IAuditService _auditService;
+    public ShiftService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ShiftService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
         _configuration = configuration;
         _approvalWorkflowService = approvalWorkflowService;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<ShiftDto>> GetShiftList()
@@ -67,9 +68,21 @@ public class ShiftService : IShiftService
         {
             if (shiftDto.IsRegularShiftJustTimeChange == null)
                 shiftDto.IsRegularShiftJustTimeChange = false;
+
+            _logger.LogInformation("Adding new shift: {ShiftName}", shiftDto.ShiftName);
+
             var entity = _mapper.Map<ShiftDefinitionEntity>(shiftDto);
             var result = await _dbContext.ShiftDefinitions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Add",
+                entityName: "ShiftDefinition",
+                entityId: entity.IdShift,
+                actionDetails: new { after = entity });
+
+            _logger.LogInformation("Added shift ID {ShiftId} name {ShiftName}", entity.IdShift, entity.ShiftName);
+
             return _mapper.Map<ShiftDto>(result.Entity);
         }
         catch (Exception ex)
@@ -90,6 +103,8 @@ public class ShiftService : IShiftService
                 return null;
             }
 
+            var beforeUpdate = _mapper.Map<ShiftDefinitionEntity>(existing);
+
             existing.ShiftName = shiftDto.ShiftName;
             if (shiftDto.IsRegularShiftJustTimeChange == null)
                 existing.IsRegularShiftJustTimeChange = false;
@@ -97,6 +112,15 @@ public class ShiftService : IShiftService
             existing.IsRegularShiftJustTimeChange = shiftDto.IsRegularShiftJustTimeChange;
             _dbContext.ShiftDefinitions.Update(existing);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "ShiftDefinition",
+                entityId: existing.IdShift,
+                actionDetails: new { before = beforeUpdate, after = existing });
+
+            _logger.LogInformation("Updated shift ID {ShiftId} name {ShiftName}", existing.IdShift, existing.ShiftName);
+
             return _mapper.Map<ShiftDto>(existing);
         }
         catch (Exception ex)
