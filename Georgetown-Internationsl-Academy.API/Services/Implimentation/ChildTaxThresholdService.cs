@@ -12,12 +12,14 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<ChildTaxThresholdService> _logger;
+    private readonly IAuditService _auditService;
 
-    public ChildTaxThresholdService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ChildTaxThresholdService> logger)
+    public ChildTaxThresholdService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ChildTaxThresholdService> logger, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _auditService = auditService;
     }
     public async Task<IEnumerable<ChildTaxThresholdDto>> GetAllChildTaxThresholds(int? idFinancialYear = null)
     {
@@ -91,6 +93,13 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
             var entity = _mapper.Map<ChildTaxThreshold>(dto);
             var addedEntity = await _dbContext.ChildTaxThresholds.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Create",
+                entityName: "ChildTaxThreshold",
+                entityId: addedEntity.Entity.IdChildTaxThreshold,
+                actionDetails: new { after = addedEntity.Entity });
+
             return _mapper.Map<ChildTaxThresholdDto>(addedEntity.Entity);
         }
         catch (Exception ex)
@@ -113,6 +122,13 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
 
             var updatedEntity = _dbContext.ChildTaxThresholds.Update(threshold);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "ChildTaxThreshold",
+                entityId: updatedEntity.Entity.IdChildTaxThreshold,
+                actionDetails: new { after = updatedEntity.Entity });
+
             return _mapper.Map<ChildTaxThresholdDto>(updatedEntity.Entity);
         }
         catch (Exception ex)

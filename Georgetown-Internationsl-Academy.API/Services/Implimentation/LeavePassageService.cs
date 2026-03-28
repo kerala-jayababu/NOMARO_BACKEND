@@ -22,9 +22,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IEmployeeServices _employeeServices;
         private readonly IConfiguration _configuration;
         private readonly IApprovalWorkflowService _approvalWorkflowService;
+        private readonly IAuditService _auditService;
 
         public LeavePassageService(ApplicationDBContext dbContext, IMapper mapper, ILogger<OvertimeTransactionService> logger, IConfiguration configuration,
-                                           IWebHostEnvironment webHostEnvironment, IEmployeeServices employeeServices, IApprovalWorkflowService approvalWorkflowService)
+                                           IWebHostEnvironment webHostEnvironment, IEmployeeServices employeeServices, IApprovalWorkflowService approvalWorkflowService, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
@@ -33,6 +34,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _employeeServices = employeeServices;
             _configuration = configuration;
             _approvalWorkflowService = approvalWorkflowService;
+            _auditService = auditService;
         }
 
         public async  Task<IEnumerable<LeavePassageDto>> GetLeavePassagesList(string? searchText, string? dropdownFilter = null)
@@ -262,6 +264,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _dbContext.LeavePassages.AddAsync(leavePassageEntity);
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync(
+                    actionType: "Create",
+                    entityName: "LeavePassage",
+                    entityId: leavePassageEntity.IdLeavePassage ?? 0,
+                    actionDetails: new { after = leavePassageEntity });
+
                 int insertedId = leavePassageEntity.IdLeavePassage ?? 0; // Get the inserted record ID
                 var entityCode = _configuration["WorkflowEntityCodes:LEAVEPASS"];
 
@@ -296,6 +304,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 _dbContext.LeavePassages.Update(leavePassage);
                 await _dbContext.SaveChangesAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "LeavePassage",
+                    entityId: leavePassage.IdLeavePassage ?? 0,
+                    actionDetails: new { after = leavePassage });
 
                 var entityCode = _configuration["WorkflowEntityCodes:LEAVEPASS"];
 

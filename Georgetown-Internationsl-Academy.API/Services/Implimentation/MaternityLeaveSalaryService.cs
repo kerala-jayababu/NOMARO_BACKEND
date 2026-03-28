@@ -18,7 +18,8 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
     private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly IConfiguration _configuration;
     private readonly IApprovalWorkflowService _approvalWorkflowService;
-    public MaternityLeaveSalaryService(ApplicationDBContext dbContext,  IMapper mapper, ILogger<MaternityLeaveSalaryService> logger, IWebHostEnvironment webHostEnvironment, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
+    private readonly IAuditService _auditService;
+    public MaternityLeaveSalaryService(ApplicationDBContext dbContext,  IMapper mapper, ILogger<MaternityLeaveSalaryService> logger, IWebHostEnvironment webHostEnvironment, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
@@ -26,6 +27,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
         _webHostEnvironment = webHostEnvironment;
         _configuration = configuration;
         _approvalWorkflowService = approvalWorkflowService;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<MaternityLeaveSalaryDto>> GetAllMaternityLeaveSalaries(string? searchText = null, DateTime? fromDate = null)
@@ -282,6 +284,12 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             }
             await transaction.CommitAsync();
 
+            await _auditService.LogAuditAsync(
+                actionType: "Create",
+                entityName: "MaternityLeaveSalary",
+                entityId: (int)maternityLeaveSalary.IdMaternityLeaveSalary,
+                actionDetails: new { after = maternityLeaveSalary });
+
             return _mapper.Map< MaternityLeaveSalaryDto >(maternityLeaveSalary);
         }
         catch (Exception ex)
@@ -429,6 +437,12 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                 throw new Exception(approvalResult);
             }
             await transaction.CommitAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "MaternityLeaveSalary",
+                entityId: (int)existingSalary.IdMaternityLeaveSalary,
+                actionDetails: new { after = existingSalary });
 
             // Map and return updated DTO
             return new MaternityLeaveSalaryDto

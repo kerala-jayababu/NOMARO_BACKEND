@@ -25,14 +25,16 @@ namespace YourNamespace.Services.Implementation
         private readonly ILogger<SalaryGenerationService> _logger;
         private readonly IConfiguration _configuration;
         private readonly IApprovalWorkflowService _approvalWorkflowService;
+        private readonly IAuditService _auditService;
 
-        public SalaryGenerationService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryGenerationService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
+        public SalaryGenerationService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryGenerationService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
             _configuration = configuration;
             _approvalWorkflowService = approvalWorkflowService;
+            _auditService = auditService;
         }
 
         public async Task<IEnumerable<SalaryGenerationDto>> GetSalaryConfigs(
@@ -263,6 +265,7 @@ namespace YourNamespace.Services.Implementation
                 }
 
                 await transaction.CommitAsync();
+                await _auditService.LogAuditAsync("Update", "EmployeeSalary", idSalaryMonth, new { employeeIds = employeeIdList, salaryMonth = idSalaryMonth, updatedBy = idEmployeeCreated });
                 return true;
             }
             catch (Exception ex)

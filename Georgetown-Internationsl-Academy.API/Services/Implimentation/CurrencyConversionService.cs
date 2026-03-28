@@ -10,12 +10,14 @@ public class CurrencyConversionService : ICurrencyConversionService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<CurrencyConversionService> _logger;
+    private readonly IAuditService _auditService;
 
-    public CurrencyConversionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<CurrencyConversionService> logger)
+    public CurrencyConversionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<CurrencyConversionService> logger, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<CurrencyConversionDto>> GetAllCurrencyConversions()
@@ -62,6 +64,12 @@ public class CurrencyConversionService : ICurrencyConversionService
             var addedEntity = await _dbContext.CurrencyConversions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
 
+            await _auditService.LogAuditAsync(
+                actionType: "Create",
+                entityName: "CurrencyConversion",
+                entityId: addedEntity.Entity.IdCurrencyConversion,
+                actionDetails: new { after = addedEntity.Entity });
+
             // Manual mapping from entity to DTO
             var resultDto = new CurrencyConversionDto
             {
@@ -97,6 +105,12 @@ public class CurrencyConversionService : ICurrencyConversionService
 
             var updatedEntity = _dbContext.CurrencyConversions.Update(conversion);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "CurrencyConversion",
+                entityId: updatedEntity.Entity.IdCurrencyConversion,
+                actionDetails: new { after = updatedEntity.Entity });
 
             return _mapper.Map<CurrencyConversionDto>(updatedEntity.Entity);
         }

@@ -15,13 +15,15 @@ public class ScheduledSalaryDeductionService : IScheduledSalaryDeductionService
     private readonly IMapper _mapper;
     private readonly ILogger<ScheduledSalaryDeductionService> _logger;
     private readonly IWebHostEnvironment _webHostEnvironment;
+    private readonly IAuditService _auditService;
 
-    public ScheduledSalaryDeductionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ScheduledSalaryDeductionService> logger, IWebHostEnvironment webHostEnvironment)
+    public ScheduledSalaryDeductionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<ScheduledSalaryDeductionService> logger, IWebHostEnvironment webHostEnvironment, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
         _webHostEnvironment = webHostEnvironment;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<ScheduledSalaryDeductionDto>> GetScheduledDeductions(string? searchText = null, DateTime? fromDate = null)
@@ -261,6 +263,7 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
             }
 
             await transaction.CommitAsync();
+            await _auditService.LogAuditAsync("Create", "ScheduledSalaryDeduction", entity.IdScheduledSalaryDeduction, dto);
             return _mapper.Map<ScheduledSalaryDeductionDto>(entity);
         }
         catch (Exception ex)
@@ -377,6 +380,7 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
             }
             await _dbContext.SaveChangesAsync();
             await transaction.CommitAsync();
+            await _auditService.LogAuditAsync("Update", "ScheduledSalaryDeduction", entity.IdScheduledSalaryDeduction, dto);
             return _mapper.Map<ScheduledSalaryDeductionDto>(entity);
         }
         catch (Exception ex)

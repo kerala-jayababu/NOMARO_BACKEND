@@ -14,12 +14,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<BankServices> _logger;
+        private readonly IAuditService _auditService;
 
-        public BankServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<BankServices> logger)
+        public BankServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<BankServices> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
         public async Task<IEnumerable<BankDto>> GetBanksList()
         {
@@ -146,6 +148,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "BankBranch",
+                    entityId: bankId ?? 0,
+                    actionDetails: new { bankId, branchCount = updatedBranches.Count, inputCount = bankBranchesDtoList.Count });
+
                 return true; // ✅ Now returning true instead of a list
             }
             catch (Exception ex)
@@ -203,6 +211,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "Bank",
+                    entityId: 0,
+                    actionDetails: new { bankCount = bankDtoList.Count, inputBanks = bankDtoList.Select(b => new { b.IdBank, b.BankName, b.SwiftCode }) });
 
                 return true;
             }

@@ -17,12 +17,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IMapper _mapper;
         private readonly ILogger<SalaryAdjustmentService> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
-        public SalaryAdjustmentService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryAdjustmentService> logger, IWebHostEnvironment webHostEnvironment)
+        private readonly IAuditService _auditService;
+        public SalaryAdjustmentService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryAdjustmentService> logger, IWebHostEnvironment webHostEnvironment, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
+            _auditService = auditService;
         }
 
         public async Task<IEnumerable<SalaryAdjustmentDto>> GetAllSalaryAdjustments(string? searchText = null, DateTime? fromDate = null)
@@ -224,6 +226,7 @@ e.CurrentStatus ,
                 }
 
                 await transaction.CommitAsync();
+                await _auditService.LogAuditAsync("Create", "SalaryAdjustment", addedEntity.Entity.IdSalaryAdjustment, salaryAdjustment);
 
                 return _mapper.Map<SalaryAdjustmentDto>(addedEntity.Entity);
             }
@@ -283,7 +286,7 @@ e.CurrentStatus ,
                 _dbContext.SalaryAdjustments.Update(existingAdjustment);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
-
+                await _auditService.LogAuditAsync("Update", "SalaryAdjustment", existingAdjustment.IdSalaryAdjustment, salaryAdjustment);
                 return _mapper.Map<SalaryAdjustmentDto>(existingAdjustment);
             }
             catch (Exception ex)

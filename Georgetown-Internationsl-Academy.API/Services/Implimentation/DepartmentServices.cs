@@ -13,12 +13,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<DepartmentServices> _logger;
+        private readonly IAuditService _auditService;
 
-        public DepartmentServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<DepartmentServices> logger)
+        public DepartmentServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<DepartmentServices> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
 
         public async Task<IEnumerable<DepartmentDto>> GetDepartmentList()
@@ -57,6 +59,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var addedEntity = await _dbContext.Departments.AddAsync(departmentEntity);
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync(
+                    actionType: "Create",
+                    entityName: "Department",
+                    entityId: addedEntity.Entity.IdDepartment,
+                    actionDetails: new { after = addedEntity.Entity });
+
                 return _mapper.Map<DepartmentDto>(addedEntity.Entity);
             }
             catch (Exception ex)
@@ -78,6 +86,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var updatedEntity = _dbContext.Departments.Update(department);
                 await _dbContext.SaveChangesAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "Department",
+                    entityId: updatedEntity.Entity.IdDepartment,
+                    actionDetails: new { after = updatedEntity.Entity });
 
                 return _mapper.Map<DepartmentDto>(updatedEntity.Entity);
             }

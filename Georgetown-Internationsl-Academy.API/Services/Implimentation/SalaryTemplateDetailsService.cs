@@ -12,12 +12,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<SalaryTemplateDetailsService> _logger;
+        private readonly IAuditService _auditService;
 
-        public SalaryTemplateDetailsService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateDetailsService> logger)
+        public SalaryTemplateDetailsService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateDetailsService> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
 
         //public async Task<IEnumerable<SalaryTemplateDetailDto>> GetAllSalaryTemplateDetails(int Id)
@@ -95,6 +97,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var addedEntity = await _dbContext.SalaryTemplateDetails.AddAsync(entity);
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync("Create", "SalaryTemplateDetail", (int)addedEntity.Entity.IdSalaryTemplateDetail, dto);
                 return _mapper.Map<SalaryTemplateDetailDto>(addedEntity.Entity);
             }
             catch (Exception ex)
@@ -124,6 +127,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 _dbContext.SalaryTemplateDetails.Update(existingDetail);
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync("Update", "SalaryTemplateDetail", (int)existingDetail.IdSalaryTemplateDetail, dto);
                 return _mapper.Map<SalaryTemplateDetailDto>(existingDetail);
             }
             catch (Exception ex)

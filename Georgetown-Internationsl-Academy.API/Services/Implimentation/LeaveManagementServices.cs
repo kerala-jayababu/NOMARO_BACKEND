@@ -33,13 +33,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IApprovalWorkflowService _approvalWorkflowService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _env;
+        private readonly IAuditService _auditService;
 
-        public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, ILogger<NotificationConfigService> logger)
+        public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, ILogger<NotificationConfigService> logger, IAuditService auditService)
         {
             _configuration = configuration;
             _dbContext = dbContext;
             _logger = logger;
             _approvalWorkflowService = approveWorkflowService;
+            _auditService = auditService;
         }
         #region LeaveTypes
 
@@ -162,6 +164,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // ✅ normalize
                 leaveTypedto.LeaveCode = leaveTypedto.LeaveCode.Trim().ToUpper();
                 leaveTypedto.LeaveTypeName = leaveTypedto.LeaveTypeName.Trim();
+                bool isUpdateLeaveType = leaveTypedto.IdLeaveType > 0;
+                int leaveTypeId = leaveTypedto.IdLeaveType;
+                LeaveTypes? newLeaveType = null;
 
                 // ✅ Update
                 if (leaveTypedto.IdLeaveType > 0)
@@ -196,6 +201,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     // existing.UpdatedBy = loggedInEmployeeId;
 
                     _dbContext.LeaveTypes.Update(existing);
+                    leaveTypeId = existing.IdLeaveType;
                 }
                 else
                 {
@@ -208,7 +214,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (nameExists)
                         throw new ArgumentException($"LeaveTypeName '{leaveTypedto.LeaveTypeName}' already exists.");
 
-                    var newLeaveType = new LeaveTypes
+                    newLeaveType = new LeaveTypes
                     {
                         LeaveCode = leaveTypedto.LeaveCode,
                         LeaveTypeName = leaveTypedto.LeaveTypeName,
@@ -223,7 +229,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+                if (!isUpdateLeaveType && newLeaveType != null)
+                    leaveTypeId = newLeaveType.IdLeaveType;
 
+                await _auditService.LogAuditAsync(isUpdateLeaveType ? "Update" : "Create", "LeaveType", leaveTypeId, leaveTypedto);
                 return true;
             }
             catch (Exception ex)
@@ -428,6 +437,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 }
                 await transaction.CommitAsync();
+                await _auditService.LogAuditAsync(dto.IdLeaveTemplate > 0 ? "Update" : "Create", "LeaveTemplate", headerEntity.IdLeaveTemplate, dto);
                 //await SubmitLeaveTemplateForApproval(headerEntity.IdLeaveTemplate, loggedInEmployeeId);
                 return true;
             }
@@ -1366,6 +1376,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 await transaction.CommitAsync();
 
+                await _auditService.LogAuditAsync(dto.IdEmployeeLeaveConfig > 0 ? "Update" : "Create", "EmployeeLeaveConfig", entity.IdEmployeeLeaveConfig, dto);
                 return true;
             }
             catch (Exception)

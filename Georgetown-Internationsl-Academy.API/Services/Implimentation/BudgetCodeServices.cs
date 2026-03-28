@@ -14,12 +14,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implementation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;        
         private readonly ILogger<BudgetCodeServices> _logger;
+        private readonly IAuditService _auditService;
 
-        public BudgetCodeServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<BudgetCodeServices> logger)
+        public BudgetCodeServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<BudgetCodeServices> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
 
         #region BudgetCodes
@@ -100,6 +102,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implementation
                 var addedEntity = await _dbContext.BudgetCodes.AddAsync(budgetCodeEntity);
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync(
+                    actionType: "Create",
+                    entityName: "BudgetCode",
+                    entityId: addedEntity.Entity.IdBudgetCode,
+                    actionDetails: new { after = addedEntity.Entity });
+
                 return _mapper.Map<BudgetCodeDto>(addedEntity.Entity);
             }
             catch (Exception ex)
@@ -123,6 +131,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implementation
 
                     var updatedEntity = _dbContext.BudgetCodes.Update(budgetCode);
                     await _dbContext.SaveChangesAsync();
+
+                    await _auditService.LogAuditAsync(
+                        actionType: "Update",
+                        entityName: "BudgetCode",
+                        entityId: updatedEntity.Entity.IdBudgetCode,
+                        actionDetails: new { after = updatedEntity.Entity });
 
                     return _mapper.Map<BudgetCodeDto>(updatedEntity.Entity);
                 }

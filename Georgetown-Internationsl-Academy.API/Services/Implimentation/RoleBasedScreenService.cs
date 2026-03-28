@@ -14,11 +14,13 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly ILogger<RoleBasedScreenService> _logger;
         private readonly IMapper _mapper;
-        public RoleBasedScreenService(ApplicationDBContext dbContext, ILogger<RoleBasedScreenService> logger, IMapper mapper)
+        private readonly IAuditService _auditService;
+        public RoleBasedScreenService(ApplicationDBContext dbContext, ILogger<RoleBasedScreenService> logger, IMapper mapper, IAuditService auditService)
         {
             _dbContext = dbContext;
             _logger = logger;
             _mapper = mapper;
+            _auditService = auditService;
         }
         public async Task<List<PayrollScreenDto>> GetAllPayrollScreens(string? appType,int idEmployee)
         {
@@ -147,6 +149,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Save changes
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync("Update", "PayrollScreens", 0, new { payrollScreens });
                 return true;
             }
             catch (Exception ex)
@@ -281,6 +284,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Save changes
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync("Update", "EmployeePermissions", employeeId ?? 0, new { employeePermissions });
                 return true;
             }
             catch (Exception ex)
@@ -391,6 +395,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Save changes
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync("Update", "RoleBasedPermissions", designationId ?? 0, new { rolePermissions });
                 return true;
             }
             catch (Exception ex)

@@ -11,13 +11,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
     {
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
-        private readonly ILogger<SalaryHeadServices> _logger;
+        private readonly ILogger<SystemParameterService> _logger;
+        private readonly IAuditService _auditService;
 
-        public SystemParameterService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryHeadServices> logger)
+        public SystemParameterService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SystemParameterService> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
 
 
@@ -110,7 +112,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 _dbContext.SystemParameters.Update(existingParameter);
                 await _dbContext.SaveChangesAsync();
-
+                await _auditService.LogAuditAsync("Update", "SystemParameter", existingParameter.IdSystemParameter, dto);
                 return true;
             }
             catch (Exception ex)

@@ -13,12 +13,14 @@ public class VacationModeService : IVacationModeService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<VacationModeService> _logger;
+    private readonly IAuditService _auditService;
 
-    public VacationModeService(ApplicationDBContext dbContext, IMapper mapper, ILogger<VacationModeService> logger)
+    public VacationModeService(ApplicationDBContext dbContext, IMapper mapper, ILogger<VacationModeService> logger, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<VacationModeDto>> GetAllVacationModes(string? searchText = null, DateTime? dateFilter = null)
@@ -121,6 +123,12 @@ AND (
             var addedEntity = await _dbContext.VacationModes.AddAsync(vacationModeEntity);
             await _dbContext.SaveChangesAsync();
 
+            await _auditService.LogAuditAsync(
+                actionType: "Create",
+                entityName: "VacationMode",
+                entityId: addedEntity.Entity.IdVacationMode,
+                actionDetails: new { after = addedEntity.Entity });
+
             return _mapper.Map<VacationModeDto>(addedEntity.Entity);
         }
         catch (Exception ex)
@@ -150,6 +158,12 @@ AND (
 
             var updatedEntity = _dbContext.VacationModes.Update(vacationMode);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "VacationMode",
+                entityId: updatedEntity.Entity.IdVacationMode,
+                actionDetails: new { after = updatedEntity.Entity });
 
             return _mapper.Map<VacationModeDto>(updatedEntity.Entity);
         }

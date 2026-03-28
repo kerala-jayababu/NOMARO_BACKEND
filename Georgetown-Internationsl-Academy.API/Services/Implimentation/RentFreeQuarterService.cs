@@ -21,12 +21,14 @@ public class RentFreeQuarterService : IRentFreeQuarterService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<RentFreeQuarterService> _logger;
+    private readonly IAuditService _auditService;
 
-    public RentFreeQuarterService(ApplicationDBContext dbContext, IMapper mapper, ILogger<RentFreeQuarterService> logger)
+    public RentFreeQuarterService(ApplicationDBContext dbContext, IMapper mapper, ILogger<RentFreeQuarterService> logger, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<RentFreeQuarterDto>> GetRentFreeQuarters(string? searchText = null, DateTime? fromDate = null)
@@ -156,6 +158,7 @@ public class RentFreeQuarterService : IRentFreeQuarterService
 
             await _dbContext.RentFreeQuarters.AddAsync(templateEntity);
             await _dbContext.SaveChangesAsync();
+            await _auditService.LogAuditAsync("Create", "RentFreeQuarter", (int)templateEntity.IdRentFreeQuater, dto);
             var resultDto = new RentFreeQuarterDto
             {
                 IdRentFreeQuater = (int)templateEntity.IdRentFreeQuater,
@@ -204,6 +207,7 @@ public class RentFreeQuarterService : IRentFreeQuarterService
 
             _dbContext.RentFreeQuarters.Update(entity);
             await _dbContext.SaveChangesAsync();
+            await _auditService.LogAuditAsync("Update", "RentFreeQuarter", (int)entity.IdRentFreeQuater, dto);
             // Manually mapping the updated entity back to DTO
             var updatedDto = new RentFreeQuarterDto
             {

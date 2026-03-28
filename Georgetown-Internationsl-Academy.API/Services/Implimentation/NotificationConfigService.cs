@@ -17,17 +17,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IMapper _mapper;
         private readonly ILogger<NotificationConfigService> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IAuditService _auditService;
 
         public NotificationConfigService(
             ApplicationDBContext dbContext,
             IMapper mapper,
             ILogger<NotificationConfigService> logger,
-            IWebHostEnvironment webHostEnvironment)
+            IWebHostEnvironment webHostEnvironment,
+            IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
+            _auditService = auditService;
         }
 
         public async Task<IEnumerable<NotificationConfigDto>> GetNotificationConfigList(bool includeHtmlTemplateFileContent = true)
@@ -85,6 +88,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var notificationConfigEntity = _mapper.Map<NotificationConfig>(dto);
                 var addedEntity = await _dbContext.NotificationsConfig.AddAsync(notificationConfigEntity);
                 await _dbContext.SaveChangesAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Create",
+                    entityName: "NotificationConfig",
+                    entityId: addedEntity.Entity.IdNotificationConfig,
+                    actionDetails: new { after = addedEntity.Entity });
 
                 return _mapper.Map<NotificationConfigDto>(addedEntity.Entity);
             }
@@ -151,6 +160,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var updatedEntity = _dbContext.NotificationsConfig.Update(notificationConfig);
                 await _dbContext.SaveChangesAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "NotificationConfig",
+                    entityId: updatedEntity.Entity.IdNotificationConfig,
+                    actionDetails: new { after = updatedEntity.Entity });
 
                 var result = _mapper.Map<NotificationConfigDto>(updatedEntity.Entity);
                 await HydrateHtmlTemplateAsync(result);

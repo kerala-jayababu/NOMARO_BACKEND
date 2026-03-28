@@ -20,13 +20,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IMapper _mapper;
         private readonly ILogger<AssetServices> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IAuditService _auditService;
 
-        public EmployeeOffBoardingService(ApplicationDBContext dbContext, IMapper mapper, ILogger<AssetServices> logger, IConfiguration configuration)
+        public EmployeeOffBoardingService(ApplicationDBContext dbContext, IMapper mapper, ILogger<AssetServices> logger, IConfiguration configuration, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
             _configuration = configuration;
+            _auditService = auditService;
         }
 
         #region OFFBOARDING CONFIGURATIONS
@@ -56,17 +58,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 else
                 {
-                    await _dbContext.ExitReasons.AddAsync(new ExitReasons
+                    entity = new ExitReasons
                     {
                         ReasonCode = dto.ReasonCode,
                         ReasonName = dto.ReasonName,
                         IsActive = dto.IsActive,
                         CreatedAt = DateTime.Now
-                    });
+                    };
+                    await _dbContext.ExitReasons.AddAsync(entity);
                 }
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: entity.IdExitReason > 0 ? "Update" : "Create",
+                    entityName: "ExitReason",
+                    entityId: entity.IdExitReason,
+                    actionDetails: new { dto, after = entity });
+
                 return true;
             }
             catch
@@ -102,17 +112,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 else
                 {
-                    await _dbContext.ExitTypes.AddAsync(new ExitTypes
+                    entity = new ExitTypes
                     {
                         TypeCode = dto.TypeCode,
                         TypeName = dto.TypeName,
                         IsActive = dto.IsActive,
                         CreatedAt = DateTime.Now
-                    });
+                    };
+                    await _dbContext.ExitTypes.AddAsync(entity);
                 }
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: entity.IdExitType > 0 ? "Update" : "Create",
+                    entityName: "ExitType",
+                    entityId: entity.IdExitType,
+                    actionDetails: new { dto, after = entity });
+
                 return true;
             }
             catch
@@ -149,7 +167,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 else
                 {
-                    await _dbContext.NoticePeriodPolicies.AddAsync(new NoticePeriodPolicies
+                    entity = new NoticePeriodPolicies
                     {
                         PolicyCode = dto.PolicyCode,
                         PolicyName = dto.PolicyName,
@@ -157,12 +175,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         NoticeDays = dto.NoticeDays,
                         IsActive = dto.IsActive,
                         CreatedAt = DateTime.Now
-                    });
+                    };
+                    await _dbContext.NoticePeriodPolicies.AddAsync(entity);
                 }
 
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: entity.IdNoticePeriodPolicy > 0 ? "Update" : "Create",
+                    entityName: "NoticePeriodPolicy",
+                    entityId: entity.IdNoticePeriodPolicy,
+                    actionDetails: new { dto, after = entity });
                 return true;
             }
             catch
@@ -197,17 +222,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
                 else
                 {
-                    await _dbContext.ClearanceTemplates.AddAsync(new ClearanceTemplates
+                    entity = new ClearanceTemplates
                     {
                         TemplateName = dto.TemplateName,
                         Description = dto.Description,
                         IsActive = dto.IsActive,
                         CreatedAt = DateTime.Now
-                    });
+                    };
+                    await _dbContext.ClearanceTemplates.AddAsync(entity);
                 }
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: entity.IdClearanceTemplate > 0 ? "Update" : "Create",
+                    entityName: "ClearanceTemplate",
+                    entityId: entity.IdClearanceTemplate,
+                    actionDetails: new { dto, after = entity });
+
                 return true;
             }
             catch
@@ -310,6 +343,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "ClearanceTemplateDepartment",
+                    entityId: templateId,
+                    actionDetails: new { templateId, updatedCount = dtos.Count, values = dtos.Select(d => new { d.IdTemplateDept, d.IdDepartment, d.IsMandatory }) });
                 return true;
             }
             catch (Exception ex)

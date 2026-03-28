@@ -12,15 +12,16 @@ public class SalaryTemplateService : ISalaryTemplateService
     private readonly ILogger<SalaryTemplateService> _logger;
     private readonly IConfiguration _configuration;
     private readonly IApprovalWorkflowService _approvalWorkflowService;
+    private readonly IAuditService _auditService;
 
-
-    public SalaryTemplateService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService)
+    public SalaryTemplateService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
         _configuration = configuration;
         _approvalWorkflowService = approvalWorkflowService;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates(string? searchText = null,string? dropdownFilter = null)
@@ -34,8 +35,6 @@ public class SalaryTemplateService : ISalaryTemplateService
             {
                 query = query.Where(x => x.SalaryTemplateName.Contains(searchText) || x.Description.Contains(searchText));
             }
-
-            
 
             // Apply dropdown filter if provided (e.g., ApprovalStatus)
             if (!string.IsNullOrEmpty(dropdownFilter))
@@ -55,45 +54,10 @@ public class SalaryTemplateService : ISalaryTemplateService
 
             var templates = await query.ToListAsync();
 
-            //foreach (var template in templates)
-            //{
-
-            //var details = await (from std in _dbContext.SalaryTemplateDetails
-            //                     join sh in _dbContext.SalaryHeads
-            //                     on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
-            //                     from sh in shGroup.DefaultIfEmpty() // LEFT JOIN
-            //                     where std.IdSalaryTemplate == template.IdSalaryTemplate
-            //                     select new SalaryTemplateDetailDto
-            //                     {
-            //                         IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
-            //                         IdSalaryTemplate = std.IdSalaryTemplate,
-            //                         IdSalaryHead = std.IdSalaryHead,
-            //                         SalaryHeadName = sh != null ? sh.SalaryHeadName : string.Empty,
-            //                         HeadType = sh != null ? sh.HeadType : string.Empty,
-            //                         IsTaxable = sh != null && sh.IsTaxable, // Null for boolean
-            //                         OrderNumber = sh != null ? sh.OrderNumber : null, // Nullable int
-            //                         CalculationMethod = std.CalculationMethod,
-            //                         FixedAmount = std.FixedAmount,
-            //                         PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
-            //                         PercentageValue = std.PercentageValue,
-            //                         CustomFormula = std.CustomFormula,
-            //                         FinalSalaryAmount = std.FinalSalaryAmount,
-            //                         Remarks = std.Remarks
-            //                     }).ToListAsync();
-
-            //    // Map the SalaryTemplate to DTO
-            //    //var result = _mapper.Map<SalaryTemplateDto>(salaryTemplate);
-
-            //    // Attach the details to the DTO
-            //    result.SalaryTemplateDetails = details;
-            //}
-
             var res= _mapper.Map<IEnumerable<SalaryTemplateDto>>(templates);
-
 
             foreach (var template in res)
             {
-
                 var details = await (from std in _dbContext.SalaryTemplateDetails
                                      join sh in _dbContext.SalaryHeads
                                      on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
@@ -120,7 +84,6 @@ public class SalaryTemplateService : ISalaryTemplateService
                 template.SalaryTemplateDetails = details;
             }
             return res;
-
         }
         catch (Exception ex)
         {
@@ -260,6 +223,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             }
 
             await transaction.CommitAsync();
+            await _auditService.LogAuditAsync("Create", "SalaryTemplate", templateEntity.IdSalaryTemplate, dto);
             return _mapper.Map<SalaryTemplateDto>(templateEntity);
         }
         catch (Exception ex)
@@ -361,6 +325,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED", null,null);
 
             await transaction.CommitAsync();
+            await _auditService.LogAuditAsync("Update", "SalaryTemplate", templateEntity.IdSalaryTemplate, dto);
             return _mapper.Map<SalaryTemplateDto>(templateEntity);
         }
         catch (Exception ex)

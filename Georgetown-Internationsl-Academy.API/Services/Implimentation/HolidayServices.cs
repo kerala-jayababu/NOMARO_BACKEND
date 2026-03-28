@@ -12,12 +12,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<BankServices> _logger;
+        private readonly IAuditService _auditService;
 
-        public HolidayServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<BankServices> logger)
+        public HolidayServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<BankServices> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
 
         public async Task<IEnumerable<HolidaysDto>> GetHolidaysInAnYear(int Year)
@@ -70,6 +72,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 }
 
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: holidayDetail.IdHoliday > 0 ? "Update" : "Create",
+                    entityName: "Holiday",
+                    entityId: holidayDetail.IdHoliday,
+                    actionDetails: new { after = holidayDetail });
 
                 return true; 
             }

@@ -19,9 +19,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IEmployeeServices _employeeServices;
         private readonly IConfiguration _configuration;
         private readonly IApprovalWorkflowService _approvalWorkflowService;
+        private readonly IAuditService _auditService;
 
         public OvertimeTransactionService(ApplicationDBContext dbContext, IMapper mapper, ILogger<OvertimeTransactionService> logger, IConfiguration configuration, 
-                                           IWebHostEnvironment webHostEnvironment, IEmployeeServices employeeServices, IApprovalWorkflowService approvalWorkflowService)
+                                           IWebHostEnvironment webHostEnvironment, IEmployeeServices employeeServices, IApprovalWorkflowService approvalWorkflowService, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
@@ -30,6 +31,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _employeeServices = employeeServices;
             _configuration = configuration;
             _approvalWorkflowService = approvalWorkflowService;
+            _auditService = auditService;
         }
 
         public async Task<IEnumerable<OvertimeTransactionDto>> GetOvertimeTransactionList(
@@ -437,6 +439,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _dbContext.SaveChangesAsync();
                 int insertedId = transactionEntity.IdOvertimeTransaction;
 
+                await _auditService.LogAuditAsync(
+                    actionType: "Create",
+                    entityName: "OvertimeTransaction",
+                    entityId: transactionEntity.IdOvertimeTransaction,
+                    actionDetails: new { after = transactionEntity });
+
                 // 🔹 Start Workflow
                 await HandleApprovalWorkflow(transactionEntity, idEmployee, insertedId,false);
 
@@ -698,6 +706,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 _dbContext.OvertimeTransactions.Update(transactionEntity);
                 await _dbContext.SaveChangesAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "OvertimeTransaction",
+                    entityId: transactionEntity.IdOvertimeTransaction,
+                    actionDetails: new { after = transactionEntity });
 
                 // 🔹 Workflow logic (same as Add)
                 await HandleApprovalWorkflow(transactionEntity, idEmployee, transactionEntity.IdOvertimeTransaction,true);

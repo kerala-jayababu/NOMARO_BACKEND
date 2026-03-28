@@ -594,6 +594,13 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 //}
 
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Create",
+                    entityName: "EmployeeSalaryConfig",
+                    entityId: configEntity.IdEmployeeSalaryConfig,
+                    actionDetails: new { after = configEntity, createdBy = IdEmployee });
+
                 return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
             }
             catch (InvalidOperationException)
@@ -716,6 +723,13 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null, null);
 
                 await transaction.CommitAsync();
+
+                await _auditService.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "EmployeeSalaryConfig",
+                    entityId: configEntity.IdEmployeeSalaryConfig,
+                    actionDetails: new { after = configEntity, updatedBy = IdEmployee });
+
                 return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
             }
             catch (Exception ex)

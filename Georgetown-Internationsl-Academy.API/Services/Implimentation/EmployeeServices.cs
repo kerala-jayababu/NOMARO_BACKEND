@@ -1274,6 +1274,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var result = await _dbContext.Employees.AddAsync(entity);
                 await _dbContext.SaveChangesAsync();
 
+                await _audit.LogAuditAsync(
+                    actionType: "Create",
+                    entityName: "Employee",
+                    entityId: (int)result.Entity.IdEmployee,
+                    actionDetails: new { after = result.Entity });
+
                 return _mapper.Map<EmployeeEntityDto>(result.Entity);
             }
             catch (InvalidOperationException)
@@ -1373,6 +1379,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 _dbContext.Employees.Update(employee);
                 await _dbContext.SaveChangesAsync();
+
+                await _audit.LogAuditAsync(
+                    actionType: "Update",
+                    entityName: "Employee",
+                    entityId: (int)employee.IdEmployee,
+                    actionDetails: new { after = employee });
 
                 _logger.LogInformation("Employee updated successfully: {Id}", id);
                 return _mapper.Map<EmployeeEntityDto>(employee);

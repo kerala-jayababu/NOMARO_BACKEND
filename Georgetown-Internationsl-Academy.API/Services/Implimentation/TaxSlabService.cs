@@ -13,12 +13,14 @@ public class TaxSlabService : ITaxSlabService
     private readonly ApplicationDBContext _dbContext;
     private readonly IMapper _mapper;
     private readonly ILogger<TaxSlabService> _logger;
+    private readonly IAuditService _auditService;
 
-    public TaxSlabService(ApplicationDBContext dbContext, IMapper mapper, ILogger<TaxSlabService> logger)
+    public TaxSlabService(ApplicationDBContext dbContext, IMapper mapper, ILogger<TaxSlabService> logger, IAuditService auditService)
     {
         _dbContext = dbContext;
         _mapper = mapper;
         _logger = logger;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<TaxSlabDto>> GetAllTaxSlabs(int? idFinancialYear = null)
@@ -97,6 +99,12 @@ public class TaxSlabService : ITaxSlabService
             var addedEntity = await _dbContext.TaxSlabs.AddAsync(taxSlabEntity);
             await _dbContext.SaveChangesAsync();
 
+            await _auditService.LogAuditAsync(
+                actionType: "Create",
+                entityName: "TaxSlab",
+                entityId: addedEntity.Entity.IdTaxSlab,
+                actionDetails: new { after = addedEntity.Entity });
+
             return _mapper.Map<TaxSlabDto>(addedEntity.Entity);
         }
         catch (Exception ex)
@@ -119,6 +127,12 @@ public class TaxSlabService : ITaxSlabService
 
             var updatedEntity = _dbContext.TaxSlabs.Update(taxSlab);
             await _dbContext.SaveChangesAsync();
+
+            await _auditService.LogAuditAsync(
+                actionType: "Update",
+                entityName: "TaxSlab",
+                entityId: updatedEntity.Entity.IdTaxSlab,
+                actionDetails: new { after = updatedEntity.Entity });
 
             return _mapper.Map<TaxSlabDto>(updatedEntity.Entity);
         }

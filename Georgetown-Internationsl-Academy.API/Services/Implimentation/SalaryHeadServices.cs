@@ -13,12 +13,14 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly ApplicationDBContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<SalaryHeadServices> _logger;
+        private readonly IAuditService _auditService;
 
-        public SalaryHeadServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryHeadServices> logger)
+        public SalaryHeadServices(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryHeadServices> logger, IAuditService auditService)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
+            _auditService = auditService;
         }
 
         public async Task<IEnumerable<SalaryHeadDto>> GetSalaryHeadList()
@@ -105,6 +107,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var addedEntity = await _dbContext.SalaryHeads.AddAsync(salaryHeadEntity);
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync("Create", "SalaryHead", addedEntity.Entity.IdSalaryHead, dto);
                 return _mapper.Map<SalaryHeadDto>(addedEntity.Entity);
             }
             catch (Exception ex)
@@ -175,6 +178,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var updatedEntity = _dbContext.SalaryHeads.Update(salaryHead);
                 await _dbContext.SaveChangesAsync();
 
+                await _auditService.LogAuditAsync("Update", "SalaryHead", updatedEntity.Entity.IdSalaryHead, dto);
                 return _mapper.Map<SalaryHeadDto>(updatedEntity.Entity);
             }
             catch (Exception ex)
