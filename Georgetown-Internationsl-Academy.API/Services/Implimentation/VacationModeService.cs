@@ -150,6 +150,8 @@ AND (
                 return null;
             }
 
+            var beforeUpdate = _mapper.Map<VacationModeDto>(vacationMode);
+
             vacationMode.IdEmployee = vacationModeDto.IdEmployee;
             vacationMode.VacationFrom = vacationModeDto.VacationFrom;
             vacationMode.VacationTo = vacationModeDto.VacationTo;
@@ -163,7 +165,7 @@ AND (
                 actionType: "Update",
                 entityName: "VacationMode",
                 entityId: updatedEntity.Entity.IdVacationMode,
-                actionDetails: new { after = updatedEntity.Entity });
+                actionDetails: new { before = beforeUpdate, after = _mapper.Map<VacationModeDto>(updatedEntity.Entity) });
 
             return _mapper.Map<VacationModeDto>(updatedEntity.Entity);
         }

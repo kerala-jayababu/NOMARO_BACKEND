@@ -116,6 +116,8 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
             var threshold = await _dbContext.ChildTaxThresholds.FirstOrDefaultAsync(x => x.IdChildTaxThreshold == dto.IdChildTaxThreshold);
             if (threshold == null) return null;
 
+            var beforeUpdate = _mapper.Map<ChildTaxThresholdDto>(threshold);
+
             threshold.IdFinancialYear = dto.IdFinancialYear;
             threshold.ChildrenCount = dto.ChildrenCount;
             threshold.TaxThresholdAmount = dto.TaxThresholdAmount;
@@ -127,7 +129,7 @@ public class ChildTaxThresholdService : IChildTaxThresholdService
                 actionType: "Update",
                 entityName: "ChildTaxThreshold",
                 entityId: updatedEntity.Entity.IdChildTaxThreshold,
-                actionDetails: new { after = updatedEntity.Entity });
+                actionDetails: new { before = beforeUpdate, after = _mapper.Map<ChildTaxThresholdDto>(updatedEntity.Entity) });
 
             return _mapper.Map<ChildTaxThresholdDto>(updatedEntity.Entity);
         }

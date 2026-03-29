@@ -46,17 +46,23 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 string holidType = new string(holidayDetail.HolidayType.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpper();
 
+                HolidaysDto? before = null;
+                int entityId = 0;
+
                 if (holidayDetail.IdHoliday > 0)
                 {
                     var holidayDet = await _dbContext.Holidays.FirstOrDefaultAsync(h => h.IdHoliday == holidayDetail.IdHoliday);
                     if (holidayDet != null)
                     {
+                        before = _mapper.Map<HolidaysDto>(holidayDet);
+
                         holidayDet.HolidayDate = holidayDetail.HolidayDate;
                         holidayDet.HolidayDescription = holidayDetail.HolidayDescription;
                         holidayDet.HolidayType = holidType;
 
                         _dbContext.Holidays.Update(holidayDet);
                         await _dbContext.SaveChangesAsync();
+                        entityId = holidayDet.IdHoliday;
                     }
                 }
                 else
@@ -69,6 +75,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     };
                     _dbContext.Holidays.Add(holidayDet);
                     await _dbContext.SaveChangesAsync();
+                    entityId = holidayDet.IdHoliday;
                 }
 
                 await transaction.CommitAsync();
@@ -76,8 +83,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _auditService.LogAuditAsync(
                     actionType: holidayDetail.IdHoliday > 0 ? "Update" : "Create",
                     entityName: "Holiday",
-                    entityId: holidayDetail.IdHoliday,
-                    actionDetails: new { after = holidayDetail });
+                    entityId: entityId,
+                    actionDetails: holidayDetail.IdHoliday > 0 ? new { before = before, after = holidayDetail } : new { after = holidayDetail });
 
                 return true; 
             }

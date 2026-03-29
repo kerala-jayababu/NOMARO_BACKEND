@@ -378,9 +378,10 @@ WHERE sdd.IdScheduledSalaryDeduction = @Id;
 
                  
             }
+            var beforeUpdate = _mapper.Map<ScheduledSalaryDeductionDto>(entity);
             await _dbContext.SaveChangesAsync();
             await transaction.CommitAsync();
-            await _auditService.LogAuditAsync("Update", "ScheduledSalaryDeduction", entity.IdScheduledSalaryDeduction, dto);
+            await _auditService.LogAuditAsync("Update", "ScheduledSalaryDeduction", entity.IdScheduledSalaryDeduction, new { before = beforeUpdate, after = dto });
             return _mapper.Map<ScheduledSalaryDeductionDto>(entity);
         }
         catch (Exception ex)

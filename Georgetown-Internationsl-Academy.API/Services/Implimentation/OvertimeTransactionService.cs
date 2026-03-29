@@ -704,6 +704,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 transactionEntity.ReasonForOverTime = transactionDto.ReasonForOvertime;
                 transactionEntity.ApprovalStatus = "SUBMITTED"; // always reset to submitted when updated
 
+                var beforeUpdate = _mapper.Map<OvertimeTransactionDto>(transactionEntity);
+
                 _dbContext.OvertimeTransactions.Update(transactionEntity);
                 await _dbContext.SaveChangesAsync();
 
@@ -711,7 +713,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "OvertimeTransaction",
                     entityId: transactionEntity.IdOvertimeTransaction,
-                    actionDetails: new { after = transactionEntity });
+                    actionDetails: new { before = beforeUpdate, after = transactionEntity });
 
                 // 🔹 Workflow logic (same as Add)
                 await HandleApprovalWorkflow(transactionEntity, idEmployee, transactionEntity.IdOvertimeTransaction,true);

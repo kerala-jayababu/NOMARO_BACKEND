@@ -91,6 +91,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 if (designation != null)
                 {
+                    var beforeUpdate = _mapper.Map<DesignationDto>(designation);
+
                     designation.DesignationCode = designationDto.DesignationCode;
                     designation.DesignationName = designationDto.DesignationName;
                     designation.IsOvertimeAllowanceAllowed = designationDto.IsOvertimeAllowanceAllowed;
@@ -102,7 +104,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         actionType: "Update",
                         entityName: "Designation",
                         entityId: updatedEntity.Entity.IdDesignation,
-                        actionDetails: new { after = updatedEntity.Entity });
+                        actionDetails: new { before = beforeUpdate, after = _mapper.Map<DesignationDto>(updatedEntity.Entity) });
 
                     return _mapper.Map<DesignationDto>(updatedEntity.Entity);
                 }

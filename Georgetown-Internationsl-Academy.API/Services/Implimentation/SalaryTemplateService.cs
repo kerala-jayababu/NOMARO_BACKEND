@@ -249,6 +249,8 @@ public class SalaryTemplateService : ISalaryTemplateService
                 return null;
             }
 
+            var beforeUpdate = _mapper.Map<SalaryTemplateDto>(templateEntity);
+
             // Manual mapping for update
             templateEntity.SalaryTemplateName = dto.SalaryTemplateName;
             templateEntity.Description = dto.Description;
@@ -325,7 +327,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED", null,null);
 
             await transaction.CommitAsync();
-            await _auditService.LogAuditAsync("Update", "SalaryTemplate", templateEntity.IdSalaryTemplate, dto);
+            await _auditService.LogAuditAsync("Update", "SalaryTemplate", templateEntity.IdSalaryTemplate, new { before = beforeUpdate, after = dto });
             return _mapper.Map<SalaryTemplateDto>(templateEntity);
         }
         catch (Exception ex)

@@ -49,8 +49,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var existing = await _dbContext.ExitReasons.ToListAsync();
                 var entity = existing.FirstOrDefault(x => x.IdExitReason == dto.IdExitReason);
+                ExitReasonDto? beforeData = null;
                 if (entity != null)
                 {
+                    beforeData = _mapper.Map<ExitReasonDto>(entity);
                     entity.ReasonCode = dto.ReasonCode;
                     entity.ReasonName = dto.ReasonName;
                     entity.IsActive = dto.IsActive;
@@ -71,11 +73,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                await _auditService.LogAuditAsync(
-                    actionType: entity.IdExitReason > 0 ? "Update" : "Create",
-                    entityName: "ExitReason",
-                    entityId: entity.IdExitReason,
-                    actionDetails: new { dto, after = entity });
+                if (entity.IdExitReason > 0)
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Update",
+                        entityName: "ExitReason",
+                        entityId: entity.IdExitReason,
+                        actionDetails: new { before = beforeData, after = entity });
+                }
+                else
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Create",
+                        entityName: "ExitReason",
+                        entityId: entity.IdExitReason,
+                        actionDetails: new { after = entity });
+                }
 
                 return true;
             }
@@ -103,8 +116,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var existing = await _dbContext.ExitTypes.ToListAsync();
 
                 var entity = existing.FirstOrDefault(x => x.IdExitType == dto.IdExitType);
+                ExitTypeDto? beforeData = null;
                 if (entity != null)
                 {
+                    beforeData = _mapper.Map<ExitTypeDto>(entity);
                     entity.TypeCode = dto.TypeCode;
                     entity.TypeName = dto.TypeName;
                     entity.IsActive = dto.IsActive;
@@ -125,11 +140,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                await _auditService.LogAuditAsync(
-                    actionType: entity.IdExitType > 0 ? "Update" : "Create",
-                    entityName: "ExitType",
-                    entityId: entity.IdExitType,
-                    actionDetails: new { dto, after = entity });
+                if (entity.IdExitType > 0)
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Update",
+                        entityName: "ExitType",
+                        entityId: entity.IdExitType,
+                        actionDetails: new { before = beforeData, after = entity });
+                }
+                else
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Create",
+                        entityName: "ExitType",
+                        entityId: entity.IdExitType,
+                        actionDetails: new { after = entity });
+                }
 
                 return true;
             }
@@ -156,8 +182,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var existing = await _dbContext.NoticePeriodPolicies.ToListAsync();
 
                 var entity = existing.FirstOrDefault(x => x.IdNoticePeriodPolicy == dto.IdNoticePeriodPolicy);
+                NoticePeriodPolicyDto? beforeData = null;
                 if (entity != null)
                 {
+                    beforeData = _mapper.Map<NoticePeriodPolicyDto>(entity);
                     entity.PolicyCode = dto.PolicyCode;
                     entity.PolicyName = dto.PolicyName;
                     entity.AppliesToEmployeeType = dto.AppliesToEmployeeType;
@@ -183,11 +211,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                await _auditService.LogAuditAsync(
-                    actionType: entity.IdNoticePeriodPolicy > 0 ? "Update" : "Create",
-                    entityName: "NoticePeriodPolicy",
-                    entityId: entity.IdNoticePeriodPolicy,
-                    actionDetails: new { dto, after = entity });
+                if (entity.IdNoticePeriodPolicy > 0)
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Update",
+                        entityName: "NoticePeriodPolicy",
+                        entityId: entity.IdNoticePeriodPolicy,
+                        actionDetails: new { before = beforeData, after = entity });
+                }
+                else
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Create",
+                        entityName: "NoticePeriodPolicy",
+                        entityId: entity.IdNoticePeriodPolicy,
+                        actionDetails: new { after = entity });
+                }
                 return true;
             }
             catch
@@ -213,8 +252,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 var existing = await _dbContext.ClearanceTemplates.ToListAsync();
                 var entity = existing.FirstOrDefault(x => x.IdClearanceTemplate == dto.IdClearanceTemplate);
+                ClearanceTemplateDto? beforeData = null;
                 if (entity != null)
                 {
+                    beforeData = _mapper.Map<ClearanceTemplateDto>(entity);
                     entity.TemplateName = dto.TemplateName;
                     entity.Description = dto.Description;
                     entity.IsActive = dto.IsActive;
@@ -235,11 +276,22 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                await _auditService.LogAuditAsync(
-                    actionType: entity.IdClearanceTemplate > 0 ? "Update" : "Create",
-                    entityName: "ClearanceTemplate",
-                    entityId: entity.IdClearanceTemplate,
-                    actionDetails: new { dto, after = entity });
+                if (entity.IdClearanceTemplate > 0)
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Update",
+                        entityName: "ClearanceTemplate",
+                        entityId: entity.IdClearanceTemplate,
+                        actionDetails: new { before = beforeData, after = entity });
+                }
+                else
+                {
+                    await _auditService.LogAuditAsync(
+                        actionType: "Create",
+                        entityName: "ClearanceTemplate",
+                        entityId: entity.IdClearanceTemplate,
+                        actionDetails: new { after = entity });
+                }
 
                 return true;
             }
@@ -341,6 +393,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
 
+                var beforeUpdate = existing.ToList();
+
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -348,7 +402,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "ClearanceTemplateDepartment",
                     entityId: templateId,
-                    actionDetails: new { templateId, updatedCount = dtos.Count, values = dtos.Select(d => new { d.IdTemplateDept, d.IdDepartment, d.IsMandatory }) });
+                    actionDetails: new { before = beforeUpdate, after = new { templateId, updatedCount = dtos.Count, values = dtos.Select(d => new { d.IdTemplateDept, d.IdDepartment, d.IsMandatory }) } });
                 return true;
             }
             catch (Exception ex)

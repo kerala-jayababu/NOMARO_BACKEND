@@ -200,6 +200,8 @@ public class RentFreeQuarterService : IRentFreeQuarterService
             entity.ValidFrom = dto.ValidFrom;
             entity.ValidTo = dto.ValidTo;
             entity.PeriodText = dto.PeriodText;
+            var beforeUpdate = _mapper.Map<RentFreeQuarterDto>(entity);
+
             entity.MonthlyRent = dto.MonthlyRent;
             entity.TaxRate = dto.TaxRate;
             entity.AnnualTaxAmount = dto.AnnualTaxAmount;
@@ -207,7 +209,7 @@ public class RentFreeQuarterService : IRentFreeQuarterService
 
             _dbContext.RentFreeQuarters.Update(entity);
             await _dbContext.SaveChangesAsync();
-            await _auditService.LogAuditAsync("Update", "RentFreeQuarter", (int)entity.IdRentFreeQuater, dto);
+            await _auditService.LogAuditAsync("Update", "RentFreeQuarter", (int)entity.IdRentFreeQuater, new { before = beforeUpdate, after = dto });
             // Manually mapping the updated entity back to DTO
             var updatedDto = new RentFreeQuarterDto
             {

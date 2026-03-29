@@ -283,10 +283,12 @@ e.CurrentStatus ,
                     existingAdjustment.DocumentFilePath = filePath;
                 }
 
+                var beforeUpdate = _mapper.Map<SalaryAdjustmentDto>(existingAdjustment);
+
                 _dbContext.SalaryAdjustments.Update(existingAdjustment);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
-                await _auditService.LogAuditAsync("Update", "SalaryAdjustment", existingAdjustment.IdSalaryAdjustment, salaryAdjustment);
+                await _auditService.LogAuditAsync("Update", "SalaryAdjustment", existingAdjustment.IdSalaryAdjustment, new { before = beforeUpdate, after = salaryAdjustment });
                 return _mapper.Map<SalaryAdjustmentDto>(existingAdjustment);
             }
             catch (Exception ex)

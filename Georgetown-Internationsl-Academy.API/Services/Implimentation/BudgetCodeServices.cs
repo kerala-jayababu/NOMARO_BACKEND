@@ -126,6 +126,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implementation
                 if (budgetCode != null)
                 {
 
+                    var beforeUpdate = _mapper.Map<BudgetCodeDto>(budgetCode);
+
                     budgetCode.BudgetCode = budgetCodeDto.BudgetCode;
                     budgetCode.BudgetCodeName = budgetCodeDto.BudgetCodeName;
 
@@ -136,7 +138,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implementation
                         actionType: "Update",
                         entityName: "BudgetCode",
                         entityId: updatedEntity.Entity.IdBudgetCode,
-                        actionDetails: new { after = updatedEntity.Entity });
+                        actionDetails: new { before = beforeUpdate, after = _mapper.Map<BudgetCodeDto>(updatedEntity.Entity) });
 
                     return _mapper.Map<BudgetCodeDto>(updatedEntity.Entity);
                 }

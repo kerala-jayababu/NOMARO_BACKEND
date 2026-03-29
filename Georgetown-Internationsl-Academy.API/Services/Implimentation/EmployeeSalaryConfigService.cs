@@ -722,13 +722,15 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 // Step: Call the approval workflow service
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null, null);
 
+                var beforeUpdate = BuildSalaryConfigAuditSnapshot(configEntity, configEntity.EmployeeSalaryConfigDetails.Count);
+
                 await transaction.CommitAsync();
 
                 await _auditService.LogAuditAsync(
                     actionType: "Update",
                     entityName: "EmployeeSalaryConfig",
                     entityId: configEntity.IdEmployeeSalaryConfig,
-                    actionDetails: new { after = configEntity, updatedBy = IdEmployee });
+                    actionDetails: new { before = beforeUpdate, after = configEntity, updatedBy = IdEmployee });
 
                 return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
             }

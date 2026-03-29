@@ -436,13 +436,14 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
             {
                 throw new Exception(approvalResult);
             }
+            var beforeUpdate = _mapper.Map<MaternityLeaveSalaryDto>(existingSalary);
             await transaction.CommitAsync();
 
             await _auditService.LogAuditAsync(
                 actionType: "Update",
                 entityName: "MaternityLeaveSalary",
                 entityId: (int)existingSalary.IdMaternityLeaveSalary,
-                actionDetails: new { after = existingSalary });
+                actionDetails: new { before = beforeUpdate, after = existingSalary });
 
             // Map and return updated DTO
             return new MaternityLeaveSalaryDto

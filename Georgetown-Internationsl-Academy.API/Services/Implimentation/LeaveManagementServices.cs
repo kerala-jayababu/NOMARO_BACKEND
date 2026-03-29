@@ -21,6 +21,7 @@ using System.Data;
 using System.Collections.Generic;
 using static System.Net.Mime.MediaTypeNames;
 using System.Linq;
+using AutoMapper;
 
 
 namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
@@ -34,14 +35,18 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _env;
         private readonly IAuditService _auditService;
+        private readonly IMapper _mapper;
 
-        public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, ILogger<NotificationConfigService> logger, IAuditService auditService)
+        public LeaveManaementServices(IConfiguration configuration, ApplicationDBContext dbContext, IApprovalWorkflowService approveWorkflowService, ILogger<NotificationConfigService> logger, IAuditService auditService, IMapper mapper, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env)
         {
             _configuration = configuration;
             _dbContext = dbContext;
             _logger = logger;
             _approvalWorkflowService = approveWorkflowService;
             _auditService = auditService;
+            _mapper = mapper;
+            _httpContextAccessor = httpContextAccessor;
+            _env = env;
         }
         #region LeaveTypes
 
@@ -167,6 +172,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 bool isUpdateLeaveType = leaveTypedto.IdLeaveType > 0;
                 int leaveTypeId = leaveTypedto.IdLeaveType;
                 LeaveTypes? newLeaveType = null;
+                LeaveTypesDto? beforeUpdate = null;
 
                 // ✅ Update
                 if (leaveTypedto.IdLeaveType > 0)
@@ -176,6 +182,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (existing == null)
                         throw new ArgumentException($"LeaveType not found. IdLeaveType = {leaveTypedto.IdLeaveType}");
+
+                    beforeUpdate = _mapper.Map<LeaveTypesDto>(existing);
 
                     // ✅ Uniqueness check in DB (LeaveCode)
                     bool codeExists = await _dbContext.LeaveTypes.AnyAsync(x =>
@@ -232,7 +240,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 if (!isUpdateLeaveType && newLeaveType != null)
                     leaveTypeId = newLeaveType.IdLeaveType;
 
-                await _auditService.LogAuditAsync(isUpdateLeaveType ? "Update" : "Create", "LeaveType", leaveTypeId, leaveTypedto);
+                if (isUpdateLeaveType)
+                {
+                    await _auditService.LogAuditAsync("Update", "LeaveType", leaveTypeId, new { before = beforeUpdate, after = leaveTypedto });
+                }
+                else
+                {
+                    await _auditService.LogAuditAsync("Create", "LeaveType", leaveTypeId, new { after = leaveTypedto });
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -412,6 +428,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (headerEntity == null)
                         throw new ArgumentException("Leave template not found.");
 
+                    var beforeTemplate = _mapper.Map<LeaveTemplateDto>(headerEntity);
+
                     headerEntity.LeaveTemplateName = dto.LeaveTemplateName;
                     headerEntity.LeaveTemplateDesc = dto.LeaveTemplateDesc;
                     headerEntity.IdYear = dto.IdYear;
@@ -437,7 +455,17 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 }
                 await transaction.CommitAsync();
-                await _auditService.LogAuditAsync(dto.IdLeaveTemplate > 0 ? "Update" : "Create", "LeaveTemplate", headerEntity.IdLeaveTemplate, dto);
+
+                if (dto.IdLeaveTemplate > 0)
+                {
+                    var beforeTemplate = _mapper.Map<LeaveTemplateDto>(headerEntity);
+                    await _auditService.LogAuditAsync("Update", "LeaveTemplate", headerEntity.IdLeaveTemplate, new { before = beforeTemplate, after = dto });
+                }
+                else
+                {
+                    await _auditService.LogAuditAsync("Create", "LeaveTemplate", headerEntity.IdLeaveTemplate, new { after = dto });
+                }
+
                 //await SubmitLeaveTemplateForApproval(headerEntity.IdLeaveTemplate, loggedInEmployeeId);
                 return true;
             }
@@ -1310,6 +1338,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     throw new ArgumentException("Overlapping leave template assignment exists.");
 
                 EmployeeLeaveConfigs entity;
+                EmployeeLeaveConfigBeforeDto? beforeConfig = null;
 
                 // ============================
                 // 5️⃣ Insert / Update
@@ -1322,6 +1351,19 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                     if (entity == null)
                         throw new ArgumentException("Employee leave config not found.");
+
+                    beforeConfig = new EmployeeLeaveConfigBeforeDto
+                    {
+                        IdEmployeeLeaveConfig = entity.IdEmployeeLeaveConfig,
+                        IdEmployee = entity.IdEmployee,
+                        IdLeaveTemplate = entity.IdLeaveTemplate,
+                        EffectiveFrom = entity.EffectiveFrom,
+                        EffectiveTo = entity.EffectiveTo,
+                        CreatedBy = entity.CreatedBy,
+                        CreatedAt = entity.CreatedAt,
+                        UpdatedBy = entity.UpdatedBy,
+                        UpdatedAt = entity.UpdatedAt
+                    };
 
                     entity.IdLeaveTemplate = dto.IdLeaveTemplate;
                     entity.EffectiveFrom = dto.EffectiveFrom;
@@ -1376,7 +1418,15 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 await transaction.CommitAsync();
 
-                await _auditService.LogAuditAsync(dto.IdEmployeeLeaveConfig > 0 ? "Update" : "Create", "EmployeeLeaveConfig", entity.IdEmployeeLeaveConfig, dto);
+                if (dto.IdEmployeeLeaveConfig > 0)
+                {
+                    await _auditService.LogAuditAsync("Update", "EmployeeLeaveConfig", entity.IdEmployeeLeaveConfig, new { before = beforeConfig, after = dto });
+                }
+                else
+                {
+                    await _auditService.LogAuditAsync("Create", "EmployeeLeaveConfig", entity.IdEmployeeLeaveConfig, new { after = dto });
+                }
+
                 return true;
             }
             catch (Exception)

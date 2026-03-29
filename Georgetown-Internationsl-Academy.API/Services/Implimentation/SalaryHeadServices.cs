@@ -175,10 +175,12 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         
                     }
                 }
+                var beforeUpdate = _mapper.Map<SalaryHeadDto>(salaryHead);
+
                 var updatedEntity = _dbContext.SalaryHeads.Update(salaryHead);
                 await _dbContext.SaveChangesAsync();
 
-                await _auditService.LogAuditAsync("Update", "SalaryHead", updatedEntity.Entity.IdSalaryHead, dto);
+                await _auditService.LogAuditAsync("Update", "SalaryHead", updatedEntity.Entity.IdSalaryHead, new { before = beforeUpdate, after = dto });
                 return _mapper.Map<SalaryHeadDto>(updatedEntity.Entity);
             }
             catch (Exception ex)

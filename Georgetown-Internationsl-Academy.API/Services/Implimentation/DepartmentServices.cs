@@ -81,6 +81,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var department = await _dbContext.Departments.FirstOrDefaultAsync(d => d.IdDepartment == dto.IdDepartment);
                 if (department == null) return null;
 
+                var beforeUpdate = _mapper.Map<DepartmentDto>(department);
+
                 department.DepartmentCode = dto.DepartmentCode;
                 department.DepartmentName = dto.DepartmentName;
 
@@ -91,7 +93,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "Department",
                     entityId: updatedEntity.Entity.IdDepartment,
-                    actionDetails: new { after = updatedEntity.Entity });
+                    actionDetails: new { before = beforeUpdate, after = _mapper.Map<DepartmentDto>(updatedEntity.Entity) });
 
                 return _mapper.Map<DepartmentDto>(updatedEntity.Entity);
             }

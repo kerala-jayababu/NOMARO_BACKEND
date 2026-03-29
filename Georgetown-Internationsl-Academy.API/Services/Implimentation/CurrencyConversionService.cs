@@ -101,6 +101,8 @@ public class CurrencyConversionService : ICurrencyConversionService
             conversion.FromCurrency = dto.FromCurrency;
             conversion.ToCurrency = dto.ToCurrency;
             conversion.RateDate = dto.RateDate;
+            var beforeUpdate = _mapper.Map<CurrencyConversionDto>(conversion);
+
             conversion.ConversionRate = dto.ConversionRate;
 
             var updatedEntity = _dbContext.CurrencyConversions.Update(conversion);
@@ -110,7 +112,7 @@ public class CurrencyConversionService : ICurrencyConversionService
                 actionType: "Update",
                 entityName: "CurrencyConversion",
                 entityId: updatedEntity.Entity.IdCurrencyConversion,
-                actionDetails: new { after = updatedEntity.Entity });
+                actionDetails: new { before = beforeUpdate, after = _mapper.Map<CurrencyConversionDto>(updatedEntity.Entity) });
 
             return _mapper.Map<CurrencyConversionDto>(updatedEntity.Entity);
         }

@@ -1377,6 +1377,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     employee.EmployeePhotoFilePath = filePath;
                 }
 
+                var beforeUpdate = _mapper.Map<EmployeeEntityDto>(employee);
+
                 _dbContext.Employees.Update(employee);
                 await _dbContext.SaveChangesAsync();
 
@@ -1384,7 +1386,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "Employee",
                     entityId: (int)employee.IdEmployee,
-                    actionDetails: new { after = employee });
+                    actionDetails: new { before = beforeUpdate, after = employee });
 
                 _logger.LogInformation("Employee updated successfully: {Id}", id);
                 return _mapper.Map<EmployeeEntityDto>(employee);

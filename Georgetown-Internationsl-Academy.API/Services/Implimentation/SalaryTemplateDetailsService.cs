@@ -114,6 +114,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 var existingDetail = await _dbContext.SalaryTemplateDetails.FirstOrDefaultAsync(d => d.IdSalaryTemplateDetail == dto.IdSalaryTemplateDetail);
                 if (existingDetail == null) return null;
 
+                var beforeUpdate = _mapper.Map<SalaryTemplateDetailDto>(existingDetail);
+
                 existingDetail.IdSalaryTemplate = dto.IdSalaryTemplate;
                 existingDetail.IdSalaryHead = dto.IdSalaryHead;
                 existingDetail.CalculationMethod = dto.CalculationMethod;
@@ -127,7 +129,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 _dbContext.SalaryTemplateDetails.Update(existingDetail);
                 await _dbContext.SaveChangesAsync();
 
-                await _auditService.LogAuditAsync("Update", "SalaryTemplateDetail", (int)existingDetail.IdSalaryTemplateDetail, dto);
+                await _auditService.LogAuditAsync("Update", "SalaryTemplateDetail", (int)existingDetail.IdSalaryTemplateDetail, new { before = beforeUpdate, after = dto });
                 return _mapper.Map<SalaryTemplateDetailDto>(existingDetail);
             }
             catch (Exception ex)

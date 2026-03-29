@@ -123,6 +123,8 @@ public class TaxSlabService : ITaxSlabService
 
             taxSlab.MinAmount = taxSlabDto.MinAmount;
             taxSlab.MaxAmount = taxSlabDto.MaxAmount;
+            var beforeUpdate = _mapper.Map<TaxSlabDto>(taxSlab);
+
             taxSlab.TaxRate = taxSlabDto.TaxRate;
 
             var updatedEntity = _dbContext.TaxSlabs.Update(taxSlab);
@@ -132,7 +134,7 @@ public class TaxSlabService : ITaxSlabService
                 actionType: "Update",
                 entityName: "TaxSlab",
                 entityId: updatedEntity.Entity.IdTaxSlab,
-                actionDetails: new { after = updatedEntity.Entity });
+                actionDetails: new { before = beforeUpdate, after = _mapper.Map<TaxSlabDto>(updatedEntity.Entity) });
 
             return _mapper.Map<TaxSlabDto>(updatedEntity.Entity);
         }

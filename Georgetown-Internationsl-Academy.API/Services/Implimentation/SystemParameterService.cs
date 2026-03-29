@@ -110,9 +110,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 existingParameter.DataType = dto.DataType;
                 existingParameter.ValidValues = dto.ValidValues;
 
+                var beforeUpdate = _mapper.Map<SystemParameterDto>(existingParameter);
+
                 _dbContext.SystemParameters.Update(existingParameter);
                 await _dbContext.SaveChangesAsync();
-                await _auditService.LogAuditAsync("Update", "SystemParameter", existingParameter.IdSystemParameter, dto);
+                await _auditService.LogAuditAsync("Update", "SystemParameter", existingParameter.IdSystemParameter, new { before = beforeUpdate, after = dto });
                 return true;
             }
             catch (Exception ex)

@@ -149,7 +149,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Save changes
                 await _dbContext.SaveChangesAsync();
 
-                await _auditService.LogAuditAsync("Update", "PayrollScreens", 0, new { payrollScreens });
+                await _auditService.LogAuditAsync("Update", "PayrollScreens", 0, new { before = existingScreens, after = payrollScreens });
                 return true;
             }
             catch (Exception ex)
@@ -254,6 +254,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Where(x => x.IdEmployee == employeeId)
                     .ToListAsync();
 
+                var beforeEmployeePermissions = existingPermissions.Select(x => new { x.IdEmployeePermission, x.IdPayrollScreen, x.Permission }).ToList();
+
                 foreach (var permissionDto in employeePermissions)
                 {
                     var existingPermission = existingPermissions
@@ -284,7 +286,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Save changes
                 await _dbContext.SaveChangesAsync();
 
-                await _auditService.LogAuditAsync("Update", "EmployeePermissions", employeeId ?? 0, new { employeePermissions });
+                await _auditService.LogAuditAsync("Update", "EmployeePermissions", employeeId ?? 0, new { before = beforeEmployeePermissions, after = employeePermissions });
                 return true;
             }
             catch (Exception ex)
@@ -365,6 +367,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     .Where(x => x.IdDesignation == designationId)
                     .ToListAsync();
 
+                var beforeRolePermissions = existingPermissions.Select(x => new { x.IdRolePermission, x.IdPayrollScreen, x.Permission }).ToList();
+
                 foreach (var permissionDto in rolePermissions)
                 {
                     var existingPermission = existingPermissions
@@ -395,7 +399,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // Save changes
                 await _dbContext.SaveChangesAsync();
 
-                await _auditService.LogAuditAsync("Update", "RoleBasedPermissions", designationId ?? 0, new { rolePermissions });
+                await _auditService.LogAuditAsync("Update", "RoleBasedPermissions", designationId ?? 0, new { before = beforeRolePermissions, after = rolePermissions });
                 return true;
             }
             catch (Exception ex)

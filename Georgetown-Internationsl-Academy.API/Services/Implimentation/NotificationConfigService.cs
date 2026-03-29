@@ -158,6 +158,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     }
                 }
 
+                var beforeUpdate = _mapper.Map<NotificationConfigDto>(notificationConfig);
+
                 var updatedEntity = _dbContext.NotificationsConfig.Update(notificationConfig);
                 await _dbContext.SaveChangesAsync();
 
@@ -165,7 +167,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "NotificationConfig",
                     entityId: updatedEntity.Entity.IdNotificationConfig,
-                    actionDetails: new { after = updatedEntity.Entity });
+                    actionDetails: new { before = beforeUpdate, after = _mapper.Map<NotificationConfigDto>(updatedEntity.Entity) });
 
                 var result = _mapper.Map<NotificationConfigDto>(updatedEntity.Entity);
                 await HydrateHtmlTemplateAsync(result);

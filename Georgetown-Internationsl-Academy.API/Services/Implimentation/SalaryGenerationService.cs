@@ -228,6 +228,18 @@ namespace YourNamespace.Services.Implementation
                     throw new Exception("No salary records found for the provided employee IDs and salary month.");
                 }
 
+                var beforeUpdate = employeeSalaries.Select(s => new
+                {
+                    s.IdEmployeeSalary,
+                    s.IdEmployee,
+                    s.IdSalaryMonth,
+                    s.ApprovalStatus,
+                    s.ModifiedBy,
+                    s.ModifiedDate,
+                    s.CreatedDate,
+                    s.CreatedBy
+                }).ToList();
+
                 var currentDate = DateTime.Now;
                 employeeSalaries.ForEach(salary =>
                 {
@@ -265,7 +277,7 @@ namespace YourNamespace.Services.Implementation
                 }
 
                 await transaction.CommitAsync();
-                await _auditService.LogAuditAsync("Update", "EmployeeSalary", idSalaryMonth, new { employeeIds = employeeIdList, salaryMonth = idSalaryMonth, updatedBy = idEmployeeCreated });
+                await _auditService.LogAuditAsync("Update", "EmployeeSalary", idSalaryMonth, new { before = beforeUpdate, after = new { employeeIds = employeeIdList, salaryMonth = idSalaryMonth, updatedBy = idEmployeeCreated } });
                 return true;
             }
             catch (Exception ex)

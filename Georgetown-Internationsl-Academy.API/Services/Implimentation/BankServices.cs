@@ -145,6 +145,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                   
                 }
 
+                var beforeUpdate = existingBranches.Select(b => new
+                {
+                    b.IdBankBranches,
+                    b.IdBank,
+                    b.BranchName,
+                    b.BankAddress,
+                    b.PhoneNumber,
+                    b.ABARoutingNumber
+                }).ToList();
+
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -152,7 +162,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "BankBranch",
                     entityId: bankId ?? 0,
-                    actionDetails: new { bankId, branchCount = updatedBranches.Count, inputCount = bankBranchesDtoList.Count });
+                    actionDetails: new { before = beforeUpdate, after = new { bankId, branchCount = updatedBranches.Count, inputCount = bankBranchesDtoList.Count } });
 
                 return true; // ✅ Now returning true instead of a list
             }
@@ -209,6 +219,8 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 //    _dbContext.Banks.RemoveRange(banksToRemove);
                 //}
 
+                var beforeUpdateBanks = existingBanks.Select(b => new { b.IdBank, b.BankName, b.SwiftCode }).ToList();
+
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -216,7 +228,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     actionType: "Update",
                     entityName: "Bank",
                     entityId: 0,
-                    actionDetails: new { bankCount = bankDtoList.Count, inputBanks = bankDtoList.Select(b => new { b.IdBank, b.BankName, b.SwiftCode }) });
+                    actionDetails: new { before = beforeUpdateBanks, after = new { bankCount = bankDtoList.Count, inputBanks = bankDtoList.Select(b => new { b.IdBank, b.BankName, b.SwiftCode }) } });
 
                 return true;
             }
