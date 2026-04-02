@@ -161,7 +161,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _auditService.LogAuditAsync(
                     actionType: "Update",
                     entityName: "BankBranch",
-                    entityId: bankId ?? 0,
+                    entityId: bankId.GetValueOrDefault(),
                     actionDetails: new { before = beforeUpdate, after = new { bankId, branchCount = updatedBranches.Count, inputCount = bankBranchesDtoList.Count } });
 
                 return true; // ✅ Now returning true instead of a list
@@ -227,7 +227,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 await _auditService.LogAuditAsync(
                     actionType: "Update",
                     entityName: "Bank",
-                    entityId: 0,
+                   entityId: updatedBanks.FirstOrDefault()?.IdBank ?? 0,
                     actionDetails: new { before = beforeUpdateBanks, after = new { bankCount = bankDtoList.Count, inputBanks = bankDtoList.Select(b => new { b.IdBank, b.BankName, b.SwiftCode }) } });
 
                 return true;
