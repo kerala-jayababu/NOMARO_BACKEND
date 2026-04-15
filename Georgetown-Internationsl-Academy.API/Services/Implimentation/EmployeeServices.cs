@@ -181,7 +181,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             e.PhoneNumber2,            
             e.CurrentStatus,
             e.OverTimeAllowedStatus,
-            e.EmployeeWorkType
+            e.EmployeeWorkType,
             CASE 
                 WHEN esc.IdEmployee IS NULL THEN 'Not Available'
                 --WHEN esc.ApprovalStatus = 'REJECTED' THEN 'Rejected'
