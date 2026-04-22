@@ -26,6 +26,13 @@
         public string FinancialYearName { get; set; }
         public DateTime? FinancialYearFrom { get; set; }
         public DateTime? FinancialYearTo { get; set; }
+
+        public int? PaidIdSalaryMonth { get; set; }
+        public int? IdSalaryMonth { get; set; }
+        public string? PaidMonthName { get; set; }
+        public string? RequestedMonthName { get; set; }
+        public string? Remarks { get; set; }
+        public string LPRequestApprovalStatus { get; set; }
     }
 
 

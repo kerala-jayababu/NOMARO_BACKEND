@@ -5,6 +5,7 @@ using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.Models;
 using Georgetown_Internationsl_Academy.API.Services.Interface;
 using iText.Commons.Actions.Contexts;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Org.BouncyCastle.Asn1.Esf;
 using System.Net.Mime;
@@ -126,6 +127,111 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+
+        public async Task<IEnumerable<LeavePassageForHRDto>> GetLeavePassageRequestsForHR(
+         int idWorkYear,
+         string requestStatus,
+         string? searchText,
+         string? approvalStatus = null)
+        {
+            var query = new StringBuilder(@"
+                SELECT 
+                    lp.IdLeavePassage,
+                    e.IdEmployee,
+                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                    e.EmployeeCode,
+                    e.IdDesignation,
+                    des.DesignationName,
+                    e.IdDepartment,
+                    dept.DepartmentName,
+                    e.JoiningDate,
+                    e.Gender,
+                    e.EmailID,
+                    e.PhoneNumber1,
+                    e.PhoneNumber2,
+                    lp.IdFinancialYear,
+                    fy.WorkDateFrom AS FinancialYearFrom,
+                    fy.WorkDateTo AS FinancialYearTo,
+                    lp.IdSalaryMonth,
+                    smFrom.SalaryMonthText,
+                    lp.Remarks,
+                    lp.ApprovalStatus
+                FROM Employees e
+                INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+                INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+
+                LEFT JOIN LeavePassages lp 
+                    ON lp.IdEmployee = e.IdEmployee 
+                    AND lp.IdFinancialYear = @IdWorkYear
+
+                LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
+                LEFT JOIN WorkYears fy ON lp.IdFinancialYear = fy.IdWorkYear
+
+                WHERE 1 = 1
+            ");
+
+            var parameters = new DynamicParameters();
+            parameters.Add("IdWorkYear", idWorkYear);
+
+            // 🔍 Search
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                query.Append(@"
+            AND (
+                e.EmployeeCode LIKE @SearchText OR
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+                des.DesignationName LIKE @SearchText OR
+                dept.DepartmentName LIKE @SearchText
+            )
+        ");
+                parameters.Add("SearchText", $"%{searchText}%");
+            }
+
+            // ✅ Request Status
+            if (!string.IsNullOrWhiteSpace(requestStatus))
+            {
+                if (requestStatus.Equals("REQUESTED", StringComparison.OrdinalIgnoreCase))
+                {
+                    query.Append(" AND lp.IdSalaryMonth IS NOT NULL ");
+                }
+                else if (requestStatus.Equals("NOT REQUESTED", StringComparison.OrdinalIgnoreCase))
+                {
+                    query.Append(" AND lp.IdSalaryMonth IS NULL ");
+                }
+            }
+
+            // ✅ Approval Status
+            if (!string.IsNullOrWhiteSpace(approvalStatus))
+            {
+                if (approvalStatus.ToUpper() != "ALL")
+                {
+                    query.Append(" AND lp.ApprovalStatus = @ApprovalStatus ");
+                    parameters.Add("ApprovalStatus", approvalStatus);
+                }
+            }
+
+            query.Append(" ORDER BY e.FirstName, e.LastName;");
+
+            try
+            {
+                using (var connection = _dbContext.Database.GetDbConnection())
+                {
+                    if (connection.State == System.Data.ConnectionState.Closed)
+                        await connection.OpenAsync();
+
+                    var result = await connection.QueryAsync<LeavePassageForHRDto>(
+                        query.ToString(), parameters);
+
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching Leave passage requests for HR.");
+                throw new Exception("An error occurred while fetching leave passage. Please try again later.");
+            }
+        }
+
         public async Task<IEnumerable<LeavePassageDto>> GetLeavePassagesListByemployeeId(int EmployeeId)
         {
             var query = new StringBuilder(@"
@@ -185,40 +291,40 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         public async Task<LeavePassageDto?> GetLeavePassagesById(int id)
         {
             var query = new StringBuilder(@"
-    SELECT 
-        lp.IdLeavePassage,
-        lp.IdEmployee,
-        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-        e.EmployeeCode,
-        e.IdDesignation,
-        des.DesignationName,
-    e.IdDepartment,
-    dept.DepartmentName,
-        e.JoiningDate,
-        e.Gender,
-        e.EmailID,
-        e.PhoneNumber1,
-        e.PhoneNumber2,
-        lp.IdFinancialYear,
-        lp.LeavePassageAmount,
-        fy.WorkDateFrom as FinancialYearFrom,
-        fy.WorkDateTo as FinancialYearTo,
-        lp.IdSalaryMonth,
-        smFrom.SalaryMonthText,
-        lp.Remarks,
-        lp.ApprovalStatus,
-    lpa.LeavePassageAmount as LeavePassageAmountFromLeavePassageAmount
-    FROM LeavePassages lp
-    INNER JOIN Employees e ON lp.IdEmployee = e.IdEmployee
-    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-    INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
-    LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
-    LEFT JOIN WorkYears fy ON lp.IdSalaryMonth = fy.IdWorkYear
- LEFT JOIN LeavePassageAmounts lpa 
-     ON lp.IdEmployee = lpa.IdEmployee 
-     AND lp.IdFinancialYear = lpa.IdFinancialYear
-    WHERE lp.IdLeavePassage = @IdLeavePassage
-    ");
+                SELECT 
+                    lp.IdLeavePassage,
+                    lp.IdEmployee,
+                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                    e.EmployeeCode,
+                    e.IdDesignation,
+                    des.DesignationName,
+                e.IdDepartment,
+                dept.DepartmentName,
+                    e.JoiningDate,
+                    e.Gender,
+                    e.EmailID,
+                    e.PhoneNumber1,
+                    e.PhoneNumber2,
+                    lp.IdFinancialYear,
+                    lp.LeavePassageAmount,
+                    fy.WorkDateFrom as FinancialYearFrom,
+                    fy.WorkDateTo as FinancialYearTo,
+                    lp.IdSalaryMonth,
+                    smFrom.SalaryMonthText,
+                    lp.Remarks,
+                    lp.ApprovalStatus,
+                lpa.LeavePassageAmount as LeavePassageAmountFromLeavePassageAmount
+                FROM LeavePassages lp
+                INNER JOIN Employees e ON lp.IdEmployee = e.IdEmployee
+                INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+                INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+                LEFT JOIN SalaryMonths smFrom ON lp.IdSalaryMonth = smFrom.IdSalaryMonth
+                LEFT JOIN WorkYears fy ON lp.IdSalaryMonth = fy.IdWorkYear
+             LEFT JOIN LeavePassageAmounts lpa 
+                 ON lp.IdEmployee = lpa.IdEmployee 
+                 AND lp.IdFinancialYear = lpa.IdFinancialYear
+                WHERE lp.IdLeavePassage = @IdLeavePassage
+                ");
 
             try
             {
@@ -241,26 +347,42 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<LeavePassageDto?> AddLeavePassages(LeavePassageDto leavePassage, int IdEmployee)
+        public async Task<LeavePassageDto?> AddLeavePassages(LeavePassageDto leavePassage, int idEmployee)
         {
             try
             {
                 var existingRec = await _dbContext.LeavePassages
-                    .Where(l => l.IdFinancialYear == leavePassage.IdFinancialYear && l.IdEmployee == leavePassage.IdEmployee).FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(l =>
+                        l.IdFinancialYear == leavePassage.IdFinancialYear &&
+                        l.IdEmployee == leavePassage.IdEmployee);
 
                 if (existingRec != null)
-                {
                     throw new ArgumentException("Leave Passage already requested for the given year");
-                }
+
+                var salaryMonthFrom = await _dbContext.SalaryMonths
+                    .Where(sm => sm.IdSalaryMonth == leavePassage.IdSalaryMonth)
+                    .Select(sm => sm.SalaryMonthFrom).FirstOrDefaultAsync();
+
+                if (salaryMonthFrom == null)
+                    throw new ArgumentException("Invalid salary month");
+                var workyear = await _dbContext.WorkYears
+                    .FirstOrDefaultAsync(wy =>
+                        salaryMonthFrom.Date >= wy.WorkDateFrom.Value.Date &&
+                        salaryMonthFrom.Date <= wy.WorkDateTo.Value.Date
+                    );
+
+                if (workyear == null)
+                    throw new ArgumentException("No work year found for the selected salary month");
 
                 var leavePassageEntity = _mapper.Map<LeavePassage>(leavePassage);
 
-                leavePassageEntity.IdLeavePassage=null;
+                leavePassageEntity.IdEmployee = idEmployee;
+                leavePassageEntity.IdFinancialYear = workyear.IdWorkYear;
+                leavePassageEntity.IdLeavePassage = null;
                 leavePassageEntity.ApprovalStatus = "SUBMITTED";
                 leavePassageEntity.CreatedDate = DateTime.Now;
+                leavePassageEntity.CreatedBy = idEmployee;
 
-               
-                // Add record to database
                 await _dbContext.LeavePassages.AddAsync(leavePassageEntity);
                 await _dbContext.SaveChangesAsync();
 
@@ -270,22 +392,25 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     entityId: leavePassageEntity.IdLeavePassage ?? 0,
                     actionDetails: new { after = leavePassageEntity });
 
-                int insertedId = leavePassageEntity.IdLeavePassage ?? 0; // Get the inserted record ID
+                int insertedId = leavePassageEntity.IdLeavePassage ?? 0;
                 var entityCode = _configuration["WorkflowEntityCodes:LEAVEPASS"];
 
-                // Call approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(
-                    insertedId, entityCode, leavePassageEntity.IdEmployee, "SUBMITTED", null,null);
+                await _approvalWorkflowService.InitiateApprovalWorkflow(
+                    insertedId,
+                    entityCode,
+                    leavePassageEntity.IdEmployee,
+                    "SUBMITTED",
+                    null,
+                    null);
 
                 return _mapper.Map<LeavePassageDto>(leavePassageEntity);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding leave passage: {@Dto}.", leavePassage);
-                return null;
+                throw new Exception(ex.Message);
             }
         }
-
         public async Task<LeavePassageDto?> UpdateLeavePassage(LeavePassageDto leavePassageDto, int IdEmployee)
         {
             try
@@ -297,13 +422,32 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
 
                 var beforeUpdate = _mapper.Map<LeavePassage>(leavePassage);
 
+
+                var salaryMonthFrom = await _dbContext.SalaryMonths
+                    .Where(sm => sm.IdSalaryMonth == leavePassage.IdSalaryMonth)
+                    .Select(sm => sm.SalaryMonthFrom)
+                    .FirstOrDefaultAsync();
+
+                if (salaryMonthFrom == null)
+                    throw new ArgumentException("Invalid salary month");
+
+                var workyear = await _dbContext.WorkYears
+                     .FirstOrDefaultAsync(wy =>
+                         salaryMonthFrom.Date >= wy.WorkDateFrom.Value.Date &&
+                         salaryMonthFrom.Date <= wy.WorkDateTo.Value.Date
+                     );
+
+                if (workyear == null)
+                    throw new ArgumentException("No work year found for the selected salary month");
+
                 // Update fields
                 leavePassage.IdEmployee = leavePassageDto.IdEmployee;
-                leavePassage.IdFinancialYear = leavePassageDto.IdFinancialYear;
+                leavePassage.IdFinancialYear = workyear.IdWorkYear;
                 leavePassage.IdSalaryMonth = leavePassageDto.IdSalaryMonth;
                 leavePassage.Remarks = leavePassageDto.Remarks;
-                leavePassage.ApprovalStatus = leavePassageDto.ApprovalStatus;              
-
+                leavePassage.ApprovalStatus = leavePassageDto.ApprovalStatus;
+                leavePassage.UpdatedOn = DateTime.Now;
+                leavePassage.UpdatedBy = IdEmployee;
                 _dbContext.LeavePassages.Update(leavePassage);
                 await _dbContext.SaveChangesAsync();
 
@@ -324,59 +468,81 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating leave passage with ID: {Id}.", leavePassageDto.IdLeavePassage);
-                return null;
+                throw new Exception(ex.Message);
             }
         }
-
-        public async Task<IEnumerable<LeavePassageAmountDto>> GetLeavePassageAmountDetails(int? financialYear = null, string? searchString = null)
+        public async Task<IEnumerable<LeavePassageAmountDto>> GetLeavePassageAmountDetails(
+            int? financialYear = null,
+            string? searchString = null)
         {
             var query = new StringBuilder(@"
-                SELECT 
-                    e.IdEmployee,
-                    CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-                    e.EmployeeCode,
-                    e.IdDesignation,
-                    des.DesignationName,
-                    e.IdDepartment,
-                    dept.DepartmentName,
-                    e.JoiningDate,
-                    e.Gender,
-                    e.EmailID,
-                    e.PhoneNumber1,
-                    e.PhoneNumber2,
+                    SELECT
+                        e.IdEmployee,
+                        CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                        e.EmployeeCode,
+                        e.IdDesignation,
+                        des.DesignationName,
+                        e.IdDepartment,
+                        dept.DepartmentName,
+                        e.JoiningDate,
+                        e.Gender,
+                        e.EmailID,
+                        e.PhoneNumber1,
+                        e.PhoneNumber2,
 
-                    lpa.IdLeavePassageAmount,
-                    lpa.IdFinancialYear,
-                    lpa.DateFrom,
-                    lpa.DateTo,
-                    lpa.LeavePassageAmount,
+                        lpa.IdLeavePassageAmount,
+                        lpa.IdFinancialYear,
+                        lpa.DateFrom,
+                        lpa.DateTo,
+                        lpa.LeavePassageAmount,
+                        lpa.PaidIdSalaryMonth,
+                        lpa.Remarks,
+                        fy.WorkDateFrom AS FinancialYearFrom,
+                        fy.WorkDateTo   AS FinancialYearTo,
 
-                    fy.WorkDateFrom as FinancialYearFrom,
-                        fy.WorkDateTo as FinancialYearTo
-                FROM Employees e
-                INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
-                INNER JOIN Departments dept ON e.IdDepartment = dept.IdDepartment
+                        lp.IdLeavePassage,
+                        lp.IdSalaryMonth,
+                        CASE 
+                            WHEN lpa.LeavePassageAmount < 0 THEN 'LP Reversal'
+                            ELSE lp.ApprovalStatus
+                        END AS LPRequestApprovalStatus,
+                        smPaid.SalaryMonthText       AS PaidMonthName,
+                        smPaid.SalaryMonthText AS PaidMonthText,      -- from lpa
 
-                -- bring the selected WorkYear row (only when financialYear is provided)
-                LEFT JOIN WorkYears wy
-                    ON (@FinancialYear IS NOT NULL AND wy.IdWorkYear = @FinancialYear)
+                        smReq.SalaryMonthText        AS RequestedMonthName,
+                        smReq.SalaryMonthText  AS RequestedMonthText  -- from lp
 
-                -- FILTER LeavePassageAmounts using WorkYears date range
-                LEFT JOIN LeavePassageAmounts lpa 
-                    ON e.IdEmployee = lpa.IdEmployee
-                    AND (@FinancialYear IS NULL OR lpa.IdFinancialYear = @FinancialYear)
-                    AND (
-                        @FinancialYear IS NULL
-                        OR (
-                            lpa.DateFrom >= wy.WorkDateFrom
-                            AND lpa.DateTo   <= wy.WorkDateTo
+                    FROM Employees e
+                    INNER JOIN Designations des ON e.IdDesignation = des.IdDesignation
+                    INNER JOIN Departments  dept ON e.IdDepartment = dept.IdDepartment
+
+                    LEFT JOIN WorkYears wy
+                        ON (@FinancialYear IS NOT NULL AND wy.IdWorkYear = @FinancialYear)
+
+                    LEFT JOIN LeavePassageAmounts lpa 
+                        ON e.IdEmployee = lpa.IdEmployee
+                        AND (@FinancialYear IS NULL OR lpa.IdFinancialYear = @FinancialYear)
+                        AND (
+                            @FinancialYear IS NULL
+                            OR (
+                                lpa.DateFrom >= wy.WorkDateFrom
+                                AND lpa.DateTo   <= wy.WorkDateTo
+                            )
                         )
-                    )
-                LEFT JOIN WorkYears fy 
-                    ON lpa.IdFinancialYear = fy.IdWorkYear
 
-                WHERE e.CurrentStatus = 'WORKING'
-                  AND e.IdEmployee >= 1000
+                    LEFT JOIN LeavePassages lp
+                        ON lp.IdEmployee       = lpa.IdEmployee
+                        AND (@FinancialYear IS NULL OR lp.IdFinancialYear = @FinancialYear)
+
+                    LEFT JOIN SalaryMonths smPaid
+                        ON smPaid.IdSalaryMonth = lpa.PaidIdSalaryMonth
+
+                    LEFT JOIN SalaryMonths smReq
+                        ON smReq.IdSalaryMonth = lp.IdSalaryMonth
+
+                    LEFT JOIN WorkYears fy 
+                        ON lpa.IdFinancialYear = fy.IdWorkYear
+                    WHERE e.IdEmployee >= 1000
                 ");
 
             var parameters = new DynamicParameters();
@@ -385,18 +551,21 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             {
                 parameters.Add("FinancialYear", financialYear.Value);
             }
+            else
+            {
+                // to avoid @FinancialYear being NULL but not defined
+                parameters.Add("FinancialYear", null);
+            }
 
-            // Search filter
             if (!string.IsNullOrEmpty(searchString))
             {
                 query.Append(@"
-        AND (
-            e.EmployeeCode LIKE @SearchText OR
-            CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
-            des.DesignationName LIKE @SearchText OR
-            dept.DepartmentName LIKE @SearchText
-        )
-        ");
+            AND (
+                e.EmployeeCode LIKE @SearchText OR
+                CONCAT(e.FirstName, ' ', COALESCE(e.MiddleName, ''), ' ', e.LastName) LIKE @SearchText OR
+                des.DesignationName LIKE @SearchText OR
+                dept.DepartmentName LIKE @SearchText)");
+
                 parameters.Add("SearchText", $"%{searchString}%");
             }
 
@@ -409,7 +578,9 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                     if (connection.State == System.Data.ConnectionState.Closed)
                         await connection.OpenAsync();
 
-                    var result = await connection.QueryAsync<LeavePassageAmountDto>(query.ToString(), parameters);
+                    var result = await connection.QueryAsync<LeavePassageAmountDto>(
+                        query.ToString(), parameters);
+
                     return result;
                 }
             }
@@ -420,20 +591,16 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
-        public async Task<bool> SubmitLeavePassageAsync(List<LeavePassageAmountDetailsDto> leavePassages)
+        public async Task<bool> SubmitLeavePassageAsync(List<LeavePassageAmountDetailsDto> leavePassages, int LoginedIdEmployee)
         {
             try
             {
-                var financialYears = await _dbContext.FinancialYears.ToListAsync();
-
-                if (financialYears == null || !financialYears.Any())
-                    return false;
 
                 var auditLogs = new List<(string actionType, string entityName, int entityId, object actionDetails)>();
 
                 foreach (var dto in leavePassages)
                 {
-                    var year = financialYears.FirstOrDefault(x => x.IdFinancialYear == dto.IdFinancialYear);
+                    var year = _dbContext.WorkYears.FirstOrDefault(x => x.IdWorkYear == dto.IdFinancialYear);
                     if (year == null) return false;
 
                     if (dto.IdLeavePassageAmount == 0) // Insert
@@ -443,8 +610,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                             IdEmployee = dto.IdEmployee,
                             LeavePassageAmount = dto.Amount,
                             IdFinancialYear = dto.IdFinancialYear,
-                            DateFrom = year.FinancialYearFrom,
-                            DateTo = year.FinancialYearTo
+                            DateFrom = year.WorkDateFrom,
+                            DateTo = year.WorkDateTo,
+                            PaidIdSalaryMonth = dto.PaidIdSalaryMonth,
+                            CreatedBy = LoginedIdEmployee,
+                            CreatedOn = DateTime.Today
                         };
 
                         _dbContext.LeavePassageAmounts.Add(entity);
@@ -472,9 +642,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                         entity.IdEmployee = dto.IdEmployee;
                         entity.LeavePassageAmount = dto.Amount;
                         entity.IdFinancialYear = dto.IdFinancialYear;
-                        entity.DateFrom = year.FinancialYearFrom;
-                        entity.DateTo = year.FinancialYearTo;
-
+                        entity.DateFrom = year.WorkDateFrom;
+                        entity.DateTo = year.WorkDateTo;
+                        entity.PaidIdSalaryMonth = dto.PaidIdSalaryMonth;
+                        entity.ModifiedBy = LoginedIdEmployee;
+                        entity.ModifiedOn = dto.ModifiedDate;
                         _dbContext.LeavePassageAmounts.Update(entity);
 
                         // Collect audit log for update
@@ -511,6 +683,128 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<bool> SubmitLeavePassageReversalAsync(List<LeavePassageReversalDto> leavePassageReversal, int LoginedIdEmployee)
+        {
+            try
+            {
+                var financialYears = await _dbContext.FinancialYears.ToListAsync();
+
+                if (financialYears == null || !financialYears.Any())
+                    return false;
+
+                foreach (var dto in leavePassageReversal)
+                {
+                    var year = _dbContext.WorkYears.FirstOrDefault(x => x.IdWorkYear == dto.IdFinancialYear);
+                    if (year == null) return false;
+
+                    if (dto.IdLeavePassageAmount == 0) // Insert
+                    {
+                        var entity = new LeavePassageAmounts
+                        {
+                            IdEmployee = dto.IdEmployee,
+                            LeavePassageAmount = -Math.Abs(dto.ReversalAmount),
+                            IdFinancialYear = dto.IdFinancialYear,
+                            DateFrom = year.WorkDateFrom,
+                            DateTo = year.WorkDateTo,
+                            PaidIdSalaryMonth = dto.ReversalMonth,
+                            Remarks = dto.Remarks,
+                            CreatedBy = LoginedIdEmployee,
+                            CreatedOn = DateTime.Today
+                        };
+
+                        _dbContext.LeavePassageAmounts.Add(entity);
+                    }
+                    else // Update
+                    {
+                        var entity = await _dbContext.LeavePassageAmounts
+                            .FirstOrDefaultAsync(x => x.IdLeavePassageAmount == dto.IdLeavePassageAmount);
+
+                        if (entity == null) return false;
+
+                        entity.IdEmployee = dto.IdEmployee;
+                        entity.LeavePassageAmount = -Math.Abs(dto.ReversalAmount);
+                        entity.IdFinancialYear = dto.IdFinancialYear;
+                        entity.DateFrom = year.WorkDateFrom;
+                        entity.DateTo = year.WorkDateTo;
+                        entity.PaidIdSalaryMonth = dto.ReversalMonth;
+                        entity.Remarks = dto.Remarks;
+                        entity.ModifiedBy = LoginedIdEmployee;
+                        entity.ModifiedOn = DateTime.Today;
+                        _dbContext.LeavePassageAmounts.Update(entity);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while submitting Leave Passage Reversal");
+                return false;
+            }
+        }
+
+
+        public async Task<bool> SubmitLeavePassageAdditionAsync(List<LeavePassageAdditionDto> leavePassageAddition, int LoginedIdEmployee)
+        {
+            try
+            {
+                var financialYears = await _dbContext.FinancialYears.ToListAsync();
+
+                if (financialYears == null || !financialYears.Any())
+                    return false;
+
+                foreach (var dto in leavePassageAddition)
+                {
+                    var year = _dbContext.WorkYears.FirstOrDefault(x => x.IdWorkYear == dto.IdFinancialYear);
+                    if (year == null) return false;
+
+                    if (dto.IdLeavePassageAmount == 0) // Insert
+                    {
+                        var entity = new LeavePassageAmounts
+                        {
+                            IdEmployee = dto.IdEmployee,
+                            LeavePassageAmount = dto.ReversalAmount,
+                            IdFinancialYear = dto.IdFinancialYear,
+                            DateFrom = year.WorkDateFrom,
+                            DateTo = year.WorkDateTo,
+                            PaidIdSalaryMonth = dto.ReversalMonth,
+                            Remarks = dto.Remarks,
+                            CreatedBy = LoginedIdEmployee,
+                            CreatedOn = DateTime.Today
+                        };
+
+                        _dbContext.LeavePassageAmounts.Add(entity);
+                    }
+                    else // Update
+                    {
+                        var entity = await _dbContext.LeavePassageAmounts
+                            .FirstOrDefaultAsync(x => x.IdLeavePassageAmount == dto.IdLeavePassageAmount);
+
+                        if (entity == null) return false;
+
+                        entity.IdEmployee = dto.IdEmployee;
+                        entity.LeavePassageAmount = -Math.Abs(dto.ReversalAmount);
+                        entity.IdFinancialYear = dto.IdFinancialYear;
+                        entity.DateFrom = year.WorkDateFrom;
+                        entity.DateTo = year.WorkDateTo;
+                        entity.PaidIdSalaryMonth = dto.ReversalMonth;
+                        entity.Remarks = dto.Remarks;
+                        entity.ModifiedBy = LoginedIdEmployee;
+                        entity.ModifiedOn = DateTime.Today;
+                        _dbContext.LeavePassageAmounts.Update(entity);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while submitting Leave Passage Reversal");
+                return false;
+            }
+        }
 
         public async Task<List<WorkMonthsInYearDto>> GetCurrentWorkYearMonths()
         {

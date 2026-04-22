@@ -53,6 +53,29 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
 
+        [HttpGet("GetLeavePassageRequestsForHR")]
+        public async Task<IActionResult> GetLeavePassageRequestsForHR(int idWorkYear, string requestStatus, string? searchText, string? approvalStatus)
+        {
+            try
+            {
+
+
+                var leavePassageList = await _leavePassageServices.GetLeavePassageRequestsForHR(idWorkYear, requestStatus, searchText, approvalStatus);
+
+                if (leavePassageList == null || !leavePassageList.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<LeavePassageForHRDto>>.CreateSuccess(Enumerable.Empty<LeavePassageForHRDto>(), "No LeavePassage found."));
+                }
+
+
+                return Ok(ApiResponseDto<IEnumerable<LeavePassageForHRDto>>.CreateSuccess(leavePassageList, "LeavePassage retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
         [HttpGet("GetLeavePassagesByemployeeId")]
         public async Task<IActionResult> GetLeavePassagesListByemployeeId(int EmployeeId)
         {
@@ -75,9 +98,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
-
-
-
 
         [HttpGet("GetLeavePassageById")]
         public async Task<IActionResult> GetLeavePassageById(int id)
@@ -217,10 +237,15 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid data."));
             }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
             try
             {
-                var success = await _leavePassageServices.SubmitLeavePassageAsync(dtoList);
+                var success = await _leavePassageServices.SubmitLeavePassageAsync(dtoList, Convert.ToInt32(IdEmployee));
 
                 if (!success)
                 {
@@ -231,6 +256,66 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
             catch (Exception ex)
             {                
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("SubmitLeavePassageReversal")]
+        public async Task<IActionResult> SubmitLeavePassageReversal([FromBody] List<LeavePassageReversalDto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid data."));
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            try
+            {
+                var success = await _leavePassageServices.SubmitLeavePassageReversalAsync(dtoList, Convert.ToInt32(IdEmployee));
+
+                if (!success)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to save Leave Passage details."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave passage details saved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("SubmitLeavePassageAddition")]
+        public async Task<IActionResult> SubmitLeavePassageAddition([FromBody] List<LeavePassageAdditionDto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid data."));
+            }
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+            try
+            {
+                var success = await _leavePassageServices.SubmitLeavePassageAdditionAsync(dtoList, Convert.ToInt32(IdEmployee));
+
+                if (!success)
+                {
+                    return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to save Leave Passage details."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Leave passage details saved successfully."));
+            }
+            catch (Exception ex)
+            {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
@@ -256,8 +341,6 @@ namespace Georgetown_Internationsl_Academy.API.Controllers
             }
         }
         #endregion
-
-
 
     }
 }

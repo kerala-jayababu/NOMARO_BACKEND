@@ -16,14 +16,7 @@ namespace Georgetown_Internationsl_Academy.API.Helpers
 
         public async Task Invoke(HttpContext context)
         {
-            if (context.Request.Path.ToString().Contains("Common"))
-                return;
-            if (context.Request.Path.ToString().Contains("GetEmployeeNotification"))
-                return;
-            if (context.Request.Path.ToString().Contains("GetSystemParameters"))
-                return;
-
-
+           
             var dbContext = context.RequestServices
                                    .GetRequiredService<ApplicationDBContext>();
 

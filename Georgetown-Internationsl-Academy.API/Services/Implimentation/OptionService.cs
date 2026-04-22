@@ -113,6 +113,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             }
         }
 
+        public async Task<List<SalaryMonthsDto>> GetWorkYearSalaryMonths(int IdWorkYear)
+        {
+            try
+            {
+                var workYear = await _dbContext.WorkYears.Where(w=>w.IdWorkYear == IdWorkYear).FirstOrDefaultAsync();
+                var salaryMonths = await _dbContext.SalaryMonths.Where(s=>s.SalaryMonthDate >= workYear.WorkDateFrom && s.SalaryMonthDate<= workYear.WorkDateTo).ToListAsync();
+                return _mapper.Map<List<SalaryMonthsDto>>(salaryMonths);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all GetAllSalaryMonths.");
+                throw;
+            }
+        }
         public async Task<List<EmployeeTypeDto>> GetEmployeeWorkTypes()
         {
             try

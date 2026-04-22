@@ -13,5 +13,9 @@ namespace Georgetown_Internationsl_Academy.API.Models
         public string ApprovalStatus { get; set; }
         public decimal? LeavePassageAmount { get; set; }
         public DateTime? CreatedDate {  get; set; }
+        public int? CreatedBy { get; set; }
+        public DateTime? UpdatedOn { get; set; }
+        public int? UpdatedBy { get; set; }
+
     }
 }
