@@ -24,8 +24,8 @@
         public decimal NetSalary { get; set; }
         public string ApprovalStatus { get; set; }
         public bool? ApprovalEnabled { get; set; }
-        public int? NISEmployeeContribution { get; set; }
-        public int? NISEmployerContribution { get; set; }
+        public decimal? NISEmployeeContribution { get; set; }
+        public decimal? NISEmployerContribution { get; set; }
 
     }
 }
