@@ -430,8 +430,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 // 🔹 Audit fields
                 transactionEntity.CreatedBy = idEmployee;
                 transactionEntity.CreatedOn = DateTime.Now;
+                // Combine Date + Time so overnight overtime (e.g. 21:01 -> next day 06:04) is calculated correctly
+                var startDateTime = transactionEntity.StartDate.Date + transactionEntity.StartTime;
+                var endDateTime = transactionEntity.EndDate.Date + transactionEntity.EndTime;
                 transactionEntity.DurationInHours =
-                Convert.ToDecimal((transactionEntity.EndTime - transactionEntity.StartTime).TotalHours); 
+                Convert.ToDecimal((endDateTime - startDateTime).TotalHours);
                 transactionEntity.ApprovalStatus = "SUBMITTED";
 
                 // 🔹 Save transaction
@@ -699,8 +702,11 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
                 transactionEntity.EndTime = transactionDto.EndTime;
                 transactionEntity.StartDate = transactionDto.StartDate;
                 transactionEntity.EndDate = transactionDto.EndDate;
+                // Combine Date + Time so overnight overtime (e.g. 21:01 -> next day 06:04) is calculated correctly
+                var startDateTime = transactionEntity.StartDate.Date + transactionEntity.StartTime;
+                var endDateTime = transactionEntity.EndDate.Date + transactionEntity.EndTime;
                 transactionEntity.DurationInHours =
-                Convert.ToDecimal((transactionEntity.EndTime - transactionEntity.StartTime).TotalHours); 
+                Convert.ToDecimal((endDateTime - startDateTime).TotalHours);
                 transactionEntity.ReasonForOverTime = transactionDto.ReasonForOvertime;
                 transactionEntity.ApprovalStatus = "SUBMITTED"; // always reset to submitted when updated
 
