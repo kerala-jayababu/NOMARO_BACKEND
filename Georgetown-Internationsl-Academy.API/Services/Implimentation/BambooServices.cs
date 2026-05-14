@@ -1,4 +1,4 @@
-﻿using Georgetown_International_Academy.API.Database;
+using Georgetown_International_Academy.API.Database;
 using Georgetown_Internationsl_Academy.API.DTO;
 using Georgetown_Internationsl_Academy.API.DTO.Time___Attendance.Shift;
 using Georgetown_Internationsl_Academy.API.Helpers;
@@ -43,6 +43,35 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             _logger = logger;
             _dbContext = dbContext;
             _notificationConfigService = notificationConfigService;
+        }
+
+        /// <summary>
+        /// Gateway URLs require the Bamboo company subdomain. Uses <c>BambooHR:Subdomain</c> when set;
+        /// otherwise parses it from <c>BambooHR:BaseUrl</c> (same host pattern as employee directory sync).
+        /// </summary>
+        private string ResolveBambooSubdomain()
+        {
+            var subdomain = _configuration["BambooHR:Subdomain"]?.Trim();
+            if (!string.IsNullOrEmpty(subdomain))
+                return subdomain;
+
+            var baseUrl = _configuration["BambooHR:BaseUrl"]?.Trim();
+            if (string.IsNullOrEmpty(baseUrl))
+                throw new InvalidOperationException(
+                    "BambooHR:Subdomain or BambooHR:BaseUrl must be configured for Bamboo gateway API calls.");
+
+            const string marker = "gateway.php/";
+            var idx = baseUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                throw new InvalidOperationException(
+                    "BambooHR:BaseUrl must contain 'gateway.php/{company}/' when BambooHR:Subdomain is not set.");
+
+            var start = idx + marker.Length;
+            var endSlash = baseUrl.IndexOf('/', start);
+            if (endSlash <= start)
+                throw new InvalidOperationException("Could not parse Bamboo subdomain from BambooHR:BaseUrl.");
+
+            return baseUrl[start..endSlash];
         }
 
         public async Task<List<BambooHRDetailsDto>> SyncEmployeesFromBambooHR()
@@ -150,7 +179,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             // Initialize BambooHR API settings
             var baseUrl = "https://api.bamboohr.com";
             var apiKey = _configuration["BambooHR:ApiKey"];
-            var subdomain = _configuration["BambooHR:Subdomain"];
+            var subdomain = ResolveBambooSubdomain();
 
             var client = new RestClient(new RestClientOptions(baseUrl) { MaxTimeout = -1 });
             var url = $"/api/gateway.php/{subdomain}/v1/time_off/requests/?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
@@ -1113,7 +1142,7 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             // -------- BambooHR call --------
             var baseUrl = "https://api.bamboohr.com";
             var apiKey = _configuration["BambooHR:ApiKey"];
-            var subdomain = _configuration["BambooHR:Subdomain"];
+            var subdomain = ResolveBambooSubdomain();
 
             var client = new RestClient(new RestClientOptions(baseUrl) { MaxTimeout = -1 });
             var url = $"/api/gateway.php/{subdomain}/v1/time_off/requests/?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
@@ -1486,7 +1515,10 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
         {
             var baseUrl = "https://api.bamboohr.com";
             var apiKey = _configuration["BambooHR:ApiKey"];
-            var subdomain = _configuration["BambooHR:Subdomain"];
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new InvalidOperationException("BambooHR:ApiKey is not configured.");
+
+            var subdomain = ResolveBambooSubdomain();
 
             var client = new RestClient(new RestClientOptions(baseUrl));
             var request = new RestRequest($"/api/gateway.php/{subdomain}/v1/meta/users", Method.Get);
@@ -1497,11 +1529,20 @@ namespace Georgetown_Internationsl_Academy.API.Services.Implimentation
             var response = await client.ExecuteAsync(request);
 
             if (!response.IsSuccessful)
-                throw new Exception("Failed to fetch Bamboo users");
+            {
+                _logger.LogError(
+                    "BambooHR meta/users failed. Status: {StatusCode}, Error: {Error}, Content: {Content}",
+                    response.StatusCode, response.ErrorMessage, response.Content);
+                throw new Exception(
+                    $"Failed to fetch Bamboo users: {response.StatusCode} - {response.ErrorMessage ?? response.Content}");
+            }
 
             var serializer = new XmlSerializer(typeof(BambooUsersDto));
             using var reader = new StringReader(response.Content);
             var result = serializer.Deserialize(reader) as BambooUsersDto;
+
+            if (result?.Users == null)
+                throw new Exception("BambooHR meta/users returned invalid or empty response.");
 
             // Dictionary<UserId, EmployeeId>
             return result.Users.ToDictionary(u => u.Id, u => u.EmployeeId);
