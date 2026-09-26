@@ -1,0 +1,1553 @@
+using Nomaro.API.Database;
+using Nomaro.API.DTO;
+using Nomaro.API.DTO.Time___Attendance.Shift;
+using Nomaro.API.Helpers;
+using Nomaro.API.Models;
+using Nomaro.API.Models.Time___Attendance.Bamboo_HR;
+using Nomaro.API.Models.Time___Attendance.Shift;
+using Nomaro.API.Services.Implimentation.Time___Attendance.BambooHR;
+using Nomaro.API.Services.Interface;
+using iText.Kernel.Pdf.Canvas.Wmf;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
+using Newtonsoft.Json;
+using Org.BouncyCastle.Asn1;
+using Org.BouncyCastle.Asn1.Cmp;
+using Org.BouncyCastle.Asn1.Crmf;
+using RestSharp;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Xml.Serialization;
+
+namespace Nomaro.API.Services.Implimentation
+{
+    public class BambooServices : IBambooServices
+    {
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<BambooServices> _logger;
+        private readonly ApplicationDBContext _dbContext;
+        private readonly INotificationConfigService _notificationConfigService;
+        private bool IsDataChangedInBambooHR;
+        private string DataChanges;
+        private bool IsNewEmployee;
+        private string DesignationName;
+        private string DepartmentName;
+        private string ReportingTo;
+        public BambooServices(IConfiguration configuration, ILogger<BambooServices> logger, ApplicationDBContext dbContext, INotificationConfigService notificationConfigService)
+        {
+            _configuration = configuration;
+            _logger = logger;
+            _dbContext = dbContext;
+            _notificationConfigService = notificationConfigService;
+        }
+
+        /// <summary>
+        /// Gateway URLs require the Bamboo company subdomain. Uses <c>BambooHR:Subdomain</c> when set;
+        /// otherwise parses it from <c>BambooHR:BaseUrl</c> (same host pattern as employee directory sync).
+        /// </summary>
+        private string ResolveBambooSubdomain()
+        {
+            var subdomain = _configuration["BambooHR:Subdomain"]?.Trim();
+            if (!string.IsNullOrEmpty(subdomain))
+                return subdomain;
+
+            var baseUrl = _configuration["BambooHR:BaseUrl"]?.Trim();
+            if (string.IsNullOrEmpty(baseUrl))
+                throw new InvalidOperationException(
+                    "BambooHR:Subdomain or BambooHR:BaseUrl must be configured for Bamboo gateway API calls.");
+
+            const string marker = "gateway.php/";
+            var idx = baseUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                throw new InvalidOperationException(
+                    "BambooHR:BaseUrl must contain 'gateway.php/{company}/' when BambooHR:Subdomain is not set.");
+
+            var start = idx + marker.Length;
+            var endSlash = baseUrl.IndexOf('/', start);
+            if (endSlash <= start)
+                throw new InvalidOperationException("Could not parse Bamboo subdomain from BambooHR:BaseUrl.");
+
+            return baseUrl[start..endSlash];
+        }
+
+        public async Task<List<BambooHRDetailsDto>> SyncEmployeesFromBambooHR()
+        {
+            var result = new List<BambooHRDetailsDto>();
+            try
+            {
+                IsDataChangedInBambooHR = false;
+                var baseURL = _configuration["BambooHR:BaseUrl"];
+                var apikey = _configuration["BambooHR:ApiKey"];
+
+                if (string.IsNullOrWhiteSpace(baseURL) || string.IsNullOrWhiteSpace(apikey))
+                {
+                    _logger.LogError("BambooHR BaseUrl or ApiKey is missing in configuration.");
+                    return new List<BambooHRDetailsDto>();
+                }
+            
+                var fullUrl = $"{baseURL}/employees/directory";
+                var client = new RestClient();
+                var request = new RestRequest(fullUrl, Method.Get);
+
+                var token = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{apikey}:x"));
+                request.AddHeader("Authorization", $"Basic {token}");
+
+                RestResponse response = await client.ExecuteAsync(request);
+
+                if (!response.IsSuccessful)
+                {
+                    _logger.LogError("Failed to retrieve data from BambooHR. Status: {StatusCode}, Content: {Content}",
+                        response.StatusCode, response.Content);
+                    return new List<BambooHRDetailsDto>();
+                }
+
+                var serializer = new XmlSerializer(typeof(EmployeeDirectoryDto));
+                using var reader = new StringReader(response.Content);
+                var directory = (EmployeeDirectoryDto)serializer.Deserialize(reader);
+
+                var rawEmployees = directory?.Employees ?? new List<EmployeeRawDto>();
+
+                await UpdateEmployeeStatusNotWorkingIfNotFoundInBambooHR(rawEmployees);
+
+                foreach (var emp in rawEmployees)
+                {
+                    try
+                    {
+                        var detailUrl = $"{baseURL}/employees/{emp.Id}?fields=displayName,firstName,LastName,gender,dateofBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber,customNIS,customTIN";
+
+                        var detailRequest = new RestRequest(detailUrl, Method.Get);
+                        detailRequest.AddHeader("Authorization", $"Basic {token}");
+
+                        var detailResponse = await client.ExecuteAsync(detailRequest);
+                        if (!detailResponse.IsSuccessful)
+                        {
+                            _logger.LogWarning("Failed to get details for employee ID {Id}", emp.Id);
+                            continue;
+                        }
+
+                        var detailSerializer = new XmlSerializer(typeof(BambooHREmployeeXmlDto));
+                        using var detailReader = new StringReader(detailResponse.Content);
+                        var detailedRaw = (BambooHREmployeeXmlDto)detailSerializer.Deserialize(detailReader);
+
+                        var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
+                        mapped.EmployeePhotoPath = emp.Fields.FirstOrDefault(f => f.Id == "photoUrl")?.Value;
+                        if (mapped.EmployeeNumber.IndexOf("0000") < 0)
+                        {
+                            await AddUpdateEmployeeDetailsFromBambooHR(mapped);
+                        }
+                        result.Add(mapped);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error while processing employee ID {Id}", emp.Id);
+                    }
+                }
+
+
+                return result;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing employees from BambooHR");
+                return new List<BambooHRDetailsDto>();
+            }
+        }
+
+        public async Task<DateTime?> BambooHRLeaveIntegrationLastRun()
+        {
+            try
+            {
+                var lastexecDate = await _dbContext.BambooHRLeaveIntegrationLastRun.Select(x => x.LeaveIntegrationLastRunDate).FirstOrDefaultAsync();
+                if (lastexecDate == DateTime.MinValue)
+                    return null;
+                return lastexecDate;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error  BambooHRLeaveIntegrationLastRun from BambooHR");
+                return null;
+            }
+
+        }
+        public async Task<string> SyncTimeOffRequests(DateTime start, DateTime end)
+        {
+            // Initialize BambooHR API settings
+            var baseUrl = "https://api.bamboohr.com";
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var subdomain = ResolveBambooSubdomain();
+
+            var client = new RestClient(new RestClientOptions(baseUrl) { MaxTimeout = -1 });
+            var url = $"/api/gateway.php/{subdomain}/v1/time_off/requests/?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
+            var request = new RestRequest(url, Method.Get);
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            // Make API request
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"BambooHR API failed: {response.StatusCode} - {response.Content}");
+
+            // Deserialize XML response
+            var serializer = new XmlSerializer(typeof(TimeOffRequestsDto));
+            using var reader = new StringReader(response.Content);
+            var requests = serializer.Deserialize(reader) as TimeOffRequestsDto;
+
+            if (requests?.Requests == null || !requests.Requests.Any())
+                return "No requests found in the date range.";
+
+            // Prepare in-memory collections
+            var employeeMap = new Dictionary<int, int>();                        // BambooId => InternalId
+            var logsToInsert = new List<BambooHRIntegrationLogs>();
+            var leavesToInsert = new List<EmployeeLeave>();
+            var leaveDetailsToInsert = new List<EmployeeLeaveDetail>();
+
+            // Start DB transaction
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Process each time-off request
+                foreach (var req in requests.Requests)
+                {
+                    int internalEmpId;
+
+                    // Try to reuse already mapped employee
+                    if (employeeMap.ContainsKey(req.Employee.Id))
+                    {
+                        internalEmpId = employeeMap[req.Employee.Id];
+                    }
+                    else
+                    {
+                        try
+                        {
+                            internalEmpId = await GetInternalEmployeeIdFromBambooId(req.Employee.Id);
+                            employeeMap[req.Employee.Id] = internalEmpId;
+                        }
+                        catch
+                        {
+                            // Log missing employee
+                            var rawXml = await GetRawEmployeeXml(req.Employee.Id);
+                            var mapped = BambooEmployeeMapper.ToDetailsDto(rawXml);
+
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "time/timeout",
+                                EntityActionType = "insert",
+                                IntegrationStatus = "completed",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"EmployeeCode -> {mapped.EmployeeNumber}, Employee not exist in payroll system"
+                            });
+
+                            continue; // Skip to next request
+                        }
+                    }
+
+                    // Prepare leave entry
+                    var leave = new EmployeeLeave
+                    {
+                        IdEmployee = internalEmpId,
+                        LeaveFromDate = req.Start,
+                        LeaveToDate = req.End,
+                        NoDays = req.Amount.Value,
+                        AppliedDate = req.Created,
+                        ApprovalStatus = req.Status.Value.ToUpper(),
+                        ApprovedDate = req.Status.LastChanged,
+                        IdLeaveType = req.Type.Id,
+                        LeaveTypeName = req.Type.Value,
+                        BambooHRRequestId = req.Id
+                    };
+
+                    leavesToInsert.Add(leave);
+                }
+
+                // Insert all leave entries
+                await _dbContext.EmployeeLeaves.AddRangeAsync(leavesToInsert);
+                await _dbContext.SaveChangesAsync(); // Needed to get IdEmployeeLeave
+
+                // Build and collect leave details
+                foreach (var leave in leavesToInsert)
+                {
+                    var requessts = requests.Requests.FirstOrDefault(r => r.Id == leave.BambooHRRequestId);
+                    if (requessts?.Dates == null) continue;
+
+                    foreach (var date in requessts.Dates)
+                    {
+                        leaveDetailsToInsert.Add(new EmployeeLeaveDetail
+                        {
+                            IdEmployeeLeave = leave.IdEmployeeLeave,
+                            LeaveDate = date.Ymd,
+                            AmountFlag = date.Amount > 0,
+                            Amount = null
+                        });
+                    }
+                }
+
+                // Insert leave details
+                if (leaveDetailsToInsert.Any())
+                    await _dbContext.EmployeeLeaveDetails.AddRangeAsync(leaveDetailsToInsert);
+
+                // Insert integration logs
+                if (logsToInsert.Any())
+                    await _dbContext.BambooHRIntegrationLogs.AddRangeAsync(logsToInsert);
+
+                // Update last run timestamp
+                var lastRun = await _dbContext.BambooHRLeaveIntegrationLastRun.FirstOrDefaultAsync();
+
+                if (lastRun != null)
+                {
+                    lastRun.LeaveIntegrationLastRunDate = end;
+                    _dbContext.BambooHRLeaveIntegrationLastRun.Update(lastRun);
+                }
+                else
+                {
+                    await _dbContext.BambooHRLeaveIntegrationLastRun.AddAsync(new BambooHRLeaveIntegrationLastRun
+                    {
+                        LeaveIntegrationLastRunDate = end
+                    });
+                }
+
+                //UpdateEmployeeLeaveDetails
+
+
+                var employeeLeaves = await _dbContext.EmployeeLeaves.Where(el => el.LeaveFromDate >= start && el.LeaveToDate <= end)
+                    .ToListAsync();
+                var unauthorizedAbsencesToUpdate = new List<EmployeeUnauthorizedAbsence>();
+
+                // Iterate over each employee leave record
+                foreach (var leave in employeeLeaves)
+                {
+                    // Fetch the corresponding leave details for the employee leave
+                    var leaveDetails = await _dbContext.EmployeeLeaveDetails
+                        .Where(ld => ld.IdEmployeeLeave == leave.IdEmployeeLeave)
+                        .ToListAsync();
+
+                    // For each leave detail, check and update unauthorized absences that match
+                    foreach (var detail in leaveDetails)
+                    {
+                        // Fetch matching unauthorized absences for the employee on the leave date
+                        var unauthorizedAbsences = await _dbContext.EmployeeUnAuthorizedAbsence
+                            .Where(eua => eua.IdEmployee == leave.IdEmployee
+                                          && eua.AbsentDate == detail.LeaveDate
+                                          && eua.IdEmployeeLeave == null)  // Only those that don't have IdEmployeeLeave set
+                            .ToListAsync();
+
+                        // Update the unauthorized absence records
+                        foreach (var abs in unauthorizedAbsences)
+                        {
+                            abs.IdEmployeeLeave = leave.IdEmployeeLeave;
+                            abs.IdEmployeeLeaveDetails = detail.IdEmployeeLeaveDetail; // Link the EmployeeLeaveDetail
+                            unauthorizedAbsencesToUpdate.Add(abs); // Collect for update
+                        }
+                    }
+                }
+
+                // Now update the modified EmployeeUnauthorizedAbsence records
+                if (unauthorizedAbsencesToUpdate.Any())
+                {
+                    _dbContext.EmployeeUnAuthorizedAbsence.UpdateRange(unauthorizedAbsencesToUpdate);
+                }
+
+
+                // Final save and commit
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return "Sync Completed Successfully";
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "SyncTimeOffRequests failed");
+                throw new Exception("Time-off sync failed. Rolled back.");
+            }
+        }
+
+        private async Task<BambooHREmployeeXmlDto> GetRawEmployeeXml(int employeeId)
+        {
+            var baseURL = _configuration["BambooHR:BaseUrl"];
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var client = new RestClient(new RestClientOptions(baseURL) { MaxTimeout = -1 });
+
+            var detailUrl = $"/employees/{employeeId}?fields=employeenumber";
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            var request = new RestRequest(detailUrl, Method.Get);
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception("Failed to get BambooHR employee data");
+
+            var serializer = new XmlSerializer(typeof(BambooHREmployeeXmlDto));
+            using var reader = new StringReader(response.Content);
+            return serializer.Deserialize(reader) as BambooHREmployeeXmlDto;
+        }
+
+
+        private async Task<int> GetInternalEmployeeIdFromBambooId(int employeeId)
+        {
+            var baseURL = _configuration["BambooHR:BaseUrl"];
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var client = new RestClient(new RestClientOptions(baseURL) { MaxTimeout = -1 });
+
+            var detailUrl = $"/employees/{employeeId}?fields=displayName,firstName,lastName,gender,dateOfBirth,address1,address2,middleName,workPhone,mobilePhone,city,state,zipcode,JoiningDate,commissionDate,supervisor,status,terminationDate,department,jobTitle,workEmail,hiredate,employeenumber,customNIS,customTIN,Exempt";
+
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            var request = new RestRequest(detailUrl, Method.Get);
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"Failed to get details for employee ID {employeeId}. Status: {response.StatusCode}");
+
+            var serializer = new XmlSerializer(typeof(BambooHREmployeeXmlDto));
+            using var reader = new StringReader(response.Content);
+            var detailedRaw = serializer.Deserialize(reader) as BambooHREmployeeXmlDto;
+
+            if (detailedRaw == null)
+                throw new Exception("Deserialization of BambooHR employee data failed.");
+
+            var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
+
+            var empId = await _dbContext.Employees
+                .Where(e => e.EmployeeCode == mapped.EmployeeNumber)
+                .Select(e => (int?)e.IdEmployee)
+                .FirstOrDefaultAsync();
+
+            return empId ?? throw new Exception("Employee not found in internal system");
+        }
+        public async Task<List<BambooHRDetailsDto>> SyncEmployeeReportingOfficerFromBambooHR()
+        {
+            var result = new List<BambooHRDetailsDto>();
+            try
+            {
+                var baseURL = _configuration["BambooHR:BaseUrl"];
+                var apikey = _configuration["BambooHR:ApiKey"];
+
+                if (string.IsNullOrWhiteSpace(baseURL) || string.IsNullOrWhiteSpace(apikey))
+                {
+                    _logger.LogError("BambooHR BaseUrl or ApiKey is missing in configuration.");
+                    return new List<BambooHRDetailsDto>();
+                }
+
+                var fullUrl = $"{baseURL}/employees/directory";
+                var client = new RestClient();
+                var request = new RestRequest(fullUrl, Method.Get);
+
+                var token = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{apikey}:x"));
+                request.AddHeader("Authorization", $"Basic {token}");
+
+                RestResponse response = await client.ExecuteAsync(request);
+
+                if (!response.IsSuccessful)
+                {
+                    _logger.LogError("Failed to retrieve data from BambooHR. Status: {StatusCode}, Content: {Content}",
+                        response.StatusCode, response.Content);
+                    return new List<BambooHRDetailsDto>();
+                }
+
+                var serializer = new XmlSerializer(typeof(EmployeeDirectoryDto));
+                using var reader = new StringReader(response.Content);
+                var directory = (EmployeeDirectoryDto)serializer.Deserialize(reader);
+
+                var rawEmployees = directory?.Employees ?? new List<EmployeeRawDto>();
+
+                foreach (var emp in rawEmployees)
+                {
+                    try
+                    {
+                        var detailUrl = $"{baseURL}/employees/{emp.Id}?fields=displayName,firstName,LastName,employeenumber,supervisor";
+
+                        var detailRequest = new RestRequest(detailUrl, Method.Get);
+                        detailRequest.AddHeader("Authorization", $"Basic {token}");
+
+                        var detailResponse = await client.ExecuteAsync(detailRequest);
+                        if (!detailResponse.IsSuccessful)
+                        {
+                            _logger.LogWarning("Failed to get details for employee ID {Id}", emp.Id);
+                            continue;
+                        }
+
+                        var detailSerializer = new XmlSerializer(typeof(BambooHREmployeeXmlDto));
+                        using var detailReader = new StringReader(detailResponse.Content);
+                        var detailedRaw = (BambooHREmployeeXmlDto)detailSerializer.Deserialize(detailReader);
+
+                        var mapped = BambooEmployeeMapper.ToDetailsDto(detailedRaw);
+                        mapped.EmployeePhotoPath = emp.Fields.FirstOrDefault(f => f.Id == "photoUrl")?.Value;
+
+                        //await UpdateEmployeeReportingOfficerFromBambooHR(mapped);
+                        result.Add(mapped);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error while processing employee ID {Id}", emp.Id);
+                    }
+                }
+
+
+                return result;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing employees from BambooHR");
+                return new List<BambooHRDetailsDto>();
+            }
+        }
+        public async Task<bool> AddUpdateEmployeeDetailsFromBambooHR(BambooHRDetailsDto bambooEmp)
+        {
+            var empDetails = await _dbContext.Employees
+                .Where(em => em.EmployeeCode == bambooEmp.EmployeeNumber)
+                .FirstOrDefaultAsync();
+
+            IsNewEmployee = false;
+            DataChanges = string.Empty;
+            IsDataChangedInBambooHR = false;
+
+            if (empDetails == null)
+                IsNewEmployee = true;
+            if (IsNewEmployee)
+            {
+                IsNewEmployee = true;
+                empDetails = new Models.Employee();
+            }
+
+            empDetails.EmployeeCode= CompareStringData("EmployeeCode", empDetails.EmployeeCode,bambooEmp.EmployeeNumber.Trim());
+
+            empDetails.FirstName = CompareStringData("FirstName", empDetails.FirstName, bambooEmp.FirstName.Trim());
+            empDetails.MiddleName = CompareStringData("MiddleName", empDetails.MiddleName, bambooEmp.MiddleName?.Trim());
+            empDetails.LastName = CompareStringData("LastName", empDetails.LastName, bambooEmp.LastName?.Trim());
+            empDetails.Gender = CompareStringData("Gender", empDetails.Gender, bambooEmp.Gender?.Trim()).ToUpper();
+            if (empDetails.Gender == "")
+                empDetails.Gender = "NOTKNOWN";
+
+            empDetails.EmailID = CompareStringData("EmailID", empDetails.EmailID, bambooEmp.WorkEmail?.Trim());
+            empDetails.PhoneNumber1 = CompareStringData("PhoneNumber1", empDetails.PhoneNumber1, bambooEmp.WorkPhone?.Trim());
+            empDetails.PhoneNumber2 = CompareStringData("PhoneNumber2", empDetails.PhoneNumber2, bambooEmp.MobilePhone?.Trim());
+            empDetails.Address1 = CompareStringData("Address1", empDetails.Address1, bambooEmp.Address1?.Trim());
+            empDetails.Address2 = CompareStringData("Address2", empDetails.Address2, bambooEmp.Address2?.Trim());
+            empDetails.City = CompareStringData("City", empDetails.City, bambooEmp.City?.Trim());
+            empDetails.State = CompareStringData("State", empDetails.State, bambooEmp.State?.Trim());
+            empDetails.ZipCode = CompareStringData("ZipCode", empDetails.ZipCode, bambooEmp.ZipCode?.Trim());
+            empDetails.IdNumber = CompareStringData("IdNumber", empDetails.IdNumber, bambooEmp.customNIS?.Trim());
+            empDetails.TaxIdNumber = CompareStringData("TaxIdNumber", empDetails.TaxIdNumber, bambooEmp.customTIN?.Trim());
+            empDetails.OverTimeAllowedStatus = CompareStringData("OverTimeAllowedStatus", empDetails.OverTimeAllowedStatus, bambooEmp.Exempt?.Trim());
+
+            // Set Designation
+            DesignationName = string.Empty;
+            var idDesignation = await GetIdDesignation(bambooEmp.JobTitle);
+            if (idDesignation > 0)
+            {
+                empDetails.IdDesignation = idDesignation;
+                CompareStringData("Designation", DesignationName, bambooEmp.JobTitle?.Trim());
+            }
+            else
+                DataChanges += "Designation " + bambooEmp.JobTitle + " Not found\n";
+
+            // Set Department
+            DepartmentName = string.Empty;
+            var idDepartment = await GetIdDepartment(bambooEmp.Department);
+            if (idDepartment > 0)
+            {
+                empDetails.IdDepartment = idDepartment;
+                CompareStringData("Department", DepartmentName, bambooEmp.Department?.Trim());
+            }
+            else
+                DataChanges += "Department " + bambooEmp.Department + " Not found\n";
+
+
+            var reportingTo = await GetIdEmployee(bambooEmp.Supervisor);
+            if (reportingTo > 0)
+                empDetails.ReportingTo = reportingTo;
+
+            empDetails.CurrentStatus = bambooEmp.Status == "Active" ? "Working" : "NotWorking";
+
+            if (bambooEmp.TerminationDate != null)
+                empDetails.LastWorkingDay = bambooEmp.TerminationDate;
+            if (bambooEmp.DateOfBirth != null)
+                empDetails.DateOfBirth = bambooEmp.DateOfBirth; 
+            if (bambooEmp.HireDate != null)
+                empDetails.JoiningDate = bambooEmp.HireDate;
+
+            // â¬‡â¬‡ PHOTO UPLOAD AND REPLACEMENT â¬‡â¬‡
+            if (!string.IsNullOrEmpty(bambooEmp.EmployeePhotoPath))
+            {
+                string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profileimages");
+                if (!Directory.Exists(folderPath))
+                    Directory.CreateDirectory(folderPath);
+
+                // Delete old image if exists
+                if (!IsNewEmployee && !string.IsNullOrEmpty(empDetails.EmployeePhotoFilePath))
+                {
+                    try
+                    {
+                        if (File.Exists(empDetails.EmployeePhotoFilePath))
+                            File.Delete(empDetails.EmployeePhotoFilePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log but don't block the update
+                        Console.WriteLine($"Failed to delete old image: {ex.Message}");
+                    }
+                }
+
+                // Download and save new photo
+                string fileName = $"{bambooEmp.Id}_{DateTime.Now.Ticks}.jpg";
+                string filePath = Path.Combine(folderPath, fileName);
+
+                using var httpClient = new HttpClient();
+                var imageBytes = await httpClient.GetByteArrayAsync(bambooEmp.EmployeePhotoPath);
+                await File.WriteAllBytesAsync(filePath, imageBytes);
+
+                empDetails.EmployeePhotoFilePath = filePath;
+            }
+
+            // â¬‡â¬‡ SAVE TO DB â¬‡â¬‡
+            if (!IsNewEmployee)
+            {
+                if (IsDataChangedInBambooHR == true)
+                {
+                    _dbContext.Employees.Update(empDetails);
+                    await AddBambooHRIntegrationLog(empDetails.EmployeeCode, empDetails.FirstName, "UPDATE");
+                }
+            }
+            else
+            {
+                _dbContext.Employees.Add(empDetails);
+                DataChanges = "New Employee Added";
+                await AddBambooHRIntegrationLog(empDetails.EmployeeCode, empDetails.FirstName, "NEW");
+            }
+            await _dbContext.SaveChangesAsync();
+            if (IsNewEmployee)
+            {
+                var notificationConfig = await _dbContext.NotificationsConfig
+                .FirstOrDefaultAsync(x => x.EntityCode == "NEWEMPLOYEE" && x.NotificationType == "New Employee Added");
+                if (notificationConfig != null)
+                {
+                    string newEmployeeName = $"{empDetails.FirstName} {empDetails.MiddleName} {empDetails.LastName}".Replace("  ", " ").Trim();
+
+                    // Build replacement dictionary
+                    var replacements = new Dictionary<string, string>
+                    {
+                        { "#NEWEMPLOYEENAME#", newEmployeeName }
+                    };
+
+                    // Get processed email content using helper method
+                    string emailBody = await _notificationConfigService.GetProcessedNotificationContentAsync(notificationConfig, replacements);
+
+                    // Get employee(s) with Department = 4 and Designation = 19 or 37
+                    var notifyEmployees = await _dbContext.Employees
+                        .Where(e => e.IdDepartment == 4 && (e.IdDesignation == 19 || e.IdDesignation == 37))
+                        .ToListAsync();
+
+                    foreach (var approver in notifyEmployees)
+                    {
+                        if (!string.IsNullOrEmpty(approver.EmailID))
+                        {
+                            await EmailService.SendMail(
+                               approver.EmailID,
+                                notificationConfig.EmailSubject,
+                                emailBody
+                            );
+                        }
+
+
+                        Notification notification = new Notification();
+                        notification.IdNotificationConfig = notificationConfig.IdNotificationConfig;
+                        notification.NotificationType = notificationConfig.NotificationType;
+                        notification.SentByIdEmployee = null;
+                        notification.ReceivedByIdEmployee = approver.IdEmployee;
+                        notification.EmailSubject = notificationConfig.EmailSubject;
+                        notification.EmailContent = emailBody;
+                        notification.EmailSentStatus = "SENT";
+                        notification.CreatedAt = DateTime.UtcNow;
+                         _dbContext.Notifications.Add(notification);
+                    }
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+
+            return true;
+        }
+     
+        public async Task<int> GetIdDesignation(string DesigName)
+        {
+            var desigDetails = await _dbContext.Designations.Where(dd => dd.DesignationName.ToUpper() == DesigName.ToUpper()).FirstOrDefaultAsync();
+            if (desigDetails != null)
+            {
+                DesignationName = desigDetails.DesignationName;
+                return desigDetails.IdDesignation;
+            }
+            return -1;
+        }
+
+        public async Task<int> GetIdDepartment(string DeptName)
+        {
+            var deptDetails = await _dbContext.Departments.Where(dd => dd.DepartmentName.ToUpper() == DeptName.ToUpper()).FirstOrDefaultAsync();
+            if (deptDetails != null)
+            {
+                DepartmentName = deptDetails.DepartmentName;
+                return deptDetails.IdDepartment;
+
+            }
+
+            return -1;
+        }
+
+        public async Task<int> GetIdEmployee(string EmployeeName)
+        {
+            if (EmployeeName == null)
+                return -1;
+            string[] splitEName = EmployeeName.Split(',');
+            if (splitEName.Length == 1)
+            {
+                var empDetails = await _dbContext.Employees.Where(em => (em.LastName ?? "").ToUpper() == splitEName[0].Trim().ToUpper()).FirstOrDefaultAsync();
+                if (empDetails != null)
+                {
+                    ReportingTo = empDetails.FirstName;
+                    return (int)empDetails.IdEmployee;
+                }
+            }
+            if (splitEName.Length == 2)
+            {
+                var empDetails = await _dbContext.Employees.Where(em => (em.LastName ?? "").ToUpper() == splitEName[0].Trim().ToUpper() && 
+                em.FirstName.ToUpper() == splitEName[1].Trim().ToUpper()).FirstOrDefaultAsync();
+                if (empDetails != null)
+                {
+                    ReportingTo = empDetails.FirstName;
+                    return (int)empDetails.IdEmployee;
+                }
+            }
+            return -1;
+        }
+
+        public string CompareStringData(string ColumnName, string FirstValue, string SecondValue)
+        {
+            if (!IsNewEmployee)
+            {
+                if (FirstValue == null)
+                    FirstValue = string.Empty;
+                if (SecondValue == null)
+                    SecondValue = string.Empty;
+                if (!string.Equals(FirstValue.ToUpper(), SecondValue.ToUpper(), StringComparison.OrdinalIgnoreCase))
+                {
+                    IsDataChangedInBambooHR = true;
+                    DataChanges += $"{ColumnName} {FirstValue ?? ""} -> {SecondValue ?? ""}\n ";
+                    FirstValue = SecondValue;
+                    return FirstValue;
+                    
+                }
+            }
+            return SecondValue;
+        }
+
+        public string CompareIntegerData(string ColumnName, string FirstValue, string SecondValue)
+        {
+            if (!IsNewEmployee)
+            {
+                if (!string.Equals(FirstValue, SecondValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    IsDataChangedInBambooHR = true;
+                    DataChanges += $"{ColumnName} {FirstValue ?? ""} -> {SecondValue ?? ""}\n ";
+                    FirstValue = SecondValue;
+                }
+            }
+            return FirstValue;
+        }
+
+        public async Task<int> AddBambooHRIntegrationLog(string EmployeeCode, string EmployeeName, string ActionType)
+        {
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var bambooHRLog = new Models.BambooHRIntegrationLogs
+                {
+                    EntityType = "Employees",
+                    EntityActionType = ActionType,
+                    IntegrationDate = DateTime.Now,
+                    IntegrationStatus = "Completed",
+                    IntegrationActionDetails = DataChanges
+                };
+                _dbContext.BambooHRIntegrationLogs.Add(bambooHRLog);
+                await _dbContext.SaveChangesAsync();          
+                await transaction.CommitAsync();
+
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding, updating, or removing BambooHR Details.");
+                throw new Exception("An error occurred while processing BambooHR Details. Please try again.");
+            }
+            return -1;
+        }
+
+        public async Task<int> UpdateEmployeeStatusNotWorkingIfNotFoundInBambooHR(List <EmployeeRawDto> bambooHREmpList)
+        {
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var bambooHREmailIDs = bambooHREmpList
+                           .Select(x => x.Fields.FirstOrDefault(f => f.Id == "workEmail")?.Value)
+                           .Where(email => !string.IsNullOrEmpty(email))
+                           .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var empDetails = await _dbContext.Employees.ToListAsync();
+                var employeesToUpdate = empDetails
+             .Where(e => !bambooHREmailIDs.Contains(e.EmailID) && e.IdEmployee > 1000)
+             .ToList();
+              
+
+                        foreach (var emp in employeesToUpdate)
+                        {
+                            emp.CurrentStatus = "NotWorking";
+                        }
+
+                        await _dbContext.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        return employeesToUpdate.Count;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding, updating, or removing BambooHR Details.");
+                throw new Exception("An error occurred while processing BambooHR Details. Please try again.");
+            }
+        }
+
+        /*
+        public async Task<string> SyncTimeOffRequestsForLeave_old(DateTime start, DateTime end)
+        {
+            
+            start = start.Date;
+            end = end.Date;
+            var bambooUsers = await GetBambooUsersAsync();
+            var workYears = await _dbContext.WorkYears.ToListAsync();
+            var leaveConfigQuery =
+                from a in _dbContext.EmployeeLeaveConfigs
+                join b in _dbContext.EmployeeLeaveConfigDetails
+                    on a.IdEmployeeLeaveConfig equals b.IdEmployeeLeaveConfig
+                join c in _dbContext.LeaveTemplateDetails
+                    on new { b.IdLeaveType, b.IdLeaveTemplateDetail }
+                    equals new { IdLeaveType = c.IdLeaveType, IdLeaveTemplateDetail = c.IdLeaveTemplateDetails }
+                join d in _dbContext.LeaveTemplates
+                    on c.IdLeaveTemplate equals d.IdLeaveTemplate
+                where start >= a.EffectiveFrom && start <= a.EffectiveTo
+                select new LeaveTemplateQueryDto
+                {
+                    IdEmployee = a.IdEmployee,
+                    IdLeaveType = b.IdLeaveType,
+                    LeaveTypeName = c.LeaveTypeName,
+                    IdLeaveTemplateDetails = c.IdLeaveTemplateDetails,
+                    EffectiveFrom = a.EffectiveFrom,
+                    EffectiveTo = (DateTime)a.EffectiveTo,
+                    LeaveTemplateName = d.LeaveTemplateName,
+                    IdYear = d.IdYear
+                };
+
+            var baseUrl = "https://api.bamboohr.com";
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var subdomain = _configuration["BambooHR:Subdomain"];
+
+            var client = new RestClient(new RestClientOptions(baseUrl) { MaxTimeout = -1 });
+            var url = $"/api/gateway.php/{subdomain}/v1/time_off/requests/?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
+            var request = new RestRequest(url, Method.Get);
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            // Fetch BambooHR time off requests
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"BambooHR API failed: {response.StatusCode} - {response.Content}");
+
+            // Deserialize XML response
+            var serializer = new XmlSerializer(typeof(TimeOffRequestsDto));
+            using var reader = new StringReader(response.Content);
+            var requests = serializer.Deserialize(reader) as TimeOffRequestsDto;
+          
+            if (requests?.Requests == null || !requests.Requests.Any())
+                return "No requests found in the date range.";
+
+            var logsToInsert = new List<BambooHRIntegrationLogs>();
+            var leavesToInsert = new List<LeaveApplications>(); // For New Leave Application Insert
+            var leavesToUpdate = new List<LeaveApplications>(); // For Updating Existing Records
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                foreach (var req in requests.Requests)
+                {
+                    // Check if employee exists
+                    var internalEmpId = await GetInternalEmployeeIdFromBambooId(req.Employee.Id);
+                    if (internalEmpId == 0) // Employee not found
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Employee {req.Employee.Id} not found in payroll system"
+                        });
+                        continue; // Skip processing this request
+                    }
+
+                    // Check Leave Type (ensure leave type exists)
+                    var leaveType = await _dbContext.LeaveTypes.FirstOrDefaultAsync(l => l.LeaveTypeName == req.Type.Value);
+                    if (leaveType == null)
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Leave Type {req.Type.Value} not found"
+                        });
+                        continue; // Skip processing this request
+                    }
+
+                    // Check if leave request with the same BambooHRRequestId exists
+                    var existingLeaveApplication = await _dbContext.LeaveApplications
+                        .FirstOrDefaultAsync(l => l.BambooHRLeaveRequestID == req.Id && l.IdEmployee == internalEmpId);
+
+                    if (existingLeaveApplication != null)
+                    {
+                        // Update existing leave application
+                        existingLeaveApplication.FromDate = req.Start;
+                        existingLeaveApplication.ToDate = req.End;
+                        existingLeaveApplication.TotalLeaveDays = req.Amount.Value;
+                        existingLeaveApplication.AppliedOn = req.Created;
+                        existingLeaveApplication.Reason = req.Notes.Notes.FirstOrDefault(n => n.From == "employee")?.Value;
+                        existingLeaveApplication.ApprovalStatus = req.Status.Value.ToUpper();
+                        existingLeaveApplication.CancelledDate = req.Status.Value.ToUpper() == "canceled" ? req.Status.LastChanged : (DateTime?)null;
+                        existingLeaveApplication.ReasonForCancellation = req.Status.Value.ToUpper() == "canceled"
+                            ? req.Notes.Notes.FirstOrDefault(n => n.From == "manager")?.Value
+                            : null;
+
+                        // Add to update list (don't set IdLeaveApplication, it is used by EF for update)
+                        leavesToUpdate.Add(existingLeaveApplication);
+
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "UPDATE",
+                            IntegrationStatus = "COMPLETED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Updated leave application for employee {internalEmpId}, request ID: {req.Id}"
+                        });
+                    }
+                    else
+                    {
+                        // Check for date overlap
+                        var overlappingLeave = await _dbContext.LeaveApplications
+                        .Where(l => l.IdEmployee == internalEmpId &&
+                                    ((l.FromDate <= req.End && l.ToDate >= req.Start) ||
+                                     (l.FromDate >= req.Start && l.ToDate <= req.End)))
+                        .FirstOrDefaultAsync();
+
+                        var leaveTemplate = await leaveConfigQuery
+                            .FirstOrDefaultAsync(l => l.LeaveTypeName == req.Type.Value);
+
+                        if (leaveTemplate == null || leaveTemplate.IdLeaveTemplateDetails == 0)
+                        {
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "INSERT",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Employee Leave Config not found for request ID: {req.Id}, LeaveType: {req.Type.Value}, Mployee {internalEmpId}"
+                            });
+                            continue; // Skip processing this request
+                        }
+
+                        if (overlappingLeave != null)
+                        {
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "INSERT",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Leave request overlaps with an existing leave for employee {internalEmpId}, request ID: {req.Id}"
+                            });
+                            continue; // Skip processing this request
+                        }
+
+                        var workYear = workYears
+                            .Where(w => req.Start >= w.WorkDateFrom && req.End <= w.WorkDateTo)
+                            .ToList();
+
+                        if (workYear.Count != 1)
+                        {
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "INSERT",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Leave request spans across multiple work years or does not match any work year for employee {internalEmpId}, request ID: {req.Id}"
+                            });
+                            continue; // Skip processing this request
+                        }
+                        var approvedByInternalId = 0;
+
+                        if (!string.IsNullOrEmpty(req.Status.LastChangedByUserId))
+                        {
+                            if (bambooUsers.TryGetValue(req.Status.LastChangedByUserId, out var bambooEmployeeId))
+                            {
+                                approvedByInternalId = await GetInternalEmployeeIdFromBambooId(Convert.ToInt32(bambooEmployeeId));
+                            }
+                        }
+
+
+                        if (approvedByInternalId == 0)
+                        {
+                            logsToInsert.Add(new BambooHRIntegrationLogs
+                            {
+                                EntityType = "LEAVE",
+                                EntityActionType = "APPROVER_CHECK",
+                                IntegrationStatus = "FAILED",
+                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationActionDetails = $"Approver not found for Bamboo user {req.Status.LastChangedByUserId}"
+                            });
+                            continue; // Skip processing this request
+                        }
+
+
+                        // Prepare the leave application for insertion
+                        var rawReason = req.Notes.Notes.FirstOrDefault(n => n.From == "employee")?.Value ?? string.Empty;
+                        var reasontxt = rawReason.Length > 500 ? rawReason.Substring(0, 500): rawReason;
+                        var leaveApplication = new LeaveApplications
+                        {
+                            IdEmployee = internalEmpId,
+                            IdLeaveType = leaveType.IdLeaveType,
+                            FromDate = req.Start,
+                            ToDate = req.End,
+                            TotalLeaveDays = req.Amount.Value,
+                            AppliedOn = req.Created,
+                            Reason = reasontxt,
+                            ApprovalStatus = req.Status.Value.ToUpper() == "DENIED" ? "REJECTED" :req.Status.Value.ToUpper() == "CANCELED" ? "CANCELLED" :req.Status.Value.ToUpper(),
+                            BambooHRLeaveRequestID = req.Id,
+                            LeaveTypeName = leaveTemplate.LeaveTemplateName,
+                            IdYear = workYear.FirstOrDefault().IdWorkYear,
+                            ApprovedBy = approvedByInternalId,
+                            IdLeaveTemplateDetail = leaveTemplate.IdLeaveTemplateDetails,
+                            CancelledDate = req.Status.Value == "canceled" ? req.Status.LastChanged : (DateTime?)null,
+                            ReasonForCancellation = req.Status.Value == "canceled"
+                                ? req.Notes.Notes.FirstOrDefault(n => n.From == "manager")?.Value
+                                : null
+                        };
+
+                        leavesToInsert.Add(leaveApplication);
+
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "COMPLETED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Inserted leave application for employee {internalEmpId}, request ID: {req.Id}"
+                        });
+                    }
+                }
+
+                // Insert new records (leavesToInsert)
+                if (leavesToInsert.Any())
+                    await _dbContext.LeaveApplications.AddRangeAsync(leavesToInsert);
+
+                // Update existing records (leavesToUpdate)
+                if (leavesToUpdate.Any())
+                    _dbContext.LeaveApplications.UpdateRange(leavesToUpdate);
+
+                // Insert BambooHR integration logs
+                if (logsToInsert.Any())
+                    await _dbContext.BambooHRIntegrationLogs.AddRangeAsync(logsToInsert);
+
+                // Commit the transaction
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                var lastRun = await _dbContext.BambooHRLeaveIntegrationLastRun.FirstOrDefaultAsync();
+
+                if (lastRun != null)
+                {
+                    lastRun.LeaveIntegrationLastRunDate = end;
+                    _dbContext.BambooHRLeaveIntegrationLastRun.Update(lastRun);
+                }
+                else
+                {
+                    await _dbContext.BambooHRLeaveIntegrationLastRun.AddAsync(
+                        new BambooHRLeaveIntegrationLastRun
+                        {
+                            LeaveIntegrationLastRunDate = end
+                        }) ;
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                return "Sync Completed Successfully";
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "SyncTimeOffRequests failed for leave");
+                throw new Exception("Time-off sync failed. Rolled back.");
+            }
+        }
+        */
+     
+        public async Task<string> SyncTimeOffRequestsForLeave(DateTime start, DateTime end)
+        {
+            start = start.Date;
+            end = end.Date;
+
+            var bambooUsers = await GetBambooUsersAsync(); // as you already have
+            var workYears = await _dbContext.WorkYears.AsNoTracking().ToListAsync();
+
+            // Base query for leave config (materialized later)
+            var leaveConfigQuery =
+                from a in _dbContext.EmployeeLeaveConfigs.AsNoTracking()
+                join b in _dbContext.EmployeeLeaveConfigDetails.AsNoTracking()
+                    on a.IdEmployeeLeaveConfig equals b.IdEmployeeLeaveConfig
+                join c in _dbContext.LeaveTemplateDetails.AsNoTracking()
+                    on new { b.IdLeaveType, b.IdLeaveTemplateDetail }
+                    equals new { IdLeaveType = c.IdLeaveType, IdLeaveTemplateDetail = c.IdLeaveTemplateDetails }
+                join d in _dbContext.LeaveTemplates.AsNoTracking()
+                    on c.IdLeaveTemplate equals d.IdLeaveTemplate
+                where start >= a.EffectiveFrom && start <= a.EffectiveTo
+                select new LeaveTemplateQueryDto
+                {
+                    IdEmployee = a.IdEmployee,
+                    IdLeaveType = b.IdLeaveType,
+                    LeaveTypeName = c.LeaveTypeName,
+                    IdLeaveTemplateDetails = c.IdLeaveTemplateDetails,
+                    EffectiveFrom = a.EffectiveFrom,
+                    EffectiveTo = (DateTime)a.EffectiveTo,
+                    LeaveTemplateName = d.LeaveTemplateName,
+                    IdYear = d.IdYear
+                };
+
+
+            // -------- BambooHR call --------
+            var baseUrl = "https://api.bamboohr.com";
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            var subdomain = ResolveBambooSubdomain();
+
+            var client = new RestClient(new RestClientOptions(baseUrl) { MaxTimeout = -1 });
+            var url = $"/api/gateway.php/{subdomain}/v1/time_off/requests/?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
+            var request = new RestRequest(url, Method.Get);
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"BambooHR API failed: {response.StatusCode} - {response.Content}");
+
+            var serializer = new XmlSerializer(typeof(TimeOffRequestsDto));
+            using var reader = new StringReader(response.Content);
+            var dto = serializer.Deserialize(reader) as TimeOffRequestsDto;
+
+            if (dto?.Requests == null || !dto.Requests.Any())
+                return "No requests found in the date range.";
+
+            var requests = dto.Requests;
+
+            // -------- Preload data for all requests (NO EF calls inside loop) --------
+
+            // 1) Employees: BambooId -> InternalId
+            var bambooIds = requests.Select(r => r.Employee.Id).Distinct().ToList();
+            var internalEmployees = await _dbContext.Employees
+                .AsNoTracking()
+                .Where(e => e.BambooHREmployeeID != null &&
+                            bambooIds.Contains(e.BambooHREmployeeID.Value))
+                .Select(e => new
+                {
+                    e.BambooHREmployeeID,
+                    e.IdEmployee
+                })
+                .ToListAsync();
+
+            var employeeMap = internalEmployees
+                .ToDictionary(x => x.BambooHREmployeeID, x => x.IdEmployee);
+
+            // 2) Leave types: Name -> LeaveType
+            var leaveTypeNames = requests.Select(r => r.Type.Value).Distinct().ToList();
+            var leaveTypes = await _dbContext.LeaveTypes
+                .AsNoTracking()
+                .Where(l => leaveTypeNames.Contains(l.LeaveTypeName))
+                .ToListAsync();
+
+            var leaveTypeMap = leaveTypes.ToDictionary(l => l.LeaveTypeName, l => l);
+
+            // 3) Existing leave applications for these employees within date span
+            var employeeIds = employeeMap.Values.Distinct().ToList();
+            var minReqStart = requests.Min(r => r.Start);
+            var maxReqEnd = requests.Max(r => r.End);
+
+            var existingLeaves = await _dbContext.LeaveApplications
+                .Where(l => employeeIds.Contains(l.IdEmployee)
+                            && l.ToDate >= minReqStart && l.FromDate <= maxReqEnd)
+                .ToListAsync();
+
+            // 4) Leave config lookup: (IdEmployee, LeaveTypeName) -> LeaveTemplateQueryDto
+            var leaveConfigs = await leaveConfigQuery.ToListAsync();
+            var leaveConfigMap = leaveConfigs
+                .GroupBy(c => (c.IdEmployee, c.LeaveTypeName))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            // 5) Approver (Bamboo user -> internal employee) cache
+            var approverCache = new Dictionary<string, int>();
+
+            var logsToInsert = new List<BambooHRIntegrationLogs>();
+            var leavesToInsert = new List<LeaveApplications>();
+            var leavesToUpdate = new List<LeaveApplications>();
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                foreach (var req in requests)
+                {
+                    if(req.Type.Value == "Time Off During The Workday")
+                    {
+                        int p = 100;
+                    }
+                    // Employee lookup
+                    if (!employeeMap.TryGetValue(req.Employee.Id, out var internalEmpId) || internalEmpId == 0)
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Employee {req.Employee.Id} not found in payroll system"
+                        });
+                        continue;
+                    }
+
+                    // Leave type lookup
+                    if (!leaveTypeMap.TryGetValue(req.Type.Value, out var leaveType))
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails = $"Leave Type {req.Type.Value} not found"
+                        });
+                        continue;
+                    }
+
+                    // Existing leave for this Bamboo request
+                    var existingLeaveApplication = existingLeaves
+                        .FirstOrDefault(l => l.BambooHRLeaveRequestID == req.Id &&
+                                             l.IdEmployee == internalEmpId);
+
+                    var status = req.Status.Value?.ToUpperInvariant() ?? string.Empty;
+
+                    // Reason text (employee) trimmed to 500
+                    var rawReason = req.Notes?.Notes
+                        ?.FirstOrDefault(n => n.From == "employee")?.Value ?? string.Empty;
+                    var reasonTxt = rawReason.Length > 500
+                        ? rawReason.Substring(0, 500)
+                        : rawReason;
+
+                    // Manager note for cancellation
+                    var managerReason = req.Notes?.Notes
+                        ?.FirstOrDefault(n => n.From == "manager")?.Value;
+
+                    if (existingLeaveApplication != null)
+                    {
+                        // --- UPDATE path ---
+                        existingLeaveApplication.FromDate = req.Start;
+                        existingLeaveApplication.ToDate = req.End;
+                        existingLeaveApplication.TotalLeaveDays = req.Amount.Value;
+                        existingLeaveApplication.AppliedOn = req.Created;
+                        existingLeaveApplication.Reason = reasonTxt;
+                        existingLeaveApplication.ApprovalStatus =
+                            status == "DENIED" ? "REJECTED" :
+                            status == "CANCELED" ? "CANCELLED" :
+                            status == "REQUESTED" ? "SUBMITTED" :
+                            status == "SUPERCEDED" ? "APPROVED" :
+                            status;
+
+                        existingLeaveApplication.CancelledDate =
+                            status == "CANCELED" ? req.Status.LastChanged : (DateTime?)null;
+
+                        existingLeaveApplication.ReasonForCancellation =
+                            status == "CANCELED" ? managerReason : null;
+
+                        leavesToUpdate.Add(existingLeaveApplication);
+
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "UPDATE",
+                            IntegrationStatus = "COMPLETED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails =
+                                $"Updated leave application for employee {internalEmpId}, request ID: {req.Id}"
+                        });
+
+                        continue;
+                    }
+
+                    // --- INSERT path ---
+
+                    // Overlap check in memory
+                    var overlappingLeave = existingLeaves
+                        .FirstOrDefault(l =>
+                            l.IdEmployee == internalEmpId &&
+                            ((l.FromDate <= req.End && l.ToDate >= req.Start) ||
+                             (l.FromDate >= req.Start && l.ToDate <= req.End)));
+
+                    if (overlappingLeave != null)
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails =
+                                $"Leave request overlaps with an existing leave for employee {internalEmpId}, request ID: {req.Id}"
+                        });
+                        continue;
+                    }
+
+                    // Leave config for employee + leave type
+                    if (!leaveConfigMap.TryGetValue(( Convert.ToInt32(internalEmpId), req.Type.Value), out var leaveTemplate) ||
+                        leaveTemplate.IdLeaveTemplateDetails == 0)
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails =
+                                $"Employee Leave Config not found for request ID: {req.Id}, LeaveType: {req.Type.Value}, Employee {internalEmpId}"
+                        });
+                        continue;
+                    }
+
+                    // Work year (in-memory)
+                    var workYear = workYears
+                        .Where(w => req.Start >= w.WorkDateFrom && req.End <= w.WorkDateTo)
+                        .ToList();
+
+                    if (workYear.Count != 1)
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "INSERT",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails =
+                                $"Leave request spans multiple / no work years for employee {internalEmpId}, request ID: {req.Id}"
+                        });
+                        continue;
+                    }
+
+                    // Approver resolution with small cache
+                    var approvedByInternalId = 0;
+                    var changedBy = req.Status.LastChangedByUserId;
+
+                    if (!string.IsNullOrEmpty(changedBy))
+                    {
+                        if (!approverCache.TryGetValue(changedBy, out approvedByInternalId))
+                        {
+                            if (bambooUsers.TryGetValue(changedBy, out var bambooEmployeeId))
+                            {
+                                approvedByInternalId = await GetInternalEmployeeIdFromBambooId(
+                                    Convert.ToInt32(bambooEmployeeId));
+
+                                approverCache[changedBy] = approvedByInternalId;
+                            }
+                        }
+                    }
+
+                    if (approvedByInternalId == 0)
+                    {
+                        logsToInsert.Add(new BambooHRIntegrationLogs
+                        {
+                            EntityType = "LEAVE",
+                            EntityActionType = "APPROVER_CHECK",
+                            IntegrationStatus = "FAILED",
+                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationActionDetails =
+                                $"Approver not found for Bamboo user {changedBy}"
+                        });
+                        continue;
+                    }
+
+                    decimal totalLeaveDays = req.Amount.Value;
+                    if(req.Amount.Unit.ToUpper() == "HOURS")
+                    {
+                        totalLeaveDays = req.Amount.Value / 8;
+                    }
+                    var newLeave = new LeaveApplications
+                    {
+
+                        IdEmployee = internalEmpId.Value,
+                        IdLeaveType = leaveType.IdLeaveType,
+                        FromDate = req.Start,
+                        ToDate = req.End,
+                        TotalLeaveDays = totalLeaveDays,
+                        AppliedOn = req.Created,
+                        Reason = reasonTxt,
+                        ApprovalStatus =
+                             status == "DENIED" ? "REJECTED" :
+                            status == "CANCELED" ? "CANCELLED" :
+                            status == "SUPERCEDED" ? "APPROVED" :
+                            status == "REQUESTED" ? "SUBMITTED" :
+                            status,
+                        BambooHRLeaveRequestID = req.Id,
+                        LeaveTypeName = leaveTemplate.LeaveTypeName,
+                        IdYear = workYear.First().IdWorkYear,
+                        ApprovedBy = approvedByInternalId,
+                        IdLeaveTemplateDetail = leaveTemplate.IdLeaveTemplateDetails,
+                        CancelledDate = status == "CANCELED" ? req.Status.LastChanged : (DateTime?)null,
+                        ReasonForCancellation = status == "CANCELED" ? managerReason : null
+                    };
+
+                    leavesToInsert.Add(newLeave);
+                    existingLeaves.Add(newLeave); // so later overlaps see this
+
+                    logsToInsert.Add(new BambooHRIntegrationLogs
+                    {
+                        EntityType = "LEAVE",
+                        EntityActionType = "INSERT",
+                        IntegrationStatus = "COMPLETED",
+                        IntegrationDate = DateTime.UtcNow,
+                        IntegrationActionDetails =
+                            $"Inserted leave application for employee {internalEmpId}, request ID: {req.Id}"
+                    });
+                }
+
+                if (leavesToInsert.Any())
+                    await _dbContext.LeaveApplications.AddRangeAsync(leavesToInsert);
+
+                if (leavesToUpdate.Any())
+                    _dbContext.LeaveApplications.UpdateRange(leavesToUpdate);
+
+                if (logsToInsert.Any())
+                    await _dbContext.BambooHRIntegrationLogs.AddRangeAsync(logsToInsert);
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Update last run date
+                var lastRun = await _dbContext.BambooHRLeaveIntegrationLastRun.FirstOrDefaultAsync();
+
+                if (lastRun != null)
+                {
+                    lastRun.LeaveIntegrationLastRunDate = end;
+                    _dbContext.BambooHRLeaveIntegrationLastRun.Update(lastRun);
+                }
+                else
+                {
+                    await _dbContext.BambooHRLeaveIntegrationLastRun.AddAsync(
+                        new BambooHRLeaveIntegrationLastRun
+                        {
+                            LeaveIntegrationLastRunDate = end
+                        });
+                }
+
+                await _dbContext.SaveChangesAsync();
+                var idYears = await leaveConfigQuery.Select(x => x.IdYear).Distinct().ToListAsync();
+                foreach(int idyear in idYears)
+                {
+                    await RecalculateLeaveBalancesAsync(idyear);
+                }
+                return "Sync Completed Successfully";
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "SyncTimeOffRequests failed for leave");
+                throw new Exception("Time-off sync failed. Rolled back.");
+            }
+        }
+
+        public async Task RecalculateLeaveBalancesAsync(int idYear)
+        {
+            var sql = @"
+                UPDATE D
+                SET 
+                    D.UsedLeaveDays = ISNULL(L.TotalUsedDays,0),
+                    D.BalanceLeaveDays = D.TotalAllocatedDays - ISNULL(L.TotalUsedDays,0)
+                FROM EmployeeLeaveConfigDetails D
+                INNER JOIN EmployeeLeaveConfigs C 
+                    ON D.IdEmployeeLeaveConfig = C.IdEmployeeLeaveConfig
+                LEFT JOIN
+                (
+                    SELECT 
+                        IdEmployee,
+                        IdLeaveType,
+                        SUM(TotalLeaveDays) AS TotalUsedDays
+                    FROM LeaveApplications
+                    WHERE IdYear = @IdYear
+                      AND ApprovalStatus IN ('APPROVED','SUBMITTED')
+                    GROUP BY IdEmployee, IdLeaveType
+                ) L
+                    ON C.IdEmployee = L.IdEmployee
+                   AND D.IdLeaveType = L.IdLeaveType
+                WHERE D.IdYear = @IdYear;";
+
+            await _dbContext.Database.ExecuteSqlRawAsync( sql, new SqlParameter("@IdYear", idYear));
+        }
+
+        private async Task<Dictionary<string, string>> GetBambooUsersAsync()
+        {
+            var baseUrl = "https://api.bamboohr.com";
+            var apiKey = _configuration["BambooHR:ApiKey"];
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new InvalidOperationException("BambooHR:ApiKey is not configured.");
+
+            var subdomain = ResolveBambooSubdomain();
+
+            var client = new RestClient(new RestClientOptions(baseUrl));
+            var request = new RestRequest($"/api/gateway.php/{subdomain}/v1/meta/users", Method.Get);
+
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:x"));
+            request.AddHeader("Authorization", $"Basic {token}");
+
+            var response = await client.ExecuteAsync(request);
+
+            if (!response.IsSuccessful)
+            {
+                _logger.LogError(
+                    "BambooHR meta/users failed. Status: {StatusCode}, Error: {Error}, Content: {Content}",
+                    response.StatusCode, response.ErrorMessage, response.Content);
+                throw new Exception(
+                    $"Failed to fetch Bamboo users: {response.StatusCode} - {response.ErrorMessage ?? response.Content}");
+            }
+
+            var serializer = new XmlSerializer(typeof(BambooUsersDto));
+            using var reader = new StringReader(response.Content);
+            var result = serializer.Deserialize(reader) as BambooUsersDto;
+
+            if (result?.Users == null)
+                throw new Exception("BambooHR meta/users returned invalid or empty response.");
+
+            // Dictionary<UserId, EmployeeId>
+            return result.Users.ToDictionary(u => u.Id, u => u.EmployeeId);
+        }
+    }
+
+}
+

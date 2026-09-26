@@ -1,0 +1,16 @@
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Nomaro.API.DTO
+{
+    public class LeaveWorkFlowDetailDto
+    {
+        [Key]
+        public int IdWorkFlowConfigDetail { get; set; }
+        public int IdWorkFlowConfig { get; set; }
+        public int LevelNumber { get; set; }
+        public string ApprovalAuthorityType { get; set; }
+        public int? ApprovalAuthorityID { get; set; }
+        public string? ApprovalStatusName { get; set; }
+    }
+}
+

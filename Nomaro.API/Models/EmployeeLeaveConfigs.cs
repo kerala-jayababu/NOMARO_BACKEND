@@ -1,0 +1,24 @@
+﻿
+using System;
+using System.ComponentModel.DataAnnotations;
+namespace Nomaro.API.Models
+{
+    public class EmployeeLeaveConfigs
+    {
+        [Key]
+        public int IdEmployeeLeaveConfig { get; set; }
+        public int IdEmployee { get; set; }
+        public int IdLeaveTemplate { get; set; }
+        public DateTime EffectiveFrom { get; set; }
+        public DateTime? EffectiveTo { get; set; }
+        public int CreatedBy { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public int? UpdatedBy { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        public int? IdApprovedBy { get; set; }
+
+        public string? ApprovalStatus {get;set;}
+    }
+}
+

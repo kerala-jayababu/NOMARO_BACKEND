@@ -1,0 +1,343 @@
+using AutoMapper;
+using Nomaro.API.Database;
+using Nomaro.API.DTO;
+using Nomaro.API.Models;
+using Nomaro.API.Services.Interface;
+using Microsoft.EntityFrameworkCore;
+
+public class SalaryTemplateService : ISalaryTemplateService
+{
+    private readonly ApplicationDBContext _dbContext;
+    private readonly IMapper _mapper;
+    private readonly ILogger<SalaryTemplateService> _logger;
+    private readonly IConfiguration _configuration;
+    private readonly IApprovalWorkflowService _approvalWorkflowService;
+    private readonly IAuditService _auditService;
+
+    public SalaryTemplateService(ApplicationDBContext dbContext, IMapper mapper, ILogger<SalaryTemplateService> logger, IConfiguration configuration, IApprovalWorkflowService approvalWorkflowService, IAuditService auditService)
+    {
+        _dbContext = dbContext;
+        _mapper = mapper;
+        _logger = logger;
+        _configuration = configuration;
+        _approvalWorkflowService = approvalWorkflowService;
+        _auditService = auditService;
+    }
+
+    public async Task<IEnumerable<SalaryTemplateDto>> GetAllSalaryTemplates(string? searchText = null,string? dropdownFilter = null)
+    {
+        try
+        {
+            var query = _dbContext.SalaryTemplates.Where(x=>x.ActiveStatus==true).AsQueryable();
+
+            // Apply search filter if provided
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                query = query.Where(x => x.SalaryTemplateName.Contains(searchText) || x.Description.Contains(searchText));
+            }
+
+            // Apply dropdown filter if provided (e.g., ApprovalStatus)
+            if (!string.IsNullOrEmpty(dropdownFilter))
+            {
+                if(dropdownFilter == _configuration["DropdDownStatus:ApproveStatus"])
+                {
+                    var interminapprovedSatus = _configuration["DropdDownStatus:InterminApproved"];
+                    query = query.Where(x => x.ApprovalStatus == dropdownFilter ||x.ApprovalStatus == interminapprovedSatus);
+                }
+                else
+                {
+                    query = query.Where(x => x.ApprovalStatus == dropdownFilter);
+
+                }
+
+            }
+
+            var templates = await query.ToListAsync();
+
+            var res= _mapper.Map<IEnumerable<SalaryTemplateDto>>(templates);
+
+            foreach (var template in res)
+            {
+                var details = await (from std in _dbContext.SalaryTemplateDetails
+                                     join sh in _dbContext.SalaryHeads
+                                     on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
+                                     from sh in shGroup.DefaultIfEmpty() // LEFT JOIN
+                                     where std.IdSalaryTemplate == template.IdSalaryTemplate
+                                     select new SalaryTemplateDetailDto
+                                     {
+                                         IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
+                                         IdSalaryTemplate = (int)std.IdSalaryTemplate,
+                                         IdSalaryHead = (int)std.IdSalaryHead,
+                                         SalaryHeadName = sh != null ? sh.SalaryHeadName : string.Empty,
+                                         HeadType = sh != null ? sh.HeadType : string.Empty,
+                                         IsTaxable = sh != null && sh.IsTaxable, // Null for boolean
+                                         OrderNumber = sh != null ? sh.OrderNumber : null, // Nullable int
+                                         CalculationMethod = std.CalculationMethod,
+                                         FixedAmount = std.FixedAmount,
+                                         PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
+                                         PercentageValue = std.PercentageValue,
+                                         CustomFormula = std.CustomFormula,
+                                         FinalSalaryAmount = (decimal)std.FinalSalaryAmount,
+                                         Remarks = std.Remarks
+                                     }).ToListAsync();
+
+                template.SalaryTemplateDetails = details;
+            }
+            return res;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching salary templates.");
+            throw;
+        }
+    }
+
+    public async Task<SalaryTemplateDto?> GetSalaryTemplateById(int idSalaryTemplate)
+    {
+        try
+        {
+            // Fetch the SalaryTemplate
+            var salaryTemplate = await (from st in _dbContext.SalaryTemplates
+                                        join emp in _dbContext.Employees
+                                        on st.CreatedBy equals emp.IdEmployee into empGroup
+                                        from emp in empGroup.DefaultIfEmpty() // LEFT JOIN
+                                        where st.IdSalaryTemplate == idSalaryTemplate
+                                        select new SalaryTemplateDto
+                                        {
+                                            IdSalaryTemplate = st.IdSalaryTemplate,
+                                            SalaryTemplateName = st.SalaryTemplateName,
+                                            Description = st.Description,
+                                            CreatedOn =st.CreatedOn,
+                                            ModifiedBy = st.ModifiedBy,
+                                            ModifiedOn = st.ModifiedOn, 
+                                            ApprovalStatus = st.ApprovalStatus,
+                                            ActiveStatus = st.ActiveStatus,
+                                            TotalDeductions = st.TotalDeductions,
+                                            TotalEarnings = st.TotalEarnings,
+                                            NetSalary = st.NetSalary,
+                                            CreatedBy = st.CreatedBy,
+                                            CreatedByValue = emp != null
+                                                ? (emp.FirstName + " " + (string.IsNullOrEmpty(emp.MiddleName) ? "" : emp.MiddleName + " ") + emp.LastName).Trim()
+                                                : string.Empty
+                                        }).FirstOrDefaultAsync();
+            if (salaryTemplate == null)
+            {
+                return null; // Return null if the SalaryTemplate does not exist
+            }
+
+            // Fetch the associated SalaryTemplateDetails with additional fields
+            var details = await (from std in _dbContext.SalaryTemplateDetails
+                                 join sh in _dbContext.SalaryHeads
+                                 on std.IdSalaryHead equals sh.IdSalaryHead into shGroup
+                                 from sh in shGroup.DefaultIfEmpty()
+                                 join ph in _dbContext.SalaryHeads
+                                 on std.PercentageOfIdSalaryHead equals ph.IdSalaryHead into phGroup
+                                 from ph in phGroup.DefaultIfEmpty()
+                                 where std.IdSalaryTemplate == idSalaryTemplate
+                                 select new SalaryTemplateDetailDto
+                                 {
+                                     IdSalaryTemplateDetail = std.IdSalaryTemplateDetail,
+                                     IdSalaryTemplate = (int)std.IdSalaryTemplate,
+                                     IdSalaryHead = (int)std.IdSalaryHead,
+                                     SalaryHeadName = sh != null ? sh.SalaryHeadName : string.Empty,
+                                     SalaryHeadCode = sh != null ? sh.SalaryHeadCode : string.Empty,
+                                     HeadType = sh != null ? sh.HeadType : string.Empty,
+                                     IsTaxable = sh != null && sh.IsTaxable, // Null for boolean
+                                     OrderNumber = sh != null ? sh.OrderNumber : null, // Nullable int
+                                     CalculationMethod = std.CalculationMethod,
+                                     FixedAmount = std.FixedAmount,
+                                     PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
+                                     PercentageOfIdSalaryHeadValue = ph != null ? ph.SalaryHeadName : string.Empty, 
+                                     PercentageValue = std.PercentageValue,
+                                     CustomFormula = std.CustomFormula,
+                                     FinalSalaryAmount = (decimal)std.FinalSalaryAmount,
+                                     Remarks = std.Remarks
+                                 }).ToListAsync();
+
+            // Map the SalaryTemplate to DTO
+            var result = _mapper.Map<SalaryTemplateDto>(salaryTemplate);
+
+            // Attach the details to the DTO
+            result.SalaryTemplateDetails = details;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error fetching SalaryTemplate with ID {idSalaryTemplate}.");
+            throw new Exception("An error occurred while fetching the salary template. Please try again later.");
+        }
+    }
+
+
+    public async Task<SalaryTemplateDto?> AddSalaryTemplate(SalaryTemplateDto dto, int IdEmployee)
+    {
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+        try
+        {
+            // Map and add the SalaryTemplate
+          var templateEntity = new SalaryTemplate();
+            templateEntity.SalaryTemplateName = dto.SalaryTemplateName;
+            templateEntity.Description = dto.Description;
+            templateEntity.TotalDeductions = dto.TotalDeductions;
+            templateEntity.TotalEarnings = dto.TotalEarnings;
+            templateEntity.NetSalary = dto.NetSalary;
+            templateEntity.CreatedBy = IdEmployee;
+            templateEntity.CreatedOn = DateTime.Now;
+            templateEntity.ActiveStatus = dto.ActiveStatus;
+            templateEntity.ApprovalStatus = "SUBMITTED";
+
+            await _dbContext.SalaryTemplates.AddAsync(templateEntity);
+            await _dbContext.SaveChangesAsync();
+
+            // Add associated SalaryTemplateDetails
+            if (dto.SalaryTemplateDetails != null && dto.SalaryTemplateDetails.Any())
+            {
+                foreach (var detailDto in dto.SalaryTemplateDetails)
+                {
+                    var detailEntity = new SalaryTemplateDetails
+                    {
+                        IdSalaryTemplate = templateEntity.IdSalaryTemplate,
+                        IdSalaryHead = detailDto.IdSalaryHead,
+                        CalculationMethod = detailDto.CalculationMethod,
+                        FixedAmount = detailDto.FixedAmount,
+                        PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
+                        PercentageValue = detailDto.PercentageValue,
+                        CustomFormula = detailDto.CustomFormula,
+                        FinalSalaryAmount = detailDto.FinalSalaryAmount,
+                        Remarks = detailDto.Remarks
+                    };
+                    await _dbContext.SalaryTemplateDetails.AddAsync(detailEntity);
+                }
+
+                await _dbContext.SaveChangesAsync();
+            }
+            var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
+            // Step: Call the approval workflow service
+            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED",null,null);
+
+            if (approvalResult != "Approval workflow initiated.")
+            {
+                throw new Exception(approvalResult);
+            }
+
+            await transaction.CommitAsync();
+            await _auditService.LogAuditAsync("Create", "SalaryTemplate", templateEntity.IdSalaryTemplate, dto);
+            return _mapper.Map<SalaryTemplateDto>(templateEntity);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error adding SalaryTemplate and Details.");
+            throw new Exception("An error occurred while adding the salary template. Please try again.");
+        }
+    }
+
+
+    public async Task<SalaryTemplateDto?> UpdateSalaryTemplate(SalaryTemplateDto dto, int IdEmployee)
+    {
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+        try
+        {
+            // Update the SalaryTemplate
+            var templateEntity = await _dbContext.SalaryTemplates.FirstOrDefaultAsync(t => t.IdSalaryTemplate == dto.IdSalaryTemplate);
+            if (templateEntity == null)
+            {
+                _logger.LogWarning("SalaryTemplate with ID {Id} not found for update.", dto.IdSalaryTemplate);
+                return null;
+            }
+
+            var beforeUpdate = _mapper.Map<SalaryTemplateDto>(templateEntity);
+
+            // Manual mapping for update
+            templateEntity.SalaryTemplateName = dto.SalaryTemplateName;
+            templateEntity.Description = dto.Description;
+            templateEntity.TotalDeductions = dto.TotalDeductions;
+            templateEntity.TotalEarnings = dto.TotalEarnings;
+            templateEntity.NetSalary = dto.NetSalary;
+            templateEntity.ModifiedBy = IdEmployee;
+            templateEntity.ModifiedOn = DateTime.Now;
+            templateEntity.ApprovalStatus = dto.ApprovalStatus;
+            templateEntity.ActiveStatus = dto.ActiveStatus;
+
+
+            _dbContext.SalaryTemplates.Update(templateEntity);
+            await _dbContext.SaveChangesAsync();
+
+            // Handle SalaryTemplateDetails
+            if (dto.SalaryTemplateDetails != null)
+            {
+                var existingDetails = await _dbContext.SalaryTemplateDetails
+                    .Where(d => d.IdSalaryTemplate == dto.IdSalaryTemplate)
+                    .ToListAsync();
+
+                // Delete details that are not in the updated DTO
+                var detailsToDelete = existingDetails
+                    .Where(ed => !dto.SalaryTemplateDetails.Any(d => d.IdSalaryTemplateDetail == ed.IdSalaryTemplateDetail))
+                    .ToList();
+                _dbContext.SalaryTemplateDetails.RemoveRange(detailsToDelete);
+
+                // Update existing details and add new ones
+                foreach (var detailDto in dto.SalaryTemplateDetails)
+                {
+                    var existingDetail = existingDetails.FirstOrDefault(ed => ed.IdSalaryTemplateDetail == detailDto.IdSalaryTemplateDetail);
+                    if (existingDetail != null)
+                    {
+                        // Update existing detail
+                        existingDetail.IdSalaryHead = detailDto.IdSalaryHead;
+                        existingDetail.CalculationMethod = detailDto.CalculationMethod;
+                        existingDetail.FixedAmount = detailDto.FixedAmount;
+                        existingDetail.PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead;
+                        existingDetail.PercentageValue = detailDto.PercentageValue;
+                        existingDetail.CustomFormula = detailDto.CustomFormula;
+                        existingDetail.FinalSalaryAmount = detailDto.FinalSalaryAmount;
+                        existingDetail.Remarks = detailDto.Remarks;
+
+                        _dbContext.SalaryTemplateDetails.Update(existingDetail);
+                    }
+                    else
+                    {
+                        // Insert new detail manually
+                        var newDetailEntity = new SalaryTemplateDetails
+                        {
+                            IdSalaryTemplate = templateEntity.IdSalaryTemplate,
+                            IdSalaryHead = detailDto.IdSalaryHead,
+                            CalculationMethod = detailDto.CalculationMethod,
+                            FixedAmount = detailDto.FixedAmount,
+                            PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
+                            PercentageValue = detailDto.PercentageValue,
+                            CustomFormula = detailDto.CustomFormula,
+                            FinalSalaryAmount = detailDto.FinalSalaryAmount,
+                            Remarks = detailDto.Remarks
+                        };
+
+                        await _dbContext.SalaryTemplateDetails.AddAsync(newDetailEntity);
+
+
+
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+            }
+            var entityCode = _configuration["WorkflowEntityCodes:SalaryTemplate"];
+            // Step: Call the approval workflow service
+            var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(templateEntity.IdSalaryTemplate, entityCode, IdEmployee, "SUBMITTED", null,null);
+
+            await transaction.CommitAsync();
+            await _auditService.LogAuditAsync("Update", "SalaryTemplate", templateEntity.IdSalaryTemplate, new { before = beforeUpdate, after = dto });
+            return _mapper.Map<SalaryTemplateDto>(templateEntity);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error updating SalaryTemplate and Details.");
+            throw new Exception("An error occurred while updating the salary template. Please try again.");
+        }
+    }
+
+
+}
+
