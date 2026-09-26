@@ -55,6 +55,9 @@ namespace Nomaro.API.Helpers
             CreateMap<AssetTypes, AssetTypeDto>().ReverseMap();
             CreateMap<Assets, AssetDto>().ReverseMap();
             CreateMap<ExitTypes, ExitTypeDto>().ReverseMap();
+            CreateMap<OfficeTypes, OfficeTypeDto>().ReverseMap();
+            CreateMap<Offices, OfficeDto>().ReverseMap();
+            CreateMap<EmployeeOfficePostings, EmployeeOfficePostingDto>().ReverseMap();
             
             #region Time & Attendance
             CreateMap<ShiftDefinitionEntity, ShiftDto>().ReverseMap();

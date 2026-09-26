@@ -81,6 +81,12 @@ namespace Nomaro.API.Database
         public DbSet<DocumentTypes> DocumentTypes { get; set; }
         public DbSet<EmployeeTypes> EmployeeTypes { get; set; }
 
+        #region Office Management
+        public DbSet<OfficeTypes> OfficeTypes { get; set; }
+        public DbSet<Offices> Offices { get; set; }
+        public DbSet<EmployeeOfficePostings> EmployeeOfficePostings { get; set; }
+        #endregion
+
         public DbSet<Nationalities> Nationalities { get; set; }
         public DbSet<UserLastActivity> UserLastActivity { get; set; }
 
