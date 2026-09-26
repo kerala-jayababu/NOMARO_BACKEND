@@ -239,7 +239,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<UserActivityMiddleware>();
+//app.UseMiddleware<UserActivityMiddleware>();
 app.UseRateLimiter();
 
 app.MapControllers();
