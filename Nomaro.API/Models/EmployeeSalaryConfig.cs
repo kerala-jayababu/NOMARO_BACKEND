@@ -18,6 +18,15 @@ namespace Nomaro.API.Models
         public decimal? TotalEarnings { get; set; }
         public decimal? TotalDeductions { get; set; }
         public decimal? NetSalary { get; set; }
+        public decimal? CTCAnnual { get; set; }
+        public decimal? CTCMonthly { get; set; }
+        public decimal? GrossMonthly { get; set; }
+        public decimal? TotalEmployerContribution { get; set; }
+        public string? RevisionReason { get; set; }
+        public int? ApprovedBy { get; set; }
+        public DateTime? ApprovedOn { get; set; }
+        public int? ModifiedBy { get; set; }
+        public DateTime? ModifiedOn { get; set; }
 
         [NotMapped]
         public virtual ICollection<EmployeeSalaryConfigDetails> EmployeeSalaryConfigDetails { get; set; }

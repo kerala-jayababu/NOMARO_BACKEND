@@ -16,5 +16,16 @@ namespace Nomaro.API.DTO
 
         [NotMapped]
         public string? AssetTypeName { get; set; }
+
+        // Current allocation (AssetAssignments). Both optional: an asset is allocated to an office,
+        // and to an employee of that office only when chosen explicitly.
+        public int? IdOffice { get; set; }
+        public int? IdEmployee { get; set; }
+        [NotMapped]
+        public string? OfficeName { get; set; }
+        [NotMapped]
+        public string? EmployeeCode { get; set; }
+        [NotMapped]
+        public string? EmployeeName { get; set; }
     }
 }

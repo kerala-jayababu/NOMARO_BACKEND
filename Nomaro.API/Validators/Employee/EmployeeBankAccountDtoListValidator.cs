@@ -57,7 +57,7 @@ namespace Nomaro.API.Validators.Employee
                     .MaximumLength(30)
                         .WithMessage("AccountNumber must not exceed 30 characters.");
 
-                // CurrencyCode (required, max length 10, must be "GYD" or "USD")
+                // CurrencyCode (required, max length 10, must be "INR", "GYD" or "USD")
                 account.RuleFor(a => a.CurrencyCode)
                     .Cascade(CascadeMode.Stop)
                     .NotEmpty()
@@ -68,9 +68,9 @@ namespace Nomaro.API.Validators.Employee
                     {
                         if (string.IsNullOrWhiteSpace(code)) return false;
                         var c = code.Trim().ToUpperInvariant();
-                        return c == "GYD" || c == "USD";
+                        return c == "INR" || c == "GYD" || c == "USD";
                     })
-                        .WithMessage("CurrencyCode must be either 'GYD' or 'USD'.");
+                        .WithMessage("CurrencyCode must be 'INR', 'GYD' or 'USD'.");
             });
 
             // 2) “Sum of all SalaryPercentageDistributed ≤ 100” 

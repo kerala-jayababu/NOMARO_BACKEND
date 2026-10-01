@@ -12,6 +12,8 @@ namespace Nomaro.API.Services.Interface
         Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto, int IdEmployee);
         Task<EmployeeSalaryConfigDto?> UnApproveEmployeeSalaryConfig(int idEmployeeSalaryConfig, int idEmployee);
         Task<int?> GetNotConfiguredEmployeeCount();
+        Task<EmployeeSalaryStructureInfoDto> GetEmployeeSalaryStructureInfo(int idEmployee);
+        Task<SalaryStructureResultDto> CalculateSalaryStructure(IEnumerable<SalaryStructureRowDto> rows);
         
     }
 }

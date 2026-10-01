@@ -2,6 +2,7 @@ using AutoMapper;
 using Dapper;
 using Nomaro.API.Database;
 using Nomaro.API.DTO;
+using Nomaro.API.Helpers;
 using Nomaro.API.Models;
 using Nomaro.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -239,60 +240,44 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
         {
             try
             {
-                // Fetch EmployeeSalaryConfig with details in a single query
-                var config = await _dbContext.EmployeeSalaryConfig
-                    .Where(c => c.IdEmployeeSalaryConfig == id)
-                    .Select(c => new EmployeeSalaryConfigDto
-                    {
-                        IdEmployeeSalaryConfig = c.IdEmployeeSalaryConfig,
-                        CreatedBy = (int)c.CreatedBy,
-                        CreatedByValue = _dbContext.Employees
-                            .Where(e => e.IdEmployee == c.CreatedBy)
-                            .Select(e => e.FirstName + " " + e.MiddleName + " " + e.LastName)
-                            .FirstOrDefault(),
-                        IdEmployee = c.IdEmployee,
-                        ValidFrom = c.ValidFrom,
-                        ValidTo = c.ValidTo,
-                        IdSalaryTemplate = c.IdSalaryTemplate,
-                        ApprovalStatus = c.ApprovalStatus,
-                        ActiveStatus = c.ActiveStatus,
-                        TotalEarnings = c.TotalEarnings,
-                        CreatedOn = (DateTime)c.CreatedOn,
-                        TotalDeductions = c.TotalDeductions,
-                        NetSalary = c.NetSalary,
+                var config = await (from c in _dbContext.EmployeeSalaryConfig
+                                    join emp in _dbContext.Employees
+                                    on c.CreatedBy equals emp.IdEmployee into empGroup
+                                    from emp in empGroup.DefaultIfEmpty()
+                                    where c.IdEmployeeSalaryConfig == id
+                                    select new EmployeeSalaryConfigDto
+                                    {
+                                        IdEmployeeSalaryConfig = c.IdEmployeeSalaryConfig,
+                                        CreatedBy = c.CreatedBy ?? 0,
+                                        CreatedByValue = emp != null ? emp.FirstName + " " + emp.MiddleName + " " + emp.LastName : null,
+                                        IdEmployee = c.IdEmployee,
+                                        ValidFrom = c.ValidFrom,
+                                        ValidTo = c.ValidTo,
+                                        IdSalaryTemplate = c.IdSalaryTemplate,
+                                        ApprovalStatus = c.ApprovalStatus,
+                                        ActiveStatus = c.ActiveStatus,
+                                        CreatedOn = c.CreatedOn ?? DateTime.MinValue,
+                                        ModifiedBy = c.ModifiedBy,
+                                        ModifiedOn = c.ModifiedOn,
+                                        ApprovedBy = c.ApprovedBy,
+                                        ApprovedOn = c.ApprovedOn,
+                                        ApprovedDate = c.ApprovedOn,
+                                        RevisionReason = c.RevisionReason,
+                                        TotalEarnings = c.TotalEarnings,
+                                        TotalDeductions = c.TotalDeductions,
+                                        NetSalary = c.NetSalary,
+                                        CTCAnnual = c.CTCAnnual,
+                                        CTCMonthly = c.CTCMonthly,
+                                        GrossMonthly = c.GrossMonthly,
+                                        TotalEmployerContribution = c.TotalEmployerContribution
+                                    })
+                                    .AsNoTracking()
+                                    .FirstOrDefaultAsync();
 
-                        EmployeeSalaryConfigDetails = _dbContext.EmployeeSalaryConfigDetails
-                            .Where(d => d.IdEmployeeSalaryConfig == c.IdEmployeeSalaryConfig)
-                            .Select(d => new EmployeeSalaryConfigDetailsDto
-                            {
-                                IdEmployeeSalaryConfig = d.IdEmployeeSalaryConfig,
-                                CustomFormula = d.CustomFormula,
-                                SalaryAmount = d.SalaryAmount,
-                                PercentageOfIdSalaryHead = d.PercentageOfIdSalaryHead,
-                                IdEmployeeSalaryConfigDetail = d.IdEmployeeSalaryConfigDetail,
-                                IdSalaryHead = d.IdSalaryHead,
-                                FixedAmount = d.FixedAmount,
-                                PercentageValue = d.PercentageValue,
-                                CalculationMethod = d.CalculationMethod,
-                                SalaryHeadName = _dbContext.SalaryHeads
-                                    .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
-                                    .Select(sh => sh.SalaryHeadName)
-                                    .FirstOrDefault(),
-                                HeadType = _dbContext.SalaryHeads
-                                    .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
-                                    .Select(sh => sh.HeadType)
-                                    .FirstOrDefault(),
-                                SalaryHeadCode = _dbContext.SalaryHeads
-                                    .Where(sh => sh.IdSalaryHead == d.IdSalaryHead)
-                                    .Select(sh => sh.SalaryHeadCode)
-                                    .FirstOrDefault(),
-                                PercentageOfIdSalaryHeadValue = _dbContext.SalaryHeads
-                    .Where(ph => ph.IdSalaryHead == d.PercentageOfIdSalaryHead)
-                    .Select(ph => ph.SalaryHeadName)
-                    .FirstOrDefault() ?? string.Empty
-                            }).ToList()
-                    })
-                    .FirstOrDefaultAsync();
+                if (config != null)
+                {
+                    config.EmployeeSalaryConfigDetails = await GetConfigDetails(id);
+                }
 
                 if (config == null)
                 {
@@ -537,61 +522,223 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
 
 
 
+        private static readonly string[] ApprovedStatuses = { "APPROVED", "FINAL APPROVED" };
+        private static readonly string[] PendingStatuses = { "SUBMITTED", "INTERIM APPROVED" };
+
+        /// <summary>
+        /// Structure rows with the head information (method, base head, formula) taken from SalaryHeads,
+        /// sorted by Type and then Calculation Sequence.
+        /// </summary>
+        private async Task<List<EmployeeSalaryConfigDetailsDto>> GetConfigDetails(int idEmployeeSalaryConfig)
+        {
+            var rows = await (from d in _dbContext.EmployeeSalaryConfigDetails
+                              join sh in _dbContext.SalaryHeads
+                              on d.IdSalaryHead equals sh.IdSalaryHead into shGroup
+                              from sh in shGroup.DefaultIfEmpty()
+                              join ph in _dbContext.SalaryHeads
+                              on sh.IdPercentageSalaryHead equals ph.IdSalaryHead into phGroup
+                              from ph in phGroup.DefaultIfEmpty()
+                              where d.IdEmployeeSalaryConfig == idEmployeeSalaryConfig
+                              select new { d, sh, BaseHeadName = ph != null ? ph.SalaryHeadName : null })
+                              .AsNoTracking()
+                              .ToListAsync();
+
+            return rows
+                .Select(x => new EmployeeSalaryConfigDetailsDto
+                {
+                    IdEmployeeSalaryConfigDetail = x.d.IdEmployeeSalaryConfigDetail,
+                    IdEmployeeSalaryConfig = x.d.IdEmployeeSalaryConfig,
+                    IdSalaryHead = x.d.IdSalaryHead,
+                    FixedAmount = x.d.FixedAmount,
+                    PercentageValue = x.d.PercentageValue,
+                    SalaryAmount = x.d.SalaryAmount,
+                    SalaryHeadName = x.sh?.SalaryHeadName,
+                    SalaryHeadCode = x.sh?.SalaryHeadCode,
+                    HeadType = x.sh?.HeadType,
+                    CalcSequence = x.sh?.CalcSequence,
+                    CalculationMethod = x.sh?.CalculationMethod,
+                    PercentageOfIdSalaryHead = x.sh?.IdPercentageSalaryHead,
+                    PercentageOfIdSalaryHeadValue = x.BaseHeadName ?? string.Empty,
+                    CustomFormula = x.sh?.CustomFormula,
+                    PaidInNote = x.sh != null && !SalaryStructureCalculator.IsMonthlyHead(x.sh) ? SalaryStructureCalculator.BuildPaidInNote(x.sh) : null
+                })
+                .OrderBy(d => SalaryStructureCalculator.HeadTypeDisplayOrder(d.HeadType))
+                .ThenBy(d => d.CalcSequence ?? int.MaxValue)
+                .ToList();
+        }
+
+        public async Task<SalaryStructureResultDto> CalculateSalaryStructure(IEnumerable<SalaryStructureRowDto> rows)
+        {
+            var heads = await _dbContext.SalaryHeads.AsNoTracking().ToDictionaryAsync(h => h.IdSalaryHead);
+            return SalaryStructureCalculator.Calculate(rows, heads);
+        }
+
+        /// <summary>The employee's current approved, active structure (latest Valid From).</summary>
+        private Task<EmployeeSalaryConfig?> GetCurrentApprovedStructure(int idEmployee, int? excludeIdEmployeeSalaryConfig = null)
+        {
+            return _dbContext.EmployeeSalaryConfig.AsNoTracking()
+                .Where(c => c.IdEmployee == idEmployee
+                    && c.ApprovalStatus != null && ApprovedStatuses.Contains(c.ApprovalStatus)
+                    && c.ActiveStatus != false
+                    && c.IdEmployeeSalaryConfig != (excludeIdEmployeeSalaryConfig ?? 0))
+                .OrderByDescending(c => c.ValidFrom)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<EmployeeSalaryStructureInfoDto> GetEmployeeSalaryStructureInfo(int idEmployee)
+        {
+            var current = await GetCurrentApprovedStructure(idEmployee);
+            var hasPending = await _dbContext.EmployeeSalaryConfig.AsNoTracking()
+                .AnyAsync(c => c.IdEmployee == idEmployee && c.ApprovalStatus != null && PendingStatuses.Contains(c.ApprovalStatus));
+
+            // Default Valid From: 1st of next month, and after the current structure's start
+            var today = DateTime.Today;
+            var defaultValidFrom = new DateTime(today.Year, today.Month, 1).AddMonths(1);
+            if (current != null && defaultValidFrom <= current.ValidFrom)
+            {
+                defaultValidFrom = new DateTime(current.ValidFrom.Year, current.ValidFrom.Month, 1).AddMonths(1);
+            }
+
+            var info = new EmployeeSalaryStructureInfoDto
+            {
+                IdEmployee = idEmployee,
+                IdCurrentEmployeeSalaryConfig = current?.IdEmployeeSalaryConfig,
+                CurrentValidFrom = current?.ValidFrom,
+                CurrentNetSalary = current?.NetSalary,
+                HasPendingStructure = hasPending,
+                DefaultValidFrom = defaultValidFrom,
+                DefaultRevisionReason = current == null ? "JOINING" : "INCREMENT"
+            };
+            if (hasPending)
+            {
+                info.Warnings.Add("This employee already has a salary structure waiting for approval.");
+            }
+            return info;
+        }
+
+        /// <summary>
+        /// Checks the header and rows and calculates the amounts. Throws InvalidOperationException with the user message.
+        /// Returns the calculation and any non-blocking warnings.
+        /// </summary>
+        private async Task<(SalaryStructureResultDto Result, List<string> Warnings)> ValidateAndCalculate(EmployeeSalaryConfigDto dto, int? idEmployeeSalaryConfig)
+        {
+            if (dto.IdEmployee <= 0)
+                throw new InvalidOperationException("Select an employee.");
+            if (!dto.ValidFrom.HasValue || dto.ValidFrom.Value.Day != 1)
+                throw new InvalidOperationException("Valid From must be the first day of a month.");
+
+            var validFrom = dto.ValidFrom.Value.Date;
+
+            var current = await GetCurrentApprovedStructure(dto.IdEmployee, idEmployeeSalaryConfig);
+            if (current != null && validFrom <= current.ValidFrom.Date)
+            {
+                throw new InvalidOperationException(
+                    $"Valid From must be after {current.ValidFrom:dd-MM-yyyy}, the start of the current salary structure.");
+            }
+
+            var pendingExists = await _dbContext.EmployeeSalaryConfig.AsNoTracking()
+                .AnyAsync(c => c.IdEmployee == dto.IdEmployee
+                    && c.IdEmployeeSalaryConfig != (idEmployeeSalaryConfig ?? 0)
+                    && c.ApprovalStatus != null && PendingStatuses.Contains(c.ApprovalStatus));
+            if (pendingExists)
+                throw new InvalidOperationException("This employee already has a salary structure waiting for approval.");
+
+            var sameDateExists = await _dbContext.EmployeeSalaryConfig.AsNoTracking()
+                .AnyAsync(c => c.IdEmployee == dto.IdEmployee
+                    && c.IdEmployeeSalaryConfig != (idEmployeeSalaryConfig ?? 0)
+                    && c.ValidFrom == validFrom
+                    && c.ApprovalStatus != "REJECTED");
+            if (sameDateExists)
+                throw new InvalidOperationException("A salary configuration with the same Valid From Date already exists for this employee.");
+
+            if (dto.IdSalaryTemplate.HasValue && dto.IdSalaryTemplate > 0)
+            {
+                var templateOk = await _dbContext.SalaryTemplates.AsNoTracking()
+                    .AnyAsync(t => t.IdSalaryTemplate == dto.IdSalaryTemplate && t.ActiveStatus
+                        && t.ApprovalStatus != null && ApprovedStatuses.Contains(t.ApprovalStatus));
+                if (!templateOk)
+                    throw new InvalidOperationException("Select a salary template that is approved and active.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.RevisionReason))
+            {
+                if (current != null)
+                    throw new InvalidOperationException("Select a revision reason.");
+                dto.RevisionReason = "JOINING";
+            }
+            dto.RevisionReason = dto.RevisionReason.Trim().ToUpper();
+
+            var rows = (dto.EmployeeSalaryConfigDetails ?? new List<EmployeeSalaryConfigDetailsDto>())
+                .Select(d => new SalaryStructureRowDto { IdSalaryHead = d.IdSalaryHead, FixedAmount = d.FixedAmount, PercentageValue = d.PercentageValue });
+            var result = await CalculateSalaryStructure(rows);
+            if (result.Errors.Any())
+                throw new InvalidOperationException(string.Join(" ", result.Errors));
+
+            // Warning only: salary for the Valid From month has already been generated
+            var warnings = new List<string>();
+            var monthEnd = validFrom.AddMonths(1).AddDays(-1);
+            var generatedMonth = await (from es in _dbContext.EmployeeSalaries
+                                        join sm in _dbContext.SalaryMonths on es.IdSalaryMonth equals sm.IdSalaryMonth
+                                        where es.IdEmployee == dto.IdEmployee && sm.SalaryMonthDate >= validFrom && sm.SalaryMonthDate <= monthEnd
+                                        select sm.SalaryMonthDate).FirstOrDefaultAsync();
+            if (generatedMonth != default)
+            {
+                warnings.Add($"Salary for {validFrom:MMM-yyyy} is already generated. Arrears will be needed.");
+            }
+
+            return (result, warnings);
+        }
+
+        private static void ApplyTotals(EmployeeSalaryConfig entity, SalaryStructureResultDto result)
+        {
+            entity.TotalEarnings = result.TotalEarnings;
+            entity.TotalDeductions = result.TotalDeductions;
+            entity.NetSalary = result.NetSalary;
+            entity.TotalEmployerContribution = result.TotalEmployerContribution;
+            entity.GrossMonthly = result.GrossMonthly;
+            entity.CTCMonthly = result.CTCMonthly;
+            entity.CTCAnnual = result.CTCAnnual;
+        }
+
         public async Task<EmployeeSalaryConfigDto?> AddConfig(EmployeeSalaryConfigDto dto, int IdEmployee)
         {
+            var (result, warnings) = await ValidateAndCalculate(dto, null);
+
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                if (dto.ValidFrom.HasValue && dto.IdEmployee > 0)
+                var configEntity = new EmployeeSalaryConfig
                 {
-                    var exists = await EmployeeSalaryConfigExistsForEmployeeOnValidFromDateAsync(dto.IdEmployee, dto.ValidFrom.Value);
-                    if (exists)
-                    {
-                        throw new InvalidOperationException(
-                            "A salary configuration with the same Valid From Date already exists for this employee.");
-                    }
-                }
-
-                // Map and insert EmployeeSalaryConfig
-                var configEntity = _mapper.Map<EmployeeSalaryConfig>(dto);
-                configEntity.ApprovalStatus = "SUBMITTED";
-                configEntity.CreatedBy = IdEmployee;
-                configEntity.CreatedOn = DateTime.Now;
+                    IdEmployee = dto.IdEmployee,
+                    ValidFrom = dto.ValidFrom!.Value.Date,
+                    ValidTo = null,
+                    IdSalaryTemplate = dto.IdSalaryTemplate > 0 ? dto.IdSalaryTemplate : null,
+                    RevisionReason = dto.RevisionReason,
+                    ApprovalStatus = "SUBMITTED",
+                    ActiveStatus = true,
+                    CreatedBy = IdEmployee,
+                    CreatedOn = DateTime.Now
+                };
+                ApplyTotals(configEntity, result);
 
                 _dbContext.EmployeeSalaryConfig.Add(configEntity);
                 await _dbContext.SaveChangesAsync();
 
-                // Insert related EmployeeSalaryConfigDetails
-                if (dto.EmployeeSalaryConfigDetails != null && dto.EmployeeSalaryConfigDetails.Any())
+                foreach (var row in result.Rows)
                 {
-                    foreach (var detailDto in dto.EmployeeSalaryConfigDetails)
+                    _dbContext.EmployeeSalaryConfigDetails.Add(new EmployeeSalaryConfigDetails
                     {
-                        var detailEntity = new EmployeeSalaryConfigDetails
-                        {
-                            IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig,
-                            IdSalaryHead = detailDto.IdSalaryHead,
-                            CalculationMethod = detailDto.CalculationMethod,
-                            FixedAmount = detailDto.FixedAmount,
-                            PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
-                            PercentageValue = detailDto.PercentageValue,
-                            CustomFormula = detailDto.CustomFormula,
-                            SalaryAmount = detailDto.SalaryAmount,
-                        };
-
-                        _dbContext.EmployeeSalaryConfigDetails.Add(detailEntity);
-                    }
-                    await _dbContext.SaveChangesAsync();
-
-
+                        IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig,
+                        IdSalaryHead = row.IdSalaryHead,
+                        FixedAmount = row.FixedAmount,
+                        PercentageValue = row.PercentageValue,
+                        SalaryAmount = row.CalculatedValue
+                    });
                 }
+                await _dbContext.SaveChangesAsync();
 
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
                 var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(configEntity.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null, null);
-
-                //if (approvalResult != "Approval workflow initiated.")
-                //{
-                //    throw new Exception(approvalResult);
-                //}
 
                 await transaction.CommitAsync();
 
@@ -599,14 +746,11 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     actionType: "Create",
                     entityName: "EmployeeSalaryConfig",
                     entityId: configEntity.IdEmployeeSalaryConfig,
-                    actionDetails: new { after = configEntity, createdBy = IdEmployee });
+                    actionDetails: new { after = BuildSalaryConfigAuditSnapshot(configEntity, result.Rows.Count), createdBy = IdEmployee });
 
-                return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
-            }
-            catch (InvalidOperationException)
-            {
-                await transaction.RollbackAsync();
-                throw;
+                var saved = _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
+                saved.Warnings = warnings;
+                return saved;
             }
             catch (Exception ex)
             {
@@ -616,113 +760,76 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
             }
         }
 
-        private Task<bool> EmployeeSalaryConfigExistsForEmployeeOnValidFromDateAsync(int idEmployee, DateTime validFrom)
-        {
-            var dayStart = validFrom.Date;
-            var dayEnd = dayStart.AddDays(1);
-            return _dbContext.EmployeeSalaryConfig.AsNoTracking()
-                .AnyAsync(c => c.IdEmployee == idEmployee && c.ValidFrom >= dayStart);
-        }
-
-
         public async Task<EmployeeSalaryConfigDto?> UpdateConfig(EmployeeSalaryConfigDto dto, int IdEmployee)
         {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            var configEntity = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == dto.IdEmployeeSalaryConfig);
+            if (configEntity == null)
+            {
+                _logger.LogWarning("Attempt to update a non-existent Employee Salary Configuration with ID: {Id}.", dto.IdEmployeeSalaryConfig);
+                return null;
+            }
 
+            // A submitted (or rejected) structure can be edited until it's approved; an approved one never is
+            if (configEntity.ApprovalStatus != null && ApprovedStatuses.Contains(configEntity.ApprovalStatus))
+            {
+                throw new InvalidOperationException("An approved salary structure cannot be edited. Create a new structure with a new Valid From.");
+            }
+
+            // The employee of a structure cannot be changed
+            dto.IdEmployee = configEntity.IdEmployee;
+            var (result, warnings) = await ValidateAndCalculate(dto, configEntity.IdEmployeeSalaryConfig);
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                // Update EmployeeSalaryConfig
-                var configEntity = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig == dto.IdEmployeeSalaryConfig);
-                if (configEntity == null)
+                var detailCount = await _dbContext.EmployeeSalaryConfigDetails.CountAsync(d => d.IdEmployeeSalaryConfig == configEntity.IdEmployeeSalaryConfig);
+                var beforeUpdate = BuildSalaryConfigAuditSnapshot(configEntity, detailCount);
+
+                configEntity.ValidFrom = dto.ValidFrom!.Value.Date;
+                configEntity.ValidTo = null;
+                configEntity.IdSalaryTemplate = dto.IdSalaryTemplate > 0 ? dto.IdSalaryTemplate : null;
+                configEntity.RevisionReason = dto.RevisionReason;
+                configEntity.ApprovalStatus = "SUBMITTED";
+                configEntity.ActiveStatus = true;
+                configEntity.ModifiedBy = IdEmployee;
+                configEntity.ModifiedOn = DateTime.Now;
+                ApplyTotals(configEntity, result);
+
+                // One row per head: update rows of heads still in the grid, add new heads, remove the rest
+                var existingDetails = await _dbContext.EmployeeSalaryConfigDetails
+                    .Where(d => d.IdEmployeeSalaryConfig == configEntity.IdEmployeeSalaryConfig)
+                    .ToListAsync();
+
+                _dbContext.EmployeeSalaryConfigDetails.RemoveRange(
+                    existingDetails.Where(ed => !result.Rows.Any(r => r.IdSalaryHead == ed.IdSalaryHead)));
+
+                foreach (var row in result.Rows)
                 {
-                    _logger.LogWarning("Attempt to update a non-existent Employee Salary Configuration with ID: {Id}.", dto.IdEmployeeSalaryConfig);
-                    return null;
-                }
-                // Check whether another record already exists for the same From Date
-                var configEntity2 = await _dbContext.EmployeeSalaryConfig.FirstOrDefaultAsync(c => c.IdEmployeeSalaryConfig != dto.IdEmployeeSalaryConfig
-                    && c.ValidFrom.Date == dto.ValidFrom.Value.Date);
-                if (configEntity2 != null)
-                {
-                    throw new InvalidOperationException("A salary configuration already exists for the selected 'Valid From' date.");
+                    var existingDetail = existingDetails.FirstOrDefault(ed => ed.IdSalaryHead == row.IdSalaryHead);
+                    if (existingDetail != null)
+                    {
+                        existingDetail.FixedAmount = row.FixedAmount;
+                        existingDetail.PercentageValue = row.PercentageValue;
+                        existingDetail.SalaryAmount = row.CalculatedValue;
+                    }
+                    else
+                    {
+                        _dbContext.EmployeeSalaryConfigDetails.Add(new EmployeeSalaryConfigDetails
+                        {
+                            IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig,
+                            IdSalaryHead = row.IdSalaryHead,
+                            FixedAmount = row.FixedAmount,
+                            PercentageValue = row.PercentageValue,
+                            SalaryAmount = row.CalculatedValue
+                        });
+                    }
                 }
 
-                // Manual mapping for update
-                configEntity.IdEmployee = dto.IdEmployee;
-                configEntity.ValidFrom = (DateTime)dto.ValidFrom;
-                configEntity.ValidTo = dto.ValidTo;
-                configEntity.IdSalaryTemplate = dto.IdSalaryTemplate;
-                configEntity.TotalEarnings = dto.TotalEarnings;
-                configEntity.TotalDeductions = dto.TotalDeductions;
-                configEntity.NetSalary = dto.NetSalary;
-                configEntity.ApprovalStatus = dto.ApprovalStatus;
-                configEntity.ActiveStatus = dto.ActiveStatus;
-
-                _dbContext.EmployeeSalaryConfig.Update(configEntity);
                 await _dbContext.SaveChangesAsync();
 
-                // Update EmployeeSalaryConfigDetails
-                if (dto.EmployeeSalaryConfigDetails != null)
-                {
-                    var existingDetails = await _dbContext.EmployeeSalaryConfigDetails
-                        .Where(d => d.IdEmployeeSalaryConfig == configEntity.IdEmployeeSalaryConfig)
-                        .ToListAsync();
-
-                    // Delete details that are no longer in the DTO
-                    var detailsToDelete = existingDetails
-                        .Where(d => !dto.EmployeeSalaryConfigDetails.Any(dtoDetail => dtoDetail.IdEmployeeSalaryConfigDetail == d.IdEmployeeSalaryConfigDetail))
-                        .ToList();
-                    _dbContext.EmployeeSalaryConfigDetails.RemoveRange(detailsToDelete);
-
-                    // Update existing details
-                    foreach (var detailDto in dto.EmployeeSalaryConfigDetails)
-                    {
-                        var existingDetail = existingDetails.FirstOrDefault(d => d.IdEmployeeSalaryConfigDetail == detailDto.IdEmployeeSalaryConfigDetail);
-                        if (existingDetail != null)
-                        {
-                            existingDetail.IdSalaryHead = detailDto.IdSalaryHead;
-                            existingDetail.CalculationMethod = detailDto.CalculationMethod;
-                            existingDetail.FixedAmount = detailDto.FixedAmount;
-                            existingDetail.PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead;
-                            existingDetail.PercentageValue = detailDto.PercentageValue;
-                            existingDetail.CustomFormula = detailDto.CustomFormula;
-                            existingDetail.SalaryAmount = detailDto.SalaryAmount;
-                            _dbContext.EmployeeSalaryConfigDetails.Update(existingDetail);
-                        }
-                        else
-                        {
-                            // Add new details
-                            var trackedEntity = _dbContext.ChangeTracker.Entries<EmployeeSalaryConfigDetails>()
-            .FirstOrDefault(e => e.Entity.IdEmployeeSalaryConfigDetail == detailDto.IdEmployeeSalaryConfigDetail);
-
-                            if (trackedEntity != null)
-                            {
-                                _dbContext.Entry(trackedEntity.Entity).State = EntityState.Detached;
-                            }
-
-                            // Add new details
-                            var newDetailEntity = new EmployeeSalaryConfigDetails
-                            {
-                                IdEmployeeSalaryConfigDetail = null,
-                                IdEmployeeSalaryConfig = configEntity.IdEmployeeSalaryConfig,
-                                IdSalaryHead = detailDto.IdSalaryHead,
-                                CalculationMethod = detailDto.CalculationMethod,
-                                FixedAmount = detailDto.FixedAmount,
-                                PercentageValue = detailDto.PercentageValue,
-                                PercentageOfIdSalaryHead = detailDto.PercentageOfIdSalaryHead,
-                                CustomFormula = detailDto.CustomFormula,
-                                SalaryAmount = detailDto.SalaryAmount
-                            };
-                            _dbContext.EmployeeSalaryConfigDetails.Add(newDetailEntity);
-                        }
-                    }
-
-                    await _dbContext.SaveChangesAsync();
-                }
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];
                 // Step: Call the approval workflow service
-                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow((int)dto.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null, null);
-
-                var beforeUpdate = BuildSalaryConfigAuditSnapshot(configEntity, configEntity.EmployeeSalaryConfigDetails.Count);
+                var approvalResult = await _approvalWorkflowService.InitiateApprovalWorkflow(configEntity.IdEmployeeSalaryConfig, entityCode, IdEmployee, "SUBMITTED", null, null);
 
                 await transaction.CommitAsync();
 
@@ -730,9 +837,11 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     actionType: "Update",
                     entityName: "EmployeeSalaryConfig",
                     entityId: configEntity.IdEmployeeSalaryConfig,
-                    actionDetails: new { before = beforeUpdate, after = configEntity, updatedBy = IdEmployee });
+                    actionDetails: new { before = beforeUpdate, after = BuildSalaryConfigAuditSnapshot(configEntity, result.Rows.Count), updatedBy = IdEmployee });
 
-                return _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
+                var saved = _mapper.Map<EmployeeSalaryConfigDto>(configEntity);
+                saved.Warnings = warnings;
+                return saved;
             }
             catch (Exception ex)
             {
@@ -783,7 +892,23 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 var before = BuildSalaryConfigAuditSnapshot(configEntity, detailCount);
 
                 configEntity.ApprovalStatus = "SUBMITTED";
+                configEntity.ApprovedBy = null;
+                configEntity.ApprovedOn = null;
+                configEntity.ModifiedBy = idEmployee;
+                configEntity.ModifiedOn = DateTime.Now;
                 _dbContext.EmployeeSalaryConfig.Update(configEntity);
+
+                // The previous approved structure was closed on approval (ValidTo = day before this Valid From); reopen it
+                var closedOn = configEntity.ValidFrom.Date.AddDays(-1);
+                var previousStructures = await _dbContext.EmployeeSalaryConfig
+                    .Where(c => c.IdEmployee == configEntity.IdEmployee
+                        && c.IdEmployeeSalaryConfig != configEntity.IdEmployeeSalaryConfig
+                        && c.ValidTo == closedOn)
+                    .ToListAsync();
+                foreach (var previous in previousStructures)
+                {
+                    previous.ValidTo = null;
+                }
                 await _dbContext.SaveChangesAsync();
 
                 var entityCode = _configuration["WorkflowEntityCodes:EmployeeSalaryConfig"];

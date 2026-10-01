@@ -6,8 +6,10 @@ public class SalaryTemplateUpdateDtoValidator : AbstractValidator<SalaryTemplate
     public SalaryTemplateUpdateDtoValidator()
     {
         // IdSalaryTemplate is required and must be greater than 0
+        // Used for both add (IdSalaryTemplate null/0) and update
         RuleFor(x => x.IdSalaryTemplate)
-            .GreaterThan(0).WithMessage("IdSalaryTemplate must be greater than 0.");
+            .GreaterThan(0).WithMessage("IdSalaryTemplate must be greater than 0.")
+            .When(x => x.IdSalaryTemplate.HasValue && x.IdSalaryTemplate.Value != 0);
 
         // SalaryTemplateName is required and must not exceed 50 characters
         RuleFor(x => x.SalaryTemplateName)
@@ -18,6 +20,9 @@ public class SalaryTemplateUpdateDtoValidator : AbstractValidator<SalaryTemplate
         RuleFor(x => x.Description)
             .MaximumLength(500).WithMessage("Description must not exceed 500 characters.")
             .When(x => !string.IsNullOrEmpty(x.Description));
+
+        RuleFor(x => x.SalaryTemplateDetails)
+            .NotEmpty().WithMessage("Add at least one earning.");
 
         // ActiveStatus is required
         RuleFor(x => x.ActiveStatus)

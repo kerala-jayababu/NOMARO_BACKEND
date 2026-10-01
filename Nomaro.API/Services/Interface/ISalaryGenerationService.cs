@@ -7,7 +7,7 @@ namespace Nomaro.API.Services.Interface
     {
         Task<IEnumerable<SalaryGenerationDto>> GetSalaryConfigs(int employeeId, int? idSalaryMonth = null, string? dropdownFilter = null,int? idDepartment = null,int? idDesignation = null);
         Task<IEnumerable<SalarySlipDto>> GetSalarySlips(int idSalaryMonthFrom, int idSalaryMonthTo, string? dropdownFilter = null);
-        Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(string employeeIds, int idSalaryMonth, int idEmployeeCreated);
+        Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(int idSalaryMonth, int idEmployeeCreated);
         Task<dynamic> GetSalaryapprovalValue(int IdEmployee);        
         Task<dynamic> ExportSalaryGenerationDetails(string employeeIds, int idSalaryMonth);
         Task<dynamic> ExportSalaryGenerationDetailsForApproved(string employeeIds, int idSalaryMonth);
@@ -23,6 +23,14 @@ namespace Nomaro.API.Services.Interface
         Task MarkSalaryEmailInProcessAsync(int idEmployeeSalary);
         Task MarkSalaryEmailSentAsync(int idEmployeeSalary);
         Task<bool> CheckcurrencyConversions();
+
+        // EmployeesForSalaryGenerationStatus
+        Task<IEnumerable<EmployeesForSalaryGenerationStatusDto>> GetEmployeesForSalaryGenerationStatus(int? idSalaryMonth = null);
+        Task<EmployeesForSalaryGenerationStatusDto?> GetEmployeeForSalaryGenerationStatus(int idEmployee, int idSalaryMonth);
+        Task<int> AddEmployeesForSalaryGenerationStatus(List<EmployeesForSalaryGenerationStatusDto> dtos);
+        Task<int> UpdateEmployeesForSalaryGenerationStatus(List<EmployeesForSalaryGenerationStatusDto> dtos);
+        Task<bool> DeleteEmployeeForSalaryGenerationStatus(int idEmployee, int idSalaryMonth);
+        Task<int> DeleteAllEmployeesForSalaryGenerationStatus(int? idSalaryMonth = null);
 
 
 

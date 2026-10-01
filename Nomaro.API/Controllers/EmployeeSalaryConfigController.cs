@@ -192,6 +192,18 @@ namespace Nomaro.API.Controllers
             {
                 return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
             }
+            if (dto.EmployeeSalaryConfigDetails != null)
+            {
+                foreach (var detail in dto.EmployeeSalaryConfigDetails)
+                {
+                    var detailValidationResult = await _detailsValidator.ValidateAsync(detail);
+                    if (!detailValidationResult.IsValid)
+                    {
+                        var detailErrors = string.Join(", ", detailValidationResult.Errors.Select(e => e.ErrorMessage));
+                        return BadRequest(ApiResponseDto<string>.CreateFailure($"Validation failed for Salary Config Details: {detailErrors}"));
+                    }
+                }
+            }
             var screenCode = _configuration["ScreenCodes:EmployeeSalaryConfig"];
             var actionType = "A";
 
@@ -210,7 +222,8 @@ namespace Nomaro.API.Controllers
                 var result = await _employeeSalaryConfigService.AddConfig(dto,int.Parse(IdEmployee));
                 if (result == null)
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to add configuration."));
-                return Ok(ApiResponseDto<string>.CreateSuccess("EmployeeSalaryConfig added successfully."));
+                return Ok(ApiResponseDto<List<string>>.CreateSuccess(result.Warnings ?? new List<string>(),
+                    BuildSavedMessage("EmployeeSalaryConfig added successfully.", result.Warnings)));
             }
             catch (InvalidOperationException ex)
             {
@@ -268,8 +281,13 @@ namespace Nomaro.API.Controllers
                 var result = await _employeeSalaryConfigService.UpdateConfig(dto, int.Parse(IdEmployee));
                 if (result == null)
                     return NotFound(ApiResponseDto<string>.CreateFailure("Configuration not found."));
-                return Ok(ApiResponseDto<string>.CreateSuccess("EmployeeSalaryConfig updated successfully."));
+                return Ok(ApiResponseDto<List<string>>.CreateSuccess(result.Warnings ?? new List<string>(),
+                    BuildSavedMessage("EmployeeSalaryConfig updated successfully.", result.Warnings)));
 
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {
@@ -317,6 +335,56 @@ namespace Nomaro.API.Controllers
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
+
+        /// <summary>
+        /// Header line after an employee is selected: current structure's Valid From and net, whether a structure is
+        /// waiting for approval, and the default Valid From / Revision Reason.
+        /// </summary>
+        [HttpGet("GetEmployeeSalaryStructureInfo")]
+        public async Task<IActionResult> GetEmployeeSalaryStructureInfo(int idEmployee)
+        {
+            if (idEmployee <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Select an employee."));
+            }
+
+            try
+            {
+                var info = await _employeeSalaryConfigService.GetEmployeeSalaryStructureInfo(idEmployee);
+                return Ok(ApiResponseDto<EmployeeSalaryStructureInfoDto>.CreateSuccess(info, "Employee salary structure information retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Calculates the grid (Calculated Value per row and the totals line) the same way the salary procedure does.
+        /// Call it after every change on the Employee Salary Config screen. Nothing is saved.
+        /// </summary>
+        [HttpPost("CalculateSalaryStructure")]
+        public async Task<IActionResult> CalculateSalaryStructure([FromBody] SalaryStructureCalculationRequestDto request)
+        {
+            if (request == null || request.Rows == null)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input."));
+            }
+
+            try
+            {
+                var result = await _employeeSalaryConfigService.CalculateSalaryStructure(request.Rows);
+                return Ok(ApiResponseDto<SalaryStructureResultDto>.CreateSuccess(result,
+                    result.Errors.Any() ? string.Join(" ", result.Errors) : "Salary structure calculated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        private static string BuildSavedMessage(string message, List<string>? warnings) =>
+            warnings != null && warnings.Any() ? $"{message} {string.Join(" ", warnings)}" : message;
 
         #endregion
 

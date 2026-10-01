@@ -55,6 +55,7 @@ namespace Nomaro.API.Database
         public DbSet<WorkFlowConfigDetails> WorkFlowConfigDetails { get; set; }
         public DbSet<ApprovalWorkFlowAllocation> ApprovalWorkFlowAllocations { get; set; }
         public DbSet<EmployeeSalaries> EmployeeSalaries { get; set; }
+        public DbSet<EmployeesForSalaryGenerationStatus> EmployeesForSalaryGenerationStatus { get; set; }
         public DbSet<RentFreeQuarterDurations> RentFreeQuarterDurations { get; set; }
         public DbSet<EmployeeSalaryDetails> EmployeeSalaryDetails { get; set; }
         public DbSet<LeavePassage> LeavePassages { get; set; }
@@ -83,6 +84,8 @@ namespace Nomaro.API.Database
 
         #region Office Management
         public DbSet<OfficeTypes> OfficeTypes { get; set; }
+        public DbSet<EmployeeStatutoryDetails> EmployeeStatutoryDetails { get; set; }
+        public DbSet<States> States { get; set; }
         public DbSet<Offices> Offices { get; set; }
         public DbSet<EmployeeOfficePostings> EmployeeOfficePostings { get; set; }
         #endregion

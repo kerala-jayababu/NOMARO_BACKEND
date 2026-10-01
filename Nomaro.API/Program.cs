@@ -216,6 +216,7 @@ builder.Services.AddScoped<IAssetServices, AssetServices>();
 builder.Services.AddScoped<ILeaveManaementServices, LeaveManaementServices>();
 builder.Services.AddScoped<IEmployeeOffBoarding, EmployeeOffBoardingService>();
 builder.Services.AddScoped<IOfficeManagementService, OfficeManagementService>();
+builder.Services.AddScoped<IEmployeeStatutoryDetailsService, EmployeeStatutoryDetailsService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SendSMSOTP>();
 builder.Services.AddHttpContextAccessor();           // Required for IP/Claims

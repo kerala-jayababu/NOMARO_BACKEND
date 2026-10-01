@@ -272,6 +272,12 @@ namespace Nomaro.API.Services.Implimentation
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
+                    // Final approval: record who approved and when
+                    if (finalStatus != "REJECTED" && (finalStatus == "FINAL APPROVED" || nextLevelNumber == 99))
+                    {
+                        entity.ApprovedBy = loggedInEmployeeId;
+                        entity.ApprovedOn = DateTime.Now;
+                    }
                     await _dbContext.SaveChangesAsync();
                 }
                 var (senderName, senderEmail) = await GetFullNameById(loggedInEmployeeId);
@@ -329,6 +335,26 @@ namespace Nomaro.API.Services.Implimentation
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
+                    // Final approval: record who approved and when, and close the previous approved structure
+                    // on the day before the new Valid From. A rejected structure leaves the previous one in force.
+                    if (finalStatus != "REJECTED" && (finalStatus == "FINAL APPROVED" || nextLevelNumber == 99))
+                    {
+                        entity.ApprovedBy = loggedInEmployeeId;
+                        entity.ApprovedOn = DateTime.Now;
+
+                        var approvedStatuses = new[] { "APPROVED", "FINAL APPROVED" };
+                        var previousStructures = await _dbContext.EmployeeSalaryConfig
+                            .Where(c => c.IdEmployee == entity.IdEmployee
+                                && c.IdEmployeeSalaryConfig != entity.IdEmployeeSalaryConfig
+                                && c.ApprovalStatus != null && approvedStatuses.Contains(c.ApprovalStatus)
+                                && c.ValidFrom < entity.ValidFrom
+                                && (c.ValidTo == null || c.ValidTo >= entity.ValidFrom))
+                            .ToListAsync();
+                        foreach (var previous in previousStructures)
+                        {
+                            previous.ValidTo = entity.ValidFrom.Date.AddDays(-1);
+                        }
+                    }
                     await _dbContext.SaveChangesAsync();
                 }
 

@@ -16,7 +16,14 @@ namespace Nomaro.API.Models
         public bool ActiveStatus { get; set; }
         public decimal? TotalEarnings { get; set; }
         public decimal? TotalDeductions { get; set; }
-        public decimal? NetSalary { get; set; }        
+        public decimal? NetSalary { get; set; }
+        public decimal? GrossMonthly { get; set; }
+        public decimal? TotalEmployerContribution { get; set; }
+        public decimal? CTCMonthly { get; set; }
+        public decimal? CTCAnnual { get; set; }
+        public bool IsCTCBased { get; set; }
+        public int? ApprovedBy { get; set; }
+        public DateTime? ApprovedOn { get; set; }
     }
 }
 

@@ -96,12 +96,8 @@ namespace Nomaro.API.Controllers
 
 
         [HttpPost("GenerateSalaryDraft")]
-        public async Task<IActionResult> GenerateSalaryDraft([FromQuery] string employeeIds, [FromQuery] int idSalaryMonth)
+        public async Task<IActionResult> GenerateSalaryDraft([FromQuery] int idSalaryMonth)
         {
-            if (employeeIds == null || !employeeIds.Any())
-            {
-                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee ID list cannot be empty."));
-            }
             if (idSalaryMonth == null || idSalaryMonth <= 0)
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting salary genetation list."));
@@ -144,7 +140,7 @@ namespace Nomaro.API.Controllers
                     return Unauthorized(ApiResponseDto<string>.CreateFailure("User not authenticated."));
                 }
 
-                var result = await _salaryService.GenerateSalaryDraft(employeeIds, idSalaryMonth, int.Parse(idEmployee));
+                var result = await _salaryService.GenerateSalaryDraft(idSalaryMonth, int.Parse(idEmployee));
 
                 if (!result.Any())
                 {
@@ -1317,7 +1313,8 @@ namespace Nomaro.API.Controllers
                         {
                             var amt = r.AmountUSD ?? r.AmountGTD ?? 0m;
                             var sym = r.Currency == "USD" ? "US$"
-                                     : r.Currency == "GYD" ? "G$" : "";
+                                     : r.Currency == "GYD" ? "G$"
+                                     : r.Currency == "INR" ? "₹" : "";
                             return $"Bank: {r.BankName}, Account: {r.AccountNumber}, Amount: {sym} {amt:N2}";
                         }));
                         body = body?.Replace(
@@ -1412,6 +1409,192 @@ namespace Nomaro.API.Controllers
         }
 
 
+
+
+        #region EmployeesForSalaryGenerationStatus
+
+        [HttpGet("GetEmployeesForSalaryGenerationStatus")]
+        public async Task<IActionResult> GetEmployeesForSalaryGenerationStatus([FromQuery] int? idSalaryMonth = null)
+        {
+            try
+            {
+                var records = await _salaryService.GetEmployeesForSalaryGenerationStatus(idSalaryMonth);
+                if (records == null || !records.Any())
+                {
+                    return Ok(ApiResponseDto<IEnumerable<EmployeesForSalaryGenerationStatusDto>>.CreateSuccess(Enumerable.Empty<EmployeesForSalaryGenerationStatusDto>(), "No records found."));
+                }
+
+                return Ok(ApiResponseDto<IEnumerable<EmployeesForSalaryGenerationStatusDto>>.CreateSuccess(records, "Employees for salary generation retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpGet("GetEmployeeForSalaryGenerationStatus")]
+        public async Task<IActionResult> GetEmployeeForSalaryGenerationStatus([FromQuery] int idEmployee, [FromQuery] int idSalaryMonth)
+        {
+            if (idEmployee <= 0 || idSalaryMonth <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee and IdSalaryMonth must be greater than 0."));
+            }
+
+            try
+            {
+                var record = await _salaryService.GetEmployeeForSalaryGenerationStatus(idEmployee, idSalaryMonth);
+                if (record == null)
+                {
+                    return Ok(ApiResponseDto<EmployeesForSalaryGenerationStatusDto>.CreateSuccess(null, "Record not found."));
+                }
+
+                return Ok(ApiResponseDto<EmployeesForSalaryGenerationStatusDto>.CreateSuccess(record, "Record retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("AddEmployeesForSalaryGenerationStatus")]
+        public async Task<IActionResult> AddEmployeesForSalaryGenerationStatus([FromBody] List<EmployeesForSalaryGenerationStatusDto> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee list cannot be empty."));
+            }
+            if (dtos.Any(d => d.IdEmployee <= 0 || d.IdSalaryMonth <= 0))
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee and IdSalaryMonth must be greater than 0."));
+            }
+
+            var permissionResult = await CheckSalaryGenerationPermission("A");
+            if (permissionResult != null)
+            {
+                return permissionResult;
+            }
+
+            try
+            {
+                var count = await _salaryService.AddEmployeesForSalaryGenerationStatus(dtos);
+                return Ok(ApiResponseDto<int>.CreateSuccess(count, $"{count} employee(s) added for salary generation."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpPost("UpdateEmployeesForSalaryGenerationStatus")]
+        public async Task<IActionResult> UpdateEmployeesForSalaryGenerationStatus([FromBody] List<EmployeesForSalaryGenerationStatusDto> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Employee list cannot be empty."));
+            }
+            if (dtos.Any(d => d.IdEmployee <= 0 || d.IdSalaryMonth <= 0))
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee and IdSalaryMonth must be greater than 0."));
+            }
+
+            var permissionResult = await CheckSalaryGenerationPermission("U");
+            if (permissionResult != null)
+            {
+                return permissionResult;
+            }
+
+            try
+            {
+                var count = await _salaryService.UpdateEmployeesForSalaryGenerationStatus(dtos);
+                return Ok(ApiResponseDto<int>.CreateSuccess(count, $"{count} record(s) updated successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        [HttpDelete("DeleteEmployeeForSalaryGenerationStatus")]
+        public async Task<IActionResult> DeleteEmployeeForSalaryGenerationStatus([FromQuery] int idEmployee, [FromQuery] int idSalaryMonth)
+        {
+            if (idEmployee <= 0 || idSalaryMonth <= 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("IdEmployee and IdSalaryMonth must be greater than 0."));
+            }
+
+            var permissionResult = await CheckSalaryGenerationPermission("D");
+            if (permissionResult != null)
+            {
+                return permissionResult;
+            }
+
+            try
+            {
+                var deleted = await _salaryService.DeleteEmployeeForSalaryGenerationStatus(idEmployee, idSalaryMonth);
+                if (!deleted)
+                {
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Record not found."));
+                }
+
+                return Ok(ApiResponseDto<string>.CreateSuccess("Record deleted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Deletes all records, or only those of one salary month when idSalaryMonth is given.
+        /// Call this before adding a new salary generation selection.
+        /// </summary>
+        [HttpDelete("DeleteAllEmployeesForSalaryGenerationStatus")]
+        public async Task<IActionResult> DeleteAllEmployeesForSalaryGenerationStatus([FromQuery] int? idSalaryMonth = null)
+        {
+            var permissionResult = await CheckSalaryGenerationPermission("D");
+            if (permissionResult != null)
+            {
+                return permissionResult;
+            }
+
+            try
+            {
+                var count = await _salaryService.DeleteAllEmployeesForSalaryGenerationStatus(idSalaryMonth);
+                return Ok(ApiResponseDto<int>.CreateSuccess(count, $"{count} record(s) deleted successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        /// <summary>Returns 401/403 when the logged-in employee may not perform the action on the Salary Generation screen, otherwise null.</summary>
+        private async Task<IActionResult?> CheckSalaryGenerationPermission(string actionType)
+        {
+            var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(IdEmployee))
+            {
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+            }
+
+            var screenCode = _configuration["ScreenCodes:SalaryGeneration"];
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+            }
+            return null;
+        }
+
+        #endregion
 
     }
 }

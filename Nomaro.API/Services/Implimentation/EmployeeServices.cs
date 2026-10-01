@@ -1440,6 +1440,7 @@ namespace Nomaro.API.Services.Implimentation
             IdAssetAssignment = x.IdAssetAssignment,
             IdAsset = x.IdAsset,
             IdEmployee = x.IdEmployee,
+            IdOffice = x.IdOffice,
             AssignedDate = x.AssignedDate,
             AssignedTillDate = x.AssignedTillDate,
             Remarks = x.Remarks,
@@ -1479,23 +1480,42 @@ namespace Nomaro.API.Services.Implimentation
                 if (asset == null)
                     throw new Exception("Asset not found.");
 
-                // ✅ Validation 3: Asset already assigned?
-                if (asset.IsAllocated)
+                // ✅ Validation 3: Asset already assigned to an employee?
+                // (an asset allocated only to an office can still be assigned to an employee)
+                var currentAllocation = await _dbContext.AssetAssignments
+                    .Where(x => x.IdAsset == dto.IdAsset)
+                    .OrderByDescending(x => x.IdAssetAssignment)
+                    .FirstOrDefaultAsync();
+
+                if (currentAllocation?.IdEmployee != null || (asset.IsAllocated && currentAllocation == null))
                     throw new Exception("Asset is already assigned to another employee.");
 
-                // ✅ Create assignment
-                var assignment = new AssetAssignments
+                if (currentAllocation != null)
                 {
-                    IdAsset = dto.IdAsset,
-                    IdEmployee = dto.IdEmployee,
-                    AssignedDate = dto.AssignedDate,
-                    AssignedTillDate = dto.AssignedTillDate,
-                    Remarks = dto.Remarks,
-                    AssignedBy = dto.AssignedBy,
-                    AssignedDateTime = DateTime.Now
-                };
+                    // Office allocation: the employee now holds the asset, the office is kept
+                    currentAllocation.IdEmployee = dto.IdEmployee;
+                    currentAllocation.AssignedDate = dto.AssignedDate;
+                    currentAllocation.AssignedTillDate = dto.AssignedTillDate;
+                    currentAllocation.Remarks = dto.Remarks;
+                    currentAllocation.AssignedBy = dto.AssignedBy;
+                    currentAllocation.AssignedDateTime = DateTime.Now;
+                }
+                else
+                {
+                    // ✅ Create assignment
+                    var assignment = new AssetAssignments
+                    {
+                        IdAsset = dto.IdAsset,
+                        IdEmployee = dto.IdEmployee,
+                        AssignedDate = dto.AssignedDate,
+                        AssignedTillDate = dto.AssignedTillDate,
+                        Remarks = dto.Remarks,
+                        AssignedBy = dto.AssignedBy,
+                        AssignedDateTime = DateTime.Now
+                    };
 
-                await _dbContext.AssetAssignments.AddAsync(assignment);
+                    await _dbContext.AssetAssignments.AddAsync(assignment);
+                }
 
                 // ✅ Mark asset as allocated
                 asset.IsAllocated = true;
@@ -1527,13 +1547,23 @@ namespace Nomaro.API.Services.Implimentation
                 if (assignment == null)
                     throw new Exception("Asset assignment not found.");
 
-                _dbContext.AssetAssignments.Remove(assignment);
-
                 var asset = await _dbContext.Assets
                     .FirstOrDefaultAsync(a => a.IdAsset == idAsset);
 
-                if (asset != null)
-                    asset.IsAllocated = false;
+                if (assignment.IdOffice.HasValue)
+                {
+                    // The asset goes back to its office
+                    assignment.IdEmployee = null;
+                    assignment.AssignedTillDate = null;
+                    assignment.AssignedDateTime = DateTime.Now;
+                }
+                else
+                {
+                    _dbContext.AssetAssignments.Remove(assignment);
+
+                    if (asset != null)
+                        asset.IsAllocated = false;
+                }
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();

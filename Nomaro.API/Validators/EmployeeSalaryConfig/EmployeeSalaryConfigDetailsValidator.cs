@@ -7,45 +7,22 @@ namespace Nomaro.API.Validators.EmployeeSalaryConfig
     {
         public EmployeeSalaryConfigDetailsValidator()
         {
-            RuleFor(x => x.IdEmployeeSalaryConfig)
-                .GreaterThan(0)
-                .WithMessage("Employee Salary Config ID is required.");
-
             RuleFor(x => x.IdSalaryHead)
                 .GreaterThan(0)
                 .WithMessage("Salary Head ID is required.");
 
-            RuleFor(s => s.CalculationMethod)
-                .NotEmpty()
-                .WithMessage("CalculationMethod is required.")
-                .MaximumLength(50)
-                .WithMessage("CalculationMethod must not exceed 50 characters.")
-                .Must(BeAValidCalculationMethod)
-                .WithMessage("CalculationMethod must be one of the following: FORMULA, PERCENTAGE, FIXEDAMOUNT.");
-
             RuleFor(x => x.FixedAmount)
                 .GreaterThanOrEqualTo(0)
                 .When(x => x.FixedAmount.HasValue)
-                .WithMessage("FixedAmount must be a positive number.");
+                .WithMessage("Enter an amount of 0 or more.");
 
             RuleFor(x => x.PercentageValue)
-                .InclusiveBetween(0, 100)
+                .InclusiveBetween(0.01m, 100m)
                 .When(x => x.PercentageValue.HasValue)
-                .WithMessage("PercentageValue must be between 0 and 100.");
+                .WithMessage("Enter a percentage between 0.01 and 100.");
 
-            // SalaryAmount: only check it's numeric, no restriction on decimal places
-            RuleFor(x => x.SalaryAmount)
-                .Must(value => value == null || decimal.TryParse(value.ToString(), out _))
-                .WithMessage("SalaryAmount must be a valid number.")
-                .When(x => x.SalaryAmount.HasValue);
-        }
-
-        private bool BeAValidCalculationMethod(string calculationMethod)
-        {
-            var validCalculationMethods = new[] { "FORMULA", "PERCENTAGE", "FIXEDAMOUNT" };
-            return !string.IsNullOrWhiteSpace(calculationMethod) &&
-                   validCalculationMethods.Contains(calculationMethod.ToUpper());
+            // CalculationMethod, PercentageOfIdSalaryHead and CustomFormula now come from SalaryHeads,
+            // and SalaryAmount is calculated by the API.
         }
     }
 }
-

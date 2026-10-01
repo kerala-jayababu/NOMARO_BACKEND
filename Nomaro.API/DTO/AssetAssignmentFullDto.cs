@@ -5,7 +5,8 @@
         public int IdAssetAssignment { get; set; }
 
         public int IdAsset { get; set; }
-        public int IdEmployee { get; set; }
+        public int? IdEmployee { get; set; }
+        public int? IdOffice { get; set; }
 
         public DateTime AssignedDate { get; set; }
         public DateTime? AssignedTillDate { get; set; }

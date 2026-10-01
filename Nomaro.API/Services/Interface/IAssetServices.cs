@@ -8,7 +8,7 @@ namespace Nomaro.API.Services.Interface
         Task<bool> AddOrUpdateAssetTypes(List<AssetTypeDto> assetTypeDtos);
 
         Task<IEnumerable<AssetDto>> GetAssets(string? searchText);
-        Task<bool> AddOrUpdateAssets(List<AssetDto> assetDtos);
+        Task<bool> AddOrUpdateAssets(List<AssetDto> assetDtos, int idLoggedInEmployee);
     }
 }
 

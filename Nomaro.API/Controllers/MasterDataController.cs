@@ -650,28 +650,24 @@ namespace Nomaro.API.Controllers
 
             }
 
-            if (dto.IdPercentageSalaryHead > 0)
+            var salaryHeadList = await _salaryservice.GetSalaryHeadList();
+
+            if (dto.IdPercentageSalaryHead > 0 && !salaryHeadList.Any(s => s.IdSalaryHead == dto.IdPercentageSalaryHead))
             {
-                var percentageSalaryHeadExists = (await _salaryservice.GetSalaryHeadList())
-                .Any(s => s.IdSalaryHead == dto.IdPercentageSalaryHead);
-
-                if (!percentageSalaryHeadExists)
-                {
-                    return Conflict(ApiResponseDto<string>.CreateFailure("IdPercentageSalaryHead does not exist."));
-                }
-
-
+                return Conflict(ApiResponseDto<string>.CreateFailure("IdPercentageSalaryHead does not exist."));
             }
-            else
+
+            if (dto.IdBaseSalaryHead > 0 && !salaryHeadList.Any(s => s.IdSalaryHead == dto.IdBaseSalaryHead))
             {
-                var existingSalaryHead = (await _salaryservice.GetSalaryHeadList())
+                return Conflict(ApiResponseDto<string>.CreateFailure("IdBaseSalaryHead does not exist."));
+            }
+
+            var existingSalaryHead = salaryHeadList
                 .FirstOrDefault(s => s.SalaryHeadCode == dto.SalaryHeadCode && s.SalaryHeadName == dto.SalaryHeadName);
 
-                if (existingSalaryHead != null)
-                {
-                    return Conflict(ApiResponseDto<string>.CreateFailure("Salary head already exists."));
-                }
-
+            if (existingSalaryHead != null)
+            {
+                return Conflict(ApiResponseDto<string>.CreateFailure("Salary head already exists."));
             }
 
             try
@@ -684,6 +680,10 @@ namespace Nomaro.API.Controllers
                 }
 
                 return Ok(ApiResponseDto<string>.CreateSuccess("Salary head created successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {
@@ -732,7 +732,19 @@ namespace Nomaro.API.Controllers
                     return NotFound(ApiResponseDto<string>.CreateFailure("Salary head not found."));
                 }
 
-                var conflictSalaryHead = (await _salaryservice.GetSalaryHeadList())
+                var salaryHeadList = await _salaryservice.GetSalaryHeadList();
+
+                if (dto.IdPercentageSalaryHead > 0 && !salaryHeadList.Any(s => s.IdSalaryHead == dto.IdPercentageSalaryHead))
+                {
+                    return Conflict(ApiResponseDto<string>.CreateFailure("IdPercentageSalaryHead does not exist."));
+                }
+
+                if (dto.IdBaseSalaryHead > 0 && !salaryHeadList.Any(s => s.IdSalaryHead == dto.IdBaseSalaryHead))
+                {
+                    return Conflict(ApiResponseDto<string>.CreateFailure("IdBaseSalaryHead does not exist."));
+                }
+
+                var conflictSalaryHead = salaryHeadList
          .FirstOrDefault(s => s.SalaryHeadCode == dto.SalaryHeadCode
                            && s.SalaryHeadName == dto.SalaryHeadName
                            && s.IdSalaryHead != dto.IdSalaryHead);
@@ -749,6 +761,29 @@ namespace Nomaro.API.Controllers
                     return StatusCode(500, ApiResponseDto<string>.CreateFailure("Failed to update salary head."));
                 }
                 return Ok(ApiResponseDto<string>.CreateSuccess("Salary head updated successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Where a salary head is used (templates, employee salary structures, other heads' formulas).
+        /// The screen shows this as a warning before deactivating the head; an empty list means it is not used.
+        /// </summary>
+        [HttpGet("GetSalaryHeadUsage")]
+        public async Task<IActionResult> GetSalaryHeadUsage(int idSalaryHead)
+        {
+            try
+            {
+                var usage = await _salaryservice.GetSalaryHeadUsage(idSalaryHead);
+                return Ok(ApiResponseDto<List<string>>.CreateSuccess(usage,
+                    usage.Any() ? "This salary head is in use: " + string.Join("; ", usage) : "This salary head is not used."));
             }
             catch (Exception ex)
             {

@@ -100,14 +100,10 @@ namespace YourNamespace.Services.Implementation
         }
 
 
-        public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(string employeeIds, int idSalaryMonth, int idEmployeeCreated)
+        public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(int idSalaryMonth, int idEmployeeCreated)
         {
             
 
-            if (string.IsNullOrWhiteSpace(employeeIds))
-            {
-                throw new ArgumentException("Employee ID list cannot be empty.");
-            }
             try
             {
                 using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
@@ -115,15 +111,12 @@ namespace YourNamespace.Services.Implementation
                     if (connection.State == System.Data.ConnectionState.Closed)
                         await connection.OpenAsync();
 
-                    var idEmployeesString = employeeIds;
-
                     var parameters = new DynamicParameters();
-                    parameters.Add("@IdEmployeesString", idEmployeesString);
                     parameters.Add("@idSalaryMonth", idSalaryMonth);
                     parameters.Add("@IdEmployeeCreated", idEmployeeCreated);
 
                     var salaryStatusList = (await connection.QueryAsync<SalaryGenerationStatusDto>(
-                 "GenerateSalary_MultipleEmployees",
+                 "GenerateMonthlySalary",
                  parameters,
                  commandType: System.Data.CommandType.StoredProcedure)).ToList();
 
@@ -633,23 +626,23 @@ namespace YourNamespace.Services.Implementation
 
                 // Fetch Employee Details
                 var employees = await _dbContext.Employees
-       .Where(e => employeeIdList.Contains((int)e.IdEmployee))
-       .Join(_dbContext.Designations,
-           emp => emp.IdDesignation,
-           des => des.IdDesignation,
-           (emp, des) => new { emp, des })
-       .Join(_dbContext.Departments,
-           combined => combined.emp.IdDepartment,
-           dept => dept.IdDepartment,
-           (combined, dept) => new
-           {
-               combined.emp.IdEmployee,
-               combined.emp.EmployeeCode,
-               FirstName = combined.emp.FirstName + " " + combined.emp.MiddleName+" " + combined.emp.LastName,
-               Position = combined.des.DesignationName, 
-               Department = dept.DepartmentName         
-           })
-       .ToListAsync();
+                   .Where(e => employeeIdList.Contains((int)e.IdEmployee))
+                   .Join(_dbContext.Designations,
+                       emp => emp.IdDesignation,
+                       des => des.IdDesignation,
+                       (emp, des) => new { emp, des })
+                   .Join(_dbContext.Departments,
+                       combined => combined.emp.IdDepartment,
+                       dept => dept.IdDepartment,
+                       (combined, dept) => new
+                       {
+                           combined.emp.IdEmployee,
+                           combined.emp.EmployeeCode,
+                           FirstName = combined.emp.FirstName + " " + combined.emp.MiddleName+" " + combined.emp.LastName,
+                           Position = combined.des.DesignationName, 
+                           Department = dept.DepartmentName         
+                       })
+                   .ToListAsync();
 
 
                 if (!employees.Any())
@@ -744,6 +737,7 @@ namespace YourNamespace.Services.Implementation
                                         payslips.Add(payslip);
                 }
 
+                await PopulatePayslipPrintDetails(payslips);
                 return payslips;
             }
             catch (Exception ex)
@@ -1103,6 +1097,7 @@ namespace YourNamespace.Services.Implementation
                     payslips.Add(payslip);
                 }
 
+                await PopulatePayslipPrintDetails(payslips);
                 return payslips;
             }
             catch (Exception ex)
@@ -1227,6 +1222,387 @@ namespace YourNamespace.Services.Implementation
 
 
         
+
+        #region EmployeesForSalaryGenerationStatus
+
+        public async Task<IEnumerable<EmployeesForSalaryGenerationStatusDto>> GetEmployeesForSalaryGenerationStatus(int? idSalaryMonth = null)
+        {
+            try
+            {
+                var query = from s in _dbContext.EmployeesForSalaryGenerationStatus
+                            join e in _dbContext.Employees on s.IdEmployee equals e.IdEmployee into empGroup
+                            from e in empGroup.DefaultIfEmpty()
+                            join sm in _dbContext.SalaryMonths on s.IdSalaryMonth equals sm.IdSalaryMonth into monthGroup
+                            from sm in monthGroup.DefaultIfEmpty()
+                            select new { s, e, sm };
+
+                if (idSalaryMonth.HasValue && idSalaryMonth > 0)
+                {
+                    query = query.Where(x => x.s.IdSalaryMonth == idSalaryMonth.Value);
+                }
+
+                return await query
+                    .OrderBy(x => x.s.IdSalaryMonth)
+                    .ThenBy(x => x.e != null ? x.e.EmployeeCode : null)
+                    .Select(x => new EmployeesForSalaryGenerationStatusDto
+                    {
+                        IdEmployee = x.s.IdEmployee,
+                        IdSalaryMonth = x.s.IdSalaryMonth,
+                        SalaryGenerationRemarks = x.s.SalaryGenerationRemarks,
+                        EmployeeCode = x.e != null ? x.e.EmployeeCode : null,
+                        EmployeeName = x.e != null ? (x.e.FirstName + " " + (x.e.MiddleName ?? "") + " " + (x.e.LastName ?? "")).Trim() : null,
+                        SalaryMonthText = x.sm != null ? x.sm.SalaryMonthText : null
+                    })
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching EmployeesForSalaryGenerationStatus.");
+                throw;
+            }
+        }
+
+        public async Task<EmployeesForSalaryGenerationStatusDto?> GetEmployeeForSalaryGenerationStatus(int idEmployee, int idSalaryMonth)
+        {
+            var records = await GetEmployeesForSalaryGenerationStatus(idSalaryMonth);
+            return records.FirstOrDefault(x => x.IdEmployee == idEmployee);
+        }
+
+        /// <summary>Inserts the selected employees for a salary month. Throws InvalidOperationException with the user message.</summary>
+        public async Task<int> AddEmployeesForSalaryGenerationStatus(List<EmployeesForSalaryGenerationStatusDto> dtos)
+        {
+            if (dtos.GroupBy(d => new { d.IdEmployee, d.IdSalaryMonth }).Any(g => g.Count() > 1))
+                throw new InvalidOperationException("The same employee is listed more than once for the salary month.");
+
+            var employeeIds = dtos.Select(d => d.IdEmployee).Distinct().ToList();
+            var monthIds = dtos.Select(d => d.IdSalaryMonth).Distinct().ToList();
+
+            var existingEmployeeIds = await _dbContext.Employees.AsNoTracking()
+                .Where(e => e.IdEmployee.HasValue && employeeIds.Contains(e.IdEmployee.Value))
+                .Select(e => e.IdEmployee!.Value)
+                .ToListAsync();
+            var missingEmployees = employeeIds.Except(existingEmployeeIds).ToList();
+            if (missingEmployees.Any())
+                throw new InvalidOperationException($"Invalid employee(s): {string.Join(", ", missingEmployees)}.");
+
+            var existingMonthIds = await _dbContext.SalaryMonths.AsNoTracking()
+                .Where(m => monthIds.Contains(m.IdSalaryMonth))
+                .Select(m => m.IdSalaryMonth)
+                .ToListAsync();
+            var missingMonths = monthIds.Except(existingMonthIds).ToList();
+            if (missingMonths.Any())
+                throw new InvalidOperationException($"Invalid salary month(s): {string.Join(", ", missingMonths)}.");
+
+            var alreadyAdded = await _dbContext.EmployeesForSalaryGenerationStatus.AsNoTracking()
+                .Where(s => employeeIds.Contains(s.IdEmployee) && monthIds.Contains(s.IdSalaryMonth))
+                .ToListAsync();
+            var duplicates = alreadyAdded
+                .Where(a => dtos.Any(d => d.IdEmployee == a.IdEmployee && d.IdSalaryMonth == a.IdSalaryMonth))
+                .Select(a => a.IdEmployee)
+                .ToList();
+            if (duplicates.Any())
+                throw new InvalidOperationException($"Employee(s) already added for the salary month: {string.Join(", ", duplicates)}.");
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var entities = dtos.Select(d => new EmployeesForSalaryGenerationStatus
+                {
+                    IdEmployee = d.IdEmployee,
+                    IdSalaryMonth = d.IdSalaryMonth,
+                    SalaryGenerationRemarks = d.SalaryGenerationRemarks
+                }).ToList();
+
+                await _dbContext.EmployeesForSalaryGenerationStatus.AddRangeAsync(entities);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                foreach (var idMonth in monthIds)
+                {
+                    await _auditService.LogAuditAsync("Create", "EmployeesForSalaryGenerationStatus", idMonth,
+                        new { after = dtos.Where(d => d.IdSalaryMonth == idMonth) });
+                }
+                return entities.Count;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error adding EmployeesForSalaryGenerationStatus.");
+                throw new Exception("An error occurred while adding employees for salary generation. Please try again.");
+            }
+        }
+
+        /// <summary>Updates SalaryGenerationRemarks for existing records. Throws InvalidOperationException if a record does not exist.</summary>
+        public async Task<int> UpdateEmployeesForSalaryGenerationStatus(List<EmployeesForSalaryGenerationStatusDto> dtos)
+        {
+            var employeeIds = dtos.Select(d => d.IdEmployee).Distinct().ToList();
+            var monthIds = dtos.Select(d => d.IdSalaryMonth).Distinct().ToList();
+
+            var existing = await _dbContext.EmployeesForSalaryGenerationStatus
+                .Where(s => employeeIds.Contains(s.IdEmployee) && monthIds.Contains(s.IdSalaryMonth))
+                .ToListAsync();
+
+            var notFound = dtos
+                .Where(d => !existing.Any(e => e.IdEmployee == d.IdEmployee && e.IdSalaryMonth == d.IdSalaryMonth))
+                .Select(d => $"{d.IdEmployee}/{d.IdSalaryMonth}")
+                .ToList();
+            if (notFound.Any())
+                throw new InvalidOperationException($"Record(s) not found (IdEmployee/IdSalaryMonth): {string.Join(", ", notFound)}.");
+
+            try
+            {
+                var before = existing.Select(e => new { e.IdEmployee, e.IdSalaryMonth, e.SalaryGenerationRemarks }).ToList();
+
+                foreach (var dto in dtos)
+                {
+                    var entity = existing.First(e => e.IdEmployee == dto.IdEmployee && e.IdSalaryMonth == dto.IdSalaryMonth);
+                    entity.SalaryGenerationRemarks = dto.SalaryGenerationRemarks;
+                }
+                await _dbContext.SaveChangesAsync();
+
+                foreach (var idMonth in monthIds)
+                {
+                    await _auditService.LogAuditAsync("Update", "EmployeesForSalaryGenerationStatus", idMonth,
+                        new { before = before.Where(b => b.IdSalaryMonth == idMonth), after = dtos.Where(d => d.IdSalaryMonth == idMonth) });
+                }
+                return dtos.Count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating EmployeesForSalaryGenerationStatus.");
+                throw new Exception("An error occurred while updating employees for salary generation. Please try again.");
+            }
+        }
+
+        public async Task<bool> DeleteEmployeeForSalaryGenerationStatus(int idEmployee, int idSalaryMonth)
+        {
+            try
+            {
+                var entity = await _dbContext.EmployeesForSalaryGenerationStatus
+                    .FirstOrDefaultAsync(s => s.IdEmployee == idEmployee && s.IdSalaryMonth == idSalaryMonth);
+                if (entity == null)
+                    return false;
+
+                _dbContext.EmployeesForSalaryGenerationStatus.Remove(entity);
+                await _dbContext.SaveChangesAsync();
+
+                await _auditService.LogAuditAsync("Delete", "EmployeesForSalaryGenerationStatus", idSalaryMonth,
+                    new { before = new { entity.IdEmployee, entity.IdSalaryMonth, entity.SalaryGenerationRemarks } });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting EmployeesForSalaryGenerationStatus record {IdEmployee}/{IdSalaryMonth}.", idEmployee, idSalaryMonth);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Deletes all records (or only those of one salary month). Called before inserting a new salary generation selection,
+        /// so the table holds only the current session's employees.
+        /// </summary>
+        public async Task<int> DeleteAllEmployeesForSalaryGenerationStatus(int? idSalaryMonth = null)
+        {
+            try
+            {
+                var query = _dbContext.EmployeesForSalaryGenerationStatus.AsQueryable();
+                if (idSalaryMonth.HasValue && idSalaryMonth > 0)
+                {
+                    query = query.Where(s => s.IdSalaryMonth == idSalaryMonth.Value);
+                }
+
+                var deletedCount = await query.ExecuteDeleteAsync();
+
+                await _auditService.LogAuditAsync("Delete", "EmployeesForSalaryGenerationStatus", idSalaryMonth ?? 0,
+                    new { deletedCount, idSalaryMonth });
+                return deletedCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting EmployeesForSalaryGenerationStatus records.");
+                throw;
+            }
+        }
+
+        #endregion
+
+
+        #region Salary slip (India layout)
+
+        private static readonly string[] PayslipEarningTypes = { "EARNINGS", "EARNING", "REIMBURSEMENT" };
+        private const string PayslipDeductionType = "DEDUCTION";
+        private const string PayslipEmployerContributionType = "EMPLOYER_CONTRIBUTION";
+
+        /// <summary>
+        /// Fills the fields used by the salary slip PDF (PaySlipGeneratorDto): company details, employee statutory and bank
+        /// details, earnings / deductions / employer contributions by head type, and the year-to-date block.
+        /// PAN, UAN, PF No. and ESI No. = EmployeeStatutoryDetails. Anything that cannot be mapped stays null (blank).
+        /// </summary>
+        private async Task PopulatePayslipPrintDetails(List<EmployeePayslipDto> payslips)
+        {
+            if (payslips == null || !payslips.Any()) return;
+
+            var salaryIds = payslips.Select(p => p.IdEmployeeSalary).Distinct().ToList();
+            var salaries = await _dbContext.EmployeeSalaries.AsNoTracking()
+                .Where(s => salaryIds.Contains(s.IdEmployeeSalary))
+                .ToListAsync();
+            var employeeIds = salaries.Select(s => s.IdEmployee).Distinct().ToList();
+            var monthIds = salaries.Select(s => s.IdSalaryMonth).Distinct().ToList();
+
+            var employees = await _dbContext.Employees.AsNoTracking()
+                .Where(e => e.IdEmployee.HasValue && employeeIds.Contains(e.IdEmployee.Value))
+                .ToListAsync();
+
+            var months = await _dbContext.SalaryMonths.AsNoTracking()
+                .Where(m => monthIds.Contains(m.IdSalaryMonth))
+                .ToListAsync();
+
+            // PAN, UAN, PF No. and ESI No. come from EmployeeStatutoryDetails
+            var statutoryDetails = await _dbContext.EmployeeStatutoryDetails.AsNoTracking()
+                .Where(s => employeeIds.Contains(s.IdEmployee))
+                .ToListAsync();
+
+            var bankAccounts = await (from a in _dbContext.EmployeeBankAccounts
+                                      join b in _dbContext.Banks on a.IdBank equals b.IdBank
+                                      where employeeIds.Contains(a.IdEmployee)
+                                      select new { a.IdEmployee, a.IdEmployeeBankAccount, a.OrderNumber, a.AccountNumber, b.BankName })
+                                      .AsNoTracking()
+                                      .ToListAsync();
+
+            var locations = await (from p in _dbContext.EmployeeOfficePostings
+                                   join o in _dbContext.Offices on p.IdOffice equals o.IdOffice
+                                   where p.IsCurrentPosting && employeeIds.Contains(p.IdEmployee)
+                                   select new { p.IdEmployee, p.PostingFromDate, o.OfficeName })
+                                   .AsNoTracking()
+                                   .ToListAsync();
+
+            var details = await (from d in _dbContext.EmployeeSalaryDetails
+                                 join h in _dbContext.SalaryHeads on d.IdSalaryHead equals (int?)h.IdSalaryHead into headGroup
+                                 from h in headGroup.DefaultIfEmpty()
+                                 where d.IdEmployeeSalary.HasValue && salaryIds.Contains(d.IdEmployeeSalary.Value)
+                                 select new
+                                 {
+                                     d.IdEmployeeSalary,
+                                     d.SalaryHeadName,
+                                     d.SalaryHeadType,
+                                     d.Amount,
+                                     d.AmountInUSD,
+                                     d.YTDAmount,
+                                     d.YTDAmountUSD,
+                                     d.OrderNumber,
+                                     HeadOrderNumber = h != null ? h.OrderNumber : null,
+                                     StatutoryType = h != null ? h.StatutoryType : null
+                                 })
+                                 .AsNoTracking()
+                                 .ToListAsync();
+
+            var systemParameters = await _dbContext.SystemParameters.AsNoTracking().ToListAsync();
+            string? Parameter(string name) => systemParameters.FirstOrDefault(x => x.ParameterName == name)?.ParameterValue;
+
+            foreach (var payslip in payslips)
+            {
+                var salary = salaries.FirstOrDefault(s => s.IdEmployeeSalary == payslip.IdEmployeeSalary);
+                if (salary == null) continue;
+
+                var employee = employees.FirstOrDefault(e => e.IdEmployee == salary.IdEmployee);
+                var month = months.FirstOrDefault(m => m.IdSalaryMonth == salary.IdSalaryMonth);
+
+                // Company
+                payslip.CompanyName = Parameter("CompanyName");
+                payslip.CompanyAddress = Parameter("CompanyAddress");
+                payslip.CompanyRegistrationNumber = Parameter("RegistrationNumber");
+                payslip.PayslipColorPattern = Parameter("PAYSLIPCOLORPATTERN");
+                payslip.AuthorisedSignatoryName = Parameter("TaxAuthorizedPersonName");
+                payslip.AuthorisedSignatureImage = systemParameters
+                    .FirstOrDefault(x => x.ParameterName == "TaxAuthorizedSignatureImage")?.ParameterBinaryValue;
+
+                // Pay month and financial year (April to the pay month)
+                if (month != null)
+                {
+                    var monthDate = month.SalaryMonthDate;
+                    var financialYearStart = new DateTime(monthDate.Month >= 4 ? monthDate.Year : monthDate.Year - 1, 4, 1);
+                    payslip.PayMonthText = monthDate.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
+                    payslip.YtdPeriodText = $"{financialYearStart.ToString("MMM yyyy", CultureInfo.InvariantCulture)} - {monthDate.ToString("MMM yyyy", CultureInfo.InvariantCulture)}".ToUpper();
+                }
+
+                // Employee details
+                payslip.DateOfJoining = employee?.JoiningDate?.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture);
+                payslip.EmploymentType = employee?.EmployeeWorkType;
+                var statutory = statutoryDetails.FirstOrDefault(s => s.IdEmployee == salary.IdEmployee);
+                payslip.PanNumber = statutory?.PAN;
+                payslip.UanNumber = statutory?.UAN;
+                payslip.PfNumber = statutory?.PFNumber;
+                payslip.EsiNumber = statutory?.ESINumber;
+                payslip.Location = locations
+                    .Where(l => l.IdEmployee == salary.IdEmployee)
+                    .OrderByDescending(l => l.PostingFromDate)
+                    .Select(l => l.OfficeName)
+                    .FirstOrDefault();
+
+                var bankAccount = bankAccounts
+                    .Where(b => b.IdEmployee == salary.IdEmployee)
+                    .OrderBy(b => b.OrderNumber ?? int.MaxValue)
+                    .ThenBy(b => b.IdEmployeeBankAccount)
+                    .FirstOrDefault();
+                payslip.BankName = bankAccount?.BankName;
+                payslip.BankAccountNumber = MaskAccountNumber(bankAccount?.AccountNumber);
+
+                // Earnings (incl. reimbursements), deductions and employer contributions
+                var rows = details
+                    .Where(d => d.IdEmployeeSalary == payslip.IdEmployeeSalary)
+                    .OrderBy(d => d.OrderNumber ?? d.HeadOrderNumber ?? int.MaxValue)
+                    .ToList();
+
+                EmployeeSalaryDetailsDto ToRow(string name, decimal? amount, decimal? amountUsd, decimal? ytd, decimal? ytdUsd) => new EmployeeSalaryDetailsDto
+                {
+                    Description = name,
+                    AmountG = amount ?? 0,
+                    AmountUS = amountUsd ?? 0,
+                    YTDAmountG = ytd ?? 0,
+                    YTDAmountUSD = ytdUsd ?? 0
+                };
+
+                var earningRows = rows.Where(r => PayslipEarningTypes.Contains(r.SalaryHeadType)).ToList();
+                var deductionRows = rows.Where(r => r.SalaryHeadType == PayslipDeductionType).ToList();
+                var employerRows = rows.Where(r => r.SalaryHeadType == PayslipEmployerContributionType).ToList();
+
+                payslip.Earnings = earningRows.Select(r => ToRow(r.SalaryHeadName, r.Amount, r.AmountInUSD, r.YTDAmount, r.YTDAmountUSD)).ToList();
+                payslip.Deductions = deductionRows.Select(r => ToRow(r.SalaryHeadName, r.Amount, r.AmountInUSD, r.YTDAmount, r.YTDAmountUSD)).ToList();
+                payslip.EmployerContributions = employerRows.Select(r => ToRow(r.SalaryHeadName, r.Amount, r.AmountInUSD, r.YTDAmount, r.YTDAmountUSD)).ToList();
+
+                // Year to date (left blank when the salary run did not store YTD amounts)
+                if (rows.Any(r => r.YTDAmount.HasValue))
+                {
+                    payslip.TotalEarningsYtd = earningRows.Sum(r => r.YTDAmount ?? 0);
+                    payslip.TotalDeductionsYtd = deductionRows.Sum(r => r.YTDAmount ?? 0);
+                    payslip.NetPayYtd = payslip.TotalEarningsYtd - payslip.TotalDeductionsYtd;
+                    payslip.EmployerPfYtd = employerRows.Where(r => r.StatutoryType == "PF_ER_EPF").Sum(r => r.YTDAmount ?? 0);
+                    payslip.EmployerEpsYtd = employerRows.Where(r => r.StatutoryType == "PF_ER_EPS").Sum(r => r.YTDAmount ?? 0);
+                }
+            }
+        }
+
+        /// <summary>Shows only the last 4 digits, grouped in fours from the right: "XXXX XXXX XXXX 1234".</summary>
+        private static string? MaskAccountNumber(string? accountNumber)
+        {
+            if (string.IsNullOrWhiteSpace(accountNumber)) return null;
+
+            var value = accountNumber.Replace(" ", string.Empty);
+            if (value.Length <= 4) return value;
+
+            var masked = new string('X', value.Length - 4) + value[^4..];
+            var groups = new List<string>();
+            for (var end = masked.Length; end > 0; end -= 4)
+            {
+                var start = Math.Max(0, end - 4);
+                groups.Insert(0, masked.Substring(start, end - start));
+            }
+            return string.Join(" ", groups);
+        }
+
+        #endregion
+
     }
 }
 

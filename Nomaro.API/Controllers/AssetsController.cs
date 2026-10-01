@@ -158,7 +158,7 @@ namespace Nomaro.API.Controllers
                         ApiResponseDto<string>.CreateFailure("You do not have permission to perform this action."));
                 }
 
-                var isSuccess = await _assetService.AddOrUpdateAssets(assetDtos);
+                var isSuccess = await _assetService.AddOrUpdateAssets(assetDtos, int.Parse(IdEmployee));
 
                 if (!isSuccess)
                 {
@@ -168,6 +168,10 @@ namespace Nomaro.API.Controllers
 
                 return Ok(ApiResponseDto<string>
                     .CreateSuccess("Assets added/updated successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {

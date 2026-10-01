@@ -54,11 +54,12 @@ namespace Nomaro.API.Services.Implimentation
                                         HeadType = sh.HeadType ?? string.Empty, // Use null-coalescing
                                         IsTaxable = sh != null && sh.IsTaxable, // Handle null for boolean
                                         OrderNumber = sh != null ? sh.OrderNumber : null, // Check null for nullable int
-                                        CalculationMethod = std.CalculationMethod,
+                                        CalculationMethod = sh.CalculationMethod,
                                         FixedAmount = std.FixedAmount,
-                                        PercentageOfIdSalaryHead = std.PercentageOfIdSalaryHead,
+                                        PercentageOfIdSalaryHead = sh.IdPercentageSalaryHead,
                                         PercentageValue = std.PercentageValue,
-                                        CustomFormula = std.CustomFormula,
+                                        CustomFormula = sh.CustomFormula,
+                                        CalcSequence = sh.CalcSequence,
                                         FinalSalaryAmount = (decimal)std.FinalSalaryAmount,
                                         Remarks = std.Remarks
                                     }).ToListAsync();
@@ -118,11 +119,8 @@ namespace Nomaro.API.Services.Implimentation
 
                 existingDetail.IdSalaryTemplate = dto.IdSalaryTemplate;
                 existingDetail.IdSalaryHead = dto.IdSalaryHead;
-                existingDetail.CalculationMethod = dto.CalculationMethod;
                 existingDetail.FixedAmount = dto.FixedAmount;
-                existingDetail.PercentageOfIdSalaryHead = dto.PercentageOfIdSalaryHead;
                 existingDetail.PercentageValue = dto.PercentageValue;
-                existingDetail.CustomFormula = dto.CustomFormula;
                 existingDetail.FinalSalaryAmount = dto.FinalSalaryAmount;
                 existingDetail.Remarks = dto.Remarks;
 

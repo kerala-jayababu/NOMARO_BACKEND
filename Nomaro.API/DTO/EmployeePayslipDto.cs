@@ -34,6 +34,36 @@ namespace Nomaro.API.DTO
 
         [NotMapped]
         public float StampHeightInPayslip { get; set; } = 75f;
+
+        // ---------- Salary slip (India layout) ----------
+        // Anything that cannot be filled is left null and printed blank.
+        [NotMapped] public string? CompanyName { get; set; }
+        [NotMapped] public string? PayslipColorPattern { get; set; }
+        [NotMapped] public string? AuthorisedSignatoryName { get; set; }
+        [NotMapped] public byte[]? AuthorisedSignatureImage { get; set; }
+        [NotMapped] public string? CompanyAddress { get; set; }
+        [NotMapped] public string? CompanyRegistrationNumber { get; set; }   // printed as CIN
+        [NotMapped] public string? PayMonthText { get; set; }                // e.g. "August 2025"
+
+        [NotMapped] public string? DateOfJoining { get; set; }
+        [NotMapped] public string? EmploymentType { get; set; }
+        [NotMapped] public string? Location { get; set; }
+        [NotMapped] public string? PanNumber { get; set; }                   // Employees.TaxIdNumber
+        [NotMapped] public string? UanNumber { get; set; }
+        [NotMapped] public string? PfNumber { get; set; }
+        [NotMapped] public string? EsiNumber { get; set; }                   // Employees.NationalIDNumber
+        [NotMapped] public string? BankName { get; set; }
+        [NotMapped] public string? BankAccountNumber { get; set; }           // masked, last 4 digits shown
+        [NotMapped] public string? LopDays { get; set; }
+
+        [NotMapped] public List<EmployeeSalaryDetailsDto>? EmployerContributions { get; set; }
+
+        [NotMapped] public string? YtdPeriodText { get; set; }               // e.g. "APR 2025 - AUG 2025"
+        [NotMapped] public decimal? TotalEarningsYtd { get; set; }
+        [NotMapped] public decimal? TotalDeductionsYtd { get; set; }
+        [NotMapped] public decimal? NetPayYtd { get; set; }
+        [NotMapped] public decimal? EmployerPfYtd { get; set; }
+        [NotMapped] public decimal? EmployerEpsYtd { get; set; }
         //public List<EmployeeSalaryDetailsDto> TaxDetails { get; set; }
     }
 }

@@ -694,12 +694,6 @@ namespace Nomaro.API.Services.Implimentation
                 .SetVerticalAlignment(VerticalAlignment.MIDDLE)
                 .SetPaddingBottom(4);
         }
-
-
-
-
-
-
     }
 }
 

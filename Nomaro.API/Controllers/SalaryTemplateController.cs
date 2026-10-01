@@ -42,11 +42,11 @@ namespace Nomaro.API.Controllers
         #region SalaryTemplate
 
         [HttpGet("GetAllSalaryTemplates")]
-        public async Task<IActionResult> GetAll(string? searchText = null, string? dropdownFilter = null)
+        public async Task<IActionResult> GetAll(string? searchText = null, string? dropdownFilter = null, bool includeInactive = false)
         {
             try
             {
-                var templates = await _salaryTemplateService.GetAllSalaryTemplates(searchText,dropdownFilter);
+                var templates = await _salaryTemplateService.GetAllSalaryTemplates(searchText, dropdownFilter, includeInactive);
                 if (templates == null || !templates.Any())
                 {
                     return Ok(ApiResponseDto<IEnumerable<SalaryTemplateDto>>.CreateSuccess(Enumerable.Empty<SalaryTemplateDto>(), "No salary templates found."));
@@ -106,39 +106,6 @@ namespace Nomaro.API.Controllers
                 return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
 
             }
-            // Step 2: Check custom formulas in SalaryTemplateDetails
-            if (dto.SalaryTemplateDetails != null && dto.SalaryTemplateDetails.Any())
-            {
-                foreach (var detail in dto.SalaryTemplateDetails)
-                {
-                    if (detail.CalculationMethod == "FORMULA" && !string.IsNullOrWhiteSpace(detail.CustomFormula))
-                    {
-                        // Extract components from formula
-                        var formulaComponents = ExtractComponentsFromFormula(detail.CustomFormula);
-                        if (!formulaComponents.Any())
-                        {
-                            return BadRequest(ApiResponseDto<string>.CreateFailure(
-                                "Custom formula is invalid or contains no valid components."
-                            ));
-                        }
-                        // Fetch all valid SalaryHead codes
-                        var salaryHeads = await _salaryservice.GetSalaryHeadList();
-                        var validSalaryHeadCodes = salaryHeads.Select(sh => sh.SalaryHeadCode).ToList();
-
-                        // Find invalid components in the formula
-                        var invalidComponents = formulaComponents
-                            .Where(component => !validSalaryHeadCodes.Contains(component))
-                            .ToList();
-
-                        if (invalidComponents.Any())
-                        {
-                            return BadRequest(ApiResponseDto<string>.CreateFailure(
-                                $"The following components in custom formula are invalid: {string.Join(", ", invalidComponents)}"
-                            ));
-                        }
-                    }
-                }
-            }
             try
             {
                 //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -149,6 +116,10 @@ namespace Nomaro.API.Controllers
                 }
 
                 return Ok(ApiResponseDto<object>.CreateSuccess(true, "Salary template added successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {
@@ -182,40 +153,6 @@ namespace Nomaro.API.Controllers
                 return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
 
             }
-            // Step 2: Check custom formulas in SalaryTemplateDetails
-            if (dto.SalaryTemplateDetails != null && dto.SalaryTemplateDetails.Any())
-            {
-                foreach (var detail in dto.SalaryTemplateDetails)
-                {
-                    if (detail.CalculationMethod == "FORMULA" && !string.IsNullOrWhiteSpace(detail.CustomFormula))
-                    {
-                        // Extract components from formula
-                        var formulaComponents = ExtractComponentsFromFormula(detail.CustomFormula);
-                        if (!formulaComponents.Any())
-                        {
-                            return BadRequest(ApiResponseDto<string>.CreateFailure(
-                                "Custom formula is invalid or contains no valid components."
-                            ));
-                        }
-                        // Fetch all valid SalaryHead codes
-                        var salaryHeads = await _salaryservice.GetSalaryHeadList();
-                        var validSalaryHeadCodes = salaryHeads.Select(sh => sh.SalaryHeadCode).ToList();
-
-                        // Find invalid components in the formula
-                        var invalidComponents = formulaComponents
-                            .Where(component => !validSalaryHeadCodes.Contains(component))
-                            .ToList();
-
-                        if (invalidComponents.Any())
-                        {
-                            return BadRequest(ApiResponseDto<string>.CreateFailure(
-                                $"The following components in custom formula are invalid: {string.Join(", ", invalidComponents)}"
-                            ));
-                        }
-                    }
-                }
-            }
-
             try
             {
                 //var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -227,19 +164,38 @@ namespace Nomaro.API.Controllers
 
                 return Ok(ApiResponseDto<object>.CreateSuccess(true, "Salary template updated successfully."));
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }
 
-        private List<string> ExtractComponentsFromFormula(string formula)
+        /// <summary>
+        /// Calculates the grid (Calculated Value per row and the totals line) the same way the salary procedure does.
+        /// Call it after every change on the Salary Template screen. Nothing is saved.
+        /// </summary>
+        [HttpPost("CalculateSalaryStructure")]
+        public async Task<IActionResult> CalculateSalaryStructure([FromBody] SalaryStructureCalculationRequestDto request)
         {
-            // Use a regular expression to extract alphanumeric components from the formula
-            var regex = new Regex(@"\b[A-Za-z]+\b");
-            var matches = regex.Matches(formula);
+            if (request == null || request.Rows == null)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid input."));
+            }
 
-            return matches.Select(match => match.Value).Distinct().ToList();
+            try
+            {
+                var result = await _salaryTemplateService.CalculateSalaryStructure(request.Rows);
+                return Ok(ApiResponseDto<SalaryStructureResultDto>.CreateSuccess(result,
+                    result.Errors.Any() ? string.Join(" ", result.Errors) : "Salary structure calculated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
         }
 
         #endregion
