@@ -82,7 +82,7 @@ namespace Nomaro.API.Controllers
 
             try
             {
-                var screenCode = _configuration["ScreenCodes:OfficeManagement"];
+                var screenCode = _configuration["ScreenCodes:OFFICETYPES"];
                 var actionType = "A";
 
                 var hasPermission = await _roleBasedService
