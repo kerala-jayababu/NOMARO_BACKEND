@@ -187,7 +187,7 @@ builder.Services.AddScoped<INotificationConfigService, NotificationConfigService
 builder.Services.AddScoped<IVacationModeService, VacationModeService>();
 builder.Services.AddScoped<ITaxSlabService, TaxSlabService>();
 builder.Services.AddScoped<ICurrencyConversionService, CurrencyConversionService>();
-builder.Services.AddScoped<IChildTaxThresholdService, ChildTaxThresholdService>();
+builder.Services.AddScoped<ITaxYearConfigService, TaxYearConfigService>();
 builder.Services.AddScoped<ISalaryTemplateService, SalaryTemplateService>();
 builder.Services.AddScoped<IOvertimeTransactionService, OvertimeTransactionService>();
 builder.Services.AddScoped<ISalaryTemplateDetailsService, SalaryTemplateDetailsService>();
@@ -217,6 +217,7 @@ builder.Services.AddScoped<ILeaveManaementServices, LeaveManaementServices>();
 builder.Services.AddScoped<IEmployeeOffBoarding, EmployeeOffBoardingService>();
 builder.Services.AddScoped<IOfficeManagementService, OfficeManagementService>();
 builder.Services.AddScoped<IEmployeeStatutoryDetailsService, EmployeeStatutoryDetailsService>();
+builder.Services.AddScoped<ISalaryDashboardService, SalaryDashboardService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SendSMSOTP>();
 builder.Services.AddHttpContextAccessor();           // Required for IP/Claims

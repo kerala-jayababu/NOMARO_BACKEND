@@ -12,6 +12,9 @@ namespace Nomaro.API.Models
         public byte[]? ParameterBinaryValue { get; set; } 
         public string? DataType { get; set; } = string.Empty;
         public string? ValidValues { get; set; } = string.Empty;
+        public bool? ShowInUIToConfigure { get; set; }
+        public bool? ParameterValueEditable { get; set; }
+        public bool? ParameterBinaryValueEditable { get; set; }
     }
 }
 

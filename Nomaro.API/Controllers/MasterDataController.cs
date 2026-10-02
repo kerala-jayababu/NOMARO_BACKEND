@@ -917,6 +917,88 @@ namespace Nomaro.API.Controllers
 
 
 
+        /// <summary>Parameters for the System Parameters screen (only ShowInUIToConfigure = true). Images are fetched separately.</summary>
+        [HttpGet("GetConfigurableSystemParameters")]
+        public async Task<IActionResult> GetConfigurableSystemParameters()
+        {
+            var denied = await CheckSystemParameterPermission("V");
+            if (denied != null) return denied;
+
+            try
+            {
+                var parameters = await _systemParameterService.GetConfigurableSystemParameters();
+                return Ok(ApiResponseDto<List<SystemParameterConfigDto>>.CreateSuccess(parameters, "System parameters retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        /// <summary>Stored image of a parameter (base64) for the View popup. data = null when there is no image.</summary>
+        [HttpGet("GetSystemParameterImage")]
+        public async Task<IActionResult> GetSystemParameterImage(int id)
+        {
+            if (id <= 0)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid System Parameter ID."));
+
+            var denied = await CheckSystemParameterPermission("V");
+            if (denied != null) return denied;
+
+            try
+            {
+                var image = await _systemParameterService.GetSystemParameterImage(id);
+                return Ok(ApiResponseDto<SystemParameterImageDto?>.CreateSuccess(image, image == null ? "No image uploaded." : "Image retrieved successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Updates ParameterValue and/or the image (multipart/form-data) from the System Parameters screen.
+        /// Respects ParameterValueEditable / ParameterBinaryValueEditable, DataType and ValidValues.
+        /// </summary>
+        [HttpPost("UpdateSystemParameterValue")]
+        [RequestSizeLimit(2 * 1024 * 1024)]
+        public async Task<IActionResult> UpdateSystemParameterValue([FromForm] SystemParameterValueUpdateDto dto)
+        {
+            if (dto == null || dto.IdSystemParameter <= 0)
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid System Parameter ID."));
+
+            var denied = await CheckSystemParameterPermission("U");
+            if (denied != null) return denied;
+
+            try
+            {
+                await _systemParameterService.UpdateSystemParameterValue(dto);
+                return Ok(ApiResponseDto<string>.CreateSuccess(null, "System parameter updated successfully."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
+            }
+        }
+
+        private async Task<IActionResult?> CheckSystemParameterPermission(string actionType)
+        {
+            var idEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(idEmployee))
+                return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+            var screenCode = _configuration["ScreenCodes:SystemParameters"];
+            var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(idEmployee), screenCode, actionType);
+            if (!hasPermission)
+                return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
+
+            return null;
+        }
+
         #endregion
 
         #region NotificationConfig

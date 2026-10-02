@@ -49,6 +49,13 @@ namespace Nomaro.API.Models
         public DateTime? WorkExpirationDate { get; set; }
         public string? CitizenShip { get; set; }
 
+        // Password login (hash only - never the plain password)
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string? PasswordHash { get; set; }
+        public DateTime? PasswordUpdatedOn { get; set; }
+        public int FailedLoginAttempts { get; set; }
+        public DateTime? LockoutEndTime { get; set; }
+
         [NotMapped]
         public byte[]? AttachmentBlob { get; set; }
     }

@@ -35,7 +35,7 @@ namespace Nomaro.API.Database
         public DbSet<FinancialYears> FinancialYears { get; set; }
         public DbSet<WorkYears> WorkYears { get; set; }
         public DbSet<CurrencyConversion> CurrencyConversions { get; set; }
-        public DbSet<ChildTaxThreshold> ChildTaxThresholds { get; set; }
+        public DbSet<TaxYearConfigs> TaxYearConfigs { get; set; }
         public DbSet<SalaryTemplate> SalaryTemplates { get; set; }
         public DbSet<SalaryTemplateDetails> SalaryTemplateDetails { get; set; }
         public DbSet<OvertimeTransactionEntity> OvertimeTransactions { get; set; }

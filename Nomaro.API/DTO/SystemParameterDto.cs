@@ -9,6 +9,9 @@
         public byte[]?   ParameterBinaryValue { get; set; }
         public string? DataType { get; set; }
         public string? ValidValues { get; set; }
+        public bool ShowInUIToConfigure { get; set; }
+        public bool ParameterValueEditable { get; set; }
+        public bool ParameterBinaryValueEditable { get; set; }
     }
 }
 

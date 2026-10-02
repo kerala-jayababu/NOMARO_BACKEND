@@ -5,18 +5,22 @@ public class TaxSlabDtoValidator : AbstractValidator<TaxSlabDto>
 {
     public TaxSlabDtoValidator()
     {
-        RuleFor(x => x.IdFinancialYear)
-            .GreaterThan(0).WithMessage("IdTaxConfig must be greater than 0.");
+        RuleFor(x => x.IdTaxYearConfig)
+            .GreaterThan(0).WithMessage("Select the financial year and tax regime.");
 
-        RuleFor(x => x.MinAmount)
-            .GreaterThanOrEqualTo(0).WithMessage("MinAmount must be greater than or equal to 0.");
+        RuleFor(x => x.AgeCategory)
+            .NotEmpty().WithMessage("Age Category is required.")
+            .MaximumLength(20).WithMessage("Age Category must not exceed 20 characters.");
 
-        RuleFor(x => x.MaxAmount)
-            .GreaterThan(x => x.MinAmount)
-            .WithMessage("MaxAmount must be greater than MinAmount.");
+        RuleFor(x => x.IncomeFrom)
+            .GreaterThanOrEqualTo(0).WithMessage("Income From must be 0 or more.");
+
+        RuleFor(x => x.IncomeTo)
+            .GreaterThan(x => x.IncomeFrom)
+            .When(x => x.IncomeTo.HasValue)
+            .WithMessage("Income To must be greater than Income From (leave it empty for the top slab).");
 
         RuleFor(x => x.TaxRate)
-            .InclusiveBetween(0, 100).WithMessage("TaxRate must be between 0 and 100.");
+            .InclusiveBetween(0, 100).WithMessage("Tax Rate must be between 0 and 100.");
     }
 }
-

@@ -25,7 +25,7 @@ namespace Nomaro.API.Helpers
             CreateMap<VacationMode, VacationModeDto>().ReverseMap();          
             CreateMap<TaxSlab, TaxSlabDto>().ReverseMap();
             CreateMap<CurrencyConversion, CurrencyConversionDto>().ReverseMap();
-            CreateMap<ChildTaxThreshold, ChildTaxThresholdDto>().ReverseMap();
+            CreateMap<TaxYearConfigs, TaxYearConfigDto>().ReverseMap();
             CreateMap<SalaryTemplate, SalaryTemplateDto>().ReverseMap();
             CreateMap<SalaryTemplate, SalaryTemplateManageDto>().ReverseMap();
             CreateMap<ScheduledDeductionDetailsDto, ScheduledDeductionDetails>().ReverseMap();

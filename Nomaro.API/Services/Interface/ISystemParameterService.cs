@@ -8,6 +8,9 @@ namespace Nomaro.API.Services.Interface
         Task<SystemParameterDto> GetSystemParameterById(int id);
         Task<SystemParameterDto> GetSystemParameterByName(string name);
         Task<bool> UpdateSystemParameter(SystemParameterDto dto);
+        Task<List<SystemParameterConfigDto>> GetConfigurableSystemParameters();
+        Task<SystemParameterImageDto?> GetSystemParameterImage(int id);
+        Task UpdateSystemParameterValue(SystemParameterValueUpdateDto dto);
     }
 }
 

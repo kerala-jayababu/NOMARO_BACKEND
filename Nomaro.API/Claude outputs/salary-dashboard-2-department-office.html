@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Department & Office Cost</title>
+<style>:root{color-scheme:light;
+ --page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);
+ --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948;
+ --pos:#2a78d6;--neg:#e34948;--total:#898781;--good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;--goodtext:#006300;
+ --q1:#cde2fb;--q2:#9ec5f4;--q3:#6da7ec;--q4:#3987e5;--q5:#256abf;--q6:#184f95;--q7:#0d366b;--hover:rgba(11,11,11,.04);--band:rgba(42,120,214,.07)}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;
+ --page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);
+ --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
+ --pos:#3987e5;--neg:#e66767;--total:#898781;--goodtext:#0ca30c;
+ --q1:#0d366b;--q2:#104281;--q3:#184f95;--q4:#1c5cab;--q5:#256abf;--q6:#3987e5;--q7:#6da7ec;--hover:rgba(255,255,255,.05);--band:rgba(57,135,229,.12)}}
+:root[data-theme="dark"]{color-scheme:dark;
+ --page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);
+ --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
+ --pos:#3987e5;--neg:#e66767;--total:#898781;--goodtext:#0ca30c;
+ --q1:#0d366b;--q2:#104281;--q3:#184f95;--q4:#1c5cab;--q5:#256abf;--q6:#3987e5;--q7:#6da7ec;--hover:rgba(255,255,255,.05);--band:rgba(57,135,229,.12)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--page);color:var(--ink);font-size:14px;line-height:1.4}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 24px 40px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.top h1{font-size:22px;font-weight:650}
+.top .desc{color:var(--ink2);font-size:13px;margin-top:2px;max-width:760px}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;border:1px solid var(--border);color:var(--ink2);margin-left:8px;vertical-align:3px}
+nav.dnav{display:flex;gap:4px;flex-wrap:wrap;margin:12px 0 14px;border-bottom:1px solid var(--grid);padding-bottom:8px}
+nav.dnav a{font-size:12.5px;color:var(--ink2);text-decoration:none;padding:5px 10px;border-radius:6px}
+nav.dnav a:hover{background:var(--hover)}
+nav.dnav a.on{color:var(--ink);font-weight:600;background:var(--band)}
+.filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+.filters label{display:flex;flex-direction:column;font-size:11.5px;color:var(--muted);gap:3px}
+.filters select{font:inherit;font-size:13px;padding:6px 28px 6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);min-width:150px}
+.theme-btn{margin-left:auto;font:inherit;font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+@media (max-width:1000px){.c3,.c4{grid-column:span 6}.c5,.c6,.c7,.c8{grid-column:span 12}}
+@media (max-width:640px){.wrap{padding:16px}.c3,.c4{grid-column:span 12}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;min-width:0}
+.card h3{font-size:14px;font-weight:600}
+.card .sub{font-size:12px;color:var(--muted);margin-top:1px}
+.card header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.tbtn{font:inherit;font-size:11.5px;color:var(--ink2);background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;cursor:pointer;white-space:nowrap}
+.tbtn:hover{background:var(--hover)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin:8px 0 2px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.legend i.ln{height:2px;width:14px;border-radius:1px;vertical-align:3px}
+.legend i.dot{border-radius:50%}
+.plot{margin-top:6px;position:relative}
+.plot svg{display:block;width:100%;overflow:visible}
+.plot svg text{font-family:inherit}
+.tick{font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.lbl{font-size:11.5px;fill:var(--ink2)}
+.val{font-size:11.5px;fill:var(--ink);font-weight:600}
+.hit{fill:transparent;cursor:default}
+.hit:hover{fill:var(--hover)}
+.mk{transition:opacity .12s}
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+table.dt th{text-align:left;font-weight:600;color:var(--ink2);font-size:11.5px;border-bottom:1px solid var(--axis);padding:6px 8px;white-space:nowrap}
+table.dt td{padding:6px 8px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+table.dt td.n,table.dt th.n{text-align:right}
+table.dt tr.tot td{font-weight:600;border-top:1px solid var(--axis)}
+.tblwrap{max-height:340px;overflow:auto}
+/* tiles */
+.tile .lab{font-size:12px;color:var(--ink2)}
+.tile .v{font-size:26px;font-weight:600;margin-top:4px;letter-spacing:-.01em}
+.tile .d{font-size:12px;color:var(--ink2);margin-top:2px}
+.spk{position:relative;height:36px;margin-top:10px}.spk svg{display:block;width:100%;height:36px}.spk span{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface)}
+.hero .v{font-size:48px;line-height:1.05}
+.hero{display:flex;flex-direction:column;justify-content:space-between}
+.tip{position:fixed;pointer-events:none;z-index:50;background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.14);padding:8px 10px;font-size:12px;display:none;min-width:150px}
+.tip .tt{font-size:11.5px;color:var(--muted);margin-bottom:4px}
+.tip .row{display:flex;align-items:center;gap:8px;margin:2px 0}
+.tip .row b{font-weight:650;margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums}
+.tip .row span.k{display:inline-block;width:12px;height:2px;border-radius:1px}
+.tip .row .nm{color:var(--ink2)}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.status svg{width:14px;height:14px}
+.steps{display:flex;gap:0;margin-top:12px;flex-wrap:wrap}
+.step{flex:1;min-width:140px;padding:10px 12px;border-top:3px solid var(--grid)}
+.step.done{border-color:var(--good)}.step.pend{border-color:var(--warning)}
+.step .sn{font-size:12.5px;font-weight:600}.step .sd{font-size:11.5px;color:var(--muted);margin-top:2px}
+.note{font-size:11.5px;color:var(--muted);margin-top:16px}
+.kv{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--grid)}
+.kv span:first-child{color:var(--ink2)}.kv b{font-weight:600;font-variant-numeric:tabular-nums}
+table.heat{width:100%;border-collapse:separate;border-spacing:2px;font-size:12.5px;margin-top:10px}
+table.heat th{font-weight:600;color:var(--ink2);font-size:11.5px;padding:6px 8px;text-align:right;white-space:nowrap}
+table.heat th:first-child{text-align:left}
+table.heat td{padding:8px;text-align:right;border-radius:4px;font-variant-numeric:tabular-nums}
+table.heat td:first-child{text-align:left;color:var(--ink2);padding-left:0}
+table.heat td.tc{font-weight:600;color:var(--ink)}
+table.heat td.z{color:var(--muted)}
+.h1{background:var(--q1);color:#0b0b0b}.h2{background:var(--q2);color:#0b0b0b}.h3{background:var(--q3);color:#0b0b0b}.h4{background:var(--q4);color:#fff}.h5{background:var(--q5);color:#fff}.h6{background:var(--q6);color:#fff}.h7{background:var(--q7);color:#fff}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .h1,:root:where(:not([data-theme="light"])) .h2,:root:where(:not([data-theme="light"])) .h3{color:#fff}:root:where(:not([data-theme="light"])) .h7{color:#0b0b0b}}
+:root[data-theme="dark"] .h1,:root[data-theme="dark"] .h2,:root[data-theme="dark"] .h3{color:#fff}:root[data-theme="dark"] .h7{color:#0b0b0b}
+:root[data-theme="light"] .h1,:root[data-theme="light"] .h2,:root[data-theme="light"] .h3{color:#0b0b0b}:root[data-theme="light"] .h7{color:#fff}
+.heatkey{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-top:8px}
+.heatkey i{display:inline-block;width:22px;height:10px;border-radius:2px}
+</style></head><body><div class="wrap">
+<!--TITLE:Department & Office Cost-->
+<div class="top"><div><h1>Department &amp; office cost<span class="badge">Sample data</span></h1><div class="desc">Where payroll cost sits across departments and offices, what each head costs, and which units moved since last month.</div></div></div>
+<nav class="dnav"></nav>
+<div class="filters"><label>Salary month<select id="fM"></select></label><button class="theme-btn">Light / dark</button></div>
+<div class="grid">
+ <section class="card c8" id="cHeat"><header><div><h3>Employer cost: department × office</h3><div class="sub" id="heatSub"></div></div></header><div id="heatBody"></div></section>
+ <section class="card c4" id="cPer"><header><div><h3>Cost per employee by department</h3><div class="sub" id="perSub"></div></div></header></section>
+ <section class="card c7" id="cOff"><header><div><h3>Employer cost by office — last 12 months</h3><div class="sub">Monthly employer cost per office</div></div></header></section>
+ <section class="card c5" id="cMom"><header><div><h3>Change vs previous month</h3><div class="sub" id="momSub"></div></div></header></section>
+ <section class="card c12" id="cMix"><header><div><h3>Department mix within each office</h3><div class="sub" id="mixSub"></div></div></header></section>
+</div>
+<div class="note">Sample figures generated for review. Live version groups approved salary records by the employee's department and office for the selected salary month.</div>
+<script>
+/* ===== SAMPLE DATA (deterministic). In NOMARO this comes from the salary generation tables. ===== */
+const MONTHS=['Oct-25','Nov-25','Dec-25','Jan-26','Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26','Aug-26','Sep-26'];
+const DUE_MONTHS=['Nov-25','Dec-25','Jan-26','Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26','Aug-26','Sep-26','Oct-26'];
+const CUR=11, FY_START=6; /* Apr-26 */
+const OFFICES=['Kochi (HO)','Thiruvananthapuram','Kozhikode','Bengaluru'];
+const OFFICE_W=[0.42,0.22,0.18,0.18];
+const DEPTS=[
+ {n:'Operations',w:.24,mult:.9,ot:true},{n:'Production',w:.20,mult:.8,ot:true},{n:'Sales & Marketing',w:.16,mult:1.0},
+ {n:'IT',w:.13,mult:1.25},{n:'Finance & Accounts',w:.10,mult:1.05},{n:'Human Resources',w:.08,mult:.95},{n:'Administration',w:.09,mult:.85}];
+const LEVELS=[
+ {n:'Executive',w:.40,lo:14000,hi:24000},{n:'Senior Executive',w:.25,lo:22000,hi:36000},{n:'Assistant Manager',w:.15,lo:34000,hi:52000},
+ {n:'Manager',w:.11,lo:50000,hi:82000},{n:'Senior Manager',w:.06,lo:80000,hi:125000},{n:'General Manager',w:.03,lo:130000,hi:210000}];
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R=mulberry(20260930);
+const pick=w=>{let r=R(),s=0;for(let i=0;i<w.length;i++){s+=w[i];if(r<=s)return i}return w.length-1};
+const rint=(a,b)=>Math.floor(a+R()*(b-a+1));
+const EMPLOYEES=[];
+function mkEmp(join,exit){
+  const d=pick(DEPTS.map(x=>x.w)), o=pick(OFFICE_W), l=pick(LEVELS.map(x=>x.w)), L=LEVELS[l];
+  const base=Math.round((L.lo+R()*(L.hi-L.lo))*DEPTS[d].mult/100)*100;
+  const incPct=R()<.88?(.06+R()*.07):0;
+  const e={code:'EMP'+String(1001+EMPLOYEES.length),dept:d,office:o,level:l,base,join,exit,incIdx:FY_START,incPct,m:[]};
+  EMPLOYEES.push(e);return e;
+}
+for(let i=0;i<238;i++) mkEmp(-1,null);
+for(let m=0;m<12;m++){const j=m==FY_START?6:rint(1,3);for(let k=0;k<j;k++)mkEmp(m,null);}
+/* exits */
+for(let m=1;m<12;m++){let x=rint(1,2);while(x>0){const e=EMPLOYEES[rint(0,EMPLOYEES.length-1)];if(e.exit==null&&e.join<m-1){e.exit=m;x--}}}
+const active=(e,m)=>e.join<=m&&(e.exit==null||e.exit>m);
+function tds(g){const t=g*12-75000;if(t<=1200000)return 0;const s=[[400000,0],[800000,.05],[1200000,.10],[1600000,.15],[2000000,.20],[2400000,.25],[1e12,.30]];let tax=0,prev=0;for(const[c,r]of s){if(t>prev)tax+=(Math.min(t,c)-prev)*r;prev=c}return Math.round(tax*1.04/12)}
+for(const e of EMPLOYEES){for(let m=0;m<12;m++){
+  if(!active(e,m)){e.m.push(null);continue}
+  const g=Math.round(e.base*(m>=e.incIdx?1+e.incPct:1)/100)*100;
+  const lop=R()<.13?rint(1,4):0, lopAmt=Math.round(g/30*lop);
+  const otH=(DEPTS[e.dept].ot&&e.level<=1&&R()<(m==5||m==11?.6:.4))?rint(4,24):0, ot=Math.round(otH*(g*.5/26/8)*2);
+  const arr=(m==7&&e.incPct>0&&e.join<FY_START)?Math.round(g*e.incPct/(1+e.incPct)):(R()<.015?rint(20,150)*100:0);
+  const gross=g-lopAmt+ot+arr, basic=.5*(g-lopAmt);
+  const pfB=Math.min(basic,15000), pfE=Math.round(.12*pfB), pfR=pfE;
+  const esiE=g<=21000?Math.ceil(.0075*gross):0, esiR=g<=21000?Math.ceil(.0325*gross):0;
+  const pt=g>=20000?208:g>=12000?125:0, tx=tds(g);
+  const ded=pfE+esiE+pt+tx;
+  e.m.push({g,lop,lopAmt,otH,ot,arr,gross,pfE,pfR,esiE,esiR,pt,tds:tx,ded,net:gross-ded,cost:gross+pfR+esiR});
+}}
+/* aggregate */
+function agg(m,f={}){
+  const z=()=>({hc:0,gross:0,net:0,ded:0,cost:0,pfE:0,pfR:0,esiE:0,esiR:0,pt:0,tds:0,lop:0,lopAmt:0,lopEmp:0,otH:0,ot:0,arr:0,esiHc:0,joiners:0,exits:0});
+  const t=z(),byDept=DEPTS.map(z),byOffice=OFFICES.map(z);
+  for(const e of EMPLOYEES){
+    if(f.office!=null&&f.office!==''&&e.office!=f.office)continue;
+    if(f.dept!=null&&f.dept!==''&&e.dept!=f.dept)continue;
+    if(e.exit===m){t.exits++;byDept[e.dept].exits++;byOffice[e.office].exits++}
+    const r=e.m[m];if(!r)continue;
+    for(const a of[t,byDept[e.dept],byOffice[e.office]]){
+      a.hc++;for(const k of['gross','net','ded','cost','pfE','pfR','esiE','esiR','pt','tds','lop','lopAmt','otH','ot','arr'])a[k]+=r[k];
+      if(r.lop)a.lopEmp++; if(r.esiE)a.esiHc++; if(e.join===m)a.joiners++;
+    }
+  }
+  return {t,byDept,byOffice};
+}
+
+/* ===== Tiny SVG chart kit (no libraries) ===== */
+const $=(s,r=document)=>r.querySelector(s);
+const INR=v=>'₹'+Math.round(v).toLocaleString('en-IN');
+function cINR(v,dp){return cINR0(v,dp).replace(/\.0+(?= )/,'')}
+function cINR0(v,dp){const a=Math.abs(v),s=v<0?'−':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(dp??2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(dp??(a>=1e6?1:2))+' L';if(a>=1e3)return s+'₹'+(a/1e3).toFixed(a>=1e4?0:1)+'K';return s+'₹'+Math.round(a)}
+const NUM=v=>Math.round(v).toLocaleString('en-IN');
+const pct=(a,b)=>b?((a-b)/b*100):0;
+const sgn=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1)+'%';
+function niceStep(raw){const p=Math.pow(10,Math.floor(Math.log10(raw||1)));const n=raw/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
+function scaleY(max,min=0,count=4){const st=niceStep((max-min)/count||1);const lo=Math.floor(min/st)*st,hi=Math.ceil(max/st)*st||st;const t=[];for(let v=lo;v<=hi+st/2;v+=st)t.push(v);return{lo,hi,t}}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* tooltip */
+const TIP=document.createElement('div');TIP.className='tip';document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(TIP));
+function tip(e,title,rows){TIP.replaceChildren();const t=document.createElement('div');t.className='tt';t.textContent=title;TIP.appendChild(t);
+ for(const r of rows){const d=document.createElement('div');d.className='row';if(r.c){const k=document.createElement('span');k.className='k';k.style.background=r.c;d.appendChild(k)}
+  const n=document.createElement('span');n.className='nm';n.textContent=r.n;d.appendChild(n);const b=document.createElement('b');b.textContent=r.v;d.appendChild(b);TIP.appendChild(d)}
+ TIP.style.display='block';const W=TIP.offsetWidth,H=TIP.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+W>innerWidth-8)x=e.clientX-W-14;if(y+H>innerHeight-8)y=e.clientY-H-14;TIP.style.left=x+'px';TIP.style.top=y+'px'}
+const untip=()=>TIP.style.display='none';
+/* bar path: rounded data end (top for vertical, right for horizontal), square at baseline */
+function vbar(x,y,w,h,round=true){if(h<=0)return'';const r=round?Math.min(4,h,w/2):0;return`M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`}
+function vbarDown(x,y,w,h){if(h<=0)return'';const r=Math.min(4,h,w/2);return`M${x},${y}V${y+h-r}Q${x},${y+h} ${x+r},${y+h}H${x+w-r}Q${x+w},${y+h} ${x+w},${y+h-r}V${y}Z`}
+function hbar(x,y,w,h,round=true){if(w<=0)return'';const r=round?Math.min(4,w,h/2):0;return`M${x},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h-r}Q${x+w},${y+h} ${x+w-r},${y+h}H${x}Z`}
+function hbarLeft(x,y,w,h){if(w<=0)return'';const r=Math.min(4,w,h/2);return`M${x},${y}H${x-w+r}Q${x-w},${y} ${x-w},${y+r}V${y+h-r}Q${x-w},${y+h} ${x-w+r},${y+h}H${x}Z`}
+const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/* card: legend + plot + table toggle */
+const CARDS=[];
+function card(id,spec){const el=document.getElementById(id);let tbl=false;
+ const head=el.querySelector('header');let btn=head.querySelector('.tbtn');
+ if(spec.table&&!btn){btn=document.createElement('button');btn.className='tbtn';btn.textContent='Table';head.appendChild(btn);}
+ let lg=el.querySelector('.legend');if(spec.legend){if(!lg){lg=document.createElement('div');lg.className='legend';el.appendChild(lg)}
+  lg.innerHTML=spec.legend.map(l=>`<span><i class="${l.t||''}" style="background:${l.c}"></i>${esc(l.n)}</span>`).join('')}else if(lg)lg.remove();
+ let pl=el.querySelector('.plot');if(!pl){pl=document.createElement('div');pl.className='plot';el.appendChild(pl)}
+ const draw=()=>{if(tbl&&spec.table){const t=spec.table;pl.innerHTML=`<div class="tblwrap"><table class="dt"><thead><tr>${t.cols.map((c,i)=>`<th class="${i&&t.num!==false?'n':''}">${esc(c)}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr class="${r.tot?'tot':''}">${(r.cells||r).map((c,i)=>`<td class="${i&&t.num!==false?'n':''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;return}
+  const w=pl.clientWidth||600;pl.innerHTML=spec.draw(w);spec.bind&&spec.bind(pl.querySelector('svg'),w)};
+ if(btn)btn.onclick=()=>{tbl=!tbl;btn.textContent=tbl?'Chart':'Table';draw()};
+ el._draw=draw;draw();if(!el._ro){el._ro=new ResizeObserver(()=>{if(Math.abs((el._w||0)-pl.clientWidth)>4){el._w=pl.clientWidth;el._draw()}});el._ro.observe(pl)}}
+/* axis helpers */
+function yAxis(sc,P,W,H,fmt){const ys=v=>P.t+H-(v-sc.lo)/(sc.hi-sc.lo)*H;let s='';for(const v of sc.t){const y=ys(v);s+=`<line x1="${P.l}" x2="${P.l+W}" y1="${y}" y2="${y}" stroke="var(${v==0?'--axis':'--grid'})" stroke-width="1"/><text class="tick" x="${P.l-8}" y="${y+4}" text-anchor="end">${esc(fmt(v))}</text>`}return{s,ys}}
+/* column chart: stacked or grouped, labels on x */
+function columns(o){return{legend:o.series.length>1?o.series.map(s=>({n:s.n,c:s.c})):null,table:o.table,
+ draw(w){const P={l:62,r:10,t:14,b:26},H=o.h||230,W=w-P.l-P.r,n=o.labels.length,band=W/n;
+  const tot=o.labels.map((_,i)=>o.stacked?o.series.reduce((a,s)=>a+s.v[i],0):Math.max(...o.series.map(s=>s.v[i])));
+  const sc=scaleY(Math.max(...tot));const A=yAxis(sc,P,W,H,o.fmt);let s=A.s;
+  if(o.sel!=null)s=`<rect x="${P.l+band*o.sel}" y="${P.t}" width="${band}" height="${H}" fill="var(--band)"/>`+s;
+  const bw=o.stacked?Math.min(24,band*.62):Math.min(16,(band*.7-2*(o.series.length-1))/o.series.length);
+  for(let i=0;i<n;i++){const cx=P.l+band*i+band/2;
+   if(o.stacked){let acc=0;const last=o.series.map((s,k)=>s.v[i]>0?k:-1).reduce((a,b)=>Math.max(a,b),-1);
+    o.series.forEach((ser,k)=>{const v=ser.v[i];if(v<=0)return;const y0=A.ys(acc),y1=A.ys(acc+v);acc+=v;const gap=k<last?2:0;
+     s+=`<path class="mk" d="${vbar(cx-bw/2,y1+(k<last?0:0),bw,Math.max(0,y0-y1-(k>0?2:0)),k==last)}" fill="${ser.c}"/>`})}
+   else{const gw=o.series.length*bw+(o.series.length-1)*2;o.series.forEach((ser,k)=>{const v=ser.v[i];const y=A.ys(v);s+=`<path class="mk" d="${vbar(cx-gw/2+k*(bw+2),y,bw,A.ys(0)-y)}" fill="${ser.c}"/>`})}
+   const showL=n<=14||i%2==(n-1)%2;if(showL)s+=`<text class="tick" x="${cx}" y="${P.t+H+17}" text-anchor="middle" style="${i===o.sel?'fill:var(--ink);font-weight:600':''}">${esc(o.labels[i])}</text>`;
+   if(o.endLabel&&i==(o.sel??n-1))s+=`<text class="val" x="${cx}" y="${A.ys(tot[i])-6}" text-anchor="middle">${esc(o.fmt(tot[i]))}</text>`;
+   s+=`<rect class="hit" data-i="${i}" x="${P.l+band*i}" y="${P.t}" width="${band}" height="${H}"/>`}
+  return`<svg height="${H+P.t+P.b}" viewBox="0 0 ${w} ${H+P.t+P.b}">${s}</svg>`},
+ bind(svg){svg.querySelectorAll('.hit').forEach(r=>{const i=+r.dataset.i;r.addEventListener('pointermove',e=>{const rows=o.series.map(s=>({n:s.n,v:(o.tfmt||o.fmt)(s.v[i]),c:s.c})).reverse();if(o.stacked&&o.series.length>1)rows.push({n:'Total',v:(o.tfmt||o.fmt)(o.series.reduce((a,s)=>a+s.v[i],0))});if(o.extra)rows.push(...o.extra(i));tip(e,o.labels[i],rows)});r.addEventListener('pointerleave',untip)})}}}
+/* line chart with crosshair */
+function lines(o){return{legend:o.series.length>1?o.series.map(s=>({n:s.n,c:s.c,t:'ln'})):null,table:o.table,
+ draw(w){const P={l:62,r:o.endLabels?110:14,t:14,b:26},H=o.h||230,W=w-P.l-P.r,n=o.labels.length,dx=W/(n-1);
+  const all=o.series.flatMap(s=>s.v);const sc=scaleY(Math.max(...all),o.zero===false?Math.min(...all)*.9:0);const A=yAxis(sc,P,W,H,o.fmt);let s=A.s;
+  const xs=i=>P.l+dx*i;
+  if(o.sel!=null)s+=`<line x1="${xs(o.sel)}" x2="${xs(o.sel)}" y1="${P.t}" y2="${P.t+H}" stroke="var(--axis)" stroke-width="1"/>`;
+  o.series.forEach(ser=>{const d=ser.v.map((v,i)=>`${i?'L':'M'}${xs(i)},${A.ys(v)}`).join('');
+   if(o.area)s+=`<path d="${d}L${xs(n-1)},${A.ys(sc.lo)}L${xs(0)},${A.ys(sc.lo)}Z" fill="${ser.c}" opacity=".1"/>`;
+   s+=`<path d="${d}" fill="none" stroke="${ser.c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+   const li=o.sel??n-1;s+=`<circle cx="${xs(li)}" cy="${A.ys(ser.v[li])}" r="4" fill="${ser.c}" stroke="var(--surface)" stroke-width="2"/>`});
+  if(o.endLabels){const ls=o.series.map(se=>({y:A.ys(se.v[n-1]),n:se.n,v:se.v[n-1]})).sort((a,b)=>a.y-b.y);let ok=true;for(let i=1;i<ls.length;i++)if(ls[i].y-ls[i-1].y<13)ok=false;
+   if(ok)ls.forEach(l=>s+=`<text class="lbl" x="${xs(n-1)+8}" y="${l.y+4}">${esc(l.n)}</text>`)}
+  else if(o.series.length==1){const v=o.series[0].v[n-1];s+=`<text class="val" x="${xs(n-1)}" y="${A.ys(v)-10}" text-anchor="end">${esc(o.fmt(v))}</text>`}
+  for(let i=0;i<n;i++)if(n<=14||i%2==(n-1)%2)s+=`<text class="tick" x="${xs(i)}" y="${P.t+H+17}" text-anchor="middle" style="${i===o.sel?'fill:var(--ink);font-weight:600':''}">${esc(o.labels[i])}</text>`;
+  s+=`<line class="xh" x1="0" x2="0" y1="${P.t}" y2="${P.t+H}" stroke="var(--muted)" stroke-width="1" style="display:none"/><g class="xd"></g><rect class="ov" x="${P.l-dx/2}" y="${P.t}" width="${W+dx}" height="${H}" fill="transparent"/>`;
+  this._g={P,dx,xs,ys:A.ys};return`<svg height="${H+P.t+P.b}" viewBox="0 0 ${w} ${H+P.t+P.b}">${s}</svg>`},
+ bind(svg){const g=this._g,xh=svg.querySelector('.xh'),xd=svg.querySelector('.xd'),ov=svg.querySelector('.ov');
+  ov.addEventListener('pointermove',e=>{const b=svg.getBoundingClientRect();const x=(e.clientX-b.left)*(svg.viewBox.baseVal.width/b.width);let i=Math.round((x-g.P.l)/g.dx);i=Math.max(0,Math.min(o.labels.length-1,i));
+   xh.setAttribute('x1',g.xs(i));xh.setAttribute('x2',g.xs(i));xh.style.display='';xd.innerHTML=o.series.map(s=>`<circle cx="${g.xs(i)}" cy="${g.ys(s.v[i])}" r="4" fill="${s.c}" stroke="var(--surface)" stroke-width="2"/>`).join('');
+   tip(e,o.labels[i],o.series.map(s=>({n:s.n,v:(o.tfmt||o.fmt)(s.v[i]),c:s.c})).sort((a,b)=>0))});
+  ov.addEventListener('pointerleave',()=>{xh.style.display='none';xd.innerHTML='';untip()})}}}
+/* horizontal bars (single series, or stacked) */
+function hbars(o){const series=o.series||[{n:o.name||'',c:o.c||'var(--s1)',v:o.items.map(i=>i.v)}];
+ return{legend:series.length>1?series.map(s=>({n:s.n,c:s.c})):null,table:o.table,
+ draw(w){const lw=o.lw||140,vw=o.vw===0?0:(o.vw||74),P={l:lw,r:vw,t:4,b:4},rh=o.rh||30,n=o.items.length,H=n*rh,W=w-P.l-P.r;
+  const tot=o.items.map((_,i)=>series.reduce((a,s)=>a+s.v[i],0));const mx=o.max||Math.max(...tot);let s='';
+  s+=`<line x1="${P.l}" x2="${P.l}" y1="0" y2="${H+P.t}" stroke="var(--axis)"/>`;
+  o.items.forEach((it,i)=>{const y=P.t+i*rh,bh=Math.min(18,rh-10),by=y+(rh-bh)/2;let acc=0;const last=series.map((s,k)=>s.v[i]>0?k:-1).reduce((a,b)=>Math.max(a,b),-1);
+   s+=`<text class="lbl" x="${P.l-10}" y="${y+rh/2+4}" text-anchor="end">${esc(it.l)}</text>`;
+   series.forEach((ser,k)=>{const v=ser.v[i];if(v<=0)return;const x0=P.l+acc/mx*W;const bw=v/mx*W-(k<last?2:0);acc+=v;s+=`<path class="mk" d="${hbar(x0+(k>0?0:0),by,Math.max(0,bw),bh,k==last)}" fill="${ser.c}"/>`});
+   if(vw)s+=`<text class="val" x="${P.l+acc/mx*W+8}" y="${y+rh/2+4}">${esc((o.lab||o.fmt)(tot[i],i))}</text>`;
+   s+=`<rect class="hit" data-i="${i}" x="0" y="${y}" width="${w}" height="${rh}"/>`});
+  return`<svg height="${H+P.t+P.b}" viewBox="0 0 ${w} ${H+P.t+P.b}">${s}</svg>`},
+ bind(svg){svg.querySelectorAll('.hit').forEach(r=>{const i=+r.dataset.i;r.addEventListener('pointermove',e=>{const rows=series.length>1?series.map(s=>({n:s.n,v:o.fmt(s.v[i]),c:s.c})):[{n:series[0].n||o.items[i].l,v:o.fmt(series[0].v[i]),c:series[0].c}];if(o.extra)rows.push(...o.extra(i));tip(e,o.items[i].l,rows)});r.addEventListener('pointerleave',untip)})}}}
+/* diverging horizontal bars around zero */
+function diverge(o){return{table:o.table,legend:[{n:o.posN||'Increase',c:'var(--pos)'},{n:o.negN||'Decrease',c:'var(--neg)'}],
+ draw(w){const lw=o.lw||140,P={l:lw,r:64,t:4},rh=30,n=o.items.length,H=n*rh,W=w-P.l-P.r;const mx=Math.max(...o.items.map(i=>Math.abs(i.v)))||1;
+  const neg=o.items.some(i=>i.v<0),pos=o.items.some(i=>i.v>0);const z=P.l+(neg&&pos?W/2:neg?W:0),half=neg&&pos?W/2-50:W-50;let s='';
+  o.items.forEach((it,i)=>{const y=P.t+i*rh,bh=16,by=y+(rh-bh)/2,bw=Math.abs(it.v)/mx*half;
+   s+=`<text class="lbl" x="${P.l-10}" y="${y+rh/2+4}" text-anchor="end">${esc(it.l)}</text>`;
+   s+=it.v>=0?`<path class="mk" d="${hbar(z,by,bw,bh)}" fill="var(--pos)"/><text class="val" x="${z+bw+6}" y="${y+rh/2+4}">${esc(o.fmt(it.v))}</text>`
+     :`<path class="mk" d="${hbarLeft(z,by,bw,bh)}" fill="var(--neg)"/><text class="val" x="${z-bw-6}" y="${y+rh/2+4}" text-anchor="end">${esc(o.fmt(it.v))}</text>`;
+   s+=`<rect class="hit" data-i="${i}" x="0" y="${y}" width="${w}" height="${rh}"/>`});
+  s+=`<line x1="${z}" x2="${z}" y1="0" y2="${H+P.t}" stroke="var(--axis)"/>`;return`<svg height="${H+8}" viewBox="0 0 ${w} ${H+8}">${s}</svg>`},
+ bind(svg){svg.querySelectorAll('.hit').forEach(r=>{const i=+r.dataset.i;r.addEventListener('pointermove',e=>tip(e,o.items[i].l,o.tipRows(i)));r.addEventListener('pointerleave',untip)})}}}
+/* waterfall */
+function waterfall(o){return{table:o.table,legend:[{n:'Month total',c:'var(--total)'},{n:'Adds to cost',c:'var(--pos)'},{n:'Reduces cost',c:'var(--neg)'}],
+ draw(w){const P={l:62,r:10,t:22,b:40},H=o.h||250,W=w-P.l-P.r,n=o.steps.length,band=W/n;let run=0;const pts=o.steps.map(st=>{if(st.total){run=st.v;return{a:0,b:st.v}}const a=run;run+=st.v;return{a,b:run}});
+  const vals=pts.flatMap(p=>[p.a,p.b]).filter((v,i)=>!(o.steps[i>>1].total&&v===0));const lo=Math.min(...vals),hi=Math.max(...vals);const sc=scaleY(hi,lo-(hi-lo)*.35);const A=yAxis(sc,P,W,H,o.afmt||o.fmt);let s=A.s;
+  const bw=Math.min(40,band*.6);
+  o.steps.forEach((st,i)=>{const cx=P.l+band*i+band/2,p=pts[i];const top=A.ys(Math.max(st.total?p.b:Math.max(p.a,p.b),sc.lo)),bot=st.total?A.ys(sc.lo):A.ys(Math.min(p.a,p.b));
+   const c=st.total?'var(--total)':st.v>=0?'var(--pos)':'var(--neg)';s+=`<path class="mk" d="${st.total||st.v>=0?vbar(cx-bw/2,top,bw,Math.max(1,bot-top)):vbarDown(cx-bw/2,top,bw,Math.max(1,bot-top))}" fill="${c}"/>`;
+   if(i<n-1)s+=`<line x1="${cx+bw/2}" x2="${cx+band-bw/2}" y1="${A.ys(p.b)}" y2="${A.ys(p.b)}" stroke="var(--axis)" stroke-width="1"/>`;
+   s+=`<text class="val" x="${cx}" y="${(st.total||st.v>=0?top:bot+14)-(st.total||st.v>=0?6:0)}" text-anchor="middle">${esc(st.total?o.fmt(st.v):(st.v>=0?'+':'')+o.fmt(st.v))}</text>`;
+   const words=st.l.split(' ');s+=`<text class="tick" x="${cx}" y="${P.t+H+16}" text-anchor="middle">${esc(words.slice(0,2).join(' '))}</text>`;if(words.length>2)s+=`<text class="tick" x="${cx}" y="${P.t+H+30}" text-anchor="middle">${esc(words.slice(2).join(' '))}</text>`;
+   s+=`<rect class="hit" data-i="${i}" x="${P.l+band*i}" y="${P.t}" width="${band}" height="${H}"/>`});
+  return`<svg height="${H+P.t+P.b}" viewBox="0 0 ${w} ${H+P.t+P.b}">${s}</svg>`},
+ bind(svg){svg.querySelectorAll('.hit').forEach(r=>{const i=+r.dataset.i;r.addEventListener('pointermove',e=>tip(e,o.steps[i].l,[{n:o.steps[i].note||'Amount',v:INR(o.steps[i].v)}]));r.addEventListener('pointerleave',untip)})}}}
+/* range (min–avg–max) dot plot */
+function ranges(o){return{table:o.table,legend:[{n:'Min – max range',c:'var(--axis)'},{n:'Average',c:'var(--s1)',t:'dot'}],
+ draw(w){const lw=o.lw||150,P={l:lw,r:16,t:4,b:24},rh=32,n=o.items.length,H=n*rh,W=w-P.l-P.r;const mx=Math.max(...o.items.map(i=>i.max));const sc=scaleY(mx,0,5);const xs=v=>P.l+v/sc.hi*W;let s='';
+  for(const v of sc.t)s+=`<line x1="${xs(v)}" x2="${xs(v)}" y1="0" y2="${H}" stroke="var(--grid)"/><text class="tick" x="${xs(v)}" y="${H+16}" text-anchor="middle">${esc(o.fmt(v))}</text>`;
+  o.items.forEach((it,i)=>{const y=P.t+i*rh+rh/2;s+=`<text class="lbl" x="${P.l-10}" y="${y+4}" text-anchor="end">${esc(it.l)}</text><line x1="${xs(it.min)}" x2="${xs(it.max)}" y1="${y}" y2="${y}" stroke="var(--axis)" stroke-width="4" stroke-linecap="round"/>
+   <circle cx="${xs(it.min)}" cy="${y}" r="4" fill="var(--muted)" stroke="var(--surface)" stroke-width="2"/><circle cx="${xs(it.max)}" cy="${y}" r="4" fill="var(--muted)" stroke="var(--surface)" stroke-width="2"/><circle cx="${xs(it.avg)}" cy="${y}" r="6" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+   <rect class="hit" data-i="${i}" x="0" y="${y-rh/2}" width="${w}" height="${rh}"/>`});
+  return`<svg height="${H+P.b+4}" viewBox="0 0 ${w} ${H+P.b+4}">${s}</svg>`},
+ bind(svg){svg.querySelectorAll('.hit').forEach(r=>{const i=+r.dataset.i,it=o.items[i];r.addEventListener('pointermove',e=>tip(e,it.l,[{n:'Average',v:INR(it.avg),c:'var(--s1)'},{n:'Minimum',v:INR(it.min)},{n:'Maximum',v:INR(it.max)},{n:'Employees',v:NUM(it.n)}]));r.addEventListener('pointerleave',untip)})}}}
+/* stat tile with sparkline */
+function spark(vals,sel){const w=200,h=36,mx=Math.max(...vals),mn=Math.min(...vals),r=mx-mn||1,xs=i=>4+i*(w-8)/(vals.length-1),ys=v=>h-5-(v-mn)/r*(h-10);sel=sel??vals.length-1;
+ return`<div class="spk"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><path d="${vals.map((v,i)=>`${i?'L':'M'}${xs(i)},${ys(v)}`).join('')}" fill="none" stroke="var(--axis)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><span style="left:${xs(sel)/w*100}%;top:${ys(vals[sel])/h*100}%"></span></div>`}
+function tile(id,lab,val,delta,trend,sel){const el=document.getElementById(id);el.innerHTML=`<div class="lab">${esc(lab)}</div><div class="v">${esc(val)}</div>${delta?`<div class="d">${esc(delta)}</div>`:''}${trend?spark(trend,sel):''}`}
+/* status chip with icon */
+const ICON={good:'<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="var(--good)"/><path d="M4.8 8.2l2.1 2.1 4.3-4.6" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ warning:'<svg viewBox="0 0 16 16"><path d="M8 1.5l7 12.5H1z" fill="var(--warning)"/><path d="M8 6v4" stroke="#0b0b0b" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="12" r=".9" fill="#0b0b0b"/></svg>',
+ critical:'<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="var(--critical)"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>',
+ info:'<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="var(--muted)" stroke-width="1.5"/><path d="M8 7v4" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="var(--muted)"/></svg>'};
+const chip=(k,t)=>`<span class="status">${ICON[k]}${esc(t)}</span>`;
+/* page chrome */
+const PAGES=[['salary-dashboard-1-overview.html','Payroll overview'],['salary-dashboard-2-department-office.html','Department & office cost'],['salary-dashboard-3-statutory.html','Statutory & tax liability'],['salary-dashboard-4-variance.html','Variance & exceptions'],['salary-dashboard-5-distribution.html','Salary distribution']];
+function chrome(active){const n=document.querySelector('nav.dnav');n.innerHTML=PAGES.map(([h,t],i)=>`<a href="${h}" class="${i==active?'on':''}">${i+1}. ${esc(t)}</a>`).join('');
+ const b=document.querySelector('.theme-btn');if(b)b.onclick=()=>{const d=document.documentElement;const dark=d.dataset.theme?d.dataset.theme=='dark':matchMedia('(prefers-color-scheme: dark)').matches;d.dataset.theme=dark?'light':'dark';CARDS.forEach(f=>f())}}
+function monthSelect(sel,from=0){sel.innerHTML=MONTHS.map((m,i)=>i<from?'':`<option value="${i}" ${i==CUR?'selected':''}>${m}</option>`).join('')}
+function officeSelect(sel){sel.innerHTML='<option value="">All offices</option>'+OFFICES.map((o,i)=>`<option value="${i}">${esc(o)}</option>`).join('')}
+function deptSelect(sel){sel.innerHTML='<option value="">All departments</option>'+DEPTS.map((o,i)=>`<option value="${i}">${esc(o.n)}</option>`).join('')}
+const SER=['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)','var(--s6)','var(--s7)','var(--s8)'];
+
+
+chrome(1);monthSelect(fM);
+function render(){const m=+fM.value,A=MONTHS.map((_,i)=>agg(i)),a=A[m],p=m>0?A[m-1]:null;
+ /* heat */
+ const cell=(d,o)=>{let c=0,h=0;for(const e of EMPLOYEES){const r=e.m[m];if(r&&e.dept==d&&e.office==o){c+=r.cost;h++}}return{c,h}};
+ const M=DEPTS.map((_,d)=>OFFICES.map((_,o)=>cell(d,o)));const mx=Math.max(...M.flat().map(x=>x.c));
+ heatSub.textContent=`${MONTHS[m]} · darker = higher cost · hover for headcount`;
+ const step=v=>v<=0?0:Math.min(7,1+Math.floor(v/mx*7*0.999));
+ heatBody.innerHTML=`<div style="overflow-x:auto"><table class="heat"><thead><tr><th>Department</th>${OFFICES.map(o=>`<th>${esc(o)}</th>`).join('')}<th>Total</th></tr></thead><tbody>${
+  M.map((row,d)=>`<tr><td>${esc(DEPTS[d].n)}</td>${row.map((x,o)=>`<td class="${x.c?'h'+step(x.c):'z'}" data-d="${d}" data-o="${o}">${x.c?esc(cINR(x.c,1)):'—'}</td>`).join('')}<td class="tc">${esc(cINR(a.byDept[d].cost,1))}</td></tr>`).join('')
+ }<tr><td style="font-weight:600;color:var(--ink)">Total</td>${OFFICES.map((_,o)=>`<td class="tc">${esc(cINR(a.byOffice[o].cost,1))}</td>`).join('')}<td class="tc">${esc(cINR(a.t.cost))}</td></tr></tbody></table></div>
+ <div class="heatkey">Lower ${[1,2,3,4,5,6,7].map(i=>`<i class="h${i}"></i>`).join('')} Higher</div>`;
+ heatBody.querySelectorAll('td[data-d]').forEach(td=>{const d=+td.dataset.d,o=+td.dataset.o,x=M[d][o];td.addEventListener('pointermove',e=>tip(e,`${DEPTS[d].n} · ${OFFICES[o]}`,[{n:'Employer cost',v:INR(x.c)},{n:'Employees',v:NUM(x.h)},{n:'Cost per employee',v:x.h?INR(x.c/x.h):'—'}]));td.addEventListener('pointerleave',untip)});
+ /* per head */
+ const per=a.byDept.map((x,i)=>({l:DEPTS[i].n,v:x.hc?x.cost/x.hc:0,hc:x.hc})).sort((x,y)=>y.v-x.v);perSub.textContent=`${MONTHS[m]} · company average ${INR(a.t.cost/a.t.hc)}`;
+ card('cPer',hbars({items:per,fmt:INR,lab:v=>cINR(v),lw:126,vw:64,extra:i=>[{n:'Employees',v:NUM(per[i].hc)}],table:{cols:['Department','Employees','Cost per employee'],rows:per.map(x=>[x.l,x.hc,INR(x.v)])}}));
+ /* office lines */
+ const os=OFFICES.map((o,i)=>({n:o,c:SER[i],v:A.map(x=>x.byOffice[i].cost)}));
+ card('cOff',lines({labels:MONTHS,series:os,fmt:v=>cINR(v,0),tfmt:INR,sel:m,endLabels:true,table:{cols:['Month',...OFFICES],rows:MONTHS.map((l,i)=>[l,...os.map(s=>INR(s.v[i]))])}}));
+ /* mom */
+ momSub.textContent=p?`${MONTHS[m]} vs ${MONTHS[m-1]} · employer cost, by department`:'No previous month in range';
+ const mom=p?a.byDept.map((x,i)=>({l:DEPTS[i].n,v:x.cost-p.byDept[i].cost,cur:x.cost,prv:p.byDept[i].cost,hc:x.hc,ph:p.byDept[i].hc})).sort((x,y)=>y.v-x.v):[];
+ card('cMom',diverge({items:mom,fmt:v=>(v>0?'+':'')+cINR(v,1),lw:126,tipRows:i=>[{n:'Change',v:(mom[i].v>0?'+':'')+INR(mom[i].v)},{n:MONTHS[m],v:INR(mom[i].cur)},{n:MONTHS[m-1],v:INR(mom[i].prv)},{n:'Employees',v:`${mom[i].ph} → ${mom[i].hc}`}],
+  table:{cols:['Department',MONTHS[m-1]||'',MONTHS[m],'Change','%'],rows:mom.map(x=>[x.l,INR(x.prv),INR(x.cur),INR(x.v),sgn(pct(x.cur,x.prv))])}}));
+ /* mix */
+ mixSub.textContent=`${MONTHS[m]} · employer cost split by department`;
+ const ser=DEPTS.map((d,i)=>({n:d.n,c:SER[i],v:OFFICES.map((_,o)=>M[i][o].c)}));
+ card('cMix',hbars({items:OFFICES.map(o=>({l:o})),series:ser,fmt:INR,lab:v=>cINR(v),lw:140,vw:70,rh:40,table:{cols:['Office',...DEPTS.map(d=>d.n),'Total'],rows:OFFICES.map((o,j)=>[o,...ser.map(s=>INR(s.v[j])),INR(a.byOffice[j].cost)])}}));
+}
+fM.onchange=render;CARDS.push(render);render();
+</script>
+
+</div></body></html>

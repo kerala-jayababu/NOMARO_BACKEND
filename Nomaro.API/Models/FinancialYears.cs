@@ -8,7 +8,6 @@ namespace Nomaro.API.Models
         public int IdFinancialYear { get; set; }
         public DateTime? FinancialYearFrom {  get; set; } 
         public DateTime? FinancialYearTo {  get; set; } 
-
+        public string? FinancialYearName { get; set; }
     }
 }
-
