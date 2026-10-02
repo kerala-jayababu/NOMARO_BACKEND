@@ -28,6 +28,9 @@ namespace Nomaro.API.DTO
         public bool IsActive { get; set; }
 
         [NotMapped]
+        public OfficeShiftScheduleDto? ShiftSchedule { get; set; }
+
+        [NotMapped]
         public string? OfficeTypeCode { get; set; }
         [NotMapped]
         public string? OfficeTypeName { get; set; }

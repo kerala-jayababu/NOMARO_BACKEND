@@ -10,6 +10,7 @@ namespace Nomaro.API.Models.Shift
         [Required, MaxLength(50)]
         public string ShiftName { get; set; } = string.Empty;
         public bool IsRegularShiftJustTimeChange { get; set; }
+        public int? IdOffice { get; set; }
 
     }
 }

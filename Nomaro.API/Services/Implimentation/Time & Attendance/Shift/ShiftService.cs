@@ -34,11 +34,17 @@ public class ShiftService : IShiftService
         _auditService = auditService;
     }
 
-    public async Task<IEnumerable<ShiftDto>> GetShiftList()
+    public async Task<IEnumerable<ShiftDto>> GetShiftList(int? idOffice = null)
     {
         try
         {
-            var shifts = await _dbContext.ShiftDefinitions.OrderBy(s => s.ShiftName).ToListAsync();
+            var query = _dbContext.ShiftDefinitions.AsNoTracking();
+            if (idOffice.HasValue)
+            {
+                query = query.Where(shift => shift.IdOffice == idOffice.Value);
+            }
+
+            var shifts = await query.OrderBy(s => s.ShiftName).ToListAsync();
             return _mapper.Map<IEnumerable<ShiftDto>>(shifts);
         }
         catch (Exception ex)
@@ -72,6 +78,7 @@ public class ShiftService : IShiftService
             _logger.LogInformation("Adding new shift: {ShiftName}", shiftDto.ShiftName);
 
             var entity = _mapper.Map<ShiftDefinitionEntity>(shiftDto);
+            entity.IdOffice = shiftDto.IdOffice;
             var result = await _dbContext.ShiftDefinitions.AddAsync(entity);
             await _dbContext.SaveChangesAsync();
 

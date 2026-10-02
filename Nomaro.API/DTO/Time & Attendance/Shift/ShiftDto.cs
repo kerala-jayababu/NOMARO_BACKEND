@@ -10,6 +10,7 @@ namespace Nomaro.API.DTO.Shift
         public int IdShift { get; set; }
         public string ShiftName { get; set; } = string.Empty;
         public bool IsRegularShiftJustTimeChange { get; set; }
+        public int? IdOffice { get; set; }
 
     }
 }

@@ -30,6 +30,7 @@ namespace Nomaro.API.Controllers.Time___Attendance
         private readonly IShiftScheduleService _shiftScheduleService;
         private readonly IShiftEmployeeService _shiftEmployeeService;
         private readonly IShiftAssignmentService _shiftAssignmentService;
+        private readonly IShiftSetupService _shiftSetupService;
         private readonly IValidator<ShiftDto> _shiftvalidator;
         private readonly IValidator<ShiftScheduleDto> _shiftScheduleValidator;
         private readonly IValidator<ApproveTimesheetDto> _appproveTimeSheetValidator;
@@ -41,6 +42,7 @@ namespace Nomaro.API.Controllers.Time___Attendance
             IShiftScheduleService shiftScheduleService,
             IShiftEmployeeService shiftEmployeeService,
             IShiftAssignmentService shiftAssignmentService,
+            IShiftSetupService shiftSetupService,
             // Injecting validators
             IValidator<ShiftDto> shiftValidator,
             IValidator<ApproveTimesheetDto> appproveTimeSheetValidator,
@@ -53,6 +55,7 @@ namespace Nomaro.API.Controllers.Time___Attendance
             _shiftvalidator = shiftValidator;
             _shiftEmployeeService = shiftEmployeeService;
             _shiftAssignmentService = shiftAssignmentService;
+            _shiftSetupService = shiftSetupService;
             _shiftScheduleValidator = shiftScheduleValidator;
             _appproveTimeSheetValidator = appproveTimeSheetValidator;
             _UpdateShortTimeReasonDtoValidator = updateShortTimeReasonDtoValidator;
@@ -65,11 +68,31 @@ namespace Nomaro.API.Controllers.Time___Attendance
 
 
         [HttpGet("GetShiftList")]
-        public async Task<IActionResult> GetShiftList()
+        public async Task<IActionResult> GetShiftList(int? idOffice)
         {
             try
             {
-                var shiftList = await _shiftService.GetShiftList();
+                if (idOffice.HasValue)
+                {
+                    if (idOffice <= 0)
+                    {
+                        return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid office ID."));
+                    }
+
+                    var employeeIdClaim = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    if (!int.TryParse(employeeIdClaim, out var employeeId) || employeeId <= 0)
+                    {
+                        return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+                    }
+
+                    var visibleOffices = await _shiftSetupService.GetShiftSetupDetails(employeeId);
+                    if (!visibleOffices.Any(office => office.IdOffice == idOffice.Value))
+                    {
+                        return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have access to this office."));
+                    }
+                }
+
+                var shiftList = await _shiftService.GetShiftList(idOffice);
 
                 if (shiftList == null || !shiftList.Any())
                 {
@@ -115,6 +138,11 @@ namespace Nomaro.API.Controllers.Time___Attendance
         {
             try
             {
+                if (dto.IdOffice is null or <= 0)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Office ID is required."));
+                }
+
                 var validationResult = await _shiftvalidator.ValidateAsync(dto);
                 if (!validationResult.IsValid)
                 {
@@ -123,14 +151,18 @@ namespace Nomaro.API.Controllers.Time___Attendance
                 }
 
                 var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(employeeId))
+                if (!int.TryParse(employeeId, out var authenticatedEmployeeId) || authenticatedEmployeeId <= 0)
                     return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                var visibleOffices = await _shiftSetupService.GetShiftSetupDetails(authenticatedEmployeeId);
+                if (!visibleOffices.Any(office => office.IdOffice == dto.IdOffice.Value))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have access to this office."));
 
                 // var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(employeeId), _configuration["ScreenCodes:Shifts"], "A");
                 // if (!hasPermission)
                 //     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
 
-                var existing = (await _shiftService.GetShiftList())
+                var existing = (await _shiftService.GetShiftList(dto.IdOffice))
                     .FirstOrDefault(s => s.ShiftName.Equals(dto.ShiftName, StringComparison.OrdinalIgnoreCase));
                 if (existing != null)
                     return Conflict(ApiResponseDto<string>.CreateFailure("Shift already exists."));
@@ -139,7 +171,7 @@ namespace Nomaro.API.Controllers.Time___Attendance
                 if (result == null)
                     return UnprocessableEntity(ApiResponseDto<string>.CreateFailure("Failed to add shift."));
 
-                return Ok(ApiResponseDto<string>.CreateSuccess("Shift added successfully."));
+                return Ok(ApiResponseDto<ShiftDto>.CreateSuccess(result, "Shift added successfully."));
             }
             catch (Exception ex)
             {
@@ -166,14 +198,27 @@ namespace Nomaro.API.Controllers.Time___Attendance
                 }
 
                 var employeeId = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(employeeId))
+                if (!int.TryParse(employeeId, out var authenticatedEmployeeId) || authenticatedEmployeeId <= 0)
                     return Unauthorized(ApiResponseDto<string>.CreateFailure("Employee ID not found."));
+
+                if (dto.IdOffice is null or <= 0)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("Office ID is required."));
+
+                var visibleOffices = await _shiftSetupService.GetShiftSetupDetails(authenticatedEmployeeId);
+                if (!visibleOffices.Any(office => office.IdOffice == dto.IdOffice.Value))
+                    return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have access to this office."));
+
+                var existingShift = await _shiftService.GetShiftById(dto.IdShift);
+                if (existingShift == null)
+                    return NotFound(ApiResponseDto<string>.CreateFailure("Shift not found."));
+                if (existingShift.IdOffice != dto.IdOffice)
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("A shift cannot be moved to a different office."));
 
                 // var hasPermission = await _roleBasedScreenService.CheckEmployeePermission(int.Parse(employeeId), _configuration["ScreenCodes:Shifts"], "U");
                 // if (!hasPermission)
                 //     return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have permission."));
 
-                var duplicate = (await _shiftService.GetShiftList())
+                var duplicate = (await _shiftService.GetShiftList(dto.IdOffice))
                     .FirstOrDefault(s => s.ShiftName.Equals(dto.ShiftName, StringComparison.OrdinalIgnoreCase) && s.IdShift != dto.IdShift);
                 if (duplicate != null)
                     return Conflict(ApiResponseDto<string>.CreateFailure("Another shift with same name exists."));

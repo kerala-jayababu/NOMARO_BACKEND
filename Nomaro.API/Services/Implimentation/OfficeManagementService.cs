@@ -2,6 +2,8 @@ using AutoMapper;
 using Nomaro.API.Database;
 using Nomaro.API.DTO;
 using Nomaro.API.Models;
+using Nomaro.API.Models.Shift;
+using Nomaro.API.Models.Time___Attendance.Shift;
 using Nomaro.API.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 
@@ -264,6 +266,38 @@ namespace Nomaro.API.Services.Implimentation
                     .AsNoTracking()
                     .FirstOrDefaultAsync();
 
+                if (office != null)
+                {
+                    var shiftScheduleQuery =
+                        from schedule in _dbContext.ShiftSchedules.AsNoTracking()
+                        join shift in _dbContext.ShiftDefinitions.AsNoTracking()
+                            on schedule.IdShift equals shift.IdShift
+                        select new { Schedule = schedule, Shift = shift };
+
+                    if (office.IdShiftSchedule.HasValue)
+                    {
+                        shiftScheduleQuery = shiftScheduleQuery
+                            .Where(x => x.Schedule.IdShiftSchedule == office.IdShiftSchedule.Value);
+                    }
+                    else
+                    {
+                        shiftScheduleQuery = shiftScheduleQuery
+                            .Where(x => x.Shift.IdOffice == office.IdOffice && x.Shift.IsRegularShiftJustTimeChange);
+                    }
+
+                    office.ShiftSchedule = await shiftScheduleQuery
+                        .OrderBy(x => x.Schedule.IdShiftSchedule)
+                        .Select(x => new OfficeShiftScheduleDto
+                        {
+                            ShiftName = x.Shift.ShiftName,
+                            IsRegularShiftJustTimeChange = x.Shift.IsRegularShiftJustTimeChange,
+                            StartTime = x.Schedule.StartTime,
+                            EndTime = x.Schedule.EndTime,
+                            WorkDays = x.Schedule.WorkDays
+                        })
+                        .FirstOrDefaultAsync();
+                }
+
                 return office;
             }
             catch (Exception ex)
@@ -313,6 +347,62 @@ namespace Nomaro.API.Services.Implimentation
 
                 await _dbContext.Offices.AddAsync(entity);
                 await _dbContext.SaveChangesAsync();
+
+                if (dto.ShiftSchedule != null)
+                {
+                    var shiftSetup = dto.ShiftSchedule;
+                    if (string.IsNullOrWhiteSpace(shiftSetup.ShiftName)
+                        || shiftSetup.StartTime == shiftSetup.EndTime
+                        || string.IsNullOrWhiteSpace(shiftSetup.WorkDays))
+                    {
+                        throw new InvalidOperationException("Shift name, start/end times, and working days are required.");
+                    }
+
+                    var workDays = shiftSetup.WorkDays
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(day => day.ToUpperInvariant())
+                        .Distinct()
+                        .ToList();
+                    var validWorkDays = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
+                    };
+                    if (workDays.Count == 0 || workDays.Any(day => !validWorkDays.Contains(day)))
+                    {
+                        throw new InvalidOperationException("Working days contain an invalid day.");
+                    }
+
+                    var shiftDefinition = new ShiftDefinitionEntity
+                    {
+                        ShiftName = shiftSetup.ShiftName.Trim(),
+                        IsRegularShiftJustTimeChange = shiftSetup.IsRegularShiftJustTimeChange,
+                        IdOffice = entity.IdOffice
+                    };
+                    await _dbContext.ShiftDefinitions.AddAsync(shiftDefinition);
+                    await _dbContext.SaveChangesAsync();
+
+                    var duration = shiftSetup.EndTime - shiftSetup.StartTime;
+                    if (duration < TimeSpan.Zero)
+                    {
+                        duration += TimeSpan.FromDays(1);
+                    }
+
+                    var shiftSchedule = new ShiftSchedule
+                    {
+                        IdShift = shiftDefinition.IdShift,
+                        StartTime = shiftSetup.StartTime,
+                        EndTime = shiftSetup.EndTime,
+                        TotalDurationMinutes = (int)duration.TotalMinutes,
+                        TotalDurationHours = Math.Round((decimal)duration.TotalMinutes / 60m, 2),
+                        WorkDays = string.Join(",", workDays)
+                    };
+                    await _dbContext.ShiftSchedules.AddAsync(shiftSchedule);
+                    await _dbContext.SaveChangesAsync();
+
+                    entity.IdShiftSchedule = shiftSchedule.IdShiftSchedule;
+                    await _dbContext.SaveChangesAsync();
+                }
+
                 await transaction.CommitAsync();
 
                 await _auditService.LogAuditAsync(

@@ -68,7 +68,7 @@ namespace Nomaro.API.Services.Implimentation
                     .ThenBy(x => x.OfficeName)
                     .ToListAsync();
 
-                var requiredDesignationCode = _configuration["Designations:Code"];
+                var requiredDesignationCode = _configuration["Designations:Code"] ?? "HRD";
                 if (!string.IsNullOrWhiteSpace(requiredDesignationCode)
                     && string.Equals(
                         employee.DesignationCode?.Trim(),

@@ -7,7 +7,7 @@ namespace Nomaro.API.Services.Interface.Shift
 {
     public interface IShiftService
     {
-        Task<IEnumerable<ShiftDto>> GetShiftList();
+        Task<IEnumerable<ShiftDto>> GetShiftList(int? idOffice = null);
         Task<ShiftDto?> GetShiftById(int id);
         Task<ShiftDto?> AddShift(ShiftDto shift);
         Task<ShiftDto?> UpdateShift(ShiftDto shift);
