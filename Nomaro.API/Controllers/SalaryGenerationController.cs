@@ -359,38 +359,81 @@ namespace Nomaro.API.Controllers
             "TotalEarnings",
             "TotalDeductions",
             "PEN",
-            "NetSalary",
-            "Status",
-            "ChildTaxCredit",
-             "FinalTaxableIncome",
-             "FinalTaxAmount"
+            "NetSalary"
         };
 
                 var salaryHeads = await _salaryservice.GetSalaryHeadList();
                 var result = (await _salaryService.ExportSalaryGenerationDetails(employeeIds, idSalaryMonth)) as IEnumerable<dynamic>;
 
                 var salarymonth = salarydetails.Where(x => x.IdSalaryMonth == idSalaryMonth).FirstOrDefault();
-                if (result == null || !result.Any())
+                var salaryRows = result?.Where(r => r != null).ToList() ?? new List<dynamic>();
+                if (salaryRows.Count == 0)
                 {
                     return Ok(ApiResponseDto<string>.CreateFailure("No data found."));
                 }
 
-                var earnings = salaryHeads.Where(h => h.HeadType == "EARNING").Select(h => h.SalaryHeadCode).ToList();
-                var deductions = salaryHeads.Where(h => h.HeadType == "DEDUCTION").Select(h => h.SalaryHeadCode).ToList();
-
-                HashSet<string> uniqueEarnings = new HashSet<string>();
-                HashSet<string> uniqueDeductions = new HashSet<string>();
-
-                foreach (var r in result.Where(r => r != null))
+                string? NormalizeHeadType(string? headType) => headType?.Trim().ToUpperInvariant() switch
                 {
-                    var dict = (IDictionary<string, object>)r;
+                    "EARNING" or "EARNINGS" => "EARNINGS",
+                    "DEDUCTION" or "DEDUCTIONS" => "DEDUCTION",
+                    "EMPLOYER CONTRIBUTION" or "EMPLOYER_CONTRIBUTION" => "EMPLOYER_CONTRIBUTION",
+                    "REIMBURSEMENT" or "REIMBURSEMENTS" => "REIMBURSEMENT",
+                    _ => null
+                };
 
-                    foreach (var e in earnings.Where(e => dict.ContainsKey(e)))
-                        uniqueEarnings.Add(e);
+                var headTypeOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["EARNINGS"] = 0,
+                    ["DEDUCTION"] = 1,
+                    ["EMPLOYER_CONTRIBUTION"] = 2,
+                    ["REIMBURSEMENT"] = 3
+                };
+                var salaryHeadsByCode = salaryHeads
+                    .GroupBy(x => x.SalaryHeadCode.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+                var rowDictionaries = salaryRows
+                    .Select(r => (IDictionary<string, object>)r)
+                    .ToList();
+                var exportHeadColumns = new List<(string ColumnName, string HeadType, int Order)>();
 
-                    foreach (var d in deductions.Where(d => dict.ContainsKey(d)))
-                        uniqueDeductions.Add(d);
+                foreach (var columnName in rowDictionaries
+                    .SelectMany(dict => dict.Keys)
+                    .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    var normalizedColumnName = columnName.Trim();
+                    var typeSeparator = normalizedColumnName.LastIndexOf(':');
+                    var salaryHeadCode = typeSeparator >= 0
+                        ? normalizedColumnName[..typeSeparator].Trim()
+                        : normalizedColumnName;
+                    salaryHeadsByCode.TryGetValue(salaryHeadCode, out var salaryHead);
+                    var headType = NormalizeHeadType(
+                        typeSeparator >= 0 ? normalizedColumnName[(typeSeparator + 1)..] : null)
+                        ?? NormalizeHeadType(salaryHead?.HeadType);
+
+                    if (headType == null || !headTypeOrder.ContainsKey(headType))
+                    {
+                        continue;
+                    }
+
+                    exportHeadColumns.Add((
+                        columnName,
+                        headType,
+                        salaryHead?.OrderNumber ?? int.MaxValue));
                 }
+
+                exportHeadColumns = exportHeadColumns
+                    .OrderBy(x => headTypeOrder[x.HeadType])
+                    .ThenBy(x => x.Order)
+                    .ThenBy(x => x.ColumnName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var earningColumns = exportHeadColumns.Where(x => x.HeadType == "EARNINGS").ToList();
+                var deductionColumns = exportHeadColumns.Where(x => x.HeadType == "DEDUCTION").ToList();
+                var employerContributionColumns = exportHeadColumns
+                    .Where(x => x.HeadType == "EMPLOYER_CONTRIBUTION")
+                    .ToList();
+                var reimbursementColumns = exportHeadColumns
+                    .Where(x => x.HeadType == "REIMBURSEMENT")
+                    .ToList();
 
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
                 using (var package = new ExcelPackage())
@@ -402,6 +445,68 @@ namespace Nomaro.API.Controllers
                     int col = 1;
                     // âœ… Track column index by header name
                     var columnIndexMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+                    int AddSalaryHeadHeaders(
+                        List<(string ColumnName, string HeadType, int Order)> columns,
+                        int currentColumn,
+                        Color fillColor)
+                    {
+                        foreach (var headColumn in columns)
+                        {
+                            columnIndexMap[headColumn.ColumnName] = currentColumn;
+                            var typeSeparator = headColumn.ColumnName.LastIndexOf(':');
+                            worksheet.Cells[1, currentColumn].Value = typeSeparator >= 0
+                                ? headColumn.ColumnName[..typeSeparator].Trim()
+                                : headColumn.ColumnName.Trim();
+                            worksheet.Cells[1, currentColumn].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            worksheet.Cells[1, currentColumn].Style.Fill.BackgroundColor.SetColor(fillColor);
+                            currentColumn++;
+                        }
+
+                        return currentColumn;
+                    }
+
+                    void WriteSalaryHeadValues(
+                        int targetRow,
+                        IDictionary<string, object> values,
+                        List<(string ColumnName, string HeadType, int Order)> columns,
+                        Color fillColor)
+                    {
+                        foreach (var headColumn in columns)
+                        {
+                            var cell = worksheet.Cells[targetRow, columnIndexMap[headColumn.ColumnName]];
+                            cell.Value = values.TryGetValue(headColumn.ColumnName, out var value) && value != null
+                                ? Convert.ToDecimal(value)
+                                : 0.00m;
+                            cell.Style.Numberformat.Format = "#,##0.00";
+                            cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            cell.Style.Fill.BackgroundColor.SetColor(fillColor);
+                        }
+                    }
+
+                    void SetRowSumFormula(int targetRow, int targetColumn, List<int> sourceColumns)
+                    {
+                        var cell = worksheet.Cells[targetRow, targetColumn];
+                        if (sourceColumns.Count == 0)
+                        {
+                            cell.Value = 0.00m;
+                            return;
+                        }
+
+                        var firstColumn = ExcelCellAddress.GetColumnLetter(sourceColumns.Min());
+                        var lastColumn = ExcelCellAddress.GetColumnLetter(sourceColumns.Max());
+                        cell.Formula = $"SUM({firstColumn}{targetRow}:{lastColumn}{targetRow})";
+                    }
+
+                    void SetColumnTotalFormula(int targetRow, int targetColumn, int dataStartRow, int dataEndRow)
+                    {
+                        var cell = worksheet.Cells[targetRow, targetColumn];
+                        var columnLetter = ExcelCellAddress.GetColumnLetter(targetColumn);
+                        cell.Formula = $"SUM({columnLetter}{dataStartRow}:{columnLetter}{dataEndRow})";
+                        cell.Style.Numberformat.Format = "#,##0.00";
+                        cell.Style.Font.Bold = true;
+                    }
 
                     columnIndexMap["EmployeeCode"] = col;
                     worksheet.Cells[1, col++].Value = "EmployeeCode";
@@ -421,14 +526,7 @@ namespace Nomaro.API.Controllers
                         range.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
                     }
 
-                    foreach (var e in uniqueEarnings)
-                    {
-                        columnIndexMap[e] = col;
-                        worksheet.Cells[1, col].Value = e;
-                        worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
-                        col++;
-                    }
+                    col = AddSalaryHeadHeaders(earningColumns, col, Color.FromArgb(242, 242, 242));
 
                     columnIndexMap["TotalEarnings"] = col;
                     worksheet.Cells[1, col].Value = "TotalEarnings";
@@ -437,14 +535,7 @@ namespace Nomaro.API.Controllers
                     worksheet.Cells[1, col].Style.Font.Bold = true;
                     col++;
 
-                    foreach (var d in uniqueDeductions)
-                    {
-                        columnIndexMap[d] = col;
-                        worksheet.Cells[1, col].Value = d;
-                        worksheet.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
-                        col++;
-                    }
+                    col = AddSalaryHeadHeaders(deductionColumns, col, Color.FromArgb(218, 226, 243));
 
                     columnIndexMap["TotalDeductions"] = col;
                     worksheet.Cells[1, col].Value = "TotalDeductions";
@@ -460,99 +551,63 @@ namespace Nomaro.API.Controllers
                     worksheet.Cells[1, col].Style.Font.Bold = true;
                     col++;
 
-                    columnIndexMap["Status"] = col;
-                    worksheet.Cells[1, col++].Value = "Status";
-
-                    columnIndexMap["ChildTaxCredit"] = col;
-                    worksheet.Cells[1, col++].Value = "ChildTaxCredit";
-
-                    columnIndexMap["FinalTaxableIncome"] = col;
-                    worksheet.Cells[1, col++].Value = "FinalTaxableIncome";
-
-                    columnIndexMap["FinalTaxAmount"] = col;
-                    worksheet.Cells[1, col++].Value = "FinalTaxAmount";
-
-                    columnIndexMap["TaxReturn"] = col;
-                    worksheet.Cells[1, col++].Value = "TaxReturn";
+                    col = AddSalaryHeadHeaders(
+                        employerContributionColumns,
+                        col,
+                        Color.FromArgb(226, 239, 218));
+                    col = AddSalaryHeadHeaders(
+                        reimbursementColumns,
+                        col,
+                        Color.FromArgb(255, 242, 204));
 
                     int row = 2;
 
-                    foreach (var r in result)
-                    {
-                        if (r == null) continue;
+                    var totalEarningsColumn = columnIndexMap["TotalEarnings"];
+                    var totalDeductionsColumn = columnIndexMap["TotalDeductions"];
+                    var netSalaryColumn = columnIndexMap["NetSalary"];
 
+                    for (var rowIndex = 0; rowIndex < salaryRows.Count; rowIndex++)
+                    {
+                        var r = salaryRows[rowIndex];
+                        var dict = rowDictionaries[rowIndex];
                         col = 1;
                         worksheet.Cells[row, col++].Value = r.EmployeeCode;
                         worksheet.Cells[row, col++].Value = r.EmployeeName;
                         worksheet.Cells[row, col++].Value = r.DesignationName;
                         worksheet.Cells[row, col++].Value = r.JoiningDate?.ToString("dd-MM-yyyy");
 
-                        var dict = (IDictionary<string, object>)r;
-                        foreach (var e in earnings.Where(e => dict.ContainsKey(e)))
-                        {
-                            decimal value = dict[e] != null ? Convert.ToDecimal(dict[e]) : 0.00m;
-                            worksheet.Cells[row, col].Value = value;
-                            worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                            worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-                            worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
-                            col++;
-                        }
+                        WriteSalaryHeadValues(row, dict, earningColumns, Color.FromArgb(242, 242, 242));
+                        SetRowSumFormula(
+                            row,
+                            totalEarningsColumn,
+                            earningColumns.Select(x => columnIndexMap[x.ColumnName]).ToList());
+                        worksheet.Cells[row, totalEarningsColumn].Style.Numberformat.Format = "#,##0.00";
+                        worksheet.Cells[row, totalEarningsColumn].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        worksheet.Cells[row, totalEarningsColumn].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, totalEarningsColumn].Style.Font.Bold = true;
+                        worksheet.Cells[row, totalEarningsColumn].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
 
-                        worksheet.Cells[row, col].Formula = $"SUM({ExcelCellAddress.GetColumnLetter(5)}{row}:{ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count - 1)}{row})";
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-                        string totalEarningsColLetter = ExcelCellAddress.GetColumnLetter(col);
-                        worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[row, col].Style.Font.Bold = true;
-                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
-                        col++;
+                        WriteSalaryHeadValues(row, dict, deductionColumns, Color.FromArgb(218, 226, 243));
+                        SetRowSumFormula(
+                            row,
+                            totalDeductionsColumn,
+                            deductionColumns.Select(x => columnIndexMap[x.ColumnName]).ToList());
+                        worksheet.Cells[row, totalDeductionsColumn].Style.Numberformat.Format = "#,##0.00";
+                        worksheet.Cells[row, totalDeductionsColumn].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        worksheet.Cells[row, totalDeductionsColumn].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, totalDeductionsColumn].Style.Font.Bold = true;
+                        worksheet.Cells[row, totalDeductionsColumn].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
 
-                        foreach (var d in deductions.Where(d => dict.ContainsKey(d)))
-                        {
-                            decimal value = dict[d] != null ? Convert.ToDecimal(dict[d]) : 0.00m;
-                            worksheet.Cells[row, col].Value = value;
-                            worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                            worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-                            worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
-                            col++;
-                        }
+                        WriteSalaryHeadValues(row, dict, employerContributionColumns, Color.FromArgb(226, 239, 218));
+                        WriteSalaryHeadValues(row, dict, reimbursementColumns, Color.FromArgb(255, 242, 204));
 
-                        worksheet.Cells[row, col].Formula = $"SUM({ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count + 1)}{row}:{ExcelCellAddress.GetColumnLetter(5 + uniqueEarnings.Count + uniqueDeductions.Count)}{row})";
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-                        string totalDeductionsColLetter = ExcelCellAddress.GetColumnLetter(col);
-                        worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[row, col].Style.Font.Bold = true;
-                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(218, 226, 243));
-                        col++;
-
-                        worksheet.Cells[row, col].Formula = $"{totalEarningsColLetter}{row} - {totalDeductionsColLetter}{row}";
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-                        worksheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[row, col].Style.Font.Bold = true;
-                        worksheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
-                        col++;
-
-                        worksheet.Cells[row, col++].Value = r.Status;
-
-                        worksheet.Cells[row, col].Value = GetDecimal(dict, "ChildTaxCredit");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-
-                        worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxableIncome");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-
-                        worksheet.Cells[row, col].Value = GetDecimal(dict, "FinalTaxAmount");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-
-                        worksheet.Cells[row, col].Value = GetDecimal(dict, "TaxReturn");
-                        worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, col++].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        worksheet.Cells[row, netSalaryColumn].Formula =
+                            $"{ExcelCellAddress.GetColumnLetter(totalEarningsColumn)}{row} - {ExcelCellAddress.GetColumnLetter(totalDeductionsColumn)}{row}";
+                        worksheet.Cells[row, netSalaryColumn].Style.Numberformat.Format = "#,##0.00";
+                        worksheet.Cells[row, netSalaryColumn].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        worksheet.Cells[row, netSalaryColumn].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[row, netSalaryColumn].Style.Font.Bold = true;
+                        worksheet.Cells[row, netSalaryColumn].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(189, 215, 238));
 
                         row++;
                     }
@@ -562,39 +617,42 @@ namespace Nomaro.API.Controllers
                     worksheet.Cells[row, 4].Style.Font.Bold = true;
 
                     int dataStartRow = 2;
-                    int currentCol = 5;
-                    for (int i = 0; i < uniqueEarnings.Count; i++, currentCol++)
+                    var totalColumns = exportHeadColumns
+                        .Select(x => columnIndexMap[x.ColumnName])
+                        .Concat(new[] { totalEarningsColumn, totalDeductionsColumn, netSalaryColumn });
+                    foreach (var totalColumn in totalColumns)
                     {
-                        string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
-                        worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
-                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, currentCol].Style.Font.Bold = true;
+                        SetColumnTotalFormula(row, totalColumn, dataStartRow, row - 1);
                     }
 
-                    string earningsCol = ExcelCellAddress.GetColumnLetter(currentCol);
-                    worksheet.Cells[row, currentCol].Formula = $"SUM({earningsCol}{dataStartRow}:{earningsCol}{row - 1})";
-                    worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
-                    worksheet.Cells[row, currentCol].Style.Font.Bold = true;
-                    currentCol++;
+                    worksheet.Cells[row, 4].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    worksheet.Cells[row, 4].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(242, 242, 242));
+                    worksheet.Cells[row, 4].Style.Font.Bold = true;
 
-                    for (int i = 0; i < uniqueDeductions.Count; i++, currentCol++)
+                    void ApplyTotalRowFill(IEnumerable<int> columns, Color fillColor)
                     {
-                        string colLetter = ExcelCellAddress.GetColumnLetter(currentCol);
-                        worksheet.Cells[row, currentCol].Formula = $"SUM({colLetter}{dataStartRow}:{colLetter}{row - 1})";
-                        worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
-                        worksheet.Cells[row, currentCol].Style.Font.Bold = true;
+                        foreach (var totalColumn in columns)
+                        {
+                            var cell = worksheet.Cells[row, totalColumn];
+                            cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            cell.Style.Fill.BackgroundColor.SetColor(fillColor);
+                            cell.Style.Font.Bold = true;
+                        }
                     }
 
-                    string deductionsCol = ExcelCellAddress.GetColumnLetter(currentCol);
-                    worksheet.Cells[row, currentCol].Formula = $"SUM({deductionsCol}{dataStartRow}:{deductionsCol}{row - 1})";
-                    worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
-                    worksheet.Cells[row, currentCol].Style.Font.Bold = true;
-                    currentCol++;
-
-                    string netSalaryCol = ExcelCellAddress.GetColumnLetter(currentCol);
-                    worksheet.Cells[row, currentCol].Formula = $"SUM({netSalaryCol}{dataStartRow}:{netSalaryCol}{row - 1})";
-                    worksheet.Cells[row, currentCol].Style.Numberformat.Format = "#,##0.00";
-                    worksheet.Cells[row, currentCol].Style.Font.Bold = true;
+                    ApplyTotalRowFill(
+                        earningColumns.Select(x => columnIndexMap[x.ColumnName]).Append(totalEarningsColumn),
+                        Color.FromArgb(242, 242, 242));
+                    ApplyTotalRowFill(
+                        deductionColumns.Select(x => columnIndexMap[x.ColumnName]).Append(totalDeductionsColumn),
+                        Color.FromArgb(218, 226, 243));
+                    ApplyTotalRowFill(new[] { netSalaryColumn }, Color.FromArgb(189, 215, 238));
+                    ApplyTotalRowFill(
+                        employerContributionColumns.Select(x => columnIndexMap[x.ColumnName]),
+                        Color.FromArgb(226, 239, 218));
+                    ApplyTotalRowFill(
+                        reimbursementColumns.Select(x => columnIndexMap[x.ColumnName]),
+                        Color.FromArgb(255, 242, 204));
 
                     // âœ… PROTECTION BLOCK - Unlock all cells, then lock only read-only columns
                     worksheet.Cells[worksheet.Dimension.Address].Style.Locked = false;

@@ -23,6 +23,7 @@ namespace Nomaro.API.Models
         public string? GSTIN { get; set; }
         public int? IdOfficeHead { get; set; }
         public int? IdShiftSchedule { get; set; }
+        public int? ShiftManager { get; set; }
         public DateTime? OpenedDate { get; set; }
         public DateTime? ClosedDate { get; set; }
         public bool IsActive { get; set; }

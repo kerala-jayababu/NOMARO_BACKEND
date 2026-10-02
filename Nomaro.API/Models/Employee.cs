@@ -17,6 +17,7 @@ namespace Nomaro.API.Models
         public string? NationalIDNumber { get; set; }
         public int? IdDepartment { get; set; }
         public int? IdDesignation { get; set; }
+        public int? IdOffice { get; set; }
         public string? EmailID { get; set; }
         public string? PhoneNumber1 { get; set; }
         public string? PhoneNumber2 { get; set; }

@@ -13,6 +13,7 @@ namespace Nomaro.API.Services.Implimentation
 {
     public class AccountService : IAccountService
     {
+        private const string LegacyPassword = "Payroll@123";
         private readonly IConfiguration _configuration;
         private readonly ApplicationDBContext _dbContext;
         private readonly ILogger<NotificationConfigService> _logger;
@@ -25,17 +26,35 @@ namespace Nomaro.API.Services.Implimentation
 
         public async Task<UserResponseDto> Login(LoginDto login)
         {
-            var user = _dbContext.Employees.FirstOrDefault(x => x.EmailID == login.Email);
+            var email = login?.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(login?.Password))
+            {
+                return null;
+            }
+
+            var user = await _dbContext.Employees.FirstOrDefaultAsync(x => x.EmailID == email);
             if (user == null)
             {
                 return null;
             }
 
-            // Verify the employee's own password (replaces the earlier common password)
-            if (string.IsNullOrEmpty(user.PasswordHash) || string.IsNullOrEmpty(login.Password) ||
-                _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, login.Password) == PasswordVerificationResult.Failed)
+            var hasPasswordHash = !string.IsNullOrEmpty(user.PasswordHash);
+            var passwordIsValid = hasPasswordHash
+                && _passwordHasher.VerifyHashedPassword(user, user.PasswordHash!, login.Password)
+                    != PasswordVerificationResult.Failed;
+            var legacyPasswordIsValid = !hasPasswordHash
+                && string.Equals(login.Password, LegacyPassword, StringComparison.Ordinal);
+
+            if (!passwordIsValid && !legacyPasswordIsValid)
             {
                 return null;
+            }
+
+            if (legacyPasswordIsValid)
+            {
+                user.PasswordHash = _passwordHasher.HashPassword(user, login.Password);
+                user.PasswordUpdatedOn = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
             }
 
             var designation = await _dbContext.Designations.FirstOrDefaultAsync(x => x.IdDesignation == user.IdDesignation);
@@ -278,30 +297,40 @@ namespace Nomaro.API.Services.Implimentation
             }
 
             if (string.IsNullOrEmpty(user.PasswordHash))
-                throw new InvalidOperationException(
-                    "Password is not set for this account. Login using OTP, then set a password from Change Password.");
-
-            var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, login!.Password!);
-            if (result == PasswordVerificationResult.Failed)
             {
-                user.FailedLoginAttempts += 1;
-                if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
+                if (!string.Equals(login.Password, LegacyPassword, StringComparison.Ordinal))
                 {
-                    user.FailedLoginAttempts = 0;
-                    user.LockoutEndTime = DateTime.Now.AddMinutes(LockoutMinutes);
-                    await _dbContext.SaveChangesAsync();
-                    _logger.LogWarning("Password login locked for employee {IdEmployee}", user.IdEmployee);
                     throw new InvalidOperationException(
-                        $"Too many failed attempts. Password login is locked for {LockoutMinutes} minutes. You can still login using OTP.");
+                        "Password is not set for this account. Login using OTP, then set a password from Change Password.");
                 }
 
-                await _dbContext.SaveChangesAsync();
-                var attemptsLeft = MaxFailedLoginAttempts - user.FailedLoginAttempts;
-                throw new InvalidOperationException($"{InvalidCredentialsMessage} {attemptsLeft} attempt(s) left.");
-            }
-
-            if (result == PasswordVerificationResult.SuccessRehashNeeded)
                 user.PasswordHash = _passwordHasher.HashPassword(user, login.Password!);
+                user.PasswordUpdatedOn = DateTime.Now;
+            }
+            else
+            {
+                var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, login!.Password!);
+                if (result == PasswordVerificationResult.Failed)
+                {
+                    user.FailedLoginAttempts += 1;
+                    if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
+                    {
+                        user.FailedLoginAttempts = 0;
+                        user.LockoutEndTime = DateTime.Now.AddMinutes(LockoutMinutes);
+                        await _dbContext.SaveChangesAsync();
+                        _logger.LogWarning("Password login locked for employee {IdEmployee}", user.IdEmployee);
+                        throw new InvalidOperationException(
+                            $"Too many failed attempts. Password login is locked for {LockoutMinutes} minutes. You can still login using OTP.");
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                    var attemptsLeft = MaxFailedLoginAttempts - user.FailedLoginAttempts;
+                    throw new InvalidOperationException($"{InvalidCredentialsMessage} {attemptsLeft} attempt(s) left.");
+                }
+
+                if (result == PasswordVerificationResult.SuccessRehashNeeded)
+                    user.PasswordHash = _passwordHasher.HashPassword(user, login.Password!);
+            }
 
             user.FailedLoginAttempts = 0;
             user.LockoutEndTime = null;

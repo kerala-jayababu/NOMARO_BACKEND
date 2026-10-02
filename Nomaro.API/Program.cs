@@ -216,6 +216,7 @@ builder.Services.AddScoped<IAssetServices, AssetServices>();
 builder.Services.AddScoped<ILeaveManaementServices, LeaveManaementServices>();
 builder.Services.AddScoped<IEmployeeOffBoarding, EmployeeOffBoardingService>();
 builder.Services.AddScoped<IOfficeManagementService, OfficeManagementService>();
+builder.Services.AddScoped<IShiftSetupService, ShiftSetupService>();
 builder.Services.AddScoped<IEmployeeStatutoryDetailsService, EmployeeStatutoryDetailsService>();
 builder.Services.AddScoped<ISalaryDashboardService, SalaryDashboardService>();
 builder.Services.AddHttpClient();
