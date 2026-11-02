@@ -36,6 +36,12 @@ namespace Nomaro.API.Validators.OfficeManagement
             RuleFor(x => x.PhoneNumber).MaximumLength(20).WithMessage("Phone number must not exceed 20 characters.");
             RuleFor(x => x.GSTIN).MaximumLength(15).WithMessage("GSTIN must not exceed 15 characters.");
 
+            // "latitude,longitude" with latitude -90..90 and longitude -180..180
+            RuleFor(x => x.GeoCoordinate)
+                .MaximumLength(40).WithMessage("Geo coordinate must not exceed 40 characters.")
+                .Must(BeValidGeoCoordinate).WithMessage("Geo coordinate must be latitude,longitude (e.g. 9.931233,76.267304).")
+                .When(x => !string.IsNullOrWhiteSpace(x.GeoCoordinate));
+
             RuleFor(x => x.EmailId)
                 .MaximumLength(150).WithMessage("Email ID must not exceed 150 characters.")
                 .EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.EmailId))
@@ -45,6 +51,16 @@ namespace Nomaro.API.Validators.OfficeManagement
                 .GreaterThanOrEqualTo(x => x.OpenedDate)
                 .When(x => x.OpenedDate.HasValue && x.ClosedDate.HasValue)
                 .WithMessage("Closed date cannot be earlier than opened date.");
+        }
+    
+
+        private static bool BeValidGeoCoordinate(string? value)
+        {
+            var parts = (value ?? string.Empty).Split(',');
+            return parts.Length == 2
+                && decimal.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat)
+                && decimal.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lng)
+                && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
         }
     }
 }

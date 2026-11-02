@@ -21,6 +21,8 @@ namespace Nomaro.API.Models
         public string? PhoneNumber { get; set; }
         public string? EmailId { get; set; }
         public string? GSTIN { get; set; }
+        /// <summary>"latitude,longitude", e.g. "9.931233,76.267304"</summary>
+        public string? GeoCoordinate { get; set; }
         public int? IdOfficeHead { get; set; }
         public int? IdShiftSchedule { get; set; }
         public int? ShiftManager { get; set; }

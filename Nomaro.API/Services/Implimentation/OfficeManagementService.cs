@@ -191,6 +191,7 @@ namespace Nomaro.API.Services.Implimentation
                         PhoneNumber = x.o.PhoneNumber,
                         EmailId = x.o.EmailId,
                         GSTIN = x.o.GSTIN,
+                        GeoCoordinate = x.o.GeoCoordinate,
                         IdOfficeHead = x.o.IdOfficeHead,
                         IdShiftSchedule = x.o.IdShiftSchedule,
                         OpenedDate = x.o.OpenedDate,
@@ -249,6 +250,7 @@ namespace Nomaro.API.Services.Implimentation
                         PhoneNumber = o.PhoneNumber,
                         EmailId = o.EmailId,
                         GSTIN = o.GSTIN,
+                        GeoCoordinate = o.GeoCoordinate,
                         IdOfficeHead = o.IdOfficeHead,
                         IdShiftSchedule = o.IdShiftSchedule,
                         OpenedDate = o.OpenedDate,
@@ -336,6 +338,7 @@ namespace Nomaro.API.Services.Implimentation
                     PhoneNumber = dto.PhoneNumber,
                     EmailId = dto.EmailId,
                     GSTIN = dto.GSTIN,
+                    GeoCoordinate = NormaliseGeoCoordinate(dto.GeoCoordinate),
                     IdOfficeHead = dto.IdOfficeHead,
                     IdShiftSchedule = dto.IdShiftSchedule,
                     OpenedDate = dto.OpenedDate,
@@ -450,6 +453,7 @@ namespace Nomaro.API.Services.Implimentation
                 entity.PhoneNumber = dto.PhoneNumber;
                 entity.EmailId = dto.EmailId;
                 entity.GSTIN = dto.GSTIN;
+                entity.GeoCoordinate = NormaliseGeoCoordinate(dto.GeoCoordinate);
                 entity.IdOfficeHead = dto.IdOfficeHead;
                 entity.IdShiftSchedule = dto.IdShiftSchedule;
                 entity.OpenedDate = dto.OpenedDate;
@@ -770,5 +774,14 @@ namespace Nomaro.API.Services.Implimentation
         }
 
         #endregion
+    
+
+        /// <summary>Stores the coordinate as "lat,lng" without spaces; empty becomes null.</summary>
+        private static string? NormaliseGeoCoordinate(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var parts = value.Split(',').Select(p => p.Trim()).ToArray();
+            return parts.Length == 2 ? $"{parts[0]},{parts[1]}" : value.Trim();
+        }
     }
 }
