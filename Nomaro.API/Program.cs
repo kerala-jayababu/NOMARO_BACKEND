@@ -74,8 +74,20 @@ builder.Services.AddApiVersioning(options =>
 });
 
 // Add EF Core
-builder.Services.AddDbContext<ApplicationDBContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DbContext")));
+// Tenant-aware context: uses the connection string resolved from the company code in the
+// request URL (see TenantMiddleware), falling back to the default "DbContext" connection.
+builder.Services.AddDbContext<ApplicationDBContext>((serviceProvider, options) =>
+{
+    var tenantService = serviceProvider.GetRequiredService<ITenantService>();
+    options.UseSqlServer(tenantService.ResolveConnectionString());
+});
+
+// NOMARO_GLOBAL context holding the per-company tenant configuration.
+builder.Services.AddDbContext<GlobalDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("GlobalDbContext")));
+
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<ITenantService, TenantService>();
 
 // CORS setup
 var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();
@@ -239,6 +251,13 @@ builder.Services.AddHttpContextAccessor();           // Required for IP/Claims
 builder.Services.AddScoped<IAuditService, AuditService>();
 var app = builder.Build();
 
+// Lets the static EmailService resolve the current tenant's connection string so email
+// settings are read from the tenant database's SystemParameters table.
+EmailService.Initialize(app.Services);
+
+// Lets CompanyLocale resolve the current tenant's DateFormat / CurrencySymbol.
+CompanyLocale.Initialize(app.Services);
+
 // Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
@@ -253,6 +272,10 @@ else
 
 app.UseStaticFiles();
 app.UseHttpsRedirection();
+// Resolves the company code from the URL and rewrites the path BEFORE routing selects an
+// endpoint (UseRouting is otherwise auto-inserted at the very start of the pipeline).
+app.UseMiddleware<TenantMiddleware>();
+app.UseRouting();
 //app.UseCors("AllowSpecificOrigins");
 app.UseCors("AllowFrontend");
 app.UseAuthentication();

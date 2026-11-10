@@ -7,9 +7,8 @@ namespace Nomaro.API.Helpers
 
         public static string ConvertDateToGuyanaDateFormatString(DateTime date)
         {
-
-            var culture = new CultureInfo("en-GY");
-            return date.ToString("dd/MM/yyyy", culture);
+            // Uses the company's configured date format (from NOMARO_GLOBAL), default dd/MM/yyyy.
+            return CompanyLocale.FormatDate(date);
         }
     }
 }

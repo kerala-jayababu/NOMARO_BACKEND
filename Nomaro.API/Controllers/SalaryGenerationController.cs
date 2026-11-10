@@ -35,9 +35,10 @@ namespace Nomaro.API.Controllers
         private readonly IRoleBasedScreenService _roleBasedService;
         private readonly IOptionService _optionService;
         private readonly IServiceProvider _serviceProvider;
+        private readonly ITenantService _tenantService;
 
 
-        public SalaryGenerationController(ISalaryGenerationService salaryService, IServiceProvider serviceProvider,INotificationConfigService notificationConfigService, IOptionService optionService,  IConfiguration configuration, ISalaryHeadServices salaryservice, IRoleBasedScreenService roleBasedService, ISalaryHeadServices salaryHeadService)
+        public SalaryGenerationController(ISalaryGenerationService salaryService, IServiceProvider serviceProvider,INotificationConfigService notificationConfigService, IOptionService optionService,  IConfiguration configuration, ISalaryHeadServices salaryservice, IRoleBasedScreenService roleBasedService, ISalaryHeadServices salaryHeadService, ITenantService tenantService)
         {
             _salaryService = salaryService;
             _configuration = configuration;
@@ -47,6 +48,7 @@ namespace Nomaro.API.Controllers
             _serviceProvider = serviceProvider;
             _salaryservice = salaryservice;
             _notificationConfigService = notificationConfigService;
+            _tenantService = tenantService;
         }
 
         /// <summary>
@@ -1280,10 +1282,19 @@ namespace Nomaro.API.Controllers
                         "Please provide either a list of EmployeeSalary IDs."));
             }
 
+            // capture the tenant resolved for this request so the background scope uses the same database
+            var tenantCompanyCode = _tenantService.CompanyCode;
+            var tenantConnectionString = _tenantService.ResolveConnectionString();
+
             // fire-and-forget
             _ = Task.Run(async () =>
             {
                 using var scope = _serviceProvider.CreateScope();
+                if (!string.IsNullOrWhiteSpace(tenantCompanyCode))
+                {
+                    scope.ServiceProvider.GetRequiredService<ITenantService>()
+                        .SetTenant(tenantCompanyCode, tenantConnectionString);
+                }
                 var salaryService = scope.ServiceProvider.GetRequiredService<ISalaryGenerationService>();
                 var notificationConfigService = scope.ServiceProvider.GetRequiredService<INotificationConfigService>();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDBContext>();

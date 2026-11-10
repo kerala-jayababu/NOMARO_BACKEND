@@ -75,6 +75,12 @@ namespace Nomaro.API.DTO
             using (var document = new Document(pdf, PageSize.A4))
             {
                 LoadFonts();
+                // Use the company's currency symbol from NOMARO_GLOBAL when available.
+                var companySymbol = Helpers.CompanyLocale.CurrencySymbol;
+                if (!string.IsNullOrWhiteSpace(companySymbol))
+                {
+                    _currencySymbol = companySymbol;
+                }
                 ApplyColorPattern(payslip.PayslipColorPattern);
                 document.SetMargins(16, 22, 14, 22);
                 document.SetFont(_regular).SetFontSize(FontSize).SetFontColor(Black);

@@ -1,6 +1,10 @@
-﻿using System.Net.Mail;
+using System.Net.Mail;
 using System.Net;
 using System.Net.Mime;
+using System.Text.Json;
+using Dapper;
+using Microsoft.Data.SqlClient;
+using Nomaro.API.Services.Interface;
 
 namespace Nomaro.API.Helpers
 {
@@ -15,31 +19,124 @@ namespace Nomaro.API.Helpers
             public bool EnableSsl { get; set; }
             public string DisplayName { get; set; }
         }
-        private static readonly EmailSettings _settings;
+
+        // Fallback settings from appsettings.json, used only when the tenant database
+        // has no "EmailSettings" system parameter.
+        private static readonly EmailSettings _fallbackSettings;
+
+        // Set once at startup from Program.cs so the static helpers can resolve the
+        // current request's tenant connection string.
+        private static IServiceProvider? _serviceProvider;
 
         static EmailService()
         {
             var config = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())     
+                .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
                 .Build();
 
-            _settings = config
+            _fallbackSettings = config
                 .GetSection("EmailSettings")
                 .Get<EmailSettings>();
         }
+
+        public static void Initialize(IServiceProvider serviceProvider)
+        {
+            _serviceProvider = serviceProvider;
+        }
+
+        // Loads EmailSettings from the current tenant database's SystemParameters table
+        // (ParameterName = 'EmailSettings', ParameterValue = JSON). Falls back to
+        // appsettings.json when the parameter is missing or unreadable.
+        private static async Task<EmailSettings> GetSettingsAsync()
+        {
+            try
+            {
+                var connectionString = ResolveTenantConnectionString();
+                if (!string.IsNullOrWhiteSpace(connectionString))
+                {
+                    using var connection = new SqlConnection(connectionString);
+                    var json = await connection.QueryFirstOrDefaultAsync<string>(
+                        "SELECT TOP 1 ParameterValue FROM SystemParameters WHERE ParameterName = 'EmailSettings'");
+
+                    if (!string.IsNullOrWhiteSpace(json))
+                    {
+                        var settings = ParseEmailSettings(json);
+                        if (settings != null && !string.IsNullOrWhiteSpace(settings.SmtpHost))
+                        {
+                            return settings;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // fall through to appsettings.json fallback
+            }
+            return _fallbackSettings;
+        }
+
+        // The stored ParameterValue may be either the raw settings object
+        //   {"Email":"...","SmtpHost":"...",...}
+        // or wrapped with the section key
+        //   {"EmailSettings":{"Email":"...",...}}  /  "EmailSettings": {...}
+        private static EmailSettings? ParseEmailSettings(string json)
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var trimmed = json.Trim();
+
+            // Normalize a leading "EmailSettings": { ... } wrapper into a full JSON object
+            if (trimmed.StartsWith("\"EmailSettings\"", StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = "{" + trimmed.TrimEnd().TrimEnd(',') + "}";
+            }
+
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+
+            // Unwrap { "EmailSettings": { ... } } if present
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty("EmailSettings", out var inner) &&
+                inner.ValueKind == JsonValueKind.Object)
+            {
+                root = inner;
+            }
+
+            return JsonSerializer.Deserialize<EmailSettings>(root.GetRawText(), options);
+        }
+
+        private static string? ResolveTenantConnectionString()
+        {
+            if (_serviceProvider == null) return null;
+
+            // Prefer the current request's scoped tenant (set by TenantMiddleware).
+            var httpContextAccessor = _serviceProvider.GetService<IHttpContextAccessor>();
+            var requestServices = httpContextAccessor?.HttpContext?.RequestServices;
+            if (requestServices != null)
+            {
+                var tenantService = requestServices.GetService<ITenantService>();
+                return tenantService?.ResolveConnectionString();
+            }
+
+            // No active request (background task): create a scope and use whatever tenant
+            // was applied to that scope, otherwise the default connection string.
+            using var scope = _serviceProvider.CreateScope();
+            return scope.ServiceProvider.GetService<ITenantService>()?.ResolveConnectionString();
+        }
+
         public static async Task<bool> SendMail(string toEmail, string subject, string htmlBody)
         {
             try
             {
-                using (var client = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort))
+                var settings = await GetSettingsAsync();
+                using (var client = new SmtpClient(settings.SmtpHost, settings.SmtpPort))
                 {
-                    client.EnableSsl = _settings.EnableSsl;
-                    client.Credentials = new NetworkCredential(_settings.Email, _settings.Password);
+                    client.EnableSsl = settings.EnableSsl;
+                    client.Credentials = new NetworkCredential(settings.Email, settings.Password);
 
                     var mailMessage = new MailMessage
                     {
-                        From = new MailAddress(_settings.Email, _settings.DisplayName ?? _settings.Email),
+                        From = new MailAddress(settings.Email, settings.DisplayName ?? settings.Email),
                         Subject = subject,
                         Body = htmlBody,
                         IsBodyHtml = true
@@ -66,15 +163,16 @@ namespace Nomaro.API.Helpers
         {
             try
             {
-                using var client = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort)
+                var settings = await GetSettingsAsync();
+                using var client = new SmtpClient(settings.SmtpHost, settings.SmtpPort)
                 {
-                    EnableSsl = _settings.EnableSsl,
-                    Credentials = new NetworkCredential(_settings.Email, _settings.Password)
+                    EnableSsl = settings.EnableSsl,
+                    Credentials = new NetworkCredential(settings.Email, settings.Password)
                 };
 
                 using var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(_settings.Email, _settings.DisplayName ?? _settings.Email),
+                    From = new MailAddress(settings.Email, settings.DisplayName ?? settings.Email),
                     Subject = subject,
                     Body = htmlBody,
                     IsBodyHtml = true
@@ -98,19 +196,20 @@ namespace Nomaro.API.Helpers
         }
 
         public static async Task<bool> SendMailWithCcToMany(IEnumerable<string> toEmails,
-                IEnumerable<string>? ccEmails,string subject, string htmlBody)
+                IEnumerable<string>? ccEmails, string subject, string htmlBody)
         {
             try
             {
-                using var client = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort)
+                var settings = await GetSettingsAsync();
+                using var client = new SmtpClient(settings.SmtpHost, settings.SmtpPort)
                 {
-                    EnableSsl = _settings.EnableSsl,
-                    Credentials = new NetworkCredential(_settings.Email, _settings.Password)
+                    EnableSsl = settings.EnableSsl,
+                    Credentials = new NetworkCredential(settings.Email, settings.Password)
                 };
 
                 using var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(_settings.Email, _settings.DisplayName ?? _settings.Email),
+                    From = new MailAddress(settings.Email, settings.DisplayName ?? settings.Email),
                     Subject = subject,
                     Body = htmlBody,
                     IsBodyHtml = true
@@ -144,4 +243,3 @@ namespace Nomaro.API.Helpers
 
     }
 }
-
