@@ -27,7 +27,7 @@ namespace Nomaro.API.DTO
     /// </summary>
     public class PaySlipGeneratorDto
     {
-        // Colour pattern (SystemParameters.PAYSLIPCOLORPATTERN): RED, GRAY, BLUE, GREEN, BROWN, VIOLET. Default BLUE.
+        // Colour pattern (SystemParameters.PAYSLIPCOLORPATTERN): RED, GRAY, BLUE, GREEN, BROWN, VIOLET, AMBER. Default BLUE.
         // Dark  = title bar / section title backgrounds (white text)
         // Light = column headers, total rows, light section headers (black text)
         // Pale  = amount in words background (black text)
@@ -41,6 +41,8 @@ namespace Nomaro.API.DTO
                 ["GREEN"] = (new DeviceRgb(30, 100, 55), new DeviceRgb(221, 240, 226), new DeviceRgb(242, 249, 244), new DeviceRgb(190, 220, 200)),
                 ["BROWN"] = (new DeviceRgb(110, 70, 40), new DeviceRgb(239, 226, 212), new DeviceRgb(250, 245, 239), new DeviceRgb(215, 195, 175)),
                 ["VIOLET"] = (new DeviceRgb(85, 50, 130), new DeviceRgb(234, 224, 245), new DeviceRgb(247, 243, 251), new DeviceRgb(210, 195, 230)),
+                // Dark amber (#A66400) - white text stays readable on it
+                ["AMBER"] = (new DeviceRgb(197, 138, 50), new DeviceRgb(252, 236, 200), new DeviceRgb(254, 248, 234), new DeviceRgb(235, 205, 150)),
             };
         private const string DefaultColorPattern = "BLUE";
 

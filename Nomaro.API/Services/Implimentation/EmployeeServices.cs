@@ -1252,7 +1252,10 @@ namespace Nomaro.API.Services.Implimentation
                     throw new InvalidOperationException("Employee with the same code already exists.");
                 }
 
+                await ValidateEmployeeGrade(dto.IdGrade, null);
+
                 var entity = _mapper.Map<Employee>(dto);
+                if (entity.IdGrade is not > 0) entity.IdGrade = null;
 
                 // Handle photo upload
                 if (dto.EmployeePhoto != null)
@@ -1314,6 +1317,8 @@ namespace Nomaro.API.Services.Implimentation
                     throw new InvalidOperationException("Another employee with the same code already exists.");
                 }
 
+                await ValidateEmployeeGrade(dto.IdGrade, employee.IdGrade);
+
                 // Map updatable fields
                 employee.EmployeeCode = dto.EmployeeCode;
                 employee.FirstName = dto.FirstName;
@@ -1321,6 +1326,7 @@ namespace Nomaro.API.Services.Implimentation
                 employee.LastName = dto.LastName;
                 employee.IdDepartment = dto.IdDepartment;
                 employee.IdDesignation = dto.IdDesignation;
+                employee.IdGrade = dto.IdGrade is > 0 ? dto.IdGrade : null;
                 employee.Gender=dto.Gender;
                 employee.PhoneNumber1 = dto.PhoneNumber1;
                 employee.PhoneNumber2 = dto.PhoneNumber2;
@@ -1404,6 +1410,23 @@ namespace Nomaro.API.Services.Implimentation
                 _logger.LogError(ex, "Error updating employee: {Id}", id);
                 return null;
             }
+        }
+
+        // Grade is optional. A newly selected grade must exist and be active;
+        // an employee can keep a grade that was deactivated later.
+        private async Task ValidateEmployeeGrade(int? idGrade, int? currentIdGrade)
+        {
+            if (idGrade is not > 0 || idGrade == currentIdGrade) return;
+
+            var grade = await _dbContext.Grades.AsNoTracking()
+                .Where(g => g.IdGrade == idGrade.Value)
+                .Select(g => new { g.IsActive })
+                .FirstOrDefaultAsync();
+
+            if (grade == null)
+                throw new InvalidOperationException("Selected grade does not exist.");
+            if (!grade.IsActive)
+                throw new InvalidOperationException("Selected grade is inactive.");
         }
 
         public async Task<EmployeeEntityDto?> GetEmployeeById(int id)

@@ -730,6 +730,39 @@ namespace Nomaro.API.Services.Implimentation
 
                 await _dbContext.SaveChangesAsync();
             }
+            else if (entityCode == _configuration["WorkflowEntityCodes:ProfileChange"]
+                  || entityCode == _configuration["WorkflowEntityCodes:ProfileChangeIdentity"]
+                  || entityCode == _configuration["WorkflowEntityCodes:ProfileChangeBank"])
+            {
+                // Employee self-service profile change requests. Only the status is set here;
+                // ProfileChangeRequestService applies the approved values and sends notifications.
+                var entity = await _dbContext.ProfileChangeRequests.FindAsync(entityTablePrimaryKeyID);
+                if (entity == null)
+                    return;
+
+                if (finalStatus == "REJECTED")
+                {
+                    entity.RequestStatus = "REJECTED";
+                }
+                else if (finalStatus == "SUBMITTED")
+                {
+                    entity.RequestStatus = "SUBMITTED";
+                    entity.CurrentLevel = 1;
+                }
+                else if (finalStatus == "FINAL APPROVED" || nextLevelNumber == 99)
+                {
+                    entity.RequestStatus = "FINAL APPROVED";
+                }
+                else
+                {
+                    entity.RequestStatus = "INTERIM APPROVED";
+                    entity.CurrentLevel = nextLevelNumber;
+                }
+
+                entity.ModifiedBy = loggedInEmployeeId;
+                entity.ModifiedDateTime = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+            }
             else if (entityCode == _configuration["WorkflowEntityCodes:LEAVEPASS"])
             {
                 var entity = await _dbContext.LeavePassages.FindAsync(entityTablePrimaryKeyID);

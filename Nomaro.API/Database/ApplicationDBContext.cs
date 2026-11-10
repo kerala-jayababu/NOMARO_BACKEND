@@ -18,6 +18,22 @@ namespace Nomaro.API.Database
 
         public DbSet<BudgetCodeEntity> BudgetCodes { get; set; }
         public DbSet<DesignationEntity> Designations { get; set; }
+        public DbSet<Grades> Grades { get; set; }
+        public DbSet<ProfileChangeRequestTypes> ProfileChangeRequestTypes { get; set; }
+        public DbSet<ProfileChangeRequests> ProfileChangeRequests { get; set; }
+        public DbSet<ProfileChangeRequestDetails> ProfileChangeRequestDetails { get; set; }
+        public DbSet<ProfileChangeRequestDocuments> ProfileChangeRequestDocuments { get; set; }
+        public DbSet<EmployeeAgreements> EmployeeAgreements { get; set; }
+        public DbSet<EmployeeAgreementTokens> EmployeeAgreementTokens { get; set; }
+        public DbSet<EmployeeAgreementEvents> EmployeeAgreementEvents { get; set; }
+        public DbSet<EmployeeFamilyMembers> EmployeeFamilyMembers { get; set; }
+        public DbSet<GeneralDocumentTypes> GeneralDocumentTypes { get; set; }
+        public DbSet<GeneralDocumentSubtypes> GeneralDocumentSubtypes { get; set; }
+        public DbSet<GeneralDocuments> GeneralDocuments { get; set; }
+        public DbSet<GeneralDocumentRecords> GeneralDocumentRecords { get; set; }
+        public DbSet<GeneralDocumentFiles> GeneralDocumentFiles { get; set; }
+        public DbSet<GeneralDocumentAudit> GeneralDocumentAudit { get; set; }
+        public DbSet<GeneralDocumentAcknowledgements> GeneralDocumentAcknowledgements { get; set; }
         public DbSet<DepartmentEntity> Departments { get; set; }
         public DbSet<SalaryHeads> SalaryHeads { get; set; }
         public DbSet<Employee> Employees { get; set; }
@@ -152,6 +168,9 @@ namespace Nomaro.API.Database
                       .ValueGeneratedOnAdd();  // important
             });
 
+            // the events table has a trigger that blocks UPDATE / DELETE
+            modelBuilder.Entity<EmployeeAgreementEvents>().ToTable(tb => tb.HasTrigger("TR_EmployeeAgreementEvents_NoChange"));
+            modelBuilder.Entity<GeneralDocumentAudit>().ToTable("GeneralDocumentAudit", tb => tb.HasTrigger("TR_GeneralDocumentAudit_NoChange"));
             base.OnModelCreating(modelBuilder);
         }
 

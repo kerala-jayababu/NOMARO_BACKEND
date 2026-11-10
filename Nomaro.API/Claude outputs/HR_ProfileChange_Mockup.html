@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Profile Change Review – Screen Layout</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#0d384d; --primary-soft:#e3edf2; --bg:#f5f5f9; --card:#fff; --text:#384551; --muted:#8592a3;
+    --border:#e4e6e8; --ok:#28a745; --ok-soft:#e5f6ea; --warn:#d48806; --warn-soft:#fff4dd;
+    --bad:#dc3545; --bad-soft:#fde8ea; --info:#0b72b9; --info-soft:#e3f1fb; --chg:#fff8e1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Poppins,Segoe UI,Arial,sans-serif;font-size:13px;color:var(--text);background:var(--bg)}
+  .shell{display:flex;min-height:100vh}
+  .side{width:220px;background:#fff;border-right:1px solid var(--border);padding:16px 0;flex-shrink:0}
+  .logo{font-weight:700;font-size:18px;color:var(--primary);padding:0 20px 16px;letter-spacing:.5px}
+  .side a{display:flex;gap:10px;align-items:center;padding:9px 20px;color:var(--text);text-decoration:none;font-size:12.5px}
+  .side a.active{background:var(--primary-soft);color:var(--primary);font-weight:600;border-right:3px solid var(--primary)}
+  .side .grp{font-size:10.5px;text-transform:uppercase;color:var(--muted);padding:14px 20px 6px;letter-spacing:.6px}
+  .main{flex:1;min-width:0}
+  .nav{height:56px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+  .nav .who{display:flex;gap:10px;align-items:center}
+  .av{width:34px;height:34px;border-radius:50%;background:#fff3;display:grid;place-items:center;font-weight:600}
+  .wrap{padding:20px 24px}
+  .switch{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .switch button{border:1px dashed #9aa7b4;background:#fff;border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer;color:var(--muted)}
+  .switch button.on{border-style:solid;border-color:var(--primary);color:var(--primary);font-weight:600}
+  .switch span{align-self:center;color:var(--muted);font-size:11.5px}
+  h4{margin:0 0 14px;font-size:17px;color:#2b3a47}
+  .card{background:var(--card);border-radius:8px;box-shadow:0 2px 6px rgba(67,89,113,.12);margin-bottom:16px}
+  .card-h{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .card-h b{font-size:14px}
+  .card-b{padding:16px 18px}
+  .btn{border:none;border-radius:6px;padding:7px 14px;font:inherit;font-weight:500;cursor:pointer}
+  .btn-p{background:var(--primary);color:#fff}
+  .btn-o{background:#fff;border:1px solid var(--primary);color:var(--primary)}
+  .btn-s{background:#fff;border:1px solid #c5ccd3;color:var(--text)}
+  .btn-sm{padding:4px 10px;font-size:12px}
+  .badge{display:inline-block;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+  .b-ok{background:var(--ok-soft);color:var(--ok)} .b-warn{background:var(--warn-soft);color:var(--warn)}
+  .b-bad{background:var(--bad-soft);color:var(--bad)} .b-info{background:var(--info-soft);color:var(--info)}
+  .b-grey{background:#eef0f2;color:#67727e}
+  .prof{display:flex;gap:18px;align-items:center}
+  .photo{width:76px;height:76px;border-radius:10px;background:linear-gradient(135deg,#0d384d,#3c7a95);color:#fff;display:grid;place-items:center;font-size:26px;font-weight:600}
+  .prof h3{margin:0 0 4px;font-size:18px}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+  .meta b{color:var(--text);font-weight:500}
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);padding:0 12px;overflow-x:auto}
+  .tabs div{padding:10px 14px;cursor:default;color:var(--muted);white-space:nowrap;font-weight:500}
+  .tabs div.on{color:var(--primary);border-bottom:2px solid var(--primary)}
+  .banner{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:12.5px}
+  .banner.warn{background:var(--warn-soft);color:#8a5a00} .banner.info{background:var(--info-soft);color:#0a4f80}
+  .banner.bad{background:var(--bad-soft);color:#a12230}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 24px}
+  .f label{display:block;color:var(--muted);font-size:11.5px;margin-bottom:3px}
+  .f div{font-weight:500;padding-bottom:6px;border-bottom:1px dashed var(--border)}
+  .lock{font-size:10.5px;color:var(--muted)}
+  .sec{display:flex;justify-content:space-between;align-items:center;margin:4px 0 12px}
+  .sec b{font-size:13.5px;color:#2b3a47}
+  .pend{color:var(--warn);font-size:11px;font-weight:600}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f3f5f7;text-align:left;font-weight:600;font-size:11.5px;color:#566a7f;padding:9px 10px;text-transform:uppercase;letter-spacing:.3px}
+  td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr.changed td{background:var(--chg)}
+  input,select,textarea{font:inherit;border:1px solid #cfd5db;border-radius:6px;padding:6px 9px;width:100%;color:var(--text);background:#fff}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .drop{border:2px dashed #b9c3cc;border-radius:8px;padding:16px;text-align:center;color:var(--muted)}
+  .file{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-top:8px}
+  .modal-bg{background:rgba(30,40,50,.45);padding:24px;border-radius:10px}
+  .modal{background:#fff;border-radius:10px;max-width:900px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .steps{display:flex;gap:0;margin-bottom:16px}
+  .steps div{flex:1;text-align:center;padding:8px;font-size:12px;color:var(--muted);border-bottom:3px solid var(--border)}
+  .steps div.on{color:var(--primary);border-color:var(--primary);font-weight:600}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:#fff;border-radius:8px;padding:12px 14px;box-shadow:0 2px 6px rgba(67,89,113,.12);border-left:4px solid var(--muted)}
+  .stat .n{font-size:22px;font-weight:600} .stat .l{color:var(--muted);font-size:11.5px}
+  .split{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+  .tl{position:relative;padding-left:22px}
+  .tl:before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
+  .tl .it{position:relative;margin-bottom:14px}
+  .tl .it:before{content:"";position:absolute;left:-20px;top:3px;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--muted)}
+  .tl .it.ok:before{border-color:var(--ok);background:var(--ok)} .tl .it.cur:before{border-color:var(--warn);background:var(--warn-soft)}
+  .tl .t{font-weight:600} .tl .s{color:var(--muted);font-size:11.5px}
+  .note{background:#f8f9fa;border-left:3px solid var(--warn);padding:8px 10px;border-radius:4px;margin-top:6px;font-size:12px}
+  .old{color:var(--muted);text-decoration:line-through} .new{color:#1d6b33;font-weight:600}
+  .ann{display:inline-block;background:#6f42c1;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10.5px;text-align:center;line-height:18px;font-weight:700;margin-right:4px}
+  .notes{background:#fff;border:1px solid #d9cdf0;border-radius:8px;padding:12px 16px;margin-top:6px;font-size:12px}
+  .notes li{margin-bottom:4px}
+  .screen{display:none} .screen.on{display:block}
+  .mask{letter-spacing:1px}
+  @media (max-width:900px){.side{display:none}.grid{grid-template-columns:1fr 1fr}.split,.row2{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+<style>
+  .filters{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr auto;gap:10px;align-items:end}
+  .filters label{display:block;color:var(--muted);font-size:11px;margin-bottom:3px}
+  .seg{display:inline-flex;border:1px solid var(--primary);border-radius:6px;overflow:hidden}
+  .seg span{padding:5px 12px;font-size:12px;color:var(--primary)} .seg span.on{background:var(--primary);color:#fff}
+  .emp{display:flex;gap:6px;flex-direction:column} .emp small{color:var(--muted)}
+  .days{font-weight:600} .days.late{color:var(--bad)}
+  .three{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
+  .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 20px}
+  .kv label{display:block;color:var(--muted);font-size:11px} .kv div{font-weight:500}
+  .preview{border:1px solid var(--border);border-radius:8px;background:#f3f5f7;height:230px;display:grid;place-items:center;color:var(--muted);position:relative}
+  .cheque{width:82%;height:62%;background:#fff;border:1px solid #c9d2da;border-radius:6px;padding:12px 14px;font-size:11px;color:#5a6a78;box-shadow:0 2px 4px rgba(0,0,0,.06)}
+  .cheque .ln{border-bottom:1px solid #dfe4e8;margin:10px 0 0;height:12px}
+  .preview .x{position:absolute;right:16%;top:28%;font-size:34px;color:#c0392b;font-weight:700;transform:rotate(-12deg);opacity:.75}
+  .thumbs{display:flex;gap:8px;margin-top:8px}
+  .thumbs div{flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11.5px}
+  .thumbs div.on{border-color:var(--primary);background:var(--primary-soft)}
+  .act{background:#f8fafb;border-top:1px solid var(--border);padding:14px 18px;display:flex;gap:12px;align-items:flex-end}
+  .act textarea{flex:1}
+  .btn-ok{background:var(--ok);color:#fff} .btn-bad{background:#fff;border:1px solid var(--bad);color:var(--bad)}
+  .btn-warn{background:#fff;border:1px solid var(--warn);color:#9a6400}
+  .reveal{font-size:11px;color:var(--info);cursor:pointer;margin-left:6px}
+  .dlgs{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .dlg{background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .chk{display:flex;gap:8px;align-items:flex-start;margin:8px 0;font-size:12.5px}
+  .chk i{font-style:normal;color:var(--ok);font-weight:700}
+  .open-only{opacity:.45}
+  @media (max-width:900px){.filters,.three,.dlgs,.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo">NOMARO</div>
+    <div class="grp">HR Management</div>
+    <a href="#">▣ Dashboard</a>
+    <a href="#">☺ Employee Management</a>
+    <a href="#" class="active" id="m-pcr">⇄ Profile Change Requests</a>
+    <a href="#">✓ Leave Approval</a>
+    <a href="#">✓ Service Change Approval</a>
+    <a href="#" id="m-cfg">☰ Config Approvals</a>
+    <div class="grp">Settings</div>
+    <a href="#">⚙ Profile Request Types</a>
+    <a href="#">⚙ Workflow Configuration</a>
+  </aside>
+  <div class="main">
+    <div class="nav"><div style="font-weight:600">NOMARO HRMS · Payroll</div>
+      <div class="who"><span>Rahul Menon · Payroll Manager</span><div class="av">RM</div></div></div>
+    <div class="wrap">
+      <div class="switch">
+        <span>Mock-up screens:</span>
+        <button class="on" data-s="s1">1. Requests list</button>
+        <button data-s="s2">2. Review request</button>
+        <button data-s="s3">3. Approve / Clarify dialogs</button>
+        <button data-s="s4">4. Config Approvals (link only)</button>
+      </div>
+
+      <!-- ===== SCREEN 1: LIST ===== -->
+      <section class="screen on" id="s1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h4 style="margin:0">Profile Change Requests</h4>
+          <div class="seg"><span class="on">Waiting for me (4)</span><span>All requests</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat" style="border-color:var(--info)"><div class="n">4</div><div class="l">Waiting for me</div></div>
+          <div class="stat" style="border-color:var(--warn)"><div class="n">2</div><div class="l">With employee (clarification)</div></div>
+          <div class="stat" style="border-color:var(--ok)"><div class="n">18</div><div class="l">Approved · last 30 days</div></div>
+          <div class="stat" style="border-color:var(--bad)"><div class="n">3</div><div class="l">Rejected · last 30 days</div></div>
+          <div class="stat" style="border-color:#6f42c1"><div class="n">1</div><div class="l">Processing failed</div></div>
+        </div>
+        <div class="card"><div class="card-b filters">
+          <div><label>Search</label><input placeholder="Employee code, name or request no."></div>
+          <div><label>Category</label><select><option>All categories</option></select></div>
+          <div><label>Department</label><select><option>All departments</option></select></div>
+          <div><label>Status</label><select><option>Pending</option></select></div>
+          <div><label>Submitted</label><select><option>Last 30 days</option></select></div>
+          <button class="btn btn-s">Reset</button>
+        </div></div>
+        <div class="card"><div class="card-b" style="padding:0"><table>
+          <thead><tr><th>Request No.</th><th>Employee</th><th>Category / Type</th><th>Submitted</th><th>Level</th><th>Waiting</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>ESS-000016</td><td><div class="emp"><b>EMP1042 · Anitha Ramesh</b><small>Finance · Accountant</small></div></td><td>Bank<br><small style="color:var(--muted)">Change salary account</small></td><td>01-Nov-2026</td><td>2 of 2 · Payroll Mgr</td><td class="days">2 days</td><td><span class="badge b-info">INTERIM APPROVED</span></td><td><button class="btn btn-p btn-sm" data-go="s2">Review</button></td></tr>
+            <tr><td>ESS-000013</td><td><div class="emp"><b>EMP0877 · Joseph Thomas</b><small>Operations · Supervisor</small></div></td><td>Identity<br><small style="color:var(--muted)">Renew passport</small></td><td>28-Oct-2026</td><td>1 of 2 · HR Exec</td><td class="days late">6 days</td><td><span class="badge b-info">SUBMITTED</span></td><td><button class="btn btn-p btn-sm">Review</button></td></tr>
+            <tr><td>ESS-000011</td><td><div class="emp"><b>EMP1210 · Fathima N</b><small>Sales · Executive</small></div></td><td>Personal<br><small style="color:var(--muted)">Marital status</small></td><td>27-Oct-2026</td><td>1 of 2 · HR Exec</td><td class="days late">7 days</td><td><span class="badge b-info">SUBMITTED</span> <span class="badge b-warn">RESUBMITTED</span></td><td><button class="btn btn-p btn-sm">Review</button></td></tr>
+            <tr><td>ESS-000010</td><td><div class="emp"><b>EMP0391 · Vinod Kumar</b><small>IT · Developer</small></div></td><td>Children<br><small style="color:var(--muted)">Add child</small></td><td>03-Nov-2026</td><td>1 of 1 · HR Exec</td><td class="days">today</td><td><span class="badge b-info">SUBMITTED</span></td><td><button class="btn btn-p btn-sm">Review</button></td></tr>
+          </tbody></table></div></div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span><b>Waiting for me</b> lists only the requests where the logged-in user is in the workflow's <code>TargetIdEmployee</code> for the current level. <b>All requests</b> needs the V permission on PROFCHGREQ.</li>
+          <li><span class="ann">2</span>The waiting time turns red after the SLA, which is configurable (e.g. 5 days).</li>
+          <li><span class="ann">3</span>There is no bulk approve. Each request is opened and reviewed.</li>
+        </ul></div>
+      </section>
+
+      <!-- ===== SCREEN 2: REVIEW ===== -->
+      <section class="screen" id="s2">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h4 style="margin:0">ESS-000016 · Change Salary Account</h4>
+          <button class="btn btn-s btn-sm" data-go="s1">← Back to list</button>
+        </div>
+        <div class="banner warn">⚠ Salary generation for <b>Nov-2026</b> has already started. If approved, this change applies from the <b>Dec-2026</b> payroll (Effective From 01-Dec-2026).</div>
+        <div class="card"><div class="card-b kv">
+          <div><label>Employee</label><div>EMP1042 · Anitha Ramesh</div></div>
+          <div><label>Department / Designation</label><div>Finance · Accountant</div></div>
+          <div><label>Reporting To</label><div>Suresh Kumar</div></div>
+          <div><label>Submitted</label><div>01-Nov-2026 10:12</div></div>
+          <div><label>Current level</label><div>2 of 2 · Payroll Manager (final)</div></div>
+          <div><label>Reason</label><div>Moved my salary account to HDFC.</div></div>
+        </div></div>
+        <div class="three">
+          <div>
+            <div class="card"><div class="card-h"><b>Requested Changes</b><span class="lock">Changed rows highlighted</span></div>
+              <div class="card-b" style="padding:0"><table>
+                <thead><tr><th>Field</th><th>Current (master)</th><th>Requested</th></tr></thead>
+                <tbody>
+                  <tr class="changed"><td>Bank</td><td class="old">State Bank of India</td><td class="new">HDFC Bank</td></tr>
+                  <tr class="changed"><td>Branch / IFSC</td><td class="old">Pattom · SBIN0070123</td><td class="new">Edappally · HDFC0001234</td></tr>
+                  <tr class="changed"><td>Account Number</td><td class="old mask">XXXXXXXX4521</td><td class="new mask">XXXXXXXX7788 <span class="reveal">👁 Show</span></td></tr>
+                  <tr><td>Currency</td><td>INR</td><td>INR</td></tr>
+                  <tr><td>Salary %</td><td>100%</td><td>100%</td></tr>
+                  <tr class="changed"><td>Effective From</td><td>—</td><td class="new">01-Dec-2026</td></tr>
+                </tbody></table></div></div>
+            <div class="card"><div class="card-h"><b>Approval History</b></div>
+              <div class="card-b"><div class="tl">
+                <div class="it ok"><div class="t">Submitted (cycle 1)</div><div class="s">Anitha Ramesh · 01-Nov-2026 10:12</div></div>
+                <div class="it ok"><div class="t">Level 1 approved · HR Manager</div><div class="s">Meera S · 01-Nov-2026 16:40</div><div class="note" style="border-color:var(--ok)">Cheque name matches the employee name.</div></div>
+                <div class="it cur"><div class="t">Level 2 · Payroll Manager (final)</div><div class="s">Waiting for you</div></div>
+              </div></div></div>
+          </div>
+          <div class="card"><div class="card-h"><b>Documents</b><button class="btn btn-s btn-sm">⇩ Download</button></div>
+            <div class="card-b">
+              <div class="preview"><div class="cheque"><b>HDFC BANK</b> · Edappally<div class="ln"></div><div class="ln"></div><div style="margin-top:12px">A/c XXXXXXXX7788 · IFSC HDFC0001234</div></div><div class="x">CANCELLED</div></div>
+              <div class="thumbs"><div class="on">📄 Cancelled_cheque.jpg<br><small>Bank proof · 420 KB</small></div><div>📄 Passbook_page1.pdf<br><small>Bank proof · 310 KB</small></div></div>
+              <div class="lock" style="margin-top:10px">Files open inline through the secure download API. They are not public links.</div>
+            </div></div>
+        </div>
+        <div class="card"><div class="act">
+          <div style="flex:1"><label class="lock">Remarks (required for Reject and Clarification)</label><textarea rows="2" placeholder="Enter remarks"></textarea></div>
+          <button class="btn btn-bad">✕ Reject</button>
+          <button class="btn btn-warn" data-go="s3">↩ Send for Clarification</button>
+          <button class="btn btn-ok" data-go="s3">✓ Approve &amp; Apply</button>
+        </div></div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span><b>Current (master)</b> is the value in the master tables now. If it differs from the value saved at submission, a red banner says "Changed after submission by HR on …" and Approve is disabled until HR confirms.</li>
+          <li><span class="ann">2</span>The full account number shows only for users with the sensitive-data permission (PROFCHGSENS), and each reveal is written to AuditLogs.</li>
+          <li><span class="ann">3</span>At a non-final level the button reads <b>Approve</b> and moves the request to the next level. At the final level it reads <b>Approve &amp; Apply</b> and updates the master in one transaction.</li>
+          <li><span class="ann">4</span>The payroll banner appears only for bank requests, when salary generation for the current month has started.</li>
+        </ul></div>
+      </section>
+
+      <!-- ===== SCREEN 3: DIALOGS ===== -->
+      <section class="screen" id="s3">
+        <div class="modal-bg"><div class="dlgs">
+          <div class="dlg">
+            <div class="card-h"><b>Approve &amp; apply ESS-000016?</b></div>
+            <div class="card-b">
+              <div class="chk"><i>✓</i>Bank account for <b>EMP1042 · Anitha Ramesh</b> becomes HDFC · XXXXXXXX7788 from <b>01-Dec-2026</b>.</div>
+              <div class="chk"><i>✓</i>The old SBI account is kept in history and no longer used for salary.</div>
+              <div class="chk"><i>✓</i>The cancelled cheque is saved to the employee's documents.</div>
+              <div class="chk"><i>✓</i>The employee is notified by in-app message and email.</div>
+              <label class="lock" style="display:block;margin-top:10px">Approval remarks (optional)</label>
+              <textarea rows="2">Verified with cheque.</textarea>
+            </div>
+            <div class="card-h" style="border-top:1px solid var(--border);border-bottom:none;justify-content:flex-end;gap:8px">
+              <button class="btn btn-s">Cancel</button><button class="btn btn-ok">Confirm &amp; Apply</button></div>
+          </div>
+          <div class="dlg">
+            <div class="card-h"><b>Send ESS-000016 for clarification</b></div>
+            <div class="card-b">
+              <div class="banner info" style="margin-bottom:10px">The request goes back to the employee, who can edit it and upload more documents. Resubmitting starts the workflow again from level 1.</div>
+              <label class="lock">What is needed? *</label>
+              <textarea rows="4">The cheque image is cut off on the right. Please upload a clear copy showing the full account number and IFSC.</textarea>
+              <label class="lock" style="display:block;margin-top:10px">Ask for document (optional)</label>
+              <select><option>Bank proof – Cancelled cheque</option></select>
+            </div>
+            <div class="card-h" style="border-top:1px solid var(--border);border-bottom:none;justify-content:flex-end;gap:8px">
+              <button class="btn btn-s">Cancel</button><button class="btn btn-warn">Send to Employee</button></div>
+          </div>
+        </div></div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span>The confirm dialog lists exactly what will change, so HR knows what happens before applying.</li>
+          <li><span class="ann">2</span>The Reject dialog looks the same as Clarification, with a mandatory reason and a red button.</li>
+          <li><span class="ann">3</span>If applying fails, nothing changes in the master, the status becomes PROCESSING FAILED, and a Retry button appears on the review screen.</li>
+        </ul></div>
+      </section>
+
+      <!-- ===== SCREEN 4: CONFIG APPROVALS ===== -->
+      <section class="screen" id="s4">
+        <h4>Config Approvals (existing screen)</h4>
+        <div class="card"><div class="card-b" style="padding:0"><table>
+          <thead><tr><th>Entity</th><th>Reference</th><th>Submitted By</th><th>Sent Date</th><th>Level</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr><td>Salary Template</td><td>STD-2026</td><td>Meera S</td><td>30-Oct-2026</td><td>1</td><td><button class="btn btn-ok btn-sm">Approve</button> <button class="btn btn-bad btn-sm">Reject</button> <button class="btn btn-s btn-sm">View</button></td></tr>
+            <tr style="background:var(--primary-soft)"><td><b>Profile Change – Bank</b></td><td>ESS-000016 · EMP1042</td><td>Anitha Ramesh</td><td>01-Nov-2026</td><td>2</td><td><span class="open-only"><button class="btn btn-ok btn-sm" disabled>Approve</button> <button class="btn btn-bad btn-sm" disabled>Reject</button></span> <button class="btn btn-p btn-sm" data-go="s2">Open ↗</button></td></tr>
+            <tr style="background:var(--primary-soft)"><td><b>Profile Change – Identity</b></td><td>ESS-000013 · EMP0877</td><td>Joseph Thomas</td><td>28-Oct-2026</td><td>1</td><td><span class="open-only"><button class="btn btn-ok btn-sm" disabled>Approve</button> <button class="btn btn-bad btn-sm" disabled>Reject</button></span> <button class="btn btn-p btn-sm">Open ↗</button></td></tr>
+            <tr><td>Overtime</td><td>OT-Oct-2026 · EMP0450</td><td>Arun P</td><td>02-Nov-2026</td><td>1</td><td><button class="btn btn-ok btn-sm">Approve</button> <button class="btn btn-bad btn-sm">Reject</button> <button class="btn btn-s btn-sm">View</button></td></tr>
+          </tbody></table></div></div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span>Profile change items stay in Config Approvals, so approvers have one inbox, but Approve and Reject are hidden for the PROFCHG / PROFCHGID / PROFCHGBANK codes. They're shown greyed here only to illustrate.</li>
+          <li><span class="ann">2</span><b>Open</b> goes to the Profile Change Requests review screen (screen 2) for that request.</li>
+          <li><span class="ann">3</span>The API refuses approval of these codes unless it comes through the ProfileChangeRequest endpoint, so no one can approve without the review screen.</li>
+        </ul></div>
+      </section>
+    </div>
+  </div>
+</div>
+<script>
+  const show = id => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    document.querySelectorAll('.switch button').forEach(b => b.classList.toggle('on', b.dataset.s === id));
+    document.getElementById('m-pcr').classList.toggle('active', id !== 's4');
+    document.getElementById('m-cfg').classList.toggle('active', id === 's4');
+    window.scrollTo(0, 0);
+  };
+  document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => show(b.dataset.s));
+  document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
+</script>
+</body>
+</html>

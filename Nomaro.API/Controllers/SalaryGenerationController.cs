@@ -121,16 +121,6 @@ namespace Nomaro.API.Controllers
                 return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));
 
             }
-            var currencyConversions = await _salaryService.CheckcurrencyConversions();
-            if (!currencyConversions)
-            {
-                return StatusCode(
-                    403,
-                    ApiResponseDto<string>.CreateFailure(
-                        "Latest currency conversion details from USD to GYD are not available. Please configure them before proceeding with salary generation."
-                    )
-                );
-            }
 
             try
             {
@@ -198,16 +188,6 @@ namespace Nomaro.API.Controllers
 
             // Check permission
             var hasPermission = await _roleBasedService.CheckEmployeePermission(int.Parse(IdEmployee), screenCode, actionType);
-            var currencyConversions = await _salaryService.CheckcurrencyConversions();
-            if (!currencyConversions)
-            {
-                return StatusCode(
-                    403,
-                    ApiResponseDto<string>.CreateFailure(
-                        "Latest currency conversion details from USD to GYD are not available. Please configure them before proceeding with salary generation."
-                    )
-                );
-            }
             if (!hasPermission)
             {
                 return StatusCode(403, ApiResponseDto<string>.CreateFailure("You do not have the required permission to perform this action."));

@@ -15,6 +15,7 @@ namespace Nomaro.API.Helpers
         {
             CreateMap< BudgetCodeEntity, BudgetCodeDto>().ReverseMap();
             CreateMap<DesignationEntity, DesignationDto>().ReverseMap();
+            CreateMap<Grades, GradeDto>().ForMember(d => d.EmployeeCount, o => o.Ignore()).ReverseMap();
             CreateMap<DepartmentEntity, DepartmentDto>().ReverseMap();
             CreateMap<SalaryHeads, SalaryHeadDto>().ReverseMap();
             CreateMap<Employee, Nomaro.API.DTO.EmployeeDto>().ReverseMap();

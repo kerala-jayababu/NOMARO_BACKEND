@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Microsoft.AspNetCore.DataProtection;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Nomaro.API.Database;
@@ -220,6 +221,18 @@ builder.Services.AddScoped<IShiftSetupService, ShiftSetupService>();
 builder.Services.AddScoped<IEmployeeStatutoryDetailsService, EmployeeStatutoryDetailsService>();
 builder.Services.AddScoped<ISalaryDashboardService, SalaryDashboardService>();
 builder.Services.AddScoped<IEmployeeCalendarService, EmployeeCalendarService>();
+builder.Services.AddScoped<IGradeService, GradeService>();
+builder.Services.AddScoped<IProfileChangeRequestService, ProfileChangeRequestService>();
+builder.Services.AddScoped<IEmployeeDocumentViewerService, EmployeeDocumentViewerService>();
+builder.Services.AddScoped<IEmployeeAgreementService, EmployeeAgreementService>();
+builder.Services.AddScoped<IEmployeeFamilyService, EmployeeFamilyService>();
+builder.Services.AddScoped<IGeneralDocumentService, GeneralDocumentService>();
+
+// Keys used to encrypt sensitive values (bank / ID numbers) in profile change requests.
+// Persisted to disk so pending requests can still be read after an app restart.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Nomaro.API")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "DataProtectionKeys")));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SendSMSOTP>();
 builder.Services.AddHttpContextAccessor();           // Required for IP/Claims

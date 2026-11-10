@@ -13,6 +13,7 @@
         public string? NationalIDNumber { get; set; }
         public int? IdDepartment { get; set; }
         public int? IdDesignation { get; set; }
+        public int? IdGrade { get; set; }
         public string? EmailID { get; set; }
         public string? PhoneNumber1 { get; set; }
         public string? PhoneNumber2 { get; set; }

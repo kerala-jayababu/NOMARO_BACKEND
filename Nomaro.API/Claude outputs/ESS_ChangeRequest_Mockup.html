@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESS Change Requests – Screen Layout</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#0d384d; --primary-soft:#e3edf2; --bg:#f5f5f9; --card:#fff; --text:#384551; --muted:#8592a3;
+    --border:#e4e6e8; --ok:#28a745; --ok-soft:#e5f6ea; --warn:#d48806; --warn-soft:#fff4dd;
+    --bad:#dc3545; --bad-soft:#fde8ea; --info:#0b72b9; --info-soft:#e3f1fb; --chg:#fff8e1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Poppins,Segoe UI,Arial,sans-serif;font-size:13px;color:var(--text);background:var(--bg)}
+  .shell{display:flex;min-height:100vh}
+  .side{width:220px;background:#fff;border-right:1px solid var(--border);padding:16px 0;flex-shrink:0}
+  .logo{font-weight:700;font-size:18px;color:var(--primary);padding:0 20px 16px;letter-spacing:.5px}
+  .side a{display:flex;gap:10px;align-items:center;padding:9px 20px;color:var(--text);text-decoration:none;font-size:12.5px}
+  .side a.active{background:var(--primary-soft);color:var(--primary);font-weight:600;border-right:3px solid var(--primary)}
+  .side .grp{font-size:10.5px;text-transform:uppercase;color:var(--muted);padding:14px 20px 6px;letter-spacing:.6px}
+  .main{flex:1;min-width:0}
+  .nav{height:56px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+  .nav .who{display:flex;gap:10px;align-items:center}
+  .av{width:34px;height:34px;border-radius:50%;background:#fff3;display:grid;place-items:center;font-weight:600}
+  .wrap{padding:20px 24px}
+  .switch{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .switch button{border:1px dashed #9aa7b4;background:#fff;border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer;color:var(--muted)}
+  .switch button.on{border-style:solid;border-color:var(--primary);color:var(--primary);font-weight:600}
+  .switch span{align-self:center;color:var(--muted);font-size:11.5px}
+  h4{margin:0 0 14px;font-size:17px;color:#2b3a47}
+  .card{background:var(--card);border-radius:8px;box-shadow:0 2px 6px rgba(67,89,113,.12);margin-bottom:16px}
+  .card-h{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .card-h b{font-size:14px}
+  .card-b{padding:16px 18px}
+  .btn{border:none;border-radius:6px;padding:7px 14px;font:inherit;font-weight:500;cursor:pointer}
+  .btn-p{background:var(--primary);color:#fff}
+  .btn-o{background:#fff;border:1px solid var(--primary);color:var(--primary)}
+  .btn-s{background:#fff;border:1px solid #c5ccd3;color:var(--text)}
+  .btn-sm{padding:4px 10px;font-size:12px}
+  .badge{display:inline-block;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+  .b-ok{background:var(--ok-soft);color:var(--ok)} .b-warn{background:var(--warn-soft);color:var(--warn)}
+  .b-bad{background:var(--bad-soft);color:var(--bad)} .b-info{background:var(--info-soft);color:var(--info)}
+  .b-grey{background:#eef0f2;color:#67727e}
+  .prof{display:flex;gap:18px;align-items:center}
+  .photo{width:76px;height:76px;border-radius:10px;background:linear-gradient(135deg,#0d384d,#3c7a95);color:#fff;display:grid;place-items:center;font-size:26px;font-weight:600}
+  .prof h3{margin:0 0 4px;font-size:18px}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+  .meta b{color:var(--text);font-weight:500}
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);padding:0 12px;overflow-x:auto}
+  .tabs div{padding:10px 14px;cursor:default;color:var(--muted);white-space:nowrap;font-weight:500}
+  .tabs div.on{color:var(--primary);border-bottom:2px solid var(--primary)}
+  .banner{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:12.5px}
+  .banner.warn{background:var(--warn-soft);color:#8a5a00} .banner.info{background:var(--info-soft);color:#0a4f80}
+  .banner.bad{background:var(--bad-soft);color:#a12230}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 24px}
+  .f label{display:block;color:var(--muted);font-size:11.5px;margin-bottom:3px}
+  .f div{font-weight:500;padding-bottom:6px;border-bottom:1px dashed var(--border)}
+  .lock{font-size:10.5px;color:var(--muted)}
+  .sec{display:flex;justify-content:space-between;align-items:center;margin:4px 0 12px}
+  .sec b{font-size:13.5px;color:#2b3a47}
+  .pend{color:var(--warn);font-size:11px;font-weight:600}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f3f5f7;text-align:left;font-weight:600;font-size:11.5px;color:#566a7f;padding:9px 10px;text-transform:uppercase;letter-spacing:.3px}
+  td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr.changed td{background:var(--chg)}
+  input,select,textarea{font:inherit;border:1px solid #cfd5db;border-radius:6px;padding:6px 9px;width:100%;color:var(--text);background:#fff}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .drop{border:2px dashed #b9c3cc;border-radius:8px;padding:16px;text-align:center;color:var(--muted)}
+  .file{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-top:8px}
+  .modal-bg{background:rgba(30,40,50,.45);padding:24px;border-radius:10px}
+  .modal{background:#fff;border-radius:10px;max-width:900px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .steps{display:flex;gap:0;margin-bottom:16px}
+  .steps div{flex:1;text-align:center;padding:8px;font-size:12px;color:var(--muted);border-bottom:3px solid var(--border)}
+  .steps div.on{color:var(--primary);border-color:var(--primary);font-weight:600}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:#fff;border-radius:8px;padding:12px 14px;box-shadow:0 2px 6px rgba(67,89,113,.12);border-left:4px solid var(--muted)}
+  .stat .n{font-size:22px;font-weight:600} .stat .l{color:var(--muted);font-size:11.5px}
+  .split{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+  .tl{position:relative;padding-left:22px}
+  .tl:before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
+  .tl .it{position:relative;margin-bottom:14px}
+  .tl .it:before{content:"";position:absolute;left:-20px;top:3px;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--muted)}
+  .tl .it.ok:before{border-color:var(--ok);background:var(--ok)} .tl .it.cur:before{border-color:var(--warn);background:var(--warn-soft)}
+  .tl .t{font-weight:600} .tl .s{color:var(--muted);font-size:11.5px}
+  .note{background:#f8f9fa;border-left:3px solid var(--warn);padding:8px 10px;border-radius:4px;margin-top:6px;font-size:12px}
+  .old{color:var(--muted);text-decoration:line-through} .new{color:#1d6b33;font-weight:600}
+  .ann{display:inline-block;background:#6f42c1;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10.5px;text-align:center;line-height:18px;font-weight:700;margin-right:4px}
+  .notes{background:#fff;border:1px solid #d9cdf0;border-radius:8px;padding:12px 16px;margin-top:6px;font-size:12px}
+  .notes li{margin-bottom:4px}
+  .screen{display:none} .screen.on{display:block}
+  .mask{letter-spacing:1px}
+  @media (max-width:900px){.side{display:none}.grid{grid-template-columns:1fr 1fr}.split,.row2{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo">NOMARO</div>
+    <div class="grp">Self Portal</div>
+    <a href="#">▣ Dashboard</a>
+    <a href="#" class="active" id="m-profile">☺ My Profile</a>
+    <a href="#" id="m-req">⇄ My Change Requests</a>
+    <a href="#">◷ Attendance</a>
+    <a href="#">▤ Salary Slips</a>
+    <a href="#">▦ Holiday Calendar</a>
+  </aside>
+  <div class="main">
+    <div class="nav"><div style="font-weight:600">Employee Self Service</div>
+      <div class="who"><span>Anitha R &nbsp;·&nbsp; EMP1042</span><div class="av">AR</div></div></div>
+    <div class="wrap">
+      <div class="switch">
+        <span>Mock-up screens:</span>
+        <button class="on" data-s="s1">1. My Profile</button>
+        <button data-s="s2">2. New Change Request</button>
+        <button data-s="s3">3. My Change Requests</button>
+        <button data-s="s4">4. Request Details / Clarification</button>
+      </div>
+
+      <!-- ============ SCREEN 1: MY PROFILE ============ -->
+      <section class="screen on" id="s1">
+        <h4>My Profile</h4>
+        <div class="card"><div class="card-b prof">
+          <div class="photo">AR</div>
+          <div style="flex:1">
+            <h3>Anitha Ramesh</h3>
+            <div class="meta">
+              <span>Employee Code <b>EMP1042</b></span><span>Department <b>Finance</b></span>
+              <span>Designation <b>Accountant</b></span><span>Grade <b>G3 - Intermediate</b></span>
+              <span>Reporting To <b>Suresh Kumar</b></span><span>Joined <b>12-Jun-2021</b></span>
+            </div>
+          </div>
+          <button class="btn btn-o">⇄ My Change Requests (2 open)</button>
+        </div></div>
+
+        <div class="card">
+          <div class="tabs">
+            <div class="on">Personal</div><div>Contact &amp; Address</div><div>Family</div>
+            <div>Identity &amp; Statutory</div><div>Bank</div><div>Documents</div>
+          </div>
+          <div class="card-b">
+            <div class="banner warn"><b>ESS-000012</b> Address change is pending HR approval (Level 2 of 2). Fields under review are marked <span class="pend">● Pending</span>.</div>
+
+            <div class="sec"><b>Basic Information</b><button class="btn btn-p btn-sm" data-go="s2">✎ Request Change</button></div>
+            <div class="grid">
+              <div class="f"><label>First Name</label><div>Anitha</div></div>
+              <div class="f"><label>Middle Name</label><div>—</div></div>
+              <div class="f"><label>Last Name</label><div>Ramesh</div></div>
+              <div class="f"><label>Gender</label><div>Female</div></div>
+              <div class="f"><label>Date of Birth</label><div>14-Feb-1994</div></div>
+              <div class="f"><label>Marital Status</label><div>Single</div></div>
+              <div class="f"><label>Nationality</label><div>Indian</div></div>
+              <div class="f"><label>Citizenship</label><div>India</div></div>
+              <div class="f"><label>Official Email <span class="lock">🔒 HR only</span></label><div>anitha.r@company.com</div></div>
+            </div>
+
+            <div class="sec" style="margin-top:22px"><b>Contact &amp; Address</b><button class="btn btn-p btn-sm" data-go="s2">✎ Request Change</button></div>
+            <div class="grid">
+              <div class="f"><label>Mobile</label><div>98470 12345</div></div>
+              <div class="f"><label>Alternate Number</label><div>—</div></div>
+              <div class="f"><label>WhatsApp</label><div>98470 12345</div></div>
+              <div class="f"><label>Personal Email</label><div>anitha94@gmail.com</div></div>
+              <div class="f"><label>Address <span class="pend">● Pending</span></label><div>12 ABC Street, Pattom</div></div>
+              <div class="f"><label>City / State / PIN <span class="pend">● Pending</span></label><div>Trivandrum, Kerala 695001</div></div>
+              <div class="f"><label>Emergency Contact</label><div>Ramesh K (Father)</div></div>
+              <div class="f"><label>Emergency Number</label><div>94470 55555</div></div>
+            </div>
+
+            <div class="sec" style="margin-top:22px"><b>Identity &amp; Bank (preview of other tabs)</b></div>
+            <div class="grid">
+              <div class="f"><label>Passport No.</label><div class="mask">PXXXXX123</div></div>
+              <div class="f"><label>PAN</label><div class="mask">XXXXX1234F</div></div>
+              <div class="f"><label>Salary Account</label><div class="mask">SBI · XXXXXXXX4521 (100%)</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span>Everything is read-only. The <b>Request Change</b> button on each section opens screen 2, with that section already selected.</li>
+          <li><span class="ann">2</span>Official fields (code, department, designation, grade, joining date, official email) show 🔒 and can't be requested.</li>
+          <li><span class="ann">3</span>Fields with an open request show <span class="pend">● Pending</span>, and a new request on those fields is blocked.</li>
+          <li><span class="ann">4</span>Bank and ID numbers are always masked.</li>
+        </ul></div>
+      </section>
+
+      <!-- ============ SCREEN 2: NEW REQUEST ============ -->
+      <section class="screen" id="s2">
+        <div class="modal-bg"><div class="modal">
+          <div class="card-h"><b>New Change Request</b><span class="badge b-grey">DRAFT · ESS-000015</span></div>
+          <div class="card-b">
+            <div class="steps"><div class="on">1. What to change</div><div class="on">2. New values &amp; proof</div><div>3. Review &amp; submit</div></div>
+            <div class="row2">
+              <div><label class="lock">Category *</label><select><option>Contact &amp; Address</option></select></div>
+              <div><label class="lock">Request Type *</label><select><option>Address Change</option></select></div>
+            </div>
+
+            <table style="margin-top:16px">
+              <thead><tr><th style="width:24%">Field</th><th style="width:33%">Current Value</th><th>New Value</th></tr></thead>
+              <tbody>
+                <tr class="changed"><td>Address Line 1</td><td>12 ABC Street</td><td><input value="45 XYZ Road"></td></tr>
+                <tr class="changed"><td>Address Line 2</td><td>Pattom</td><td><input value="Edappally"></td></tr>
+                <tr><td>Address Line 3</td><td>—</td><td><input placeholder="(no change)"></td></tr>
+                <tr class="changed"><td>City</td><td>Trivandrum</td><td><input value="Kochi"></td></tr>
+                <tr><td>State</td><td>Kerala</td><td><input value="Kerala"></td></tr>
+                <tr class="changed"><td>PIN Code</td><td>695001</td><td><input value="682024"></td></tr>
+              </tbody>
+            </table>
+            <div class="lock" style="margin-top:6px">Rows that change are highlighted. Unchanged rows are not sent.</div>
+
+            <div class="row2" style="margin-top:16px">
+              <div>
+                <label class="lock">Reason for change *</label>
+                <textarea rows="4">Shifted to Kochi after transfer of family residence.</textarea>
+              </div>
+              <div>
+                <label class="lock">Supporting documents * (Address proof — PDF/JPG/PNG, max 2 MB)</label>
+                <div class="drop">⇪ Drag files here or <u>browse</u></div>
+                <div class="file"><span>📄 Rental_Agreement.pdf · 640 KB · <i>Address Proof</i></span><button class="btn btn-s btn-sm">✕</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="card-h" style="border-top:1px solid var(--border);border-bottom:none;justify-content:flex-end;gap:8px">
+            <button class="btn btn-s">Cancel</button><button class="btn btn-o">Save Draft</button><button class="btn btn-p" data-go="s3">Review &amp; Submit →</button>
+          </div>
+        </div></div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span>The request type decides which fields appear, and whether proof is required (from Profile Request Types).</li>
+          <li><span class="ann">2</span>The current value is read from the master at the time the request is created. HR sees the same old/new pair.</li>
+          <li><span class="ann">3</span>Step 3 shows a read-only summary with the old value struck out and the new value in green, plus the files. Submit then starts the approval workflow.</li>
+          <li><span class="ann">4</span>Bank requests add New Account No. + Confirm Account No. and an Effective From date.</li>
+        </ul></div>
+      </section>
+
+      <!-- ============ SCREEN 3: MY REQUESTS ============ -->
+      <section class="screen" id="s3">
+        <h4>My Change Requests</h4>
+        <div class="stats">
+          <div class="stat" style="border-color:var(--muted)"><div class="n">1</div><div class="l">Draft</div></div>
+          <div class="stat" style="border-color:var(--info)"><div class="n">1</div><div class="l">Pending Approval</div></div>
+          <div class="stat" style="border-color:var(--warn)"><div class="n">1</div><div class="l">Clarification Required</div></div>
+          <div class="stat" style="border-color:var(--ok)"><div class="n">3</div><div class="l">Approved</div></div>
+          <div class="stat" style="border-color:var(--bad)"><div class="n">1</div><div class="l">Rejected</div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><b>Requests</b>
+            <div style="display:flex;gap:8px"><select style="width:160px"><option>All statuses</option></select>
+            <button class="btn btn-p btn-sm" data-go="s2">+ New Request</button></div></div>
+          <div class="card-b" style="padding:0">
+            <table>
+              <thead><tr><th>Request No.</th><th>Category</th><th>Request Type</th><th>Submitted</th><th>Current Step</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>ESS-000015</td><td>Contact &amp; Address</td><td>Address Change</td><td>—</td><td>—</td><td><span class="badge b-grey">DRAFT</span></td><td><button class="btn btn-s btn-sm">Edit</button></td></tr>
+                <tr><td>ESS-000014</td><td>Identity</td><td>Add Passport</td><td>02-Nov-2026</td><td>Employee</td><td><span class="badge b-warn">CLARIFICATION REQUIRED</span></td><td><button class="btn btn-o btn-sm" data-go="s4">Respond</button></td></tr>
+                <tr><td>ESS-000012</td><td>Contact &amp; Address</td><td>Address Change</td><td>01-Nov-2026</td><td>Level 2 · HR Manager</td><td><span class="badge b-info">INTERIM APPROVED</span></td><td><button class="btn btn-s btn-sm">View</button></td></tr>
+                <tr><td>ESS-000009</td><td>Bank</td><td>Change Salary Account</td><td>20-Oct-2026</td><td>Applied from Nov-2026 payroll</td><td><span class="badge b-ok">APPROVED</span></td><td><button class="btn btn-s btn-sm">View</button></td></tr>
+                <tr><td>ESS-000006</td><td>Personal</td><td>Name Change</td><td>05-Oct-2026</td><td>—</td><td><span class="badge b-bad">REJECTED</span></td><td><button class="btn btn-s btn-sm">View</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span>Drafts can be edited or deleted. A submitted request can only be cancelled until the first approver acts.</li>
+          <li><span class="ann">2</span>"Current Step" comes from the workflow engine (level and approver role).</li>
+          <li><span class="ann">3</span>Clarification rows have a <b>Respond</b> button that opens screen 4.</li>
+        </ul></div>
+      </section>
+
+      <!-- ============ SCREEN 4: DETAILS ============ -->
+      <section class="screen" id="s4">
+        <h4>Request ESS-000014 · Add Passport</h4>
+        <div class="banner bad"><b>Clarification required</b> — HR Executive (Priya M), 03-Nov-2026: "The passport copy is not clear and the back page is missing. Please upload both pages."</div>
+        <div class="split">
+          <div>
+            <div class="card"><div class="card-h"><b>Requested Changes</b><span class="badge b-warn">CLARIFICATION REQUIRED</span></div>
+              <div class="card-b" style="padding:0"><table>
+                <thead><tr><th>Field</th><th>Current</th><th>Requested</th></tr></thead>
+                <tbody>
+                  <tr><td>Passport Number</td><td class="old">—</td><td class="new mask">PXXXXX123</td></tr>
+                  <tr><td>Issue Date</td><td class="old">—</td><td class="new">10-Jan-2024</td></tr>
+                  <tr><td>Expiry Date</td><td class="old">—</td><td class="new">09-Jan-2034</td></tr>
+                  <tr><td>Issuing Country</td><td class="old">—</td><td class="new">India</td></tr>
+                </tbody></table></div></div>
+            <div class="card"><div class="card-h"><b>Documents</b><button class="btn btn-o btn-sm">⇪ Upload more</button></div>
+              <div class="card-b">
+                <div class="file" style="margin-top:0"><span>📄 Passport_front.jpg · 1.1 MB · uploaded 02-Nov</span><button class="btn btn-s btn-sm">View</button></div>
+                <div class="file"><span>📄 Passport_back.jpg · 0.9 MB · <b>new</b></span><button class="btn btn-s btn-sm">✕</button></div>
+                <label class="lock" style="display:block;margin-top:12px">Your response to HR *</label>
+                <textarea rows="3">Uploaded a clear scan of both pages.</textarea>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                  <button class="btn btn-s">Cancel Request</button><button class="btn btn-p">Resubmit</button></div>
+              </div></div>
+          </div>
+          <div class="card"><div class="card-h"><b>Approval History</b></div>
+            <div class="card-b"><div class="tl">
+              <div class="it ok"><div class="t">Draft created</div><div class="s">Anitha Ramesh · 01-Nov-2026 18:20</div></div>
+              <div class="it ok"><div class="t">Submitted (cycle 1)</div><div class="s">Anitha Ramesh · 02-Nov-2026 09:05</div></div>
+              <div class="it cur"><div class="t">Sent back for clarification · Level 1</div><div class="s">Priya M, HR Executive · 03-Nov-2026 11:40</div>
+                <div class="note">The passport copy is not clear and the back page is missing. Please upload both pages.</div></div>
+              <div class="it"><div class="t">Resubmit (cycle 2)</div><div class="s">Waiting for you</div></div>
+              <div class="it"><div class="t">Level 1 · HR Executive</div><div class="s">—</div></div>
+              <div class="it"><div class="t">Level 2 · HR Manager (final)</div><div class="s">—</div></div>
+            </div></div></div>
+        </div>
+        <div class="notes"><b>Notes for review</b><ul>
+          <li><span class="ann">1</span>The same layout is used read-only for Pending, Approved and Rejected requests. The banner then shows the decision and remarks.</li>
+          <li><span class="ann">2</span>Resubmitting keeps the original values and history and starts a new workflow cycle.</li>
+          <li><span class="ann">3</span>The approval history comes from ApprovalWorkFlowAllocations, plus the draft and cancel events.</li>
+        </ul></div>
+      </section>
+    </div>
+  </div>
+</div>
+<script>
+  const show = id => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    document.querySelectorAll('.switch button').forEach(b => b.classList.toggle('on', b.dataset.s === id));
+    document.getElementById('m-profile').classList.toggle('active', id === 's1' || id === 's2');
+    document.getElementById('m-req').classList.toggle('active', id === 's3' || id === 's4');
+    window.scrollTo(0, 0);
+  };
+  document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => show(b.dataset.s));
+  document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
+  document.getElementById('m-profile').onclick = e => { e.preventDefault(); show('s1'); };
+  document.getElementById('m-req').onclick = e => { e.preventDefault(); show('s3'); };
+</script>
+</body>
+</html>

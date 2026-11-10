@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121.
+-->
+<Project>
+  <PropertyGroup>
+    <_PublishTargetUrl>C:\JB WORK\hanecode\CODE\NOMARO_BACKEND\Nomaro.API\bin\Release\net8.0\publish\</_PublishTargetUrl>
+    <History>True|2026-11-06T12:27:45.4432159Z;True|2026-11-06T17:54:00.1375446+05:30;True|2026-11-06T12:08:30.2611259+05:30;True|2026-11-06T11:52:34.6636317+05:30;True|2026-11-05T14:14:51.8923147+05:30;True|2026-11-03T14:08:06.6889866+05:30;True|2026-11-03T14:05:15.0240448+05:30;True|2026-11-02T18:12:41.0546504+05:30;True|2026-11-02T18:08:13.2930920+05:30;</History>
+    <LastFailureDetails />
+  </PropertyGroup>
+</Project>

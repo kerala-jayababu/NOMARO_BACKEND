@@ -14,6 +14,8 @@ namespace Nomaro.API.Models
         public int? OrderNumber { get; set; }
         public string APPTYPE { get; set; }
         public bool? Enabled { get; set; }
+        // Optional heading that groups sub menu items inside their parent menu (e.g. "Employee Records")
+        public string? MenuSection { get; set; }
 
         [NotMapped]
         public int? IdEmployeePermission { get; set; }
