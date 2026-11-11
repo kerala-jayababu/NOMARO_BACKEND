@@ -77,6 +77,7 @@ namespace Nomaro.API.Services.Implimentation
                     {
                         IdPayrollScreen = screen.IdPayrollScreen,
                         ScreenName = screen.ScreenName,
+                        ScreenCode = screen.ScreenCode,
                         ValidPermissions = screen.ValidPermissions,
                         IdParentPayrollScreen = screen.IdParentPayrollScreen,
                         OrderNumber =screen.OrderNumber
@@ -442,4 +443,3 @@ namespace Nomaro.API.Services.Implimentation
     }
 
 }
-

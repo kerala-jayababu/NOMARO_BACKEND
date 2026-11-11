@@ -11,5 +11,6 @@ namespace Nomaro.API.Database
         }
 
         public DbSet<NomaroInstanceConfig> NomaroInstanceConfigs { get; set; }
+        public DbSet<CompanyScreenAttributeConfig> CompanyScreenAttributeConfigs { get; set; }
     }
 }

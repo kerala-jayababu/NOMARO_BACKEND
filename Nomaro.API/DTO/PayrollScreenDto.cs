@@ -7,6 +7,7 @@ namespace Nomaro.API.DTO
     {
         public int? IdPayrollScreen { get; set; } 
         public string ScreenName { get; set; }
+        public string? ScreenCode { get; set; }
         public string? ValidPermissions { get; set; }
         public int? IdParentPayrollScreen { get; set; }
 
@@ -17,4 +18,3 @@ namespace Nomaro.API.DTO
         public List<PayrollScreens>? SubMenus { get; set; }
     }
 }
-

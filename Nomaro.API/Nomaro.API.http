@@ -5,3 +5,7 @@ Accept: application/json
 
 ###
 
+GET {{Nomaro.API_HostAddress}}/api/v1/GIA/ScreenAttributeConfig/GetByScreenCode?screenCode=BNKBNC
+Accept: application/json
+
+###
