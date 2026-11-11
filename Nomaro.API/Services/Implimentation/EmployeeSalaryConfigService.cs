@@ -717,7 +717,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     ApprovalStatus = "SUBMITTED",
                     ActiveStatus = true,
                     CreatedBy = IdEmployee,
-                    CreatedOn = DateTime.Now
+                    CreatedOn = CompanyTime.Now
                 };
                 ApplyTotals(configEntity, result);
 
@@ -792,7 +792,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 configEntity.ApprovalStatus = "SUBMITTED";
                 configEntity.ActiveStatus = true;
                 configEntity.ModifiedBy = IdEmployee;
-                configEntity.ModifiedOn = DateTime.Now;
+                configEntity.ModifiedOn = CompanyTime.Now;
                 ApplyTotals(configEntity, result);
 
                 // One row per head: update rows of heads still in the grid, add new heads, remove the rest
@@ -863,13 +863,13 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                     _logger.LogWarning("Unapprove: Employee Salary Configuration {Id} not found.", idEmployeeSalaryConfig);
                     return null;
                 }
-                if (configEntity.ValidFrom.Month != DateTime.Now.Month || configEntity.ValidFrom.Year != DateTime.Now.Year)
+                if (configEntity.ValidFrom.Month != CompanyTime.Now.Month || configEntity.ValidFrom.Year != CompanyTime.Now.Year)
                 {
                     throw new InvalidOperationException(
                             "Unapproval is allowed only for salary configurations within the current month.");
                 }
 
-                var lastDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1)
+                var lastDayOfMonth = new DateTime(CompanyTime.Now.Year, CompanyTime.Now.Month, 1)
                         .AddMonths(1)
                         .AddDays(-1);
                 var salaryMonth = await _dbContext.SalaryMonths
@@ -895,7 +895,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 configEntity.ApprovedBy = null;
                 configEntity.ApprovedOn = null;
                 configEntity.ModifiedBy = idEmployee;
-                configEntity.ModifiedOn = DateTime.Now;
+                configEntity.ModifiedOn = CompanyTime.Now;
                 _dbContext.EmployeeSalaryConfig.Update(configEntity);
 
                 // The previous approved structure was closed on approval (ValidTo = day before this Valid From); reopen it

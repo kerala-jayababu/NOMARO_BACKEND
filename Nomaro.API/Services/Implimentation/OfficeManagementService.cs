@@ -80,7 +80,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.HierarchyLevel = dto.HierarchyLevel;
                     entity.IsActive = dto.IsActive;
                     entity.IdModifiedBy = idLoggedInEmployee;
-                    entity.ModifiedDateTime = DateTime.Now;
+                    entity.ModifiedDateTime = CompanyTime.Now;
                 }
                 else
                 {
@@ -91,7 +91,7 @@ namespace Nomaro.API.Services.Implimentation
                         HierarchyLevel = dto.HierarchyLevel,
                         IsActive = dto.IsActive,
                         IdCreatedBy = idLoggedInEmployee,
-                        CreatedDateTime = DateTime.Now
+                        CreatedDateTime = CompanyTime.Now
                     };
                     await _dbContext.OfficeTypes.AddAsync(entity);
                 }
@@ -345,7 +345,7 @@ namespace Nomaro.API.Services.Implimentation
                     ClosedDate = dto.ClosedDate,
                     IsActive = dto.IsActive,
                     IdCreatedBy = idLoggedInEmployee,
-                    CreatedDateTime = DateTime.Now
+                    CreatedDateTime = CompanyTime.Now
                 };
 
                 await _dbContext.Offices.AddAsync(entity);
@@ -460,7 +460,7 @@ namespace Nomaro.API.Services.Implimentation
                 entity.ClosedDate = dto.ClosedDate;
                 entity.IsActive = dto.IsActive;
                 entity.IdModifiedBy = idLoggedInEmployee;
-                entity.ModifiedDateTime = DateTime.Now;
+                entity.ModifiedDateTime = CompanyTime.Now;
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -495,7 +495,7 @@ namespace Nomaro.API.Services.Implimentation
 
                 entity.IsActive = isActive;
                 entity.IdModifiedBy = idLoggedInEmployee;
-                entity.ModifiedDateTime = DateTime.Now;
+                entity.ModifiedDateTime = CompanyTime.Now;
 
                 await _dbContext.SaveChangesAsync();
 
@@ -695,7 +695,7 @@ namespace Nomaro.API.Services.Implimentation
                     throw new Exception("Invalid office.");
 
                 // "PostingToDate = NULL" is treated as the current posting
-                var isCurrentPosting = !dto.PostingToDate.HasValue || dto.PostingToDate.Value.Date >= DateTime.Now.Date;
+                var isCurrentPosting = !dto.PostingToDate.HasValue || dto.PostingToDate.Value.Date >= CompanyTime.Now.Date;
 
                 var entity = await _dbContext.EmployeeOfficePostings
                     .FirstOrDefaultAsync(x => x.IdEmployeeOfficePosting == dto.IdEmployeeOfficePosting);
@@ -720,7 +720,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.IsCurrentPosting = isCurrentPosting;
                     entity.PostingRemarks = dto.PostingRemarks;
                     entity.IdModifiedBy = idLoggedInEmployee;
-                    entity.ModifiedDateTime = DateTime.Now;
+                    entity.ModifiedDateTime = CompanyTime.Now;
                 }
                 else
                 {
@@ -738,7 +738,7 @@ namespace Nomaro.API.Services.Implimentation
                         IsCurrentPosting = isCurrentPosting,
                         PostingRemarks = dto.PostingRemarks,
                         IdCreatedBy = idLoggedInEmployee,
-                        CreatedDateTime = DateTime.Now
+                        CreatedDateTime = CompanyTime.Now
                     };
                     await _dbContext.EmployeeOfficePostings.AddAsync(entity);
                 }

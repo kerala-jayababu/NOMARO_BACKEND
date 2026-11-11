@@ -222,7 +222,7 @@ public class SalaryTemplateService : ISalaryTemplateService
                 SalaryTemplateName = dto.SalaryTemplateName.Trim(),
                 Description = dto.Description,
                 CreatedBy = IdEmployee,
-                CreatedOn = DateTime.Now,
+                CreatedOn = CompanyTime.Now,
                 ActiveStatus = true,
                 ApprovalStatus = "SUBMITTED"
             };
@@ -285,7 +285,7 @@ public class SalaryTemplateService : ISalaryTemplateService
             templateEntity.SalaryTemplateName = dto.SalaryTemplateName.Trim();
             templateEntity.Description = dto.Description;
             templateEntity.ModifiedBy = IdEmployee;
-            templateEntity.ModifiedOn = DateTime.Now;
+            templateEntity.ModifiedOn = CompanyTime.Now;
             templateEntity.ActiveStatus = dto.ActiveStatus;
             // Any change is submitted for approval again; the approval status is never taken from the request
             templateEntity.ApprovalStatus = "SUBMITTED";

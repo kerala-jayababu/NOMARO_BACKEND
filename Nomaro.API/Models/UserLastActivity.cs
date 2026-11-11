@@ -15,7 +15,7 @@ namespace Nomaro.API.Models
         [MaxLength(200)]
         public string? Endpoint { get; set; }
 
-        public DateTime UpdatedOn { get; set; } = DateTime.Now;
+        public DateTime UpdatedOn { get; set; } = CompanyTime.Now;
         public string? Method { get; set; }
     }
 }

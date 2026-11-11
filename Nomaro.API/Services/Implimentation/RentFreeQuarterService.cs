@@ -376,7 +376,7 @@ WHERE e.CurrentStatus = 'WORKING'
                 TaxAmount = dto.TaxAmount,
                 TaxRate = dto.TaxRate,
                 NetRFQAllowance = dto.NetRFQAllowance,
-                CreatedDate = DateTime.Now,
+                CreatedDate = CompanyTime.Now,
                 CreatedBy = IdEmployee
             };
 
@@ -439,7 +439,7 @@ WHERE e.CurrentStatus = 'WORKING'
             entity.TaxableAmount = dto.TaxableAmount;
             entity.TaxAmount = dto.TaxAmount;
             entity.NetRFQAllowance = dto.NetRFQAllowance;
-            entity.UpdatedDate = DateTime.Now;
+            entity.UpdatedDate = CompanyTime.Now;
             _dbContext.RentFreeQuarterAllowance.Update(entity);
             await _dbContext.SaveChangesAsync();
             await _auditService.LogAuditAsync(

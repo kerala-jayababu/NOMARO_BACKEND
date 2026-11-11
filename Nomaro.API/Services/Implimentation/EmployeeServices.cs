@@ -236,7 +236,7 @@ namespace Nomaro.API.Services.Implimentation
                         Directory.CreateDirectory(uploadFolderPath);
                     }
 
-                    string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
+                    string currentDate = CompanyTime.Now.ToString("yyyy_MM_dd");
                     string fileExtension = Path.GetExtension(dto.File.FileName);
                     string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
                     string uniqueFileName = $"CC_{employee.IdEmployee}_{employee.EmployeeCode}_{currentDate}{fileExtension}";
@@ -1015,7 +1015,7 @@ namespace Nomaro.API.Services.Implimentation
                 }
 
                 var recentOTP = await _dbContext.LoginOTP
-                    .Where(o => o.EmailID == emailID && o.OTPSentDate >= DateTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
+                    .Where(o => o.EmailID == emailID && o.OTPSentDate >= CompanyTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
                     .FirstOrDefaultAsync();
 
                 if (recentOTP != null)
@@ -1032,7 +1032,7 @@ namespace Nomaro.API.Services.Implimentation
                     EmailID = emailID,
                     IdEmployee = (int)emp.IdEmployee,
                     OTP = generatedOtp,
-                    OTPSentDate = DateTime.Now,
+                    OTPSentDate = CompanyTime.Now,
                     OTPLoginStatus = "PENDING"
                 };
 
@@ -1087,7 +1087,7 @@ namespace Nomaro.API.Services.Implimentation
                     return null;
                 }
                 var recentOTP = await _dbContext.LoginOTP
-                    .Where(o => o.EmailID == emp.EmailID && o.OTPSentDate >= DateTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
+                    .Where(o => o.EmailID == emp.EmailID && o.OTPSentDate >= CompanyTime.Now.AddMinutes(-2) && o.OTPLoginStatus == "PENDING")
                     .FirstOrDefaultAsync();
 
                 if (recentOTP != null)
@@ -1104,7 +1104,7 @@ namespace Nomaro.API.Services.Implimentation
                     EmailID = emp.EmailID,
                     IdEmployee = (int)emp.IdEmployee,
                     OTP = generatedOtp,
-                    OTPSentDate = DateTime.Now,
+                    OTPSentDate = CompanyTime.Now,
                     OTPLoginStatus = "PENDING"
                 };
 
@@ -1232,7 +1232,7 @@ namespace Nomaro.API.Services.Implimentation
             var token = new JwtSecurityToken(
                 _configuration["JwtSettings:ValidIssuer"],
                 _configuration["JwtSettings:ValidAudience"],
-                expires: DateTime.Now.AddDays(15),
+                expires: CompanyTime.Now.AddDays(15),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             );
@@ -1493,7 +1493,7 @@ namespace Nomaro.API.Services.Implimentation
             try
             {
                 // ✅ Validation 1: AssignedDate must be <= current date
-                if (dto.AssignedDate.Date > DateTime.Now.Date)
+                if (dto.AssignedDate.Date > CompanyTime.Now.Date)
                     throw new Exception("Assigned date cannot be in the future.");
 
                 // ✅ Validation 2: Asset must exist
@@ -1521,7 +1521,7 @@ namespace Nomaro.API.Services.Implimentation
                     currentAllocation.AssignedTillDate = dto.AssignedTillDate;
                     currentAllocation.Remarks = dto.Remarks;
                     currentAllocation.AssignedBy = dto.AssignedBy;
-                    currentAllocation.AssignedDateTime = DateTime.Now;
+                    currentAllocation.AssignedDateTime = CompanyTime.Now;
                 }
                 else
                 {
@@ -1534,7 +1534,7 @@ namespace Nomaro.API.Services.Implimentation
                         AssignedTillDate = dto.AssignedTillDate,
                         Remarks = dto.Remarks,
                         AssignedBy = dto.AssignedBy,
-                        AssignedDateTime = DateTime.Now
+                        AssignedDateTime = CompanyTime.Now
                     };
 
                     await _dbContext.AssetAssignments.AddAsync(assignment);
@@ -1578,7 +1578,7 @@ namespace Nomaro.API.Services.Implimentation
                     // The asset goes back to its office
                     assignment.IdEmployee = null;
                     assignment.AssignedTillDate = null;
-                    assignment.AssignedDateTime = DateTime.Now;
+                    assignment.AssignedDateTime = CompanyTime.Now;
                 }
                 else
                 {
@@ -1681,7 +1681,7 @@ namespace Nomaro.API.Services.Implimentation
             {
                 foreach (var dto in dtos)
                 {
-                    if (dto.YearOfCompletion > DateTime.Now.Year)
+                    if (dto.YearOfCompletion > CompanyTime.Now.Year)
                         throw new Exception("Year of completion cannot be in the future.");
 
                     var existing = await _dbContext.EmployeeQualifications
@@ -1698,7 +1698,7 @@ namespace Nomaro.API.Services.Implimentation
                         existing.YearOfCompletion = dto.YearOfCompletion;
                         existing.GradeOrPercentage = dto.GradeOrPercentage;
 
-                        existing.UpdatedAt = DateTime.Now;
+                        existing.UpdatedAt = CompanyTime.Now;
                         existing.UpdatedBy = loggedInEmployeeId;
 
                         // ✅ File update (delete old + save new)
@@ -1722,7 +1722,7 @@ namespace Nomaro.API.Services.Implimentation
                             IdCountry = dto.IdCountry,
                             YearOfCompletion = dto.YearOfCompletion,
                             GradeOrPercentage = dto.GradeOrPercentage,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             CreatedBy = loggedInEmployeeId
                         };
 
@@ -1863,7 +1863,7 @@ namespace Nomaro.API.Services.Implimentation
                         existing.ToDate = dto.ToDate;
                         existing.LastDrawnSalary = dto.LastDrawnSalary;
                         existing.ExperienceInYears = dto.ExperienceInYears;
-                        existing.UpdatedAt = DateTime.Now;
+                        existing.UpdatedAt = CompanyTime.Now;
                         existing.UpdatedBy = loggedInEmployeeId;
 
                         // ✅ If file sent → delete old and save new
@@ -1891,7 +1891,7 @@ namespace Nomaro.API.Services.Implimentation
                             ToDate = dto.ToDate,
                             LastDrawnSalary = dto.LastDrawnSalary,
                             ExperienceInYears = dto.ExperienceInYears,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             CreatedBy = loggedInEmployeeId
                         };
 
@@ -2086,7 +2086,7 @@ namespace Nomaro.API.Services.Implimentation
                             EffectiveToDate = dto.EffectiveToDate,
                             Status = dto.Status,
                             CreatedBy = loggedInEmployeeId,
-                            CreatedDate = DateTime.Now
+                            CreatedDate = CompanyTime.Now
                         };
 
                         await _dbContext.EmployeeActions.AddAsync(entity);
@@ -2110,7 +2110,7 @@ namespace Nomaro.API.Services.Implimentation
                         entity.EffectiveToDate = dto.EffectiveToDate;
                         entity.Status = dto.Status;
                         entity.UpdatedBy = loggedInEmployeeId;
-                        entity.UpdatedDate = DateTime.Now;
+                        entity.UpdatedDate = CompanyTime.Now;
 
                         _dbContext.EmployeeActions.Update(entity);
                         await _dbContext.SaveChangesAsync();
@@ -2329,7 +2329,7 @@ namespace Nomaro.API.Services.Implimentation
                         // ✅ Update fields
                         existing.IdDocumentType = dto.IdDocumentType;
                         existing.Remarks = dto.Remarks;
-                        existing.UpdatedAt = DateTime.Now;
+                        existing.UpdatedAt = CompanyTime.Now;
                         existing.UpdatedBy = loggedInEmployeeId;
                         existing.DocumentValidTill = dto.DocumentValidTill;
                         // ✅ Replace file if new file provided
@@ -2348,7 +2348,7 @@ namespace Nomaro.API.Services.Implimentation
                             IdEmployee = dto.IdEmployee,
                             IdDocumentType = dto.IdDocumentType,
                             Remarks = dto.Remarks,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             CreatedBy = loggedInEmployeeId,
                         };
 
@@ -2538,7 +2538,7 @@ namespace Nomaro.API.Services.Implimentation
                 if (dto.FromValue == dto.ToValue)
                     throw new Exception("FromValue and ToValue cannot be the same.");
 
-                var fiveDaysAgo = DateTime.Now.AddDays(-5);
+                var fiveDaysAgo = CompanyTime.Now.AddDays(-5);
 
                 bool duplicateExists = await _dbContext.EmployeeServiceChanges.AnyAsync(x =>
                     x.IdEmployee == dto.IdEmployee &&
@@ -2564,12 +2564,12 @@ namespace Nomaro.API.Services.Implimentation
                         ToValue = dto.ToValue,
                         FromValueID = dto.FromValueID,
                         ToValueID = dto.ToValueID,
-                        ChangeValidFrom = DateTime.Now,
+                        ChangeValidFrom = CompanyTime.Now,
                         ChangedBy = loggedInEmployeeId,
                         Remarks = dto.Remarks,
                         ApprovalStatus = "SUBMITTED",
                         CreatedBy = loggedInEmployeeId,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = CompanyTime.Now
                     };
 
                     await _dbContext.EmployeeServiceChanges.AddAsync(entity);
@@ -2592,10 +2592,10 @@ namespace Nomaro.API.Services.Implimentation
                     entity.Remarks = dto.Remarks;
                     entity.FromValueID = dto.FromValueID;
                     entity.ToValueID = dto.ToValueID;
-                    entity.ChangeValidFrom = DateTime.Now;
+                    entity.ChangeValidFrom = CompanyTime.Now;
                     entity.ChangedBy = loggedInEmployeeId;
                     entity.UpdatedBy = loggedInEmployeeId;
-                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedAt = CompanyTime.Now;
                 }
 
                 // ✅ Initiate Approval Workflow (same pattern as AddConfig)
@@ -2634,7 +2634,7 @@ namespace Nomaro.API.Services.Implimentation
             try
             {
                 var validChangeTypes = new[] { "DESIGNATION", "DEPARTMENT", "REPOFFICER", "EMPLOYMENTTYPE" };
-                var fiveDaysAgo = DateTime.Now.AddDays(-5);
+                var fiveDaysAgo = CompanyTime.Now.AddDays(-5);
 
                 // Track which entities we need to initiate workflow for
                 var entitiesToInitiateWorkflow = new List<EmployeeServiceChanges>();
@@ -2682,7 +2682,7 @@ namespace Nomaro.API.Services.Implimentation
                             Remarks = dto.Remarks,
                             ApprovalStatus = "SUBMITTED",
                             CreatedBy = loggedInEmployeeId,
-                            CreatedAt = DateTime.Now
+                            CreatedAt = CompanyTime.Now
                         };
 
                         await _dbContext.EmployeeServiceChanges.AddAsync(entity);
@@ -2710,7 +2710,7 @@ namespace Nomaro.API.Services.Implimentation
                         entity.Remarks = dto.Remarks;
                         entity.ChangedBy = loggedInEmployeeId;
                         entity.UpdatedBy = loggedInEmployeeId;
-                        entity.UpdatedAt = DateTime.Now;
+                        entity.UpdatedAt = CompanyTime.Now;
 
                         // If you also want workflow initiation on UPDATE, add it too:
                         entitiesToInitiateWorkflow.Add(entity);
@@ -2763,7 +2763,7 @@ namespace Nomaro.API.Services.Implimentation
 
                 foreach (var change in serviceChanges)
                 {
-                    if (change.ChangeValidFrom > DateTime.Now.AddDays(5))
+                    if (change.ChangeValidFrom > CompanyTime.Now.AddDays(5))
                         continue;
 
                     var employee = await _dbContext.Employees
@@ -2797,7 +2797,7 @@ namespace Nomaro.API.Services.Implimentation
                     // Update approval fields
                     change.ApprovalStatus = approvalStatus;
                     change.Remarks = remarks;
-                    change.ApprovedDate = DateTime.Now;
+                    change.ApprovedDate = CompanyTime.Now;
                     change.ApprovedBy = loggedInEmployeeId;
                 }
 
@@ -2907,7 +2907,7 @@ namespace Nomaro.API.Services.Implimentation
                 if (dto.DateOfBirth.HasValue)
                 {
                     dto.DateOfBirth = dto.DateOfBirth.Value.Date;
-                    if (dto.DateOfBirth > DateTime.Now.Date)
+                    if (dto.DateOfBirth > CompanyTime.Now.Date)
                     {
                         throw new Exception("Invalid Date of Birth");
                     }
@@ -2958,7 +2958,7 @@ namespace Nomaro.API.Services.Implimentation
                 {
                     var dob = dto.DateOfBirth.Value.Date;
 
-                    if (dob > DateTime.Now.Date)
+                    if (dob > CompanyTime.Now.Date)
                     {
                         throw new Exception("Invalid Date of Birth. Date cannot be in the future.");
                     }

@@ -56,7 +56,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.ReasonCode = dto.ReasonCode;
                     entity.ReasonName = dto.ReasonName;
                     entity.IsActive = dto.IsActive;
-                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedAt = CompanyTime.Now;
                 }
                 else
                 {
@@ -65,7 +65,7 @@ namespace Nomaro.API.Services.Implimentation
                         ReasonCode = dto.ReasonCode,
                         ReasonName = dto.ReasonName,
                         IsActive = dto.IsActive,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = CompanyTime.Now
                     };
                     await _dbContext.ExitReasons.AddAsync(entity);
                 }
@@ -123,7 +123,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.TypeCode = dto.TypeCode;
                     entity.TypeName = dto.TypeName;
                     entity.IsActive = dto.IsActive;
-                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedAt = CompanyTime.Now;
                 }
                 else
                 {
@@ -132,7 +132,7 @@ namespace Nomaro.API.Services.Implimentation
                         TypeCode = dto.TypeCode,
                         TypeName = dto.TypeName,
                         IsActive = dto.IsActive,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = CompanyTime.Now
                     };
                     await _dbContext.ExitTypes.AddAsync(entity);
                 }
@@ -191,7 +191,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.AppliesToEmployeeType = dto.AppliesToEmployeeType;
                     entity.NoticeDays = dto.NoticeDays;
                     entity.IsActive = dto.IsActive;
-                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedAt = CompanyTime.Now;
                 }
                 else
                 {
@@ -202,7 +202,7 @@ namespace Nomaro.API.Services.Implimentation
                         AppliesToEmployeeType = dto.AppliesToEmployeeType,
                         NoticeDays = dto.NoticeDays,
                         IsActive = dto.IsActive,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = CompanyTime.Now
                     };
                     await _dbContext.NoticePeriodPolicies.AddAsync(entity);
                 }
@@ -259,7 +259,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.TemplateName = dto.TemplateName;
                     entity.Description = dto.Description;
                     entity.IsActive = dto.IsActive;
-                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedAt = CompanyTime.Now;
                 }
                 else
                 {
@@ -268,7 +268,7 @@ namespace Nomaro.API.Services.Implimentation
                         TemplateName = dto.TemplateName,
                         Description = dto.Description,
                         IsActive = dto.IsActive,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = CompanyTime.Now
                     };
                     await _dbContext.ClearanceTemplates.AddAsync(entity);
                 }
@@ -518,7 +518,7 @@ namespace Nomaro.API.Services.Implimentation
                     existingExitCase.PolicyNoticeDays = noticePolicy.NoticeDays;
                     existingExitCase.EffectiveNoticeDays = effectiveNoticeDays;              
                     existingExitCase.UpdatedBy = loggedInEmployeeId;
-                    existingExitCase.UpdatedAt = DateTime.Now;
+                    existingExitCase.UpdatedAt = CompanyTime.Now;
                     existingExitCase.PendingWithIDEmployee = reportingOfficerId.Value;
 
                     await _dbContext.SaveChangesAsync();
@@ -543,7 +543,7 @@ namespace Nomaro.API.Services.Implimentation
                         IdEmployee = dto.IdEmployee,
                         IdExitType = 1, // Default exit type for resignation (can be parameterized)
                         IdExitReason = dto.IdExitReason,
-                        InitiationDate = DateTime.Now,
+                        InitiationDate = CompanyTime.Now,
                         EmployeeReasonDetails = dto.EmployeeReasonDetails,
                         ProposedLWD = dto.ProposedLWD,
                         ApprovedLWD = null,
@@ -561,7 +561,7 @@ namespace Nomaro.API.Services.Implimentation
                         AssignedClearanceTemplateBy = null,
                         ClearanceInitiatedOn = null,
                         CreatedBy = loggedInEmployeeId,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         UpdatedBy = null,
                         UpdatedAt = null,
                         PendingWithIDEmployee = reportingOfficerId.Value
@@ -611,7 +611,7 @@ namespace Nomaro.API.Services.Implimentation
         private async Task<string> GenerateCaseNumber()
         {
             // Format: EXIT-YYYYMMDD-XXXX (e.g., EXIT-20250118-0001)
-            var today = DateTime.Now;
+            var today = CompanyTime.Now;
             var datePrefix = today.ToString("yyyyMMdd");
 
             var lastCaseNumber = await _dbContext.ExitCases
@@ -1156,7 +1156,7 @@ namespace Nomaro.API.Services.Implimentation
                 }
 
                 exitCase.UpdatedBy = loggedInEmployeeId;
-                exitCase.UpdatedAt = DateTime.Now;
+                exitCase.UpdatedAt = CompanyTime.Now;
 
                 // 🔟 Insert History Record
                 var history = new ExitCaseStatusHistory
@@ -1169,7 +1169,7 @@ namespace Nomaro.API.Services.Implimentation
                     Remarks = dto.Remarks,
                     ApprovedLWD = dto.Action == "Approved" ? dto.ApprovedLWD : null,
                     CreatedBy = loggedInEmployeeId,
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = CompanyTime.Now,
                     OrderNumber = newOrderNumber
                 };
 
@@ -1247,11 +1247,11 @@ namespace Nomaro.API.Services.Implimentation
                 exitCase.ContactAfterExit = dto.ContactAfterExit;
                 exitCase.IdClearanceTemplate = dto.IdClearanceTemplate;
                 exitCase.AssignedClearanceTemplateBy = loggedInEmployeeId;
-                exitCase.ClearanceInitiatedOn = DateTime.Now;
+                exitCase.ClearanceInitiatedOn = CompanyTime.Now;
                 exitCase.ExitStatus = "InClearance";
                 exitCase.PendingWith = "HRMANAGER";
                 exitCase.UpdatedBy = loggedInEmployeeId;
-                exitCase.UpdatedAt = DateTime.Now;
+                exitCase.UpdatedAt = CompanyTime.Now;
 
                 // =========================
                 // B) CLEARANCE ASSIGNMENTS
@@ -1270,7 +1270,7 @@ namespace Nomaro.API.Services.Implimentation
                             IdAssigneeUser = dept.IdAssigneeUser,
                             DeptClearanceStatus = "PENDING",
                             AssignedBy = loggedInEmployeeId,
-                            AssignedAt = DateTime.Now
+                            AssignedAt = CompanyTime.Now
                         };
 
                         await _dbContext.ExitCaseClearanceAssignments.AddAsync(assignment);
@@ -1316,7 +1316,7 @@ namespace Nomaro.API.Services.Implimentation
                                 DeptClearanceStatus = "PENDING",
                                 SortOrder = sortOrder++,
                                 CreatedBy = loggedInEmployeeId,
-                                CreatedOn = DateTime.Now
+                                CreatedOn = CompanyTime.Now
                             });
                     }
                 }
@@ -1339,7 +1339,7 @@ namespace Nomaro.API.Services.Implimentation
                         ToStatus = "InClearance",
                         PendingWith = "CLEARANCE",
                         CreatedBy = loggedInEmployeeId,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         OrderNumber = lastOrder + 1
                     });
 
@@ -1408,7 +1408,7 @@ namespace Nomaro.API.Services.Implimentation
                 exitCase.ExitStatus = "COMPLETED";
                 exitCase.PendingWith = null;
                 exitCase.UpdatedBy = loggedInHRManagerId;
-                exitCase.UpdatedAt = DateTime.Now;
+                exitCase.UpdatedAt = CompanyTime.Now;
 
                 // C️⃣ INSERT STATUS HISTORY
                 var lastOrder = await _dbContext.ExitCaseStatusHistory
@@ -1425,7 +1425,7 @@ namespace Nomaro.API.Services.Implimentation
                         PendingWith = null,
                         Remarks = dto.ExitInterviewDetails,
                         CreatedBy = loggedInHRManagerId,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         OrderNumber = lastOrder + 1
                     });
 
@@ -1436,7 +1436,7 @@ namespace Nomaro.API.Services.Implimentation
                 if (employee != null)
                 {
                     employee.CurrentStatus = "NotWorking";
-                    employee.LastWorkingDay = DateTime.Now.Date;                    
+                    employee.LastWorkingDay = CompanyTime.Now.Date;
                 }
 
                 await _dbContext.SaveChangesAsync();
@@ -1728,7 +1728,7 @@ namespace Nomaro.API.Services.Implimentation
                         // No IsCompleted column -> map to status
                         line.DeptClearanceStatus = upd.IsCompleted ? "CLEARED" : "PENDING";
                         line.UpdatedBy = loggedInEmployeeId;
-                        line.UpdatedAt = DateTime.Now;
+                        line.UpdatedAt = CompanyTime.Now;
                         line.DeptRemarks = upd.Remarks;
                         line.DeptClearanceStatus = upd.ClearanceStatus;
                     }
@@ -1739,7 +1739,7 @@ namespace Nomaro.API.Services.Implimentation
                 {
                     headerRow.DeptRemarks = dto.DeptRemarks;
                     headerRow.UpdatedBy = loggedInEmployeeId;
-                    headerRow.UpdatedAt = DateTime.Now;
+                    headerRow.UpdatedAt = CompanyTime.Now;
                 }
 
                 // ⚠️ DueAmount not in DB. If you add column later, update it here.
@@ -1754,7 +1754,7 @@ namespace Nomaro.API.Services.Implimentation
                     headerRow.DeptClearanceStatus = normalized;
                     assignment.DeptClearanceStatus = normalized;
                     headerRow.UpdatedBy = loggedInEmployeeId;
-                    headerRow.UpdatedAt = DateTime.Now;
+                    headerRow.UpdatedAt = CompanyTime.Now;
                 }
 
                 // D) Completion rule
@@ -1781,9 +1781,9 @@ namespace Nomaro.API.Services.Implimentation
                     headerRow.DeptClearanceStatus = "CLEARED";
                     assignment.DeptClearanceStatus = "CLEARED";
                     headerRow.ClearedBy = loggedInEmployeeId;
-                    headerRow.ClearedAt = DateTime.Now;
+                    headerRow.ClearedAt = CompanyTime.Now;
                     headerRow.UpdatedBy = loggedInEmployeeId;
-                    headerRow.UpdatedAt = DateTime.Now;
+                    headerRow.UpdatedAt = CompanyTime.Now;
                 }
 
                 // E) Case-level progression (all departments completed)
@@ -1805,7 +1805,7 @@ namespace Nomaro.API.Services.Implimentation
                     exitCase.ExitStatus = "ReadyForClosure";
                     exitCase.PendingWith = "HRMANAGER";
                     exitCase.UpdatedBy = loggedInEmployeeId;
-                    exitCase.UpdatedAt = DateTime.Now;
+                    exitCase.UpdatedAt = CompanyTime.Now;
                 }
 
                 // F) Status history
@@ -1825,7 +1825,7 @@ namespace Nomaro.API.Services.Implimentation
                     ToStatus = exitCase.ExitStatus,
                     PendingWith = exitCase.PendingWith,
                     CreatedBy = loggedInEmployeeId,
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = CompanyTime.Now,
                     OrderNumber = lastOrder + 1
                 });
 

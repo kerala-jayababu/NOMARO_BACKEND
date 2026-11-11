@@ -162,7 +162,7 @@ namespace Nomaro.API.Services.Implimentation
             var path = FullPath(file.StoredFileName);
             if (path == null || !File.Exists(path)) throw new KeyNotFoundException("The file was not found on the server.");
 
-            var now = DateTime.Now;
+            var now = CompanyTime.Now;
             var ack = await _db.GeneralDocumentAcknowledgements
                 .FirstOrDefaultAsync(a => a.IdGeneralDocumentRecord == file.IdGeneralDocumentRecord && a.IdEmployee == idEmployee);
             if (ack == null)
@@ -210,7 +210,7 @@ namespace Nomaro.API.Services.Implimentation
             if (ack?.FirstViewedDateTime == null) throw new InvalidOperationException("Open and read the document before acknowledging it.");
             if (ack.AcknowledgedDateTime.HasValue) return ack.AcknowledgedDateTime.Value;
 
-            ack.AcknowledgedDateTime = DateTime.Now;
+            ack.AcknowledgedDateTime = CompanyTime.Now;
             ack.IPAddress = Trim(ip, 50);
             ack.UserAgent = Trim(userAgent, 300);
             await _db.SaveChangesAsync();
@@ -352,7 +352,7 @@ namespace Nomaro.API.Services.Implimentation
             ws.Cells[1, 1].Style.Font.Bold = true;
             ws.Cells[1, 1].Style.Font.Size = 14;
             ws.Cells[2, 1].Value = $"{p.Doc.DocumentCode} · Version {p.Record.VersionNumber}{(string.IsNullOrWhiteSpace(p.Record.PeriodLabel) ? "" : " · " + p.Record.PeriodLabel)} · Published {p.Record.UploadedDateTime:dd-MMM-yyyy}";
-            ws.Cells[3, 1].Value = $"{rows.Count} of {all.Count} employees · Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}";
+            ws.Cells[3, 1].Value = $"{rows.Count} of {all.Count} employees · Generated on {CompanyTime.Now:dd-MMM-yyyy HH:mm}";
             ws.Cells[2, 1, 3, 1].Style.Font.Color.SetColor(Color.DimGray);
 
             string[] head = { "Employee Code", "Employee Name", "Department", "Designation", "Office", "Email", "Status", "First Viewed", "Acknowledged On" };
@@ -395,7 +395,7 @@ namespace Nomaro.API.Services.Implimentation
             {
                 Content = await package.GetAsByteArrayAsync(),
                 ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                FileName = $"{(safe.Length > 40 ? safe[..40] : safe)}_{label.Replace(' ', '_')}_{DateTime.Now:yyyyMMdd}.xlsx"
+                FileName = $"{(safe.Length > 40 ? safe[..40] : safe)}_{label.Replace(' ', '_')}_{CompanyTime.Now:yyyyMMdd}.xlsx"
             };
         }
 

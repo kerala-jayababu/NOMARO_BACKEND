@@ -53,7 +53,7 @@ namespace Nomaro.API.Services.Implimentation
             if (legacyPasswordIsValid)
             {
                 user.PasswordHash = _passwordHasher.HashPassword(user, login.Password);
-                user.PasswordUpdatedOn = DateTime.Now;
+                user.PasswordUpdatedOn = CompanyTime.Now;
                 await _dbContext.SaveChangesAsync();
             }
 
@@ -101,7 +101,7 @@ namespace Nomaro.API.Services.Implimentation
             var token = new JwtSecurityToken(
                 _configuration["JwtSettings:ValidIssuer"],
                 _configuration["JwtSettings:ValidAudience"],
-                expires: DateTime.Now.AddHours(48),
+                expires: DateTime.UtcNow.AddHours(48),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             );
@@ -115,7 +115,7 @@ namespace Nomaro.API.Services.Implimentation
             var token = new JwtSecurityToken(
                 issuer: _configuration["JwtSettings:ValidIssuer"],
                 audience: _configuration["JwtSettings:ValidAudience"],
-                expires: DateTime.Now.AddHours(365),
+                expires: DateTime.UtcNow.AddHours(365),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             // No 'expires' set — token will not expire
@@ -194,7 +194,7 @@ namespace Nomaro.API.Services.Implimentation
             if (notification != null)
             {
                 notification.IsReadAppNotification = true;
-                notification.ReadAt = DateTime.Now;
+                notification.ReadAt = CompanyTime.Now;
                 await _dbContext.SaveChangesAsync();
             }
 
@@ -289,9 +289,9 @@ namespace Nomaro.API.Services.Implimentation
             if (user == null || user.CurrentStatus != "Working")
                 throw new InvalidOperationException(InvalidCredentialsMessage);
 
-            if (user.LockoutEndTime.HasValue && user.LockoutEndTime.Value > DateTime.Now)
+            if (user.LockoutEndTime.HasValue && user.LockoutEndTime.Value > CompanyTime.Now)
             {
-                var minutesLeft = (int)Math.Ceiling((user.LockoutEndTime.Value - DateTime.Now).TotalMinutes);
+                var minutesLeft = (int)Math.Ceiling((user.LockoutEndTime.Value - CompanyTime.Now).TotalMinutes);
                 throw new InvalidOperationException(
                     $"Account is locked after too many failed attempts. Try again in {minutesLeft} minute(s) or login using OTP.");
             }
@@ -305,7 +305,7 @@ namespace Nomaro.API.Services.Implimentation
                 }
 
                 user.PasswordHash = _passwordHasher.HashPassword(user, login.Password!);
-                user.PasswordUpdatedOn = DateTime.Now;
+                user.PasswordUpdatedOn = CompanyTime.Now;
             }
             else
             {
@@ -316,7 +316,7 @@ namespace Nomaro.API.Services.Implimentation
                     if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
                     {
                         user.FailedLoginAttempts = 0;
-                        user.LockoutEndTime = DateTime.Now.AddMinutes(LockoutMinutes);
+                        user.LockoutEndTime = CompanyTime.Now.AddMinutes(LockoutMinutes);
                         await _dbContext.SaveChangesAsync();
                         _logger.LogWarning("Password login locked for employee {IdEmployee}", user.IdEmployee);
                         throw new InvalidOperationException(
@@ -376,7 +376,7 @@ namespace Nomaro.API.Services.Implimentation
             if (user == null || user.CurrentStatus != "Working")
                 throw new InvalidOperationException("Invalid Email ID or OTP.");
 
-            var validFrom = DateTime.Now.AddMinutes(-ResetOtpValidMinutes);
+            var validFrom = CompanyTime.Now.AddMinutes(-ResetOtpValidMinutes);
             var loginOtp = await _dbContext.LoginOTP.FirstOrDefaultAsync(o =>
                 o.EmailID == email && o.OTP == dto.OTP && o.OTPLoginStatus == "PENDING" && o.OTPSentDate >= validFrom);
             if (loginOtp == null)
@@ -406,7 +406,7 @@ namespace Nomaro.API.Services.Implimentation
         private static void SetPassword(Employee user, string newPassword)
         {
             user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
-            user.PasswordUpdatedOn = DateTime.Now;
+            user.PasswordUpdatedOn = CompanyTime.Now;
             user.FailedLoginAttempts = 0;
             user.LockoutEndTime = null;
         }
@@ -452,7 +452,7 @@ namespace Nomaro.API.Services.Implimentation
             var token = new JwtSecurityToken(
                 _configuration["JwtSettings:ValidIssuer"],
                 _configuration["JwtSettings:ValidAudience"],
-                expires: DateTime.Now.AddDays(15),
+                expires: DateTime.UtcNow.AddDays(15),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256));
 

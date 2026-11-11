@@ -205,7 +205,7 @@ namespace Nomaro.API.Services.Implimentation
                     existing.LeaveTypeName = leaveTypedto.LeaveTypeName;
 
                     // ✅ if your LeaveTypes table has UpdatedAt/UpdatedBy columns
-                    // existing.UpdatedAt = DateTime.Now;
+                    // existing.UpdatedAt = CompanyTime.Now;
                     // existing.UpdatedBy = loggedInEmployeeId;
 
                     _dbContext.LeaveTypes.Update(existing);
@@ -229,7 +229,7 @@ namespace Nomaro.API.Services.Implimentation
                     };
 
                     // ✅ if your LeaveTypes table has CreatedAt/CreatedBy columns
-                    // newLeaveType.CreatedAt = DateTime.Now;
+                    // newLeaveType.CreatedAt = CompanyTime.Now;
                     // newLeaveType.CreatedBy = loggedInEmployeeId;
 
                     await _dbContext.LeaveTypes.AddAsync(newLeaveType);
@@ -433,7 +433,7 @@ namespace Nomaro.API.Services.Implimentation
                     headerEntity.LeaveTemplateName = dto.LeaveTemplateName;
                     headerEntity.LeaveTemplateDesc = dto.LeaveTemplateDesc;
                     headerEntity.IdYear = dto.IdYear;
-                    headerEntity.UpdatedAt = DateTime.Now;
+                    headerEntity.UpdatedAt = CompanyTime.Now;
                     headerEntity.UpdatedBy = loggedInEmployeeId;
                     headerEntity.ApprovlStatus = dto.ApprovlStatus;
                     _dbContext.LeaveTemplates.Update(headerEntity);
@@ -447,7 +447,7 @@ namespace Nomaro.API.Services.Implimentation
                         LeaveTemplateDesc = dto.LeaveTemplateDesc,
                         IdYear = dto.IdYear,
                         ApprovlStatus = dto.ApprovlStatus,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         CreatedBy = loggedInEmployeeId
                     };
                     await _dbContext.LeaveTemplates.AddAsync(headerEntity);
@@ -607,7 +607,7 @@ namespace Nomaro.API.Services.Implimentation
                 // ✅ Update approval status
                 template.ApprovlStatus = "SUBMITTED";
                 template.UpdatedBy = loggedInEmployeeId;
-                template.UpdatedAt = DateTime.Now;
+                template.UpdatedAt = CompanyTime.Now;
 
                 _dbContext.LeaveTemplates.Update(template);
                 await _dbContext.SaveChangesAsync();
@@ -1368,7 +1368,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.IdLeaveTemplate = dto.IdLeaveTemplate;
                     entity.EffectiveFrom = dto.EffectiveFrom;
                     entity.EffectiveTo = dto.EffectiveTo;
-                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedAt = CompanyTime.Now;
                     entity.UpdatedBy = loggedInEmployeeId;
                     entity.ApprovalStatus = "SUBMITTED";
                     await _dbContext.SaveChangesAsync();
@@ -1382,7 +1382,7 @@ namespace Nomaro.API.Services.Implimentation
                         IdLeaveTemplate = dto.IdLeaveTemplate,
                         EffectiveFrom = dto.EffectiveFrom,
                         EffectiveTo = dto.EffectiveTo,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         ApprovalStatus = "SUBMITTED",
                         CreatedBy = loggedInEmployeeId,                     
 
@@ -1492,7 +1492,7 @@ namespace Nomaro.API.Services.Implimentation
                         EffectiveFrom = templateDetails.Min(x => x.EffectiveFrom),
                         EffectiveTo = templateDetails.Max(x => x.EffectiveTo),
                         CreatedBy = loggedInEmployeeId, // replace with logged user
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         ApprovalStatus = "SUBMITTED",
                     };
 
@@ -1599,7 +1599,7 @@ namespace Nomaro.API.Services.Implimentation
                     master.IdLeaveTemplate = dto.IdLeaveTemplate;
                     master.EffectiveFrom = dto.EffectiveFrom;
                     master.EffectiveTo = dto.EffectiveTo;
-                    master.UpdatedAt = DateTime.Now;
+                    master.UpdatedAt = CompanyTime.Now;
                     master.UpdatedBy = loggedInEmployeeId;
                 }
                 else
@@ -1610,7 +1610,7 @@ namespace Nomaro.API.Services.Implimentation
                         IdLeaveTemplate = dto.IdLeaveTemplate,
                         EffectiveFrom = dto.EffectiveFrom,
                         EffectiveTo = dto.EffectiveTo,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         CreatedBy = loggedInEmployeeId,
                         ApprovalStatus = "SUBMITTED"
                     };
@@ -1829,7 +1829,7 @@ namespace Nomaro.API.Services.Implimentation
                 // ✅ Update approval status
                 template.ApprovalStatus = "SUBMITTED";
                 template.UpdatedBy = loggedInEmployeeId;
-                template.UpdatedAt = DateTime.Now;
+                template.UpdatedAt = CompanyTime.Now;
 
                 _dbContext.EmployeeLeaveConfigs.Update(template);
                 await _dbContext.SaveChangesAsync();
@@ -2708,7 +2708,7 @@ namespace Nomaro.API.Services.Implimentation
 
                 dto.FromDate = dto.FromDate.Date;
                 dto.ToDate = dto.ToDate.Date;
-                var today = DateTime.Now.Date;
+                var today = CompanyTime.Now.Date;
 
                 // Get employee leave configuration (used in multiple places)
                 var empLeaveConfigDetails = await GetLeaveSetupOfAnEmployee(dto.IdEmployee, null, dto.ToDate);
@@ -2924,7 +2924,7 @@ namespace Nomaro.API.Services.Implimentation
                     HalfDayType = dto.HalfDayType,
                     TotalLeaveDays = totalLeaveDays,
                     Reason = dto.Reason.Trim(),
-                    AppliedOn = DateTime.Now,
+                    AppliedOn = CompanyTime.Now,
                     ApprovalStatus = "SUBMITTED",
                     IdLeaveTemplateDetail = empLeaveTypeConfig.IdLeaveTemplateDetail,
                     IdYear = workYear.IdWorkYear,
@@ -2949,7 +2949,7 @@ namespace Nomaro.API.Services.Implimentation
                             FileType = Path.GetExtension(file.FileName).Replace(".", "").ToUpperInvariant(),
                             FileName = file.FileName,
                             FilePath = savedPath,
-                            UploadedAt = DateTime.Now
+                            UploadedAt = CompanyTime.Now
                         };
 
                         await _dbContext.LeaveApplicationDocuments.AddAsync(docEntity);
@@ -3035,7 +3035,7 @@ namespace Nomaro.API.Services.Implimentation
                 dto.FromDate = dto.FromDate.Date;
                 dto.ToDate = dto.ToDate.Date;
 
-                var today = DateTime.Now.Date;
+                var today = CompanyTime.Now.Date;
 
                 // Get leave config first (needed in delete block and later)
                 var empLeaveConfigDetails = await GetLeaveSetupOfAnEmployee(dto.IdEmployee, null, dto.ToDate);
@@ -3246,7 +3246,7 @@ namespace Nomaro.API.Services.Implimentation
                     HalfDayType = dto.HalfDayType,
                     TotalLeaveDays = totalLeaveDays,
                     Reason = dto.Reason.Trim(),
-                    AppliedOn = DateTime.Now,
+                    AppliedOn = CompanyTime.Now,
                     ApprovalStatus = "SUBMITTED",
                     IdLeaveTemplateDetail = empLeaveTypeConfig.IdLeaveTemplateDetail,
                     IdYear = workYear.IdWorkYear,
@@ -3271,7 +3271,7 @@ namespace Nomaro.API.Services.Implimentation
                             FileType = Path.GetExtension(file.FileName).Replace(".", "").ToUpperInvariant(),
                             FileName = file.FileName,
                             FilePath = savedPath,
-                            UploadedAt = DateTime.Now
+                            UploadedAt = CompanyTime.Now
                         };
 
                         await _dbContext.LeaveApplicationDocuments.AddAsync(docEntity);
@@ -3642,14 +3642,14 @@ namespace Nomaro.API.Services.Implimentation
                 var approvalStatus = application.ApprovalStatus?.Trim().ToUpperInvariant();
                 var appStatus = application.ApplicationStatus?.Trim().ToUpperInvariant();
 
-                if (application.FromDate < DateTime.Now &&  ( 
+                if (application.FromDate < CompanyTime.Now &&  (
                     application.ApprovalStatus == "APPROVED"))
                     throw new ArgumentException("Cancellation of past-dated leave applications is not allowed.");
 
                 // ✅ Cancel the leave
                 application.ApplicationStatus = "Cancelled";
                 application.ApprovalStatus = "CANCELLED";
-                application.CancelledDate = DateTime.Now;
+                application.CancelledDate = CompanyTime.Now;
                 application.ReasonForCancellation = string.IsNullOrWhiteSpace(cancelReason)
                     ? "Cancelled by employee"
                     : cancelReason.Trim();

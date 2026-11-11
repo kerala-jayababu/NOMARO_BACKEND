@@ -148,9 +148,9 @@ namespace Nomaro.API.Services.Implimentation.Time___Attendance
 
                 EmailSentStatus = "SENT",
                 IsReadAppNotification = true,
-                CreatedAt = DateTime.Now,
+                CreatedAt = CompanyTime.Now,
                 Status = "SENT",
-                ReadAt = DateTime.Now,
+                ReadAt = CompanyTime.Now,
 
                 RelatedRecordID = relatedRecordId,
                 RelatedRecordType = entityCode,                  // ✅ should store entityCode not null

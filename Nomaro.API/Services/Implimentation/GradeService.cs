@@ -89,7 +89,7 @@ namespace Nomaro.API.Services.Implimentation
                     entity.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
                     entity.IsActive = dto.IsActive;
                     entity.IdModifiedBy = idLoggedInEmployee;
-                    entity.ModifiedDateTime = DateTime.Now;
+                    entity.ModifiedDateTime = CompanyTime.Now;
                 }
                 else
                 {
@@ -101,7 +101,7 @@ namespace Nomaro.API.Services.Implimentation
                         Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
                         IsActive = dto.IsActive,
                         IdCreatedBy = idLoggedInEmployee,
-                        CreatedDateTime = DateTime.Now
+                        CreatedDateTime = CompanyTime.Now
                     };
                     await _dbContext.Grades.AddAsync(entity);
                 }

@@ -453,7 +453,7 @@ namespace Nomaro.API.Services.Implimentation
             ws.Cells[1, 1].Style.Font.Size = 14;
             ws.Cells[1, 1].Style.Font.Bold = true;
             ws.Cells[2, 1].Value = report.Criteria;
-            ws.Cells[3, 1].Value = $"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}";
+            ws.Cells[3, 1].Value = $"Generated on {CompanyTime.Now:dd-MMM-yyyy HH:mm}";
             ws.Cells[2, 1, 3, 1].Style.Font.Color.SetColor(Color.DimGray);
 
             var row = 5;
@@ -525,7 +525,7 @@ namespace Nomaro.API.Services.Implimentation
             {
                 Content = await package.GetAsByteArrayAsync(),
                 ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                FileName = $"{report.Title.Replace(" / ", "_").Replace(" & ", "_").Replace(' ', '_')}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx"
+                FileName = $"{report.Title.Replace(" / ", "_").Replace(" & ", "_").Replace(' ', '_')}_{CompanyTime.Now:yyyyMMdd_HHmm}.xlsx"
             };
         }
 

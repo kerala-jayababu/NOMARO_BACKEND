@@ -127,11 +127,11 @@ namespace Nomaro.API.Services.Implimentation
                 entity = await _db.GeneralDocumentTypes.FirstOrDefaultAsync(t => t.IdGeneralDocumentType == dto.IdGeneralDocumentType)
                     ?? throw new KeyNotFoundException("Document type not found.");
                 entity.ModifiedBy = idEmployee;
-                entity.ModifiedDateTime = DateTime.Now;
+                entity.ModifiedDateTime = CompanyTime.Now;
             }
             else
             {
-                entity = new GeneralDocumentTypes { CreatedBy = idEmployee, CreatedDateTime = DateTime.Now };
+                entity = new GeneralDocumentTypes { CreatedBy = idEmployee, CreatedDateTime = CompanyTime.Now };
                 _db.GeneralDocumentTypes.Add(entity);
             }
             entity.TypeCode = code;
@@ -208,11 +208,11 @@ namespace Nomaro.API.Services.Implimentation
                     await _db.GeneralDocuments.AnyAsync(d => d.IdGeneralDocumentSubtype == entity.IdGeneralDocumentSubtype))
                     throw new InvalidOperationException("Documents are registered under this subtype, so its document type cannot be changed.");
                 entity.ModifiedBy = idEmployee;
-                entity.ModifiedDateTime = DateTime.Now;
+                entity.ModifiedDateTime = CompanyTime.Now;
             }
             else
             {
-                entity = new GeneralDocumentSubtypes { CreatedBy = idEmployee, CreatedDateTime = DateTime.Now };
+                entity = new GeneralDocumentSubtypes { CreatedBy = idEmployee, CreatedDateTime = CompanyTime.Now };
                 _db.GeneralDocumentSubtypes.Add(entity);
             }
             entity.IdGeneralDocumentType = dto.IdGeneralDocumentType;
@@ -568,7 +568,7 @@ namespace Nomaro.API.Services.Implimentation
             {
                 if (!type.IsActive) throw new InvalidOperationException("The selected document type is inactive.");
                 if (subtype != null && !subtype.IsActive) throw new InvalidOperationException("The selected subtype is inactive.");
-                doc = new GeneralDocuments { IsActive = true, CreatedBy = user.IdEmployee, CreatedDateTime = DateTime.Now };
+                doc = new GeneralDocuments { IsActive = true, CreatedBy = user.IdEmployee, CreatedDateTime = CompanyTime.Now };
                 _db.GeneralDocuments.Add(doc);
             }
             else
@@ -594,7 +594,7 @@ namespace Nomaro.API.Services.Implimentation
                 Track("Tags", doc.Tags, tags);
                 if (changes.Count == 0) return doc.IdGeneralDocument;
                 doc.ModifiedBy = user.IdEmployee;
-                doc.ModifiedDateTime = DateTime.Now;
+                doc.ModifiedDateTime = CompanyTime.Now;
             }
 
             doc.Title = title;
@@ -633,7 +633,7 @@ namespace Nomaro.API.Services.Implimentation
             if (remarks?.Trim().Length > 500) throw new InvalidOperationException("Remarks must not exceed 500 characters.");
             doc.IsActive = isActive;
             doc.ModifiedBy = user.IdEmployee;
-            doc.ModifiedDateTime = DateTime.Now;
+            doc.ModifiedDateTime = CompanyTime.Now;
             AddAudit(doc.IdGeneralDocument, null, null, isActive ? "ACTIVATE" : "DEACTIVATE", new { Remarks = Clean(remarks) }, user);
             await _db.SaveChangesAsync();
         }
@@ -687,7 +687,7 @@ namespace Nomaro.API.Services.Implimentation
                     VersionNumber = (existing.Count == 0 ? 0 : existing.Max(r => r.VersionNumber)) + 1,
                     RecordStatus = Active,
                     UploadedBy = user.IdEmployee,
-                    UploadedDateTime = DateTime.Now
+                    UploadedDateTime = CompanyTime.Now
                 };
                 values.ApplyTo(record);
                 _db.GeneralDocumentRecords.Add(record);
@@ -697,7 +697,7 @@ namespace Nomaro.API.Services.Implimentation
                 foreach (var file in files)
                 {
                     var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-                    var relative = $"{DateTime.Now:yyyy}/{DateTime.Now:MM}/{Guid.NewGuid():N}{ext}";
+                    var relative = $"{CompanyTime.Now:yyyy}/{CompanyTime.Now:MM}/{Guid.NewGuid():N}{ext}";
                     var full = Path.Combine(root, relative);
                     Directory.CreateDirectory(Path.GetDirectoryName(full)!);
 
@@ -718,7 +718,7 @@ namespace Nomaro.API.Services.Implimentation
                         FileSize = file.Length,
                         FileHash = hash,
                         UploadedBy = user.IdEmployee,
-                        UploadedDateTime = DateTime.Now
+                        UploadedDateTime = CompanyTime.Now
                     };
                     _db.GeneralDocumentFiles.Add(entity);
                     saved.Add(new { entity.OriginalFileName, entity.FileSize, entity.FileHash });
@@ -731,7 +731,7 @@ namespace Nomaro.API.Services.Implimentation
                     old.SupersededByIdRecord = record.IdGeneralDocumentRecord;
                     old.StatusRemarks = $"Replaced by version {record.VersionNumber}" + (string.IsNullOrWhiteSpace(values.Remarks) ? "" : $": {values.Remarks}");
                     old.StatusChangedBy = user.IdEmployee;
-                    old.StatusChangedDateTime = DateTime.Now;
+                    old.StatusChangedDateTime = CompanyTime.Now;
                 }
 
                 AddAudit(doc.IdGeneralDocument, record.IdGeneralDocumentRecord, null, "UPLOAD", new
@@ -817,7 +817,7 @@ namespace Nomaro.API.Services.Implimentation
             record.IsCurrent = false;
             record.StatusRemarks = remarks;
             record.StatusChangedBy = user.IdEmployee;
-            record.StatusChangedDateTime = DateTime.Now;
+            record.StatusChangedDateTime = CompanyTime.Now;
 
             if (status == Incorrect)
             {
@@ -832,7 +832,7 @@ namespace Nomaro.API.Services.Implimentation
                     r.SupersededByIdRecord = null;
                     r.StatusRemarks = $"Restored because version {record.VersionNumber} was marked incorrect.";
                     r.StatusChangedBy = user.IdEmployee;
-                    r.StatusChangedDateTime = DateTime.Now;
+                    r.StatusChangedDateTime = CompanyTime.Now;
                     restored.Add(r.VersionNumber);
                 }
             }
@@ -1028,7 +1028,7 @@ namespace Nomaro.API.Services.Implimentation
             {
                 Content = ms.ToArray(),
                 ContentType = "application/zip",
-                FileName = $"Documents_{DateTime.Now:yyyyMMdd_HHmm}.zip"
+                FileName = $"Documents_{CompanyTime.Now:yyyyMMdd_HHmm}.zip"
             };
         }
 
@@ -1054,7 +1054,7 @@ namespace Nomaro.API.Services.Implimentation
                 Action = action,
                 Details = details == null ? null : JsonSerializer.Serialize(details),
                 ActionBy = user.IdEmployee,
-                ActionDateTime = DateTime.Now,
+                ActionDateTime = CompanyTime.Now,
                 IPAddress = user.IPAddress?.Length > 50 ? user.IPAddress[..50] : user.IPAddress
             });
         }

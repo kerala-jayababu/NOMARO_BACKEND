@@ -239,7 +239,7 @@ namespace Nomaro.API.Services.Implimentation
                                 EntityType = "time/timeout",
                                 EntityActionType = "insert",
                                 IntegrationStatus = "completed",
-                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationDate = CompanyTime.Now,
                                 IntegrationActionDetails = $"EmployeeCode -> {mapped.EmployeeNumber}, Employee not exist in payroll system"
                             });
 
@@ -596,7 +596,7 @@ namespace Nomaro.API.Services.Implimentation
                 }
 
                 // Download and save new photo
-                string fileName = $"{bambooEmp.Id}_{DateTime.Now.Ticks}.jpg";
+                string fileName = $"{bambooEmp.Id}_{CompanyTime.Now.Ticks}.jpg";
                 string filePath = Path.Combine(folderPath, fileName);
 
                 using var httpClient = new HttpClient();
@@ -664,7 +664,7 @@ namespace Nomaro.API.Services.Implimentation
                         notification.EmailSubject = notificationConfig.EmailSubject;
                         notification.EmailContent = emailBody;
                         notification.EmailSentStatus = "SENT";
-                        notification.CreatedAt = DateTime.UtcNow;
+                        notification.CreatedAt = CompanyTime.Now;
                          _dbContext.Notifications.Add(notification);
                     }
                     await _dbContext.SaveChangesAsync();
@@ -770,7 +770,7 @@ namespace Nomaro.API.Services.Implimentation
                 {
                     EntityType = "Employees",
                     EntityActionType = ActionType,
-                    IntegrationDate = DateTime.Now,
+                    IntegrationDate = CompanyTime.Now,
                     IntegrationStatus = "Completed",
                     IntegrationActionDetails = DataChanges
                 };
@@ -896,7 +896,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails = $"Employee {req.Employee.Id} not found in payroll system"
                         });
                         continue; // Skip processing this request
@@ -911,7 +911,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails = $"Leave Type {req.Type.Value} not found"
                         });
                         continue; // Skip processing this request
@@ -943,7 +943,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "UPDATE",
                             IntegrationStatus = "COMPLETED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails = $"Updated leave application for employee {internalEmpId}, request ID: {req.Id}"
                         });
                     }
@@ -966,7 +966,7 @@ namespace Nomaro.API.Services.Implimentation
                                 EntityType = "LEAVE",
                                 EntityActionType = "INSERT",
                                 IntegrationStatus = "FAILED",
-                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationDate = CompanyTime.Now,
                                 IntegrationActionDetails = $"Employee Leave Config not found for request ID: {req.Id}, LeaveType: {req.Type.Value}, Mployee {internalEmpId}"
                             });
                             continue; // Skip processing this request
@@ -979,7 +979,7 @@ namespace Nomaro.API.Services.Implimentation
                                 EntityType = "LEAVE",
                                 EntityActionType = "INSERT",
                                 IntegrationStatus = "FAILED",
-                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationDate = CompanyTime.Now,
                                 IntegrationActionDetails = $"Leave request overlaps with an existing leave for employee {internalEmpId}, request ID: {req.Id}"
                             });
                             continue; // Skip processing this request
@@ -996,7 +996,7 @@ namespace Nomaro.API.Services.Implimentation
                                 EntityType = "LEAVE",
                                 EntityActionType = "INSERT",
                                 IntegrationStatus = "FAILED",
-                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationDate = CompanyTime.Now,
                                 IntegrationActionDetails = $"Leave request spans across multiple work years or does not match any work year for employee {internalEmpId}, request ID: {req.Id}"
                             });
                             continue; // Skip processing this request
@@ -1019,7 +1019,7 @@ namespace Nomaro.API.Services.Implimentation
                                 EntityType = "LEAVE",
                                 EntityActionType = "APPROVER_CHECK",
                                 IntegrationStatus = "FAILED",
-                                IntegrationDate = DateTime.UtcNow,
+                                IntegrationDate = CompanyTime.Now,
                                 IntegrationActionDetails = $"Approver not found for Bamboo user {req.Status.LastChangedByUserId}"
                             });
                             continue; // Skip processing this request
@@ -1057,7 +1057,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "COMPLETED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails = $"Inserted leave application for employee {internalEmpId}, request ID: {req.Id}"
                         });
                     }
@@ -1230,7 +1230,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails = $"Employee {req.Employee.Id} not found in payroll system"
                         });
                         continue;
@@ -1244,7 +1244,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails = $"Leave Type {req.Type.Value} not found"
                         });
                         continue;
@@ -1296,7 +1296,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "UPDATE",
                             IntegrationStatus = "COMPLETED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails =
                                 $"Updated leave application for employee {internalEmpId}, request ID: {req.Id}"
                         });
@@ -1320,7 +1320,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails =
                                 $"Leave request overlaps with an existing leave for employee {internalEmpId}, request ID: {req.Id}"
                         });
@@ -1336,7 +1336,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails =
                                 $"Employee Leave Config not found for request ID: {req.Id}, LeaveType: {req.Type.Value}, Employee {internalEmpId}"
                         });
@@ -1355,7 +1355,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "INSERT",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails =
                                 $"Leave request spans multiple / no work years for employee {internalEmpId}, request ID: {req.Id}"
                         });
@@ -1387,7 +1387,7 @@ namespace Nomaro.API.Services.Implimentation
                             EntityType = "LEAVE",
                             EntityActionType = "APPROVER_CHECK",
                             IntegrationStatus = "FAILED",
-                            IntegrationDate = DateTime.UtcNow,
+                            IntegrationDate = CompanyTime.Now,
                             IntegrationActionDetails =
                                 $"Approver not found for Bamboo user {changedBy}"
                         });
@@ -1432,7 +1432,7 @@ namespace Nomaro.API.Services.Implimentation
                         EntityType = "LEAVE",
                         EntityActionType = "INSERT",
                         IntegrationStatus = "COMPLETED",
-                        IntegrationDate = DateTime.UtcNow,
+                        IntegrationDate = CompanyTime.Now,
                         IntegrationActionDetails =
                             $"Inserted leave application for employee {internalEmpId}, request ID: {req.Id}"
                     });

@@ -82,17 +82,12 @@ namespace Nomaro.API.Services.Implimentation
             return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
         }
 
-        private static readonly TimeZoneInfo Ist = FindIst();
-        private static TimeZoneInfo FindIst()
+        private static string CompanyTimeText(DateTime? utc)
         {
-            foreach (var id in new[] { "India Standard Time", "Asia/Kolkata" })
-                try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch { /* try next */ }
-            return TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromMinutes(330), "IST", "IST");
+            if (!utc.HasValue) return "";
+            var localTime = CompanyTime.ToLocalTime(utc.Value);
+            return $"{CompanyLocale.FormatDate(localTime)} {localTime.ToString("hh:mm:ss tt", CultureInfo.InvariantCulture)}";
         }
-
-        private static string IstText(DateTime? utc) => utc.HasValue
-            ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc.Value, DateTimeKind.Utc), Ist).ToString("dd-MMM-yyyy hh:mm:ss tt", CultureInfo.InvariantCulture) + " IST"
-            : "";
 
         private static string UtcText(DateTime? utc) => utc.HasValue ? utc.Value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " UTC" : "";
 
@@ -361,7 +356,7 @@ namespace Nomaro.API.Services.Implimentation
                 LinkExpiresOnUtc = now.AddDays(days),
                 Remarks = string.IsNullOrWhiteSpace(dto.Remarks) ? null : dto.Remarks.Trim(),
                 CreatedBy = hrId,
-                CreatedDateTime = DateTime.Now
+                CreatedDateTime = CompanyTime.Now
             };
 
             await using (var tx = await _db.Database.BeginTransactionAsync())
@@ -399,7 +394,7 @@ namespace Nomaro.API.Services.Implimentation
                 ["AGREEMENTTITLE"] = Html(a.AgreementTitle),
                 ["AGREEMENTVERSION"] = Html(a.AgreementVersion ?? ""),
                 ["LINK"] = link,
-                ["EXPIRYDATE"] = IstText(a.LinkExpiresOnUtc),
+                ["EXPIRYDATE"] = CompanyTimeText(a.LinkExpiresOnUtc),
                 ["DOCUMENTHASH"] = a.FileHash,
                 ["FILENAME"] = Html(a.OriginalFileName),
                 ["COMPANYNAME"] = Html(await CompanyName())
@@ -451,7 +446,7 @@ namespace Nomaro.API.Services.Implimentation
                 a.LinkExpiresOnUtc = now.AddDays(await ValidDays());
                 a.SentTo = Cut(string.Join(", ", emails), 300);
                 a.ModifiedBy = hrId;
-                a.ModifiedDateTime = DateTime.Now;
+                a.ModifiedDateTime = CompanyTime.Now;
                 await _db.EmployeeAgreementTokens.AddAsync(new EmployeeAgreementTokens
                 {
                     IdEmployeeAgreement = idAgreement,
@@ -478,7 +473,7 @@ namespace Nomaro.API.Services.Implimentation
             a.Status = Cancelled;
             a.CancelReason = Cut(reason.Trim(), 500);
             a.ModifiedBy = hrId;
-            a.ModifiedDateTime = DateTime.Now;
+            a.ModifiedDateTime = CompanyTime.Now;
             await AddEvent(idAgreement, "CANCELLED", "HR", hrId, client, a.CancelReason);
             await _db.SaveChangesAsync();
         }
@@ -713,7 +708,7 @@ namespace Nomaro.API.Services.Implimentation
                 ["AGREEMENTTITLE"] = Html(a.AgreementTitle),
                 ["AGREEMENTVERSION"] = Html(a.AgreementVersion ?? ""),
                 ["DECISION"] = decisionWord,
-                ["RESPONDEDON"] = IstText(a.RespondedOnUtc),
+                ["RESPONDEDON"] = CompanyTimeText(a.RespondedOnUtc),
                 ["REMARKS"] = Html(a.ResponseRemarks ?? ""),
                 ["IPADDRESS"] = Html(a.ResponseIPAddress ?? ""),
                 ["DOCUMENTHASH"] = a.FileHash,
@@ -809,7 +804,7 @@ namespace Nomaro.API.Services.Implimentation
                 Row("Decision", a.Status == Accepted ? "ACCEPTED" : "REJECTED");
                 Row("Employee", $"{emp.EmployeeCode} - {FullName(emp)}");
                 Row("Name typed by employee", a.ResponseName);
-                Row("Responded on", $"{IstText(a.RespondedOnUtc)}  ({UtcText(a.RespondedOnUtc)})");
+                Row("Responded on", $"{CompanyTimeText(a.RespondedOnUtc)}  ({UtcText(a.RespondedOnUtc)})");
                 Row("IP address", a.ResponseIPAddress);
                 Row("Browser / device", a.ResponseUserAgent);
                 Row("Identity check", "One-time code emailed to the employee's registered email address(es) and entered correctly");
@@ -818,7 +813,7 @@ namespace Nomaro.API.Services.Implimentation
                 Row("File", $"{a.OriginalFileName} ({a.FileSize:N0} bytes)");
                 Row("Document SHA-256", a.FileHash);
                 Row("Sent to", a.SentTo);
-                Row("Sent on / by", $"{IstText(a.SentOnUtc)} by {sentBy ?? "HR"}");
+                Row("Sent on / by", $"{CompanyTimeText(a.SentOnUtc)} by {sentBy ?? "HR"}");
                 doc.Add(summary);
 
                 doc.Add(new Paragraph("Evidence trail").SetFont(bold).SetFontSize(12).SetFontColor(accent).SetMarginTop(14));
@@ -829,7 +824,7 @@ namespace Nomaro.API.Services.Implimentation
                     trail.AddHeaderCell(new Cell().Add(new Paragraph(h).SetFont(bold).SetFontSize(8)).SetBackgroundColor(new DeviceRgb(243, 245, 247)));
                 foreach (var e in events)
                 {
-                    trail.AddCell(new Cell().Add(new Paragraph(IstText(e.EventTimeUtc)).SetFont(regular).SetFontSize(7.5f)));
+                    trail.AddCell(new Cell().Add(new Paragraph(CompanyTimeText(e.EventTimeUtc)).SetFont(regular).SetFontSize(7.5f)));
                     trail.AddCell(new Cell().Add(new Paragraph(e.EventType).SetFont(regular).SetFontSize(7.5f)));
                     trail.AddCell(new Cell().Add(new Paragraph(e.IPAddress ?? "").SetFont(regular).SetFontSize(7.5f)));
                     trail.AddCell(new Cell().Add(new Paragraph((e.Details ?? "") + "\n" + e.EventHash).SetFont(regular).SetFontSize(7f)));
@@ -837,7 +832,7 @@ namespace Nomaro.API.Services.Implimentation
                 doc.Add(trail);
 
                 doc.Add(new Paragraph(
-                    $"This certificate was generated automatically by NOMARO HRMS for {company} on {IstText(DateTime.UtcNow)}. " +
+                    $"This certificate was generated automatically by NOMARO HRMS for {company} on {CompanyTimeText(DateTime.UtcNow)}. " +
                     "It records the electronic response of the employee named above to the document identified by its SHA-256 fingerprint. " +
                     "The fingerprint of any copy of the document can be checked against the value above to confirm it is the same document.")
                     .SetFont(regular).SetFontSize(8).SetFontColor(grey).SetMarginTop(12));

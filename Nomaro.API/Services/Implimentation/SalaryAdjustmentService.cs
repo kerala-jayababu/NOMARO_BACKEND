@@ -176,7 +176,7 @@ e.CurrentStatus ,
             try
             {
                 var entity = _mapper.Map<SalaryAdjustment>(salaryAdjustment);
-                string currentYear = DateTime.Now.Year.ToString();
+                string currentYear = CompanyTime.Now.Year.ToString();
                 var lastTANumber = await _dbContext.SalaryAdjustments
     .Where(sa => sa.TANumber.StartsWith(currentYear))
     .OrderByDescending(sa => sa.IdSalaryAdjustment)
@@ -209,7 +209,7 @@ e.CurrentStatus ,
                         Directory.CreateDirectory(uploadFolder);
 
                     string fileExtension = Path.GetExtension(salaryAdjustment.File.FileName);
-                    string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
+                    string timestamp = CompanyTime.Now.ToString("yyyy_MM_dd");
                     string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(salaryAdjustment.File.FileName);
                     string fileName = $"SA_{addedEntity.Entity.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}{fileExtension}";
                     string filePath = Path.Combine(uploadFolder, fileName);
@@ -270,7 +270,7 @@ e.CurrentStatus ,
                         File.Delete(oldFilePath);
 
                     string fileExtension = Path.GetExtension(salaryAdjustment.File.FileName);
-                    string timestamp = DateTime.Now.ToString("yyyy_MM_dd");
+                    string timestamp = CompanyTime.Now.ToString("yyyy_MM_dd");
                     string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(salaryAdjustment.File.FileName);
                     string fileName = $"SA_{existingAdjustment.IdSalaryAdjustment}_{salaryAdjustment.IdEmployee}_{salaryAdjustment.EmployeeCode}_{timestamp}{fileExtension}";
                     string filePath = Path.Combine(uploadFolder, fileName);

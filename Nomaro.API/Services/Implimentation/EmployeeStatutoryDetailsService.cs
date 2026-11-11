@@ -129,7 +129,7 @@ namespace Nomaro.API.Services.Implimentation
                     {
                         IdEmployee = dto.IdEmployee,
                         CreatedBy = idLoggedInEmployee,
-                        CreatedOn = DateTime.Now
+                        CreatedOn = CompanyTime.Now
                     };
                     await _dbContext.EmployeeStatutoryDetails.AddAsync(entity);
                 }
@@ -137,7 +137,7 @@ namespace Nomaro.API.Services.Implimentation
                 {
                     beforeData = _mapper.Map<EmployeeStatutoryDetailsDto>(entity);
                     entity.ModifiedBy = idLoggedInEmployee;
-                    entity.ModifiedOn = DateTime.Now;
+                    entity.ModifiedOn = CompanyTime.Now;
                 }
 
                 entity.PAN = Clean(dto.PAN)?.ToUpper();

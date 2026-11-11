@@ -417,7 +417,7 @@ namespace Nomaro.API.Services.Implimentation
                     .SetTextAlignment(TextAlignment.RIGHT);
 
                 // Left-side info: Date + IRD No.
-                var leftInfo = new Paragraph($"Date : {DateTime.Now:MM-dd-yyyy}\nI.R.D. NO. 5")
+                var leftInfo = new Paragraph($"Date : {CompanyTime.Now:MM-dd-yyyy}\nI.R.D. NO. 5")
                     .SetFontSize(9)
                     .SetTextAlignment(TextAlignment.LEFT);
 

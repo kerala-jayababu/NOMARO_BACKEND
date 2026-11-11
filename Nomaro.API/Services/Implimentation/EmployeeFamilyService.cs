@@ -80,11 +80,11 @@ namespace Nomaro.API.Services.Implimentation
                          ?? throw new KeyNotFoundException("Family member not found.");
                 before = ToDto(member);
                 member.ModifiedBy = userId;
-                member.ModifiedDateTime = DateTime.Now;
+                member.ModifiedDateTime = CompanyTime.Now;
             }
             else
             {
-                member = new EmployeeFamilyMembers { IdEmployee = dto.IdEmployee, CreatedBy = userId, CreatedDateTime = DateTime.Now };
+                member = new EmployeeFamilyMembers { IdEmployee = dto.IdEmployee, CreatedBy = userId, CreatedDateTime = CompanyTime.Now };
                 family.Add(member);
                 await _db.EmployeeFamilyMembers.AddAsync(member);
             }

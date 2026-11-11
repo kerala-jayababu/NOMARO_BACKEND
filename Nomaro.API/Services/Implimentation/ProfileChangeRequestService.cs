@@ -492,7 +492,7 @@ namespace Nomaro.API.Services.Implimentation
                     EntityCode = typeRow.EntityCode,
                     RequestStatus = R.Draft,
                     CreatedBy = idEmployee,
-                    CreatedDateTime = DateTime.Now
+                    CreatedDateTime = CompanyTime.Now
                 };
                 await _db.ProfileChangeRequests.AddAsync(request);
             }
@@ -566,7 +566,7 @@ namespace Nomaro.API.Services.Implimentation
             request.Reason = dto.Reason?.Trim();
             if (dto.EmployeeResponse != null) request.EmployeeResponse = dto.EmployeeResponse.Trim();
             request.ModifiedBy = idEmployee;
-            request.ModifiedDateTime = DateTime.Now;
+            request.ModifiedDateTime = CompanyTime.Now;
 
             await using var tx = await _db.Database.BeginTransactionAsync();
             await _db.SaveChangesAsync();
@@ -609,7 +609,7 @@ namespace Nomaro.API.Services.Implimentation
                         MimeType = stored.mime,
                         FileSize = file.Length,
                         UploadedBy = idEmployee,
-                        UploadedOn = DateTime.Now
+                        UploadedOn = CompanyTime.Now
                     });
                 }
             }
@@ -736,10 +736,10 @@ namespace Nomaro.API.Services.Implimentation
             try
             {
                 request.RequestNumber ??= $"ESS-{request.IdProfileChangeRequest:D6}";
-                request.SubmittedDate = DateTime.Now;
+                request.SubmittedDate = CompanyTime.Now;
                 request.ApproverRemarks = wasClarification ? request.ApproverRemarks : null;
                 request.ModifiedBy = idEmployee;
-                request.ModifiedDateTime = DateTime.Now;
+                request.ModifiedDateTime = CompanyTime.Now;
                 await _db.SaveChangesAsync();
 
                 var result = await _workflow.InitiateApprovalWorkflow(request.IdProfileChangeRequest, request.EntityCode, idEmployee, "SUBMITTED", null, null);
@@ -778,7 +778,7 @@ namespace Nomaro.API.Services.Implimentation
 
                 pending.ActionStatus = "CANCELLED";
                 pending.ActionedBy = idEmployee;
-                pending.ActionDate = DateTime.Now;
+                pending.ActionDate = CompanyTime.Now;
             }
             else if (request.RequestStatus != R.Draft && request.RequestStatus != R.Clarification)
             {
@@ -792,7 +792,7 @@ namespace Nomaro.API.Services.Implimentation
 
             request.RequestStatus = R.Cancelled;
             request.ModifiedBy = idEmployee;
-            request.ModifiedDateTime = DateTime.Now;
+            request.ModifiedDateTime = CompanyTime.Now;
             await _db.SaveChangesAsync();
 
             if (notifyApprovers && approvers.Any())
@@ -882,7 +882,7 @@ namespace Nomaro.API.Services.Implimentation
                 item.IsResubmitted = mine.Any(a => a.CycleIndex > 1);
                 var pending = mine.Where(a => a.ActionStatus == null).OrderByDescending(a => a.SentDate).FirstOrDefault();
                 if (pending != null && R.WithApproverStatuses.Contains(item.RequestStatus))
-                    item.WaitingDays = (int)(DateTime.Now - pending.SentDate).TotalDays;
+                    item.WaitingDays = (int)(CompanyTime.Now - pending.SentDate).TotalDays;
             }
         }
 
@@ -1130,7 +1130,7 @@ namespace Nomaro.API.Services.Implimentation
 
         public async Task<ProfileChangeDashboardDto> GetDashboard(int viewerId, bool canViewAll)
         {
-            var since = DateTime.Now.AddDays(-30);
+            var since = CompanyTime.Now.AddDays(-30);
             var dto = new ProfileChangeDashboardDto { WaitingForMe = (await RequestsWaitingFor(viewerId)).Count };
             var q = _db.ProfileChangeRequests.AsNoTracking();
             if (canViewAll)
@@ -1224,7 +1224,7 @@ namespace Nomaro.API.Services.Implimentation
                 {
                     pending.ActionStatus = "CLARIFICATION";
                     pending.ActionedBy = approverId;
-                    pending.ActionDate = DateTime.Now;
+                    pending.ActionDate = CompanyTime.Now;
                     pending.RejectionRemarks = remarks;
                     request.RequestStatus = R.Clarification;
                     request.ApproverRemarks = remarks;
@@ -1238,7 +1238,7 @@ namespace Nomaro.API.Services.Implimentation
                     request.RequestStatus = R.Rejected;
                     request.ApproverRemarks = remarks;
                     request.FinalActionBy = approverId;
-                    request.FinalActionDate = DateTime.Now;
+                    request.FinalActionDate = CompanyTime.Now;
                 }
                 else
                 {
@@ -1257,13 +1257,13 @@ namespace Nomaro.API.Services.Implimentation
                         if (request.AppliedDate.HasValue) throw new InvalidOperationException("This request has already been applied.");
                         await ApplyChanges(request, typeRow, approverId);
                         request.FinalActionBy = approverId;
-                        request.FinalActionDate = DateTime.Now;
+                        request.FinalActionDate = CompanyTime.Now;
                         request.ApproverRemarks = remarks;
                     }
                 }
 
                 request.ModifiedBy = approverId;
-                request.ModifiedDateTime = DateTime.Now;
+                request.ModifiedDateTime = CompanyTime.Now;
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
             }
@@ -1371,7 +1371,7 @@ namespace Nomaro.API.Services.Implimentation
                             if (values.ContainsKey("DateOfBirth")) st.DateOfBirth = emp.DateOfBirth;
                             if (values.ContainsKey("Gender")) st.Gender = StatutoryGender(emp.Gender);
                             st.ModifiedBy = approverId;
-                            st.ModifiedOn = DateTime.Now;
+                            st.ModifiedOn = CompanyTime.Now;
                         }
                     }
                     break;
@@ -1388,13 +1388,13 @@ namespace Nomaro.API.Services.Implimentation
                             Gender = StatutoryGender(emp.Gender),
                             DateOfBirth = emp.DateOfBirth,
                             CreatedBy = approverId,
-                            CreatedOn = DateTime.Now
+                            CreatedOn = CompanyTime.Now
                         };
                         await _db.EmployeeStatutoryDetails.AddAsync(st);
                     }
                     foreach (var kv in values) SetRaw(st, kv.Key, kv.Value);
                     st.ModifiedBy = approverId;
-                    st.ModifiedOn = DateTime.Now;
+                    st.ModifiedOn = CompanyTime.Now;
                     break;
                 }
                 case R.TFamily:
@@ -1402,7 +1402,7 @@ namespace Nomaro.API.Services.Implimentation
                     var family = await _db.EmployeeFamilyMembers.Where(m => m.IdEmployee == idEmployee).ToListAsync();
                     if (def.Operation == "ADD")
                     {
-                        var member = new EmployeeFamilyMembers { IdEmployee = idEmployee, Relationship = "", MemberName = "", CreatedBy = approverId, CreatedDateTime = DateTime.Now };
+                        var member = new EmployeeFamilyMembers { IdEmployee = idEmployee, Relationship = "", MemberName = "", CreatedBy = approverId, CreatedDateTime = CompanyTime.Now };
                         foreach (var kv in values) SetRaw(member, kv.Key, kv.Value);
                         member.Gender ??= FamilyRelationships.DefaultGender(member.Relationship);
                         family.Add(member);
@@ -1421,7 +1421,7 @@ namespace Nomaro.API.Services.Implimentation
                         {
                             foreach (var kv in values) SetRaw(member, kv.Key, kv.Value);
                             member.ModifiedBy = approverId;
-                            member.ModifiedDateTime = DateTime.Now;
+                            member.ModifiedDateTime = CompanyTime.Now;
                             FamilyRelationships.Validate(family);
                         }
                     }
@@ -1443,7 +1443,7 @@ namespace Nomaro.API.Services.Implimentation
                         {
                             IdEmployee = idEmployee,
                             IdDocumentType = int.Parse(values["IdDocumentType"]!, CultureInfo.InvariantCulture),
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             CreatedBy = approverId
                         };
                         await _db.EmployeeDocuments.AddAsync(target);
@@ -1452,7 +1452,7 @@ namespace Nomaro.API.Services.Implimentation
                     {
                         target = (EmployeeDocuments?)await LoadTarget(R.TDocuments, idEmployee, request.RecordId, true)
                                  ?? throw new InvalidOperationException("The document record no longer exists.");
-                        target.UpdatedAt = DateTime.Now;
+                        target.UpdatedAt = CompanyTime.Now;
                         target.UpdatedBy = approverId;
                     }
                     foreach (var kv in values.Where(v => v.Key != "IdDocumentType")) SetRaw(target, kv.Key, kv.Value);
@@ -1474,7 +1474,7 @@ namespace Nomaro.API.Services.Implimentation
                         IdDocumentType = proof.IdDocumentType!.Value,
                         Remarks = Truncate($"{request.RequestNumber} - {typeRow.RequestTypeName}", 250),
                         DocumentFilePath = CopyToEmployeeDocuments(proof),
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         CreatedBy = approverId
                     };
                     await _db.EmployeeDocuments.AddAsync(copy);
@@ -1483,7 +1483,7 @@ namespace Nomaro.API.Services.Implimentation
                 }
             }
 
-            request.AppliedDate = DateTime.Now;
+            request.AppliedDate = CompanyTime.Now;
             await _db.SaveChangesAsync();
 
             await _audit.LogAuditAsync("Update", "EmployeeProfileChange", idEmployee, new
@@ -1626,7 +1626,7 @@ namespace Nomaro.API.Services.Implimentation
                         AppNotificationText = Truncate(message, 250),
                         NotificationLink = link,
                         IsReadAppNotification = false,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         Status = "SENT",
                         RelatedRecordID = request.IdProfileChangeRequest,
                         RelatedRecordType = request.EntityCode
@@ -1672,7 +1672,7 @@ namespace Nomaro.API.Services.Implimentation
             row.DisplayOrder = dto.DisplayOrder;
             row.IsActive = dto.IsActive;
             row.ModifiedBy = userId;
-            row.ModifiedDateTime = DateTime.Now;
+            row.ModifiedDateTime = CompanyTime.Now;
             await _db.SaveChangesAsync();
             await _audit.LogAuditAsync("Update", "ProfileChangeRequestType", row.IdProfileChangeRequestType,
                 new { before, after = new { row.RequestTypeName, row.ProofRequired, row.ProofHint, row.DisplayOrder, row.IsActive } });

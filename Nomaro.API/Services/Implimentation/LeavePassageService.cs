@@ -380,7 +380,7 @@ namespace Nomaro.API.Services.Implimentation
                 leavePassageEntity.IdFinancialYear = workyear.IdWorkYear;
                 leavePassageEntity.IdLeavePassage = null;
                 leavePassageEntity.ApprovalStatus = "SUBMITTED";
-                leavePassageEntity.CreatedDate = DateTime.Now;
+                leavePassageEntity.CreatedDate = CompanyTime.Now;
                 leavePassageEntity.CreatedBy = idEmployee;
 
                 await _dbContext.LeavePassages.AddAsync(leavePassageEntity);
@@ -446,7 +446,7 @@ namespace Nomaro.API.Services.Implimentation
                 leavePassage.IdSalaryMonth = leavePassageDto.IdSalaryMonth;
                 leavePassage.Remarks = leavePassageDto.Remarks;
                 leavePassage.ApprovalStatus = leavePassageDto.ApprovalStatus;
-                leavePassage.UpdatedOn = DateTime.Now;
+                leavePassage.UpdatedOn = CompanyTime.Now;
                 leavePassage.UpdatedBy = IdEmployee;
                 _dbContext.LeavePassages.Update(leavePassage);
                 await _dbContext.SaveChangesAsync();

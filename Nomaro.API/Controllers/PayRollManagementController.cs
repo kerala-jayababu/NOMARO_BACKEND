@@ -1224,7 +1224,7 @@ namespace Nomaro.API.Controllers
                 var fileBytes = await _taxReportService.GenerateTaxReportsAsync(employeeIdList, financialYear);
 
                 string fileName = employeeIdList.Count > 1
-                    ? $"TaxReports_{DateTime.Now:yyyyMMddHHmmss}.zip"
+                    ? $"TaxReports_{CompanyTime.Now:yyyyMMddHHmmss}.zip"
                     : $"Form7B_{employeeIdList.First()}.pdf";
 
                 string contentType = employeeIdList.Count > 1

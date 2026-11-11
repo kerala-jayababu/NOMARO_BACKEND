@@ -158,7 +158,7 @@ namespace Nomaro.API.Services.Implimentation
 
             await EmailService.SendMail(employee.EmailID!, subject, content);
 
-            var sentAt = DateTime.Now;
+            var sentAt = CompanyTime.Now;
 
             // Record the send in Notifications (used to block a second send). The full HTML body is not stored:
             // Notifications.EmailContent is too short for a complete HTML email.

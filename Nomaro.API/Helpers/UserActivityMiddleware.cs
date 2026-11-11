@@ -28,7 +28,7 @@ namespace Nomaro.API.Helpers
                 dbContext.UserLastActivity.Add(new Models.UserLastActivity
                 {
                     Email = email,
-                    LastAccessed = DateTime.Now,
+                    LastAccessed = CompanyTime.Now,
                     Endpoint = context.Request.Path,
                     Method = context.Request.Method
                 });

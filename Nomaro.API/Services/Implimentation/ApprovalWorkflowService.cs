@@ -88,7 +88,7 @@ namespace Nomaro.API.Services.Implimentation
                         SourceIdEmployee = loggedInEmployeeId,
                         TargetIdEmployee = targetEmployeeIds,
                         //ActionStatus = actionStatussubmitted,
-                        SentDate = DateTime.Now
+                        SentDate = CompanyTime.Now
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newRecord);
@@ -117,7 +117,7 @@ namespace Nomaro.API.Services.Implimentation
                 // Step 4: Update current level's status
                 currentRecord.ActionedBy = loggedInEmployeeId;
                 currentRecord.ActionStatus = status == "REJECTED" ? "REJECTED" : workflowConfigDetailsFinal.ApprovalStatusName;
-                currentRecord.ActionDate = DateTime.Now;
+                currentRecord.ActionDate = CompanyTime.Now;
                 currentRecord.RejectionRemarks = status == "REJECTED" ? rejectReason : null;
                 await _dbContext.SaveChangesAsync();
 
@@ -157,7 +157,7 @@ namespace Nomaro.API.Services.Implimentation
                         //ActionStatus = actionStatus,
                         SourceIdEmployee = loggedInEmployeeId,
                         TargetIdEmployee = targetEmployeeIdsForNextLevel,
-                        SentDate = DateTime.Now
+                        SentDate = CompanyTime.Now
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(newNextLevelRecord);
@@ -244,7 +244,7 @@ namespace Nomaro.API.Services.Implimentation
                         LevelNumber = wfd.LevelNumber,
                         SourceIdEmployee = idEmployee,
                         TargetIdEmployee = targetEmployeeIds,
-                        SentDate = DateTime.Now
+                        SentDate = CompanyTime.Now
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(approvalFlow);
@@ -276,7 +276,7 @@ namespace Nomaro.API.Services.Implimentation
                     if (finalStatus != "REJECTED" && (finalStatus == "FINAL APPROVED" || nextLevelNumber == 99))
                     {
                         entity.ApprovedBy = loggedInEmployeeId;
-                        entity.ApprovedOn = DateTime.Now;
+                        entity.ApprovedOn = CompanyTime.Now;
                     }
                     await _dbContext.SaveChangesAsync();
                 }
@@ -309,7 +309,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
@@ -340,7 +340,7 @@ namespace Nomaro.API.Services.Implimentation
                     if (finalStatus != "REJECTED" && (finalStatus == "FINAL APPROVED" || nextLevelNumber == 99))
                     {
                         entity.ApprovedBy = loggedInEmployeeId;
-                        entity.ApprovedOn = DateTime.Now;
+                        entity.ApprovedOn = CompanyTime.Now;
 
                         var approvedStatuses = new[] { "APPROVED", "FINAL APPROVED" };
                         var previousStructures = await _dbContext.EmployeeSalaryConfig
@@ -386,7 +386,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
@@ -416,7 +416,7 @@ namespace Nomaro.API.Services.Implimentation
                     if(finalStatus == "APPROVED" || nextLevelNumber == 99)
                     {
                         entity.IdMissingEntryApprovedBy = loggedInEmployeeId;
-                        entity.MissingEntryApprovedDate = DateTime.Now;
+                        entity.MissingEntryApprovedDate = CompanyTime.Now;
                     }                        
                     await _dbContext.SaveChangesAsync();
                 }
@@ -449,7 +449,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
@@ -480,7 +480,7 @@ namespace Nomaro.API.Services.Implimentation
                     if (finalStatus == "APPROVED" || nextLevelNumber == 99)
                     {
                         entity.IdMissingEntryApprovedBy = loggedInEmployeeId;
-                        entity.MissingEntryApprovedDate = DateTime.Now;
+                        entity.MissingEntryApprovedDate = CompanyTime.Now;
                     }
                     await _dbContext.SaveChangesAsync();
                 }
@@ -514,7 +514,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
@@ -603,7 +603,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
@@ -623,7 +623,7 @@ namespace Nomaro.API.Services.Implimentation
                 var workflowConfig = await _dbContext.WorkFlowConfig.Where(x => x.EntityCode == entityCode).FirstOrDefaultAsync();
                 if( finalStatus == "REJECTED" || nextLevelNumber == 99)
                 {
-                    entity.ApprovalStatusDate = DateTime.Now;
+                    entity.ApprovalStatusDate = CompanyTime.Now;
                     targetEmployeeIdsForNextLevel = entity.CreatedBy.ToString();
                 }
 
@@ -663,7 +663,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
@@ -715,7 +715,7 @@ namespace Nomaro.API.Services.Implimentation
                 if (isFinalApproved)
                 {
                     entity.ApprovedBy = loggedInEmployeeId;
-                    entity.ApprovedDate = DateTime.Now;
+                    entity.ApprovedDate = CompanyTime.Now;
                 }
                 else if (finalStatus == "REJECTED")
                 {
@@ -726,7 +726,7 @@ namespace Nomaro.API.Services.Implimentation
 
                 // optional: always track update
                 entity.UpdatedBy = loggedInEmployeeId;
-                entity.UpdatedAt = DateTime.Now;
+                entity.UpdatedAt = CompanyTime.Now;
 
                 await _dbContext.SaveChangesAsync();
             }
@@ -760,7 +760,7 @@ namespace Nomaro.API.Services.Implimentation
                 }
 
                 entity.ModifiedBy = loggedInEmployeeId;
-                entity.ModifiedDateTime = DateTime.Now;
+                entity.ModifiedDateTime = CompanyTime.Now;
                 await _dbContext.SaveChangesAsync();
             }
             else if (entityCode == _configuration["WorkflowEntityCodes:LEAVEPASS"])
@@ -816,7 +816,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode,
@@ -837,7 +837,7 @@ namespace Nomaro.API.Services.Implimentation
                 if (entity != null)
                 {
                     entity.ApprovalStatus = finalStatus;
-                    entity.ApprovedDate = DateTime.Now;
+                    entity.ApprovedDate = CompanyTime.Now;
                     entity.IdApprovedBy = loggedInEmployeeId;
                     await _dbContext.SaveChangesAsync();
                 }
@@ -877,9 +877,9 @@ namespace Nomaro.API.Services.Implimentation
                                 EmailContent = notificationConfig.EmailContent,
                                 EmailSentStatus = "SENT",
                                 IsReadAppNotification = true,
-                                CreatedAt = DateTime.Now,
+                                CreatedAt = CompanyTime.Now,
                                 Status = "SENT",
-                                ReadAt = DateTime.Now,                                
+                                ReadAt = CompanyTime.Now,
                                 RelatedRecordID = entityTablePrimaryKeyID,
                                 RelatedRecordType = entityCode,
                                 LogoText = notificationConfig.LogoText,
@@ -934,7 +934,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode
@@ -1096,7 +1096,7 @@ namespace Nomaro.API.Services.Implimentation
                         EmailContent = notificationConfig.EmailContent,
                         EmailSentStatus = "SENT",
                         IsReadAppNotification = false,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = CompanyTime.Now,
                         Status = "SENT",
                         RelatedRecordID = entityTablePrimaryKeyID,
                         RelatedRecordType = entityCode,
@@ -1166,7 +1166,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode
@@ -1216,7 +1216,7 @@ namespace Nomaro.API.Services.Implimentation
                             EmailContent = notificationConfig.EmailContent,
                             EmailSentStatus = "SENT",
                             IsReadAppNotification = false,
-                            CreatedAt = DateTime.Now,
+                            CreatedAt = CompanyTime.Now,
                             Status = "SENT",
                             RelatedRecordID = entityTablePrimaryKeyID,
                             RelatedRecordType = entityCode
@@ -1287,7 +1287,7 @@ namespace Nomaro.API.Services.Implimentation
 
                 // 🔹 Update current approver
                 currentApprover.status = snapshot.ApprovalStatus ?? "PENDING";
-                currentApprover.statusDate = DateTime.Now;
+                currentApprover.statusDate = CompanyTime.Now;
                 currentApprover.name = empDetail?.EmployeeName ?? "Unknown";
 
                 // 🔹 If REJECTED → mark all higher levels as NO_ACTION_REQUIRED
@@ -1297,7 +1297,7 @@ namespace Nomaro.API.Services.Implimentation
                         .Where(a => a != null && a.level > currentApprover.level && a.status == "PENDING"))
                     {
                         next.status = "NO_ACTION_REQUIRED";
-                        next.statusDate = DateTime.Now;
+                        next.statusDate = CompanyTime.Now;
                     }
                 }
 
@@ -1392,7 +1392,7 @@ namespace Nomaro.API.Services.Implimentation
                     { "#RECEIVER#", ReceiverName ?? "" },
                     { "#APPROVERNAME#", SenderName ?? "" },
                     { "#REJECTIONREASON#", rejectReason ?? "" },
-                    { "#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt") },
+                    { "#CURRENTDATETIME#", CompanyTime.Now.ToString("dd-MMM-yyyy hh:mm tt") },
                     { "#ApprovalWorkflow#", approvalWorkflowText },
                     { "#EMPLOYEENAME#", employeeName ?? "" },
                     { "#LEAVETYPE#", leaveType ?? "" },
@@ -1565,7 +1565,7 @@ namespace Nomaro.API.Services.Implimentation
                     { "#ApprovedBy", SenderName ?? "" },
                     { "#APPROVERNAME#", SenderName ?? "" },
                     { "#REJECTIONREASON#", rejectReason ?? "" },
-                    { "#CURRENTDATETIME#", DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt") }
+                    { "#CURRENTDATETIME#", CompanyTime.Now.ToString("dd-MMM-yyyy hh:mm tt") }
                 };
 
                 // Get processed content using helper method
@@ -1763,7 +1763,7 @@ namespace Nomaro.API.Services.Implimentation
                 NotificationType = dto.NotificationType,
                 EntityTablePrimaryKeyID = dto.EntityTablePrimaryKeyID,
                 NotificationMessage = dto.NotificationMessage,
-                CreatedDate = DateTime.Now,
+                CreatedDate = CompanyTime.Now,
                 ReadStatus = false
             };
 

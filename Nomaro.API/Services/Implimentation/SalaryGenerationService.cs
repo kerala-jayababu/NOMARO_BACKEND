@@ -233,7 +233,7 @@ namespace YourNamespace.Services.Implementation
                     s.CreatedBy
                 }).ToList();
 
-                var currentDate = DateTime.Now;
+                var currentDate = CompanyTime.Now;
                 employeeSalaries.ForEach(salary =>
                 {
                     salary.ApprovalStatus = "SUBMITTED";
@@ -1115,7 +1115,7 @@ namespace YourNamespace.Services.Implementation
             if (salaryEntity != null)
             {
                 salaryEntity.EmailStatus = "InProcess";
-                salaryEntity.EmailSentDate = DateTime.Now;
+                salaryEntity.EmailSentDate = CompanyTime.Now;
                 await _dbContext.SaveChangesAsync();
             }
             else
@@ -1134,7 +1134,7 @@ namespace YourNamespace.Services.Implementation
             if (salaryEntity != null)
             {
                 salaryEntity.EmailStatus = "SENT";
-                salaryEntity.EmailSentDate = DateTime.Now;
+                salaryEntity.EmailSentDate = CompanyTime.Now;
                 await _dbContext.SaveChangesAsync();
             }
             else

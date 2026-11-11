@@ -85,7 +85,8 @@ namespace Nomaro.API.Services.Implementation
                 DateFormat = config.DateFormat,
                 CurrencySymbol = config.CurrencySymbol,
                 CurrencyName = config.CurrencyName,
-                CurrencyCode = config.CurrencyCode
+                CurrencyCode = config.CurrencyCode,
+                TimeZoneId = config.TimeZoneId
             };
         }
 

@@ -230,7 +230,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                 }
 
                 string fileExtension = Path.GetExtension(dto.File.FileName);
-                string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
+                string currentDate = CompanyTime.Now.ToString("yyyy_MM_dd");
                 string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
                 string uniqueFileName = $"ML_{maternityLeaveSalary.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}{fileExtension}";
                 string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
@@ -260,7 +260,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                     Amount = (decimal)detail.Amount,
                     AmountInUSD = 0,
                     CreatedBy = EmployeeId,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = CompanyTime.Now
                 };
 
                 await _dbContext.MaternityLeaveSalaryDetail.AddAsync(maternityLeaveDetail);
@@ -348,7 +348,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                 }
 
                 string fileExtension = Path.GetExtension(dto.File.FileName);
-                string currentDate = DateTime.Now.ToString("yyyy_MM_dd");
+                string currentDate = CompanyTime.Now.ToString("yyyy_MM_dd");
                 string originalFileNameWithoutExt = Path.GetFileNameWithoutExtension(dto.File.FileName);
                 string uniqueFileName = $"ML_{dto.IdMaternityLeaveSalary}_{dto.IdEmployee}_{dto.EmployeeCode}_{currentDate}{fileExtension}";
                 string filePath = Path.Combine(uploadFolderPath, uniqueFileName);
@@ -412,7 +412,7 @@ public class MaternityLeaveSalaryService : IMaternityLeaveSalaryService
                             Amount = (decimal)detailDto.Amount,
                             AmountInUSD = 0,
                             CreatedBy = updatedBy,
-                            CreatedDate = DateTime.Now
+                            CreatedDate = CompanyTime.Now
                         };
 
                         await _dbContext.MaternityLeaveSalaryDetail.AddAsync(newDetail);

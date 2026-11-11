@@ -429,7 +429,7 @@ namespace Nomaro.API.Services.Implimentation
 
                 // 🔹 Audit fields
                 transactionEntity.CreatedBy = idEmployee;
-                transactionEntity.CreatedOn = DateTime.Now;
+                transactionEntity.CreatedOn = CompanyTime.Now;
                 // Combine Date + Time so overnight overtime (e.g. 21:01 -> next day 06:04) is calculated correctly
                 var startDateTime = transactionEntity.StartDate.Date + transactionEntity.StartTime;
                 var endDateTime = transactionEntity.EndDate.Date + transactionEntity.EndTime;
@@ -567,7 +567,7 @@ namespace Nomaro.API.Services.Implimentation
                         LevelNumber = 1,
                         SourceIdEmployee = entity.IdEmployee,
                         TargetIdEmployee = targetEmployeeIds,
-                        SentDate = DateTime.Now
+                        SentDate = CompanyTime.Now
                     };
 
                     await _dbContext.ApprovalWorkFlowAllocations.AddAsync(autoApprovedRecord);

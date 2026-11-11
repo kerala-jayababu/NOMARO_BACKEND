@@ -18,5 +18,6 @@ namespace Nomaro.API.Models
         public string? CurrencySymbol { get; set; }
         public string? CurrencyName { get; set; }
         public string? CurrencyCode { get; set; }
+        public string? TimeZoneId { get; set; }
     }
 }

@@ -28,6 +28,7 @@ namespace Nomaro.API.Helpers
         {
             var path = context.Request.Path.Value ?? string.Empty;
             var match = TenantPathPattern.Match(path);
+            IDisposable? countryTimeScope = null;
 
             if (match.Success)
             {
@@ -37,6 +38,7 @@ namespace Nomaro.API.Helpers
                 if (config != null && !string.IsNullOrWhiteSpace(config.DBConnectionString))
                 {
                     tenantService.SetTenant(config.CompanyCode ?? companyCode, config.DBConnectionString);
+                    countryTimeScope = CompanyTime.SetTimeZoneId(config.TimeZoneId);
 
                     var rewrittenPath = match.Groups["prefix"].Value + match.Groups["rest"].Value;
                     context.Request.Path = new PathString(rewrittenPath);
@@ -45,7 +47,14 @@ namespace Nomaro.API.Helpers
                 }
             }
 
-            await _next(context);
+            try
+            {
+                await _next(context);
+            }
+            finally
+            {
+                countryTimeScope?.Dispose();
+            }
         }
     }
 }

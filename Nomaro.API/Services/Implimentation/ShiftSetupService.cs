@@ -194,7 +194,7 @@ namespace Nomaro.API.Services.Implimentation
                 var office = officeEntities[assignment.IdOffice];
                 office.ShiftManager = assignment.IdEmployee;
                 office.IdModifiedBy = employeeId;
-                office.ModifiedDateTime = DateTime.Now;
+                office.ModifiedDateTime = CompanyTime.Now;
             }
 
             await _dbContext.SaveChangesAsync();

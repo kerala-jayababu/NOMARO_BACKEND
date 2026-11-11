@@ -316,7 +316,7 @@ public class ShiftService : IShiftService
             if (!records.Any())
                 return false;
 
-            var currentTime = DateTime.Now;
+            var currentTime = CompanyTime.Now;
 
             foreach (var record in records)
             {
@@ -691,22 +691,21 @@ public class ShiftService : IShiftService
             string recordStatus = string.Empty;
             var auditLogs = new List<(string actionType, string entityName, int entityId, object actionDetails)>();
 
-            var guyanaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Guyana");
-            var currentGuyanaTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, guyanaTimeZone);
+            var companyTime = CompanyTime.Now;
 
             var sameDayRecords = await _dbContext.ClockInOutDetails
                 .Where(c => c.ClockDate == entryDetails.EntryDate.Date
                          && c.IdEmployee == entryDetails.IdEmployee)
                 .ToListAsync();
 
-            if (entryDetails.EntryDate.Date != currentGuyanaTime.Date)
+            if (entryDetails.EntryDate.Date != companyTime.Date)
             {
                 throw new ArgumentException(
                     $"You can enter Forgot Card details only for today"
                 );
             }
 
-            if (entryDetails.EntryTime > currentGuyanaTime.AddMinutes(1))
+            if (entryDetails.EntryTime > companyTime.AddMinutes(1))
             {
                 throw new ArgumentException(
                     $"Invalid Time. Entry time must be less than current time"
@@ -910,4 +909,3 @@ public class ShiftService : IShiftService
         return result;
     }
 }
-

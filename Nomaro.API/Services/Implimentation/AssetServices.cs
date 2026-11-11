@@ -298,7 +298,7 @@ namespace Nomaro.API.Services.Implimentation
                     IdEmployee = idEmployee,
                     AssignedDate = DateTime.Today,
                     AssignedBy = idLoggedInEmployee,
-                    AssignedDateTime = DateTime.Now
+                    AssignedDateTime = CompanyTime.Now
                 });
             }
             else if (current.IdOffice != idOffice || current.IdEmployee != idEmployee)
@@ -312,7 +312,7 @@ namespace Nomaro.API.Services.Implimentation
                 current.IdOffice = idOffice;
                 current.IdEmployee = idEmployee;
                 current.AssignedBy = idLoggedInEmployee;
-                current.AssignedDateTime = DateTime.Now;
+                current.AssignedDateTime = CompanyTime.Now;
             }
 
             asset.IsAllocated = true;

@@ -1187,7 +1187,7 @@ namespace Nomaro.API.Controllers
                                 }
                             }
                         }
-                        string timestamp = DateTime.Now.ToString("MMddyyyyHHmmss");
+                        string timestamp = CompanyTime.Now.ToString("MMddyyyyHHmmss");
                         string zipFileName = $"Payslips_{timestamp}.zip";
                         return File(zipStream.ToArray(), "application/zip", zipFileName);
                         

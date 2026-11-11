@@ -106,7 +106,7 @@ namespace Nomaro.API.Services.Implimentation
                     }
                 }
                 var salaryHeadEntity = _mapper.Map<SalaryHeads>(dto);              
-                salaryHeadEntity.CreatedOn = DateTime.Now;
+                salaryHeadEntity.CreatedOn = CompanyTime.Now;
                 salaryHeadEntity.HeadType = dto.HeadType.ToUpper().Trim();
                 salaryHeadEntity.CreatedBy = IdEmployee;
                 var addedEntity = await _dbContext.SalaryHeads.AddAsync(salaryHeadEntity);
@@ -145,7 +145,7 @@ namespace Nomaro.API.Services.Implimentation
                 salaryHead.FixedValue = dto.FixedValue;
                 salaryHead.CustomFormula = dto.CustomFormula;
                 salaryHead.ModifiedBy = IdEmployee;
-                salaryHead.ModifiedOn = DateTime.Now;
+                salaryHead.ModifiedOn = CompanyTime.Now;
                 salaryHead.OrderNumber = dto.OrderNumber;
                 salaryHead.NonTaxableThreshold = dto.NonTaxableThreshold;
                 salaryHead.StatutoryType = dto.StatutoryType;

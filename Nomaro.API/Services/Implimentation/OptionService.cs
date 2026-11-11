@@ -409,7 +409,7 @@ namespace Nomaro.API.Services.Implimentation
                 if (notification != null)
                 {
                     notification.IsReadAppNotification = true;
-                    notification.ReadAt = DateTime.Now;
+                    notification.ReadAt = CompanyTime.Now;
                     await _dbContext.SaveChangesAsync();
 
                     // Map and return the updated notification
@@ -517,7 +517,7 @@ namespace Nomaro.API.Services.Implimentation
                 return false;
 
             notification.ReadStatus = true;
-            notification.ReadDate = DateTime.Now;
+            notification.ReadDate = CompanyTime.Now;
 
             await _dbContext.SaveChangesAsync();
 
