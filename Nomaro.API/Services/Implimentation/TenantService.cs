@@ -14,17 +14,15 @@ namespace Nomaro.API.Services.Implementation
 
         private readonly GlobalDbContext _globalDbContext;
         private readonly IMemoryCache _cache;
-        private readonly IConfiguration _configuration;
         private readonly ILogger<TenantService> _logger;
 
         public string? CompanyCode { get; private set; }
         private string? _connectionString;
 
-        public TenantService(GlobalDbContext globalDbContext, IMemoryCache cache, IConfiguration configuration, ILogger<TenantService> logger)
+        public TenantService(GlobalDbContext globalDbContext, IMemoryCache cache, ILogger<TenantService> logger)
         {
             _globalDbContext = globalDbContext;
             _cache = cache;
-            _configuration = configuration;
             _logger = logger;
         }
 
@@ -40,7 +38,8 @@ namespace Nomaro.API.Services.Implementation
             {
                 return _connectionString;
             }
-            return _configuration.GetConnectionString("DbContext") ?? string.Empty;
+            throw new InvalidOperationException(
+                $"No tenant database connection string has been resolved for company code '{CompanyCode ?? "<missing>"}'.");
         }
 
         public async Task<NomaroInstanceConfig?> GetTenantConfigAsync(string companyCode)

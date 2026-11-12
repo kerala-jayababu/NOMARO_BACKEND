@@ -7,8 +7,8 @@ namespace Nomaro.API.Helpers
     // When the segment after the API version matches a company code in NOMARO_GLOBAL.dbo.NomaroInstanceConfig,
     // the tenant connection string is stored on the scoped ITenantService and the company segment is stripped
     // from the path so existing controller routes keep working unchanged.
-    // When the segment is not a company code (e.g. a controller name), the request passes through untouched
-    // and the default connection string is used.
+    // When the segment is not a company code (e.g. a controller name), the request passes through untouched.
+    // Tenant-backed endpoints must include a valid company code in the URL.
     public class TenantMiddleware
     {
         private static readonly Regex TenantPathPattern = new Regex(

@@ -5,14 +5,13 @@ namespace Nomaro.API.Services.Interface
 {
     public interface ITenantService
     {
-        // Company code resolved for the current request (null when the default connection is used).
+        // Company code resolved for the current request.
         string? CompanyCode { get; }
 
         // Marks the current request scope with the tenant resolved from the URL.
         void SetTenant(string companyCode, string connectionString);
 
-        // Connection string for the current request: the tenant's when set, otherwise the
-        // default "DbContext" connection string from configuration.
+        // Connection string for the current request's resolved tenant.
         string ResolveConnectionString();
 
         // Looks up the tenant row in NOMARO_GLOBAL.dbo.NomaroInstanceConfig (cached).

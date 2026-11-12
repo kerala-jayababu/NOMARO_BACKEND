@@ -75,7 +75,7 @@ builder.Services.AddApiVersioning(options =>
 
 // Add EF Core
 // Tenant-aware context: uses the connection string resolved from the company code in the
-// request URL (see TenantMiddleware), falling back to the default "DbContext" connection.
+// request URL (see TenantMiddleware).
 builder.Services.AddDbContext<ApplicationDBContext>((serviceProvider, options) =>
 {
     var tenantService = serviceProvider.GetRequiredService<ITenantService>();

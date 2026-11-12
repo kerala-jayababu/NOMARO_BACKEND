@@ -512,7 +512,12 @@ namespace YourNamespace.Services.Implementation
         {
             try
             {
-                var connStr = _configuration.GetConnectionString("DbContext");
+                var connStr = _dbContext.Database.GetConnectionString();
+                if (string.IsNullOrWhiteSpace(connStr))
+                {
+                    throw new InvalidOperationException("The tenant database connection string is not available for this request.");
+                }
+
                 using (var connection = new SqlConnection(connStr))
                 {
                     var query = @"SELECT CASE WHEN EXISTS (
@@ -1605,4 +1610,3 @@ namespace YourNamespace.Services.Implementation
 
     }
 }
-

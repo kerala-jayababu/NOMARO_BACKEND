@@ -3355,10 +3355,10 @@ namespace Nomaro.API.Services.Implimentation
                 leaveStatusDetails = LeaveStatus; // fallback safety
             }
 
-            var connStr = _configuration.GetConnectionString("DbContext");
+            var connStr = _dbContext.Database.GetConnectionString();
             if (string.IsNullOrWhiteSpace(connStr))
             {
-                throw new InvalidOperationException("Database connection string 'DbContext' is not configured.");
+                throw new InvalidOperationException("The tenant database connection string is not available for this request.");
             }
 
             using var con = new SqlConnection(connStr);
@@ -4395,4 +4395,3 @@ namespace Nomaro.API.Services.Implimentation
 
     }
 }
-

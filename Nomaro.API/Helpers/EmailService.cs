@@ -118,8 +118,7 @@ namespace Nomaro.API.Helpers
                 return tenantService?.ResolveConnectionString();
             }
 
-            // No active request (background task): create a scope and use whatever tenant
-            // was applied to that scope, otherwise the default connection string.
+            // No active request (background task): create a scope to check for a tenant context.
             using var scope = _serviceProvider.CreateScope();
             return scope.ServiceProvider.GetService<ITenantService>()?.ResolveConnectionString();
         }
