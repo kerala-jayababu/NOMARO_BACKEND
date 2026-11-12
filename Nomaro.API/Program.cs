@@ -88,6 +88,7 @@ builder.Services.AddDbContext<GlobalDbContext>(options =>
 
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<ICompanyOnboardingService, CompanyOnboardingService>();
 
 // CORS setup
 var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>();

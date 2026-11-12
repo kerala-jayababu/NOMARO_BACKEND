@@ -8,6 +8,7 @@
         public string Designation { get; set; }
         public string Department { get; set; }
         public string? EmployeeWorkType { get; set; }
+        public string? PaymentMode { get; set; }
         public int IdBudgetCode { get; set; }
         public int ChildrenCount { get; set; }
         public int IdDepartment { get; set; }

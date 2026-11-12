@@ -38,6 +38,7 @@ namespace Nomaro.API.Services.Implimentation
             NomineePercentage = m.NomineePercentage,
             MarriageDate = m.MarriageDate,
             CertificateNumber = m.CertificateNumber,
+            DependentEmiratesId = m.DependentEmiratesId,
             DivisionNumber = m.DivisionNumber,
             Remarks = m.Remarks
         };
@@ -70,6 +71,8 @@ namespace Nomaro.API.Services.Implimentation
             if (gender != null && !new[] { "MALE", "FEMALE", "OTHER" }.Contains(gender)) throw new InvalidOperationException("Gender must be Male, Female or Other.");
             if (!string.IsNullOrWhiteSpace(dto.ContactNumber) && !System.Text.RegularExpressions.Regex.IsMatch(dto.ContactNumber.Trim(), @"^[0-9+\- ]{6,20}$"))
                 throw new InvalidOperationException("Contact number must be 6 to 20 digits.");
+            if (!string.IsNullOrWhiteSpace(dto.DependentEmiratesId) && !System.Text.RegularExpressions.Regex.IsMatch(dto.DependentEmiratesId.Trim(), @"^784-?[0-9]{4}-?[0-9]{7}-?[0-9]$"))
+                throw new InvalidOperationException("Emirates ID must be 15 digits, like 784-YYYY-NNNNNNN-N.");
 
             var family = await _db.EmployeeFamilyMembers.Where(m => m.IdEmployee == dto.IdEmployee).ToListAsync();
             EmployeeFamilyMembers member;
@@ -100,6 +103,7 @@ namespace Nomaro.API.Services.Implimentation
             member.NomineePercentage = dto.IsNominee ? dto.NomineePercentage : null;
             member.MarriageDate = dto.MarriageDate?.Date;
             member.CertificateNumber = Clean(dto.CertificateNumber, 20);
+            member.DependentEmiratesId = Clean(dto.DependentEmiratesId, 20);
             member.DivisionNumber = Clean(dto.DivisionNumber, 20);
             member.Remarks = Clean(dto.Remarks, 250);
 

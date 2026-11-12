@@ -21,6 +21,14 @@ namespace Nomaro.API.Models
         public string? PhoneNumber { get; set; }
         public string? EmailId { get; set; }
         public string? GSTIN { get; set; }
+        // Registrations (country field matrix): UAE trade licence / MOHRE establishment; India PF, ESI, TAN, PT
+        public string? TradeLicenceNumber { get; set; }
+        public DateTime? TradeLicenceExpiry { get; set; }
+        public string? EstablishmentId { get; set; }
+        public string? PFEstablishmentCode { get; set; }
+        public string? ESIEmployerCode { get; set; }
+        public string? TAN { get; set; }
+        public string? PTRegistrationNumber { get; set; }
         /// <summary>"latitude,longitude", e.g. "9.931233,76.267304"</summary>
         public string? GeoCoordinate { get; set; }
         public int? IdOfficeHead { get; set; }

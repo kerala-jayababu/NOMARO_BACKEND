@@ -25,6 +25,15 @@ namespace Nomaro.API.Validators.Employee
                 .Matches("^([0-9]{10}|[0-9]{17})$").WithMessage("ESI Number must be 10 or 17 digits.")
                 .When(x => !string.IsNullOrWhiteSpace(x.ESINumber));
 
+            RuleFor(x => x.PensionScheme)
+                .MaximumLength(30).WithMessage("Pension Authority must not exceed 30 characters.");
+
+            RuleFor(x => x.PensionRegistrationNumber)
+                .MaximumLength(50).WithMessage("Pension Registration No. must not exceed 50 characters.");
+
+            RuleFor(x => x.UnemploymentInsuranceNo)
+                .MaximumLength(50).WithMessage("Unemployment Insurance Policy No. must not exceed 50 characters.");
+
             RuleFor(x => x.VPFRate)
                 .InclusiveBetween(0, 100).WithMessage("VPF Rate must be between 0 and 100.")
                 .When(x => x.VPFRate.HasValue);

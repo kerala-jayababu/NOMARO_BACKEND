@@ -35,6 +35,13 @@ namespace Nomaro.API.Validators.OfficeManagement
             RuleFor(x => x.PinCode).MaximumLength(10).WithMessage("Pin code must not exceed 10 characters.");
             RuleFor(x => x.PhoneNumber).MaximumLength(20).WithMessage("Phone number must not exceed 20 characters.");
             RuleFor(x => x.GSTIN).MaximumLength(15).WithMessage("GSTIN must not exceed 15 characters.");
+            RuleFor(x => x.TradeLicenceNumber).MaximumLength(50).WithMessage("Trade Licence No. must not exceed 50 characters.");
+            RuleFor(x => x.EstablishmentId).MaximumLength(20).WithMessage("Establishment ID must not exceed 20 characters.")
+                .Matches("^[0-9]+$").When(x => !string.IsNullOrWhiteSpace(x.EstablishmentId)).WithMessage("Establishment ID must contain digits only.");
+            RuleFor(x => x.PFEstablishmentCode).MaximumLength(30).WithMessage("PF Establishment Code must not exceed 30 characters.");
+            RuleFor(x => x.ESIEmployerCode).Matches("^[0-9]{17}$").When(x => !string.IsNullOrWhiteSpace(x.ESIEmployerCode)).WithMessage("ESI Employer Code must be 17 digits.");
+            RuleFor(x => x.TAN).Matches("^[A-Za-z]{4}[0-9]{5}[A-Za-z]$").When(x => !string.IsNullOrWhiteSpace(x.TAN)).WithMessage("TAN must be 10 characters, like ABCD12345E.");
+            RuleFor(x => x.PTRegistrationNumber).MaximumLength(50).WithMessage("PT Registration No. must not exceed 50 characters.");
 
             // "latitude,longitude" with latitude -90..90 and longitude -180..180
             RuleFor(x => x.GeoCoordinate)

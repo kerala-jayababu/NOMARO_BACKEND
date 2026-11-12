@@ -7,6 +7,8 @@ namespace Nomaro.API.DTO
         public int EmployeeId { get; set; }
         public int BudgetCodeId { get; set; }
         public int ChildCount { get; set; }
+        // BANK or SALARYCARD; left unchanged when not sent
+        public string? PaymentMode { get; set; }
         public IFormFile? File { get; set; }
         public string? ChildCountDocumentFilePath { get; set; }
 

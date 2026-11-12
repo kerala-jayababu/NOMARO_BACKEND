@@ -18,6 +18,11 @@ namespace Nomaro.API.DTO
         public int? IdPTState { get; set; }
         public bool IsPTApplicable { get; set; }
         public bool IsLWFApplicable { get; set; }
+        // UAE statutory (pension for UAE / GCC nationals, ILOE)
+        public bool IsPensionApplicable { get; set; }
+        public string? PensionScheme { get; set; }
+        public string? PensionRegistrationNumber { get; set; }
+        public string? UnemploymentInsuranceNo { get; set; }
         // Filled from Employees when not sent
         public string? Gender { get; set; }
         public DateTime? DateOfBirth { get; set; }

@@ -16,6 +16,7 @@
         public decimal? NomineePercentage { get; set; }
         public DateTime? MarriageDate { get; set; }
         public string? CertificateNumber { get; set; }
+        public string? DependentEmiratesId { get; set; }
         public string? DivisionNumber { get; set; }
         public string? Remarks { get; set; }
     }

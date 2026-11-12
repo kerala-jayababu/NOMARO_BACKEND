@@ -60,7 +60,8 @@ namespace Nomaro.API.Services.Implimentation
                     bc.BudgetCodeName,
                     e.EmployeePhotoFilePath,
                     e.OverTimeAllowedStatus,
-                    e.EmployeeWorkType
+                    e.EmployeeWorkType,
+                    e.PaymentMode
                 FROM 
                     Employees e
                 INNER JOIN 
@@ -228,6 +229,13 @@ namespace Nomaro.API.Services.Implimentation
                 // Update the employee fields
                 employee.IdBudgetCode = dto.BudgetCodeId;
                 employee.ChildrenCount = dto.ChildCount;
+                if (dto.PaymentMode != null)
+                {
+                    var mode = dto.PaymentMode.Trim().ToUpperInvariant();
+                    if (mode.Length > 0 && mode != "BANK" && mode != "SALARYCARD")
+                        throw new InvalidOperationException("Payment Mode must be BANK or SALARYCARD.");
+                    employee.PaymentMode = mode.Length == 0 ? null : mode;
+                }
                 if (dto.File != null)
                 {
                     string uploadFolderPath = Path.Combine(_webHostEnvironment.ContentRootPath, "Uploads/Documents");
@@ -1358,6 +1366,12 @@ namespace Nomaro.API.Services.Implimentation
                 employee.WorkExpirationDate = dto.WorkExpirationDate;
                 employee.CitizenShip = dto.CitizenShip;
                 employee.WhatsAppNumber = dto.WhatsAppNumber;
+                employee.PassportExpiry = dto.PassportExpiry;
+                employee.EmiratesIdExpiry = dto.EmiratesIdExpiry;
+                employee.VisaNumber = string.IsNullOrWhiteSpace(dto.VisaNumber) ? null : dto.VisaNumber.Trim();
+                employee.VisaSponsor = string.IsNullOrWhiteSpace(dto.VisaSponsor) ? null : dto.VisaSponsor.Trim();
+                employee.LabourCardNumber = string.IsNullOrWhiteSpace(dto.LabourCardNumber) ? null : dto.LabourCardNumber.Trim();
+                employee.LabourCardExpiry = dto.LabourCardExpiry;
 
                 // Handle photo upload (if new photo provided)
                 if (dto.EmployeePhoto != null)

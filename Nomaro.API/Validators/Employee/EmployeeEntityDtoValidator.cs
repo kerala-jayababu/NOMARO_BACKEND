@@ -20,6 +20,17 @@ namespace Nomaro.API.Validators.Employee
                 .EmailAddress().When(e => !string.IsNullOrEmpty(e.EmailID))
                 .WithMessage("Invalid email format.");
 
+            RuleFor(e => e.VisaNumber)
+                .MaximumLength(50).WithMessage("Residence Visa File No. must not exceed 50 characters.");
+
+            RuleFor(e => e.VisaSponsor)
+                .MaximumLength(30).WithMessage("Visa Sponsor must not exceed 30 characters.");
+
+            RuleFor(e => e.LabourCardNumber)
+                .MaximumLength(30).WithMessage("Labour Card No. must not exceed 30 characters.")
+                .Matches("^[0-9]+$").When(e => !string.IsNullOrWhiteSpace(e.LabourCardNumber))
+                .WithMessage("Labour Card / MOHRE Person ID must contain digits only.");
+
             RuleFor(e => e.EmployeePhoto)
                 .Must(f => f == null || f.Length <= 2 * 1024 * 1024)
                 .WithMessage("Employee photo must not exceed 2MB.");

@@ -193,6 +193,7 @@ namespace Nomaro.API.Services.Implimentation
                         // Update existing
                         existingBank.BankName = bankDto.BankName;
                         existingBank.SwiftCode = bankDto.SwiftCode;
+                        existingBank.RoutingCode = string.IsNullOrWhiteSpace(bankDto.RoutingCode) ? null : bankDto.RoutingCode.Trim();
 
                         updatedBanks.Add(existingBank);
                     }
@@ -202,7 +203,8 @@ namespace Nomaro.API.Services.Implimentation
                         var newBank = new Banks
                         {
                             BankName = bankDto.BankName,
-                            SwiftCode = bankDto.SwiftCode
+                            SwiftCode = bankDto.SwiftCode,
+                            RoutingCode = string.IsNullOrWhiteSpace(bankDto.RoutingCode) ? null : bankDto.RoutingCode.Trim()
                         };
 
                         await _dbContext.Banks.AddAsync(newBank);

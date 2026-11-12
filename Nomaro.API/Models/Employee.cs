@@ -50,6 +50,15 @@ namespace Nomaro.API.Models
         public string? PassportNumber { get; set; }
         public DateTime? WorkExpirationDate { get; set; }
         public string? CitizenShip { get; set; }
+        // Identity / visa (country field matrix; UAE fields hidden per company through CompanyScreenAttributeConfig)
+        public DateTime? PassportExpiry { get; set; }
+        public DateTime? EmiratesIdExpiry { get; set; }
+        public string? VisaNumber { get; set; }
+        public string? VisaSponsor { get; set; }
+        public string? LabourCardNumber { get; set; }
+        public DateTime? LabourCardExpiry { get; set; }
+        // Salary payment mode: BANK or SALARYCARD (WPS exchange-house salary card)
+        public string? PaymentMode { get; set; }
 
         // Password login (hash only - never the plain password)
         [System.Text.Json.Serialization.JsonIgnore]
