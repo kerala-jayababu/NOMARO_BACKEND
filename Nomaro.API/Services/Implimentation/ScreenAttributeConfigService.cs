@@ -8,27 +8,29 @@ namespace Nomaro.API.Services.Implimentation
     public class ScreenAttributeConfigService : IScreenAttributeConfigService
     {
         private readonly GlobalDbContext _globalDbContext;
-        private readonly ITenantService _tenantService;
         private readonly ILogger<ScreenAttributeConfigService> _logger;
 
         public ScreenAttributeConfigService(
             GlobalDbContext globalDbContext,
-            ITenantService tenantService,
             ILogger<ScreenAttributeConfigService> logger)
         {
             _globalDbContext = globalDbContext;
-            _tenantService = tenantService;
             _logger = logger;
         }
 
         public async Task<IReadOnlyList<ScreenAttributeConfigDto>> GetByScreenCodeAsync(
+            string companyCode,
             string screenCode,
             CancellationToken cancellationToken)
         {
-            var companyCode = _tenantService.CompanyCode;
             if (string.IsNullOrWhiteSpace(companyCode))
             {
-                throw new InvalidOperationException("A company code is required to load screen field configuration.");
+                throw new ArgumentException("A company code is required to load screen field configuration.", nameof(companyCode));
+            }
+
+            if (string.IsNullOrWhiteSpace(screenCode))
+            {
+                throw new ArgumentException("A screen code is required to load screen field configuration.", nameof(screenCode));
             }
 
             try
