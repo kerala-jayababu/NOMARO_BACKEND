@@ -14,8 +14,12 @@
    BACKUP DATABASE on the template, and read/write on the new database.
    ===================================================================== */
 
+-- wrong database: stop every batch below (THROW alone stops only this batch)
 IF DB_NAME() <> 'NOMARO_GLOBAL'
-    THROW 51000, 'Run this script against NOMARO_GLOBAL.', 1;
+BEGIN
+    RAISERROR('Run this script against NOMARO_GLOBAL. Nothing was changed.', 16, 1);
+    SET NOEXEC ON;
+END
 GO
 
 /* 1. Country configuration columns ------------------------------------ */
@@ -179,3 +183,6 @@ WHERE ParameterName = 'EmailSettings';
 SELECT CountryCode, CountryName, SourceDatabaseName, CASE WHEN SourceServerConnection IS NULL THEN '(same as NOMARO_GLOBAL)' ELSE '(set)' END AS SourceServer,
        DateFormat, CurrencySymbol, CurrencyCode, BaseURL, TimeZoneId
 FROM dbo.NomaroCountries;
+GO
+SET NOEXEC OFF;
+GO

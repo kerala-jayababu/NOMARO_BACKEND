@@ -153,6 +153,7 @@ namespace Nomaro.API.Services.Implimentation
                 entity.IdPTState = dto.IdPTState;
                 entity.IsPTApplicable = dto.IsPTApplicable;
                 entity.IsLWFApplicable = dto.IsLWFApplicable;
+                entity.IdTaxRegime = dto.IdTaxRegime is 1 or 2 ? dto.IdTaxRegime : null;
                 entity.IsPensionApplicable = dto.IsPensionApplicable;
                 entity.PensionScheme = Clean(dto.PensionScheme);
                 entity.PensionRegistrationNumber = Clean(dto.PensionRegistrationNumber);

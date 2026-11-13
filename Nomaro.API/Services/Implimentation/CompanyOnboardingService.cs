@@ -91,6 +91,7 @@ namespace Nomaro.API.Services.Implementation
             public string? CurrencyCode { get; set; }
             public string? BaseURL { get; set; }
             public string? TimeZoneId { get; set; }
+            public string? TaxEngine { get; set; }
         }
 
         private string GlobalConnectionString => _configuration.GetConnectionString("GlobalDbContext")
@@ -104,9 +105,14 @@ namespace Nomaro.API.Services.Implementation
         {
             await using var cn = GlobalConnection();
             return (await cn.QueryAsync<CountryRow>(
-                @"SELECT CountryCode, CountryName, SourceDatabaseName, SourceServerConnection, DateFormat, CurrencySymbol,
-                         CurrencyName, CurrencyCode, BaseURL, TimeZoneId
-                  FROM dbo.NomaroCountries ORDER BY CountryName")).ToList();
+                @"SELECT c.CountryCode, c.CountryName,
+                         -- one source database for all countries (GlobalSystemParameters) unless a country names its own
+                         COALESCE(NULLIF(LTRIM(RTRIM(c.SourceDatabaseName)), ''),
+                                  (SELECT TOP 1 NULLIF(LTRIM(RTRIM(g.ParameterValue)), '') FROM dbo.GlobalSystemParameters g
+                                   WHERE g.ParameterName = 'OnboardingSourceDatabase')) AS SourceDatabaseName,
+                         c.SourceServerConnection, c.DateFormat, c.CurrencySymbol,
+                         c.CurrencyName, c.CurrencyCode, c.BaseURL, c.TimeZoneId, c.TaxEngine
+                  FROM dbo.NomaroCountries c ORDER BY c.CountryName")).ToList();
         }
 
         private static bool Configured(CountryRow c) =>
@@ -413,12 +419,15 @@ namespace Nomaro.API.Services.Implementation
                 {
                     step = SDbConfigured;
                     await ConfigureDatabase(tenantConnection, reg);
+                    await SeedCountryData(tenantConnection, country);
                     await Done(reg, SDbConfigured);
                 }
                 if (!Reached(reg, SAdminCreated))
                 {
                     step = SAdminCreated;
-                    await CreateAdmin(tenantConnection, reg);
+                    var adminId = await CreateAdmin(tenantConnection, reg);
+                    await SeedSalaryHeads(tenantConnection, country, adminId);
+                    await SeedStatutoryRules(tenantConnection, country);
                     await Done(reg, SAdminCreated);
                 }
                 if (!Reached(reg, SActive))
@@ -688,7 +697,7 @@ ELSE
         }
 
         /// <summary>The ADMIN employee: the registered email, active, every Payroll screen with all its permissions.</summary>
-        private async Task CreateAdmin(string connection, CompanyRegistration reg)
+        private async Task<int> CreateAdmin(string connection, CompanyRegistration reg)
         {
             const string sql = @"
 DECLARE @id INT = (SELECT TOP 1 IdEmployee FROM dbo.Employees WHERE EmployeeCode = 'ADMIN' ORDER BY IdEmployee);
@@ -780,6 +789,279 @@ SELECT @id;";
             }, tx, commandTimeout: 120);
             if (id is not > 0) throw new InvalidOperationException("The administrator could not be created.");
             await tx.CommitAsync();
+            return id.Value;
+        }
+
+        /// <summary>Country default salary heads (NOMARO_GLOBAL.dbo.CountrySalaryHeads) copied into the new company.
+        /// A head whose code the company already has is left alone, so a retry is safe. Base heads are linked by code.</summary>
+        private async Task SeedSalaryHeads(string connection, CountryRow country, int createdBy)
+        {
+            List<CountrySalaryHeadRow> heads;
+            await using (var g = GlobalConnection())
+            {
+                heads = (await g.QueryAsync<CountrySalaryHeadRow>(
+                    "SELECT * FROM dbo.CountrySalaryHeads WHERE CountryCode = @c ORDER BY ISNULL(CalcSequence, 9999), ISNULL(OrderNumber, 9999), SalaryHeadCode",
+                    new { c = country.CountryCode.Trim() })).ToList();
+            }
+            if (heads.Count == 0)
+            {
+                _logger.LogWarning("No default salary heads in CountrySalaryHeads for country {Country}", country.CountryCode);
+                return;
+            }
+
+            const string insertSql = @"
+IF NOT EXISTS (SELECT 1 FROM dbo.SalaryHeads WHERE SalaryHeadCode = @SalaryHeadCode)
+BEGIN
+    DECLARE @newId INT = NULL;
+    IF COLUMNPROPERTY(OBJECT_ID('dbo.SalaryHeads'), 'IdSalaryHead', 'IsIdentity') <> 1
+        SELECT @newId = ISNULL(MAX(IdSalaryHead), 0) + 1 FROM dbo.SalaryHeads WITH (UPDLOCK, HOLDLOCK);
+
+    IF @newId IS NULL
+        INSERT INTO dbo.SalaryHeads
+            (SalaryHeadCode, SalaryHeadName, HeadType, IsTaxable, IsActive, CalculationMethod, PercentageValue, FixedValue, CustomFormula,
+             CreatedBy, CreatedOn, OrderNumber, NonTaxableThreshold, DisbursingMonths, StatutoryType,
+             IsPartOfGross, IsPartOfCTC, IsPartOfPFWage, IsPartOfESIWage, IsPartOfGratuityWage, IsPartOfPTWage,
+             IsProratedOnPaidDays, IsArrearHead, MinAmount, MaxAmount, WageCeiling, PayFrequency, CalcSequence, RoundingRule, ShowOnPayslip)
+        VALUES
+            (@SalaryHeadCode, @SalaryHeadName, @HeadType, @IsTaxable, @IsActive, @CalculationMethod, @PercentageValue, @FixedValue, @CustomFormula,
+             @CreatedBy, GETDATE(), @OrderNumber, @NonTaxableThreshold, @DisbursingMonths, @StatutoryType,
+             @IsPartOfGross, @IsPartOfCTC, @IsPartOfPFWage, @IsPartOfESIWage, @IsPartOfGratuityWage, @IsPartOfPTWage,
+             @IsProratedOnPaidDays, @IsArrearHead, @MinAmount, @MaxAmount, @WageCeiling, @PayFrequency, @CalcSequence, @RoundingRule, @ShowOnPayslip);
+    ELSE
+        INSERT INTO dbo.SalaryHeads
+            (IdSalaryHead, SalaryHeadCode, SalaryHeadName, HeadType, IsTaxable, IsActive, CalculationMethod, PercentageValue, FixedValue, CustomFormula,
+             CreatedBy, CreatedOn, OrderNumber, NonTaxableThreshold, DisbursingMonths, StatutoryType,
+             IsPartOfGross, IsPartOfCTC, IsPartOfPFWage, IsPartOfESIWage, IsPartOfGratuityWage, IsPartOfPTWage,
+             IsProratedOnPaidDays, IsArrearHead, MinAmount, MaxAmount, WageCeiling, PayFrequency, CalcSequence, RoundingRule, ShowOnPayslip)
+        VALUES
+            (@newId, @SalaryHeadCode, @SalaryHeadName, @HeadType, @IsTaxable, @IsActive, @CalculationMethod, @PercentageValue, @FixedValue, @CustomFormula,
+             @CreatedBy, GETDATE(), @OrderNumber, @NonTaxableThreshold, @DisbursingMonths, @StatutoryType,
+             @IsPartOfGross, @IsPartOfCTC, @IsPartOfPFWage, @IsPartOfESIWage, @IsPartOfGratuityWage, @IsPartOfPTWage,
+             @IsProratedOnPaidDays, @IsArrearHead, @MinAmount, @MaxAmount, @WageCeiling, @PayFrequency, @CalcSequence, @RoundingRule, @ShowOnPayslip);
+END";
+            const string linkSql = @"
+UPDATE s SET
+    IdPercentageSalaryHead = CASE WHEN @PercentageOfHeadCode IS NULL THEN s.IdPercentageSalaryHead
+                                  ELSE (SELECT TOP 1 b.IdSalaryHead FROM dbo.SalaryHeads b WHERE b.SalaryHeadCode = @PercentageOfHeadCode) END,
+    IdBaseSalaryHead = CASE WHEN @BaseHeadCode IS NULL THEN s.IdBaseSalaryHead
+                            ELSE (SELECT TOP 1 b.IdSalaryHead FROM dbo.SalaryHeads b WHERE b.SalaryHeadCode = @BaseHeadCode) END
+FROM dbo.SalaryHeads s
+WHERE s.SalaryHeadCode = @SalaryHeadCode AND s.CreatedBy = @CreatedBy;";
+
+            await using var cn = new SqlConnection(connection);
+            await cn.OpenAsync();
+            await using var tx = await cn.BeginTransactionAsync();
+            foreach (var h in heads)
+            {
+                var p = new DynamicParameters(h);
+                p.Add("CreatedBy", createdBy);
+                await cn.ExecuteAsync(insertSql, p, tx, commandTimeout: 120);
+            }
+            foreach (var h in heads.Where(h => !string.IsNullOrWhiteSpace(h.PercentageOfHeadCode) || !string.IsNullOrWhiteSpace(h.BaseHeadCode)))
+            {
+                await cn.ExecuteAsync(linkSql, new
+                {
+                    h.SalaryHeadCode,
+                    PercentageOfHeadCode = string.IsNullOrWhiteSpace(h.PercentageOfHeadCode) ? null : h.PercentageOfHeadCode.Trim(),
+                    BaseHeadCode = string.IsNullOrWhiteSpace(h.BaseHeadCode) ? null : h.BaseHeadCode.Trim(),
+                    CreatedBy = createdBy
+                }, tx, commandTimeout: 120);
+            }
+            await tx.CommitAsync();
+        }
+
+        private static readonly Regex TableNamePattern = new("^[A-Za-z0-9_]{1,128}$", RegexOptions.Compiled);
+
+        /// <summary>Country master data (NOMARO_GLOBAL.dbo.CountryDataTables / cd.&lt;table&gt;) copied into the new company with
+        /// the same Ids, so links between the tables stay right. A table that already has rows in the company is skipped,
+        /// so a retry is safe. Only columns present in both tables are copied.</summary>
+        private async Task SeedCountryData(string connection, CountryRow country)
+        {
+            var code = country.CountryCode.Trim();
+            List<string> tables;
+            await using (var g = GlobalConnection())
+            {
+                tables = (await g.QueryAsync<string>(@"
+IF OBJECT_ID('dbo.CountryDataTables', 'U') IS NOT NULL
+    SELECT TableName FROM dbo.CountryDataTables WHERE IsActive = 1 ORDER BY CopyOrder, TableName;")).ToList();
+            }
+            if (tables.Count == 0) return;
+
+            await using var cn = new SqlConnection(connection);
+            await cn.OpenAsync();
+            await using var tx = (SqlTransaction)await cn.BeginTransactionAsync();
+            await using var globalCn = GlobalConnection();
+            await globalCn.OpenAsync();
+
+            const string columnsSql = @"
+SELECT c.name FROM sys.columns c
+WHERE c.object_id = OBJECT_ID(@table) AND c.is_computed = 0 AND TYPE_NAME(c.system_type_id) NOT IN ('timestamp', 'rowversion')";
+
+            foreach (var table in tables.Where(t => TableNamePattern.IsMatch(t)))
+            {
+                var source = $"cd.[{table}]";
+                var target = $"dbo.[{table}]";
+
+                var sourceColumns = (await globalCn.QueryAsync<string>(columnsSql, new { table = source })).ToList();
+                if (sourceColumns.Count == 0) continue;   // not captured for any country yet
+
+                var targetColumns = (await cn.QueryAsync<string>(columnsSql, new { table = target }, tx)).ToList();
+                if (targetColumns.Count == 0)
+                {
+                    _logger.LogWarning("Country data {Table}: not in the new company database, skipped", table);
+                    continue;
+                }
+                if (await cn.ExecuteScalarAsync<int?>($"SELECT TOP 1 1 FROM {target}", transaction: tx) == 1) continue;   // already has data
+
+                var columns = targetColumns
+                    .Where(t => !t.Equals("CountryCode", StringComparison.OrdinalIgnoreCase)
+                                && sourceColumns.Any(s => s.Equals(t, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                if (columns.Count == 0) continue;
+
+                var data = new DataTable();
+                await using (var cmd = new SqlCommand(
+                    $"SELECT {string.Join(", ", columns.Select(c => "[" + c + "]"))} FROM {source} WHERE CountryCode = @code", globalCn))
+                {
+                    cmd.Parameters.AddWithValue("@code", code);
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    data.Load(reader);
+                }
+                if (data.Rows.Count == 0) continue;
+
+                using var bulk = new SqlBulkCopy(cn, SqlBulkCopyOptions.KeepIdentity | SqlBulkCopyOptions.KeepNulls, tx)
+                {
+                    DestinationTableName = target,
+                    BulkCopyTimeout = SqlTimeoutSeconds
+                };
+                foreach (var c in columns) bulk.ColumnMappings.Add(c, c);
+                await bulk.WriteToServerAsync(data);
+                _logger.LogInformation("Country data {Table}: {Count} rows copied for {Country}", table, data.Rows.Count, code);
+            }
+            await tx.CommitAsync();
+        }
+
+        /// <summary>Country statutory rules, PT / LWF slabs (NOMARO_GLOBAL) and the tax engine setting copied to the new company,
+        /// for the generic salary procedure. Existing rows are kept, so a retry is safe.</summary>
+        private async Task SeedStatutoryRules(string connection, CountryRow country)
+        {
+            var code = country.CountryCode.Trim();
+            IEnumerable<dynamic> rules, pt, lwf;
+            await using (var g = GlobalConnection())
+            {
+                rules = await g.QueryAsync("SELECT * FROM dbo.CountryStatutoryRules WHERE CountryCode = @code", new { code });
+                pt = await g.QueryAsync("SELECT * FROM dbo.CountryPTSlabs WHERE CountryCode = @code", new { code });
+                lwf = await g.QueryAsync("SELECT * FROM dbo.CountryLWFSlabs WHERE CountryCode = @code", new { code });
+            }
+
+            await using var cn = new SqlConnection(connection);
+            await cn.OpenAsync();
+            await using var tx = await cn.BeginTransactionAsync();
+            foreach (var r in rules)
+            {
+                await cn.ExecuteAsync(@"
+IF NOT EXISTS (SELECT 1 FROM dbo.StatutoryRules WHERE StatutoryType = @StatutoryType AND EffectiveFrom = @EffectiveFrom)
+    INSERT INTO dbo.StatutoryRules (StatutoryType, Description, RateType, Rate, RateThreshold, RateAboveThreshold, WageBase, WageCeiling,
+        CeilingWaivedBy, MinWage, EligibilityWageLimit, EligibilityWageLimitDisabled, MinAge, MaxAge, EmployeeFlag, DifferenceOfType,
+        MaxAmount, EffectiveFrom, EffectiveTo, IsActive)
+    VALUES (@StatutoryType, @Description, @RateType, @Rate, @RateThreshold, @RateAboveThreshold, @WageBase, @WageCeiling,
+        @CeilingWaivedBy, @MinWage, @EligibilityWageLimit, @EligibilityWageLimitDisabled, @MinAge, @MaxAge, @EmployeeFlag, @DifferenceOfType,
+        @MaxAmount, @EffectiveFrom, @EffectiveTo, @IsActive);",
+                    new
+                    {
+                        StatutoryType = (string)r.StatutoryType, Description = (string?)r.Description, RateType = (string)r.RateType,
+                        Rate = (decimal?)r.Rate, RateThreshold = (decimal?)r.RateThreshold, RateAboveThreshold = (decimal?)r.RateAboveThreshold,
+                        WageBase = (string)r.WageBase, WageCeiling = (decimal?)r.WageCeiling, CeilingWaivedBy = (string?)r.CeilingWaivedBy,
+                        MinWage = (decimal?)r.MinWage, EligibilityWageLimit = (decimal?)r.EligibilityWageLimit,
+                        EligibilityWageLimitDisabled = (decimal?)r.EligibilityWageLimitDisabled, MinAge = (int?)r.MinAge, MaxAge = (int?)r.MaxAge,
+                        EmployeeFlag = (string?)r.EmployeeFlag, DifferenceOfType = (string?)r.DifferenceOfType, MaxAmount = (decimal?)r.MaxAmount,
+                        EffectiveFrom = (DateTime)r.EffectiveFrom, EffectiveTo = (DateTime?)r.EffectiveTo, IsActive = (bool)r.IsActive
+                    }, tx);
+            }
+            foreach (var r in pt)
+            {
+                await cn.ExecuteAsync(@"
+INSERT INTO dbo.PTSlabs (IdState, Gender, SalaryFrom, SalaryTo, PTAmount, ApplicableMonth, DeductionFrequency, WageBasis, EffectiveFrom, EffectiveTo, IsActive)
+SELECT st.IdState, @Gender, @SalaryFrom, @SalaryTo, @PTAmount, @ApplicableMonth, @DeductionFrequency, @WageBasis, @EffectiveFrom, @EffectiveTo, @IsActive
+FROM dbo.States st
+WHERE st.StateCode = @StateCode
+  AND NOT EXISTS (SELECT 1 FROM dbo.PTSlabs p WHERE p.IdState = st.IdState AND ISNULL(p.Gender, '') = ISNULL(@Gender, '')
+                  AND p.SalaryFrom = @SalaryFrom AND ISNULL(p.ApplicableMonth, 0) = ISNULL(@ApplicableMonth, 0)
+                  AND p.EffectiveFrom = @EffectiveFrom);",
+                    new
+                    {
+                        StateCode = (string)r.StateCode, Gender = (string?)r.Gender, SalaryFrom = (decimal)r.SalaryFrom, SalaryTo = (decimal?)r.SalaryTo,
+                        PTAmount = (decimal)r.PTAmount, ApplicableMonth = NullableInt((object)r.ApplicableMonth),
+                        DeductionFrequency = (string)r.DeductionFrequency, WageBasis = (string)r.WageBasis,
+                        EffectiveFrom = (DateTime)r.EffectiveFrom, EffectiveTo = (DateTime?)r.EffectiveTo, IsActive = (bool)r.IsActive
+                    }, tx);
+            }
+            foreach (var r in lwf)
+            {
+                await cn.ExecuteAsync(@"
+INSERT INTO dbo.LWFSlabs (IdState, SalaryFrom, SalaryTo, EmployeeAmount, EmployerAmount, DeductionMonths, EffectiveFrom, EffectiveTo, IsActive)
+SELECT st.IdState, @SalaryFrom, @SalaryTo, @EmployeeAmount, @EmployerAmount, @DeductionMonths, @EffectiveFrom, @EffectiveTo, @IsActive
+FROM dbo.States st
+WHERE st.StateCode = @StateCode
+  AND NOT EXISTS (SELECT 1 FROM dbo.LWFSlabs l WHERE l.IdState = st.IdState AND ISNULL(l.SalaryFrom, 0) = ISNULL(@SalaryFrom, 0)
+                  AND l.EffectiveFrom = @EffectiveFrom);",
+                    new
+                    {
+                        StateCode = (string)r.StateCode, SalaryFrom = (decimal?)r.SalaryFrom, SalaryTo = (decimal?)r.SalaryTo, EmployeeAmount = (decimal)r.EmployeeAmount,
+                        EmployerAmount = (decimal)r.EmployerAmount, DeductionMonths = (string)r.DeductionMonths, EffectiveFrom = (DateTime)r.EffectiveFrom,
+                        EffectiveTo = (DateTime?)r.EffectiveTo, IsActive = (bool)r.IsActive
+                    }, tx);
+            }
+
+            var engine = string.IsNullOrWhiteSpace(country.TaxEngine) ? "NONE" : country.TaxEngine.Trim().ToUpperInvariant();
+            var p = new DynamicParameters();
+            p.Add("name", "TaxEngine", DbType.String);
+            p.Add("description", "Income tax engine: NONE or IN_TDS", DbType.String);
+            p.Add("value", engine, DbType.String);
+            p.Add("binary", null, DbType.Binary, size: -1);
+            p.Add("setValue", true, DbType.Boolean);
+            p.Add("setBinary", false, DbType.Boolean);
+            p.Add("dataType", "STRING", DbType.String);
+            p.Add("show", false, DbType.Boolean);
+            await cn.ExecuteAsync(UpsertParameterSql, p, tx);
+
+            await tx.CommitAsync();
+        }
+
+        private static int? NullableInt(object? value) => value == null || value is DBNull ? null : Convert.ToInt32(value);
+
+        private sealed class CountrySalaryHeadRow
+        {
+            public string SalaryHeadCode { get; set; } = "";
+            public string SalaryHeadName { get; set; } = "";
+            public string HeadType { get; set; } = "";
+            public bool IsTaxable { get; set; }
+            public bool IsActive { get; set; }
+            public string CalculationMethod { get; set; } = "";
+            public string? PercentageOfHeadCode { get; set; }
+            public decimal? PercentageValue { get; set; }
+            public decimal? FixedValue { get; set; }
+            public string? CustomFormula { get; set; }
+            public int? OrderNumber { get; set; }
+            public decimal? NonTaxableThreshold { get; set; }
+            public string? DisbursingMonths { get; set; }
+            public string? StatutoryType { get; set; }
+            public bool IsPartOfGross { get; set; }
+            public bool IsPartOfCTC { get; set; }
+            public bool IsPartOfPFWage { get; set; }
+            public bool IsPartOfESIWage { get; set; }
+            public bool IsPartOfGratuityWage { get; set; }
+            public bool IsPartOfPTWage { get; set; }
+            public bool IsProratedOnPaidDays { get; set; }
+            public bool IsArrearHead { get; set; }
+            public string? BaseHeadCode { get; set; }
+            public decimal? MinAmount { get; set; }
+            public decimal? MaxAmount { get; set; }
+            public decimal? WageCeiling { get; set; }
+            public string? PayFrequency { get; set; }
+            public int? CalcSequence { get; set; }
+            public string? RoundingRule { get; set; }
+            public bool ShowOnPayslip { get; set; }
         }
 
         /// <summary>Last step: the NomaroInstanceConfig row makes the company reachable.</summary>
@@ -788,6 +1070,8 @@ SELECT @id;";
             // the new database must answer before it is published
             await using (var cn = new SqlConnection(connection))
                 await cn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM dbo.SystemParameters");
+
+            await SeedScreenAttributeConfig(reg.CompanyCode, country.CountryCode.Trim());
 
             var exists = await _global.NomaroInstanceConfigs.AnyAsync(c => c.CompanyCode != null && c.CompanyCode.ToUpper() == reg.CompanyCode);
             if (!exists)
@@ -809,6 +1093,33 @@ SELECT @id;";
             }
             // TenantService caches unknown codes for 5 minutes
             _cache.Remove($"tenant_config_{reg.CompanyCode.ToUpperInvariant()}");
+        }
+
+        /// <summary>Field labels / visibility of the country (CountryScreenAttributeConfig) copied to the company
+        /// (CompanyScreenAttributeConfig). Rows the company already has are kept, so a retry is safe.</summary>
+        private async Task SeedScreenAttributeConfig(string companyCode, string countryCode)
+        {
+            const string sql = @"
+IF COLUMNPROPERTY(OBJECT_ID('dbo.CompanyScreenAttributeConfig'), 'IdCompanyScreenAttributeConfig', 'IsIdentity') = 1
+    INSERT INTO dbo.CompanyScreenAttributeConfig (CompanyCode, ScreenCode, AttributeID, DisplayLabel, FieldVisibility, MaxLength, DataType)
+    SELECT @companyCode, c.ScreenCode, c.AttributeID, c.DisplayLabel, c.FieldVisibility, c.MaxLength, c.DataType
+    FROM dbo.CountryScreenAttributeConfig c
+    WHERE c.CountryCode = @countryCode
+      AND NOT EXISTS (SELECT 1 FROM dbo.CompanyScreenAttributeConfig x
+                      WHERE x.CompanyCode = @companyCode AND x.ScreenCode = c.ScreenCode AND x.AttributeID = c.AttributeID);
+ELSE
+    INSERT INTO dbo.CompanyScreenAttributeConfig (IdCompanyScreenAttributeConfig, CompanyCode, ScreenCode, AttributeID, DisplayLabel, FieldVisibility, MaxLength, DataType)
+    SELECT (SELECT ISNULL(MAX(IdCompanyScreenAttributeConfig), 0) FROM dbo.CompanyScreenAttributeConfig WITH (UPDLOCK, HOLDLOCK))
+               + ROW_NUMBER() OVER (ORDER BY c.ScreenCode, c.AttributeID),
+           @companyCode, c.ScreenCode, c.AttributeID, c.DisplayLabel, c.FieldVisibility, c.MaxLength, c.DataType
+    FROM dbo.CountryScreenAttributeConfig c
+    WHERE c.CountryCode = @countryCode
+      AND NOT EXISTS (SELECT 1 FROM dbo.CompanyScreenAttributeConfig x
+                      WHERE x.CompanyCode = @companyCode AND x.ScreenCode = c.ScreenCode AND x.AttributeID = c.AttributeID);
+SELECT @@ROWCOUNT;";
+            await using var cn = GlobalConnection();
+            var added = await cn.ExecuteScalarAsync<int>(sql, new { companyCode, countryCode }, commandTimeout: 120);
+            _logger.LogInformation("Company {Code}: {Count} field settings copied from country {Country}", companyCode, added, countryCode);
         }
 
         #endregion

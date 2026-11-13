@@ -25,6 +25,9 @@ namespace Nomaro.API.Validators.Employee
                 .Matches("^([0-9]{10}|[0-9]{17})$").WithMessage("ESI Number must be 10 or 17 digits.")
                 .When(x => !string.IsNullOrWhiteSpace(x.ESINumber));
 
+            RuleFor(x => x.IdTaxRegime)
+                .Must(r => r == null || r == 1 || r == 2).WithMessage("Tax Regime must be New (1) or Old (2).");
+
             RuleFor(x => x.PensionScheme)
                 .MaximumLength(30).WithMessage("Pension Authority must not exceed 30 characters.");
 

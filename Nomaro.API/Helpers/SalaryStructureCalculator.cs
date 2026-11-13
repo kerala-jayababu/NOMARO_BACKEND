@@ -24,8 +24,8 @@ namespace Nomaro.API.Helpers
         public static readonly string[] CalculationMethods = { FixedAmount, Percentage, Formula, Statutory, Manual };
 
         // Employee statutory items are deductions, employer items are employer contributions
-        public static readonly string[] EmployeeStatutoryTypes = { "PF_EE", "VPF", "ESI_EE", "PT", "LWF_EE", "TDS" };
-        public static readonly string[] EmployerStatutoryTypes = { "PF_ER_EPF", "PF_ER_EPS", "EDLI", "PF_ADMIN", "ESI_ER", "LWF_ER" };
+        public static readonly string[] EmployeeStatutoryTypes = { "PF_EE", "VPF", "ESI_EE", "PT", "LWF_EE", "TDS", "PENSION_EE" };
+        public static readonly string[] EmployerStatutoryTypes = { "PF_ER_EPF", "PF_ER_EPS", "EDLI", "PF_ADMIN", "ESI_ER", "LWF_ER", "PENSION_ER" };
         public static readonly string[] StatutoryTypes = EmployeeStatutoryTypes.Concat(EmployerStatutoryTypes).ToArray();
 
         public const string Monthly = "MONTHLY";

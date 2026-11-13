@@ -18,6 +18,8 @@ namespace Nomaro.API.DTO
         public int? IdPTState { get; set; }
         public bool IsPTApplicable { get; set; }
         public bool IsLWFApplicable { get; set; }
+        // India income tax regime: 1 = New, 2 = Old (NULL = SystemParameters DefaultTaxRegime)
+        public int? IdTaxRegime { get; set; }
         // UAE statutory (pension for UAE / GCC nationals, ILOE)
         public bool IsPensionApplicable { get; set; }
         public string? PensionScheme { get; set; }

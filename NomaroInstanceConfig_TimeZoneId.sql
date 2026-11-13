@@ -1,5 +1,9 @@
+-- wrong database: stop every batch below (THROW alone stops only this batch)
 IF DB_NAME() <> 'NOMARO_GLOBAL'
-    THROW 51000, 'Run this script against NOMARO_GLOBAL.', 1;
+BEGIN
+    RAISERROR('Run this script against NOMARO_GLOBAL. Nothing was changed.', 16, 1);
+    SET NOEXEC ON;
+END
 
 IF COL_LENGTH('dbo.NomaroInstanceConfig', 'TimeZoneId') IS NULL
 BEGIN
@@ -48,4 +52,7 @@ SELECT CompanyCode, CountryCode, TimeZoneId
 FROM dbo.NomaroInstanceConfig
 WHERE CompanyCode IN ('GIA', 'GIATEST', 'US')
 ORDER BY CompanyCode;
+GO
+GO
+SET NOEXEC OFF;
 GO

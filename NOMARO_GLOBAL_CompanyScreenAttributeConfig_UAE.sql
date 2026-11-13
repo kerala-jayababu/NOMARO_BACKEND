@@ -1,0 +1,81 @@
+/* UAE field labels / visibility (NOMARO_Country_Field_Matrix_India_UAE.xlsx, UAE columns).
+   Run on NOMARO_GLOBAL after the UAE company exists in NomaroInstanceConfig. Set its code below.
+   Skips any field the company already has a row for, so it is safe to run again. */
+DECLARE @CompanyCode VARCHAR(50) = 'UAECOMPANY';   -- <-- the UAE company code
+
+INSERT INTO dbo.CompanyScreenAttributeConfig (CompanyCode, ScreenCode, AttributeID, DisplayLabel, FieldVisibility, MaxLength, DataType)
+SELECT v.CompanyCode, v.ScreenCode, v.AttributeID, v.DisplayLabel, v.FieldVisibility, v.MaxLength, v.DataType
+FROM (VALUES
+    (@CompanyCode, 'EMPPROF', 'NationalIDNumber', N'Emirates ID Number', 1, 18, 'text'),
+    (@CompanyCode, 'EMPPROF', 'EmiratesIdExpiry', N'Emirates ID Expiry', 1, NULL, 'date'),
+    (@CompanyCode, 'EMPPROF', 'PassportNumber', N'Passport Number', 1, 15, 'text'),
+    (@CompanyCode, 'EMPPROF', 'PassportExpiry', N'Passport Expiry', 1, NULL, 'date'),
+    (@CompanyCode, 'EMPPROF', 'WorkExpirationDate', N'Residence Visa Expiry', 1, NULL, 'date'),
+    (@CompanyCode, 'EMPPROF', 'VisaNumber', N'Residence Visa File No. / UID', 1, 50, 'text'),
+    (@CompanyCode, 'EMPPROF', 'VisaSponsor', N'Visa Sponsor', 1, NULL, 'dropdown'),
+    (@CompanyCode, 'EMPPROF', 'LabourCardNumber', N'Labour Card / MOHRE Person ID', 1, 30, 'number'),
+    (@CompanyCode, 'EMPPROF', 'LabourCardExpiry', N'Labour Card Expiry', 1, NULL, 'date'),
+    (@CompanyCode, 'EMPPROF', 'Nationality', N'Nationality', 1, NULL, 'dropdown'),
+    (@CompanyCode, 'EMPPROF', 'CitizenShip', N'Citizenship', 1, NULL, 'dropdown'),
+    (@CompanyCode, 'EMPPROF', 'IdNumber', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'TaxIdNumber', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'PAN', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'UAN', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'PFNumber', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'IsPFApplicable', NULL, 0, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'IsEPSApplicable', NULL, 0, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'PFOnActualWage', NULL, 0, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'VPFRate', NULL, 0, NULL, 'number'),
+    (@CompanyCode, 'EMPPROF', 'ESINumber', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'IsESIApplicable', NULL, 0, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'IdPTState', NULL, 0, NULL, 'dropdown'),
+    (@CompanyCode, 'EMPPROF', 'IsPTApplicable', NULL, 0, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'IsLWFApplicable', NULL, 0, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'IsDisabled', N'Person of Determination', 1, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'PensionApplicable', N'Pension Applicable (GPSSA / ADPF)', 1, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'PensionScheme', N'Pension Authority', 1, NULL, 'dropdown'),
+    (@CompanyCode, 'EMPPROF', 'PensionRegistrationNumber', N'Pension Registration No.', 1, 50, 'text'),
+    (@CompanyCode, 'EMPPROF', 'UnemploymentInsuranceNo', N'Unemployment Insurance (ILOE) Policy No.', 1, 50, 'text'),
+    (@CompanyCode, 'EMPPROF', 'State', N'Emirate', 1, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'ZipCode', N'PO Box', 1, 10, 'text'),
+    (@CompanyCode, 'EMPPROF', 'City', N'City / Area', 1, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'Address1', N'Address Line 1', 1, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'Address2', N'Address Line 2', 1, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'Address3', N'Address Line 3', 1, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'PhoneNumber1', N'Work Phone', 1, 20, 'text'),
+    (@CompanyCode, 'EMPPROF', 'PhoneNumber2', N'Mobile Phone', 1, 20, 'text'),
+    (@CompanyCode, 'EMPPROF', 'WhatsAppNumber', N'WhatsApp Number', 1, 20, 'text'),
+    (@CompanyCode, 'EMPPROF', 'CertificateNumber', N'Birth Certificate No.', 1, 20, 'text'),
+    (@CompanyCode, 'EMPPROF', 'DivisionNumber', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'IsNominee', N'Beneficiary', 1, NULL, 'checkbox'),
+    (@CompanyCode, 'EMPPROF', 'NomineePercentage', N'Share %', 1, NULL, 'number'),
+    (@CompanyCode, 'EMPPROF', 'DependentEmiratesId', N'Emirates ID (dependent)', 1, 18, 'text'),
+    (@CompanyCode, 'EMPPROF', 'BranchCode', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'AccountNumber', N'IBAN', 1, 23, 'text'),
+    (@CompanyCode, 'EMPPROF', 'CurrencyCode', N'Currency (AED)', 1, NULL, 'text'),
+    (@CompanyCode, 'EMPPROF', 'PaymentMode', N'Payment Mode (Bank / Exchange house salary card)', 1, NULL, 'dropdown'),
+    (@CompanyCode, 'BNKBNC', 'IFSCCode', N'Routing Code (WPS)', 1, 9, 'text'),
+    (@CompanyCode, 'BNKBNC', 'BranchName', N'Branch Name', 1, NULL, 'text'),
+    (@CompanyCode, 'BNKBNC', 'BankAddress', N'Address', 1, NULL, 'text'),
+    (@CompanyCode, 'BNKBNC', 'PhoneNumber', N'Phone', 1, NULL, 'text'),
+    (@CompanyCode, 'BNKBNC', 'SwiftCode', N'Swift Code', 1, NULL, 'text'),
+    (@CompanyCode, 'BNKBNC', 'RoutingCode', N'Bank Routing Code (WPS)', 1, 9, 'number'),
+    (@CompanyCode, 'OFFICEMGMT', 'State', N'Emirate', 1, NULL, 'text'),
+    (@CompanyCode, 'OFFICEMGMT', 'District', N'Area / Community', 1, NULL, 'text'),
+    (@CompanyCode, 'OFFICEMGMT', 'PinCode', N'PO Box', 1, 10, 'text'),
+    (@CompanyCode, 'OFFICEMGMT', 'GSTIN', N'TRN (VAT Registration No.)', 1, 15, 'text'),
+    (@CompanyCode, 'OFFICEMGMT', 'TradeLicenceNumber', N'Trade Licence No.', 1, 50, 'text'),
+    (@CompanyCode, 'OFFICEMGMT', 'TradeLicenceExpiry', N'Trade Licence Expiry', 1, NULL, 'date'),
+    (@CompanyCode, 'OFFICEMGMT', 'EstablishmentId', N'MOHRE Establishment ID (WPS Employer ID)', 1, 20, 'number'),
+    (@CompanyCode, 'OFFICEMGMT', 'PFEstablishmentCode', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'OFFICEMGMT', 'ESIEmployerCode', NULL, 0, NULL, 'number'),
+    (@CompanyCode, 'OFFICEMGMT', 'TAN', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'OFFICEMGMT', 'PTRegistrationNumber', NULL, 0, NULL, 'text'),
+    (@CompanyCode, 'SALHDS', 'Taxability', NULL, 0, NULL, 'dropdown'),
+    (@CompanyCode, 'SALHDS', 'WageCeiling', N'Wage Ceiling', 1, NULL, 'number')
+) AS v(CompanyCode, ScreenCode, AttributeID, DisplayLabel, FieldVisibility, MaxLength, DataType)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.CompanyScreenAttributeConfig c
+                  WHERE c.CompanyCode = v.CompanyCode AND c.ScreenCode = v.ScreenCode AND c.AttributeID = v.AttributeID);
+
+SELECT ScreenCode, AttributeID, DisplayLabel, FieldVisibility, MaxLength, DataType
+FROM dbo.CompanyScreenAttributeConfig WHERE CompanyCode = @CompanyCode ORDER BY ScreenCode, AttributeID;
