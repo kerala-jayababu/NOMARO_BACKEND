@@ -420,6 +420,7 @@ namespace Nomaro.API.Services.Implementation
                     step = SDbConfigured;
                     await ConfigureDatabase(tenantConnection, reg);
                     await SeedCountryData(tenantConnection, country);
+                    await ApplyCountryScreens(tenantConnection, country);
                     await Done(reg, SDbConfigured);
                 }
                 if (!Reached(reg, SAdminCreated))
@@ -868,6 +869,29 @@ WHERE s.SalaryHeadCode = @SalaryHeadCode AND s.CreatedBy = @CreatedBy;";
                 }, tx, commandTimeout: 120);
             }
             await tx.CommitAsync();
+        }
+
+        /// <summary>Screens shown per country (NOMARO_GLOBAL.dbo.CountryScreenConfig) -> PayrollScreens.Enabled of the new company.
+        /// Screens not listed keep their value from the source database.</summary>
+        private async Task ApplyCountryScreens(string connection, CountryRow country)
+        {
+            List<(string ScreenCode, bool Enabled)> screens;
+            await using (var g = GlobalConnection())
+            {
+                screens = (await g.QueryAsync<(string ScreenCode, bool Enabled)>(@"
+IF OBJECT_ID('dbo.CountryScreenConfig', 'U') IS NOT NULL
+    SELECT ScreenCode, Enabled FROM dbo.CountryScreenConfig WHERE CountryCode = @code;", new { code = country.CountryCode.Trim() })).ToList();
+            }
+            if (screens.Count == 0) return;
+
+            await using var cn = new SqlConnection(connection);
+            await cn.OpenAsync();
+            foreach (var screen in screens)
+            {
+                await cn.ExecuteAsync("UPDATE dbo.PayrollScreens SET Enabled = @Enabled WHERE ScreenCode = @ScreenCode",
+                    new { screen.ScreenCode, screen.Enabled });
+            }
+            _logger.LogInformation("Company screens set for country {Country}: {Count} rules", country.CountryCode, screens.Count);
         }
 
         private static readonly Regex TableNamePattern = new("^[A-Za-z0-9_]{1,128}$", RegexOptions.Compiled);
