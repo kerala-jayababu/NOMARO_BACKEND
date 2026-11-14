@@ -174,15 +174,21 @@ public class SalaryTemplateService : ISalaryTemplateService
     public async Task<SalaryStructureResultDto> CalculateSalaryStructure(IEnumerable<SalaryStructureRowDto> rows)
     {
         var heads = await _dbContext.SalaryHeads.AsNoTracking().ToDictionaryAsync(h => h.IdSalaryHead);
-        return SalaryStructureCalculator.Calculate(rows, heads);
+        return SalaryStructureCalculator.Calculate(rows, heads, allowManualHeads: true);
     }
 
     /// <summary>Checks the template name and rows, and calculates the amounts. Throws InvalidOperationException with the user message.</summary>
     private async Task<SalaryStructureResultDto> ValidateAndCalculate(SalaryTemplateDto dto, int? idSalaryTemplate)
     {
         var name = (dto.SalaryTemplateName ?? string.Empty).Trim();
-        var nameExists = await _dbContext.SalaryTemplates.AsNoTracking()
-            .AnyAsync(t => t.SalaryTemplateName.Trim() == name && t.IdSalaryTemplate != (idSalaryTemplate ?? 0));
+        var matchingNames = _dbContext.SalaryTemplates.AsNoTracking()
+            .Where(t => t.SalaryTemplateName.Trim() == name);
+        if (idSalaryTemplate.HasValue)
+        {
+            matchingNames = matchingNames.Where(t => t.IdSalaryTemplate != idSalaryTemplate.Value);
+        }
+
+        var nameExists = await matchingNames.AnyAsync();
         if (string.IsNullOrEmpty(name) || nameExists)
         {
             throw new InvalidOperationException("A template with this name already exists.");
@@ -273,6 +279,11 @@ public class SalaryTemplateService : ISalaryTemplateService
         {
             _logger.LogWarning("SalaryTemplate with ID {Id} not found for update.", dto.IdSalaryTemplate);
             return null;
+        }
+
+        if (string.Equals(templateEntity.ApprovalStatus?.Trim(), "FINAL APPROVED", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Final approved salary templates cannot be edited.");
         }
 
         var result = await ValidateAndCalculate(dto, templateEntity.IdSalaryTemplate);

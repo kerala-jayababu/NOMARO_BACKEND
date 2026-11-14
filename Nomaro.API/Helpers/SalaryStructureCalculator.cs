@@ -16,6 +16,17 @@ namespace Nomaro.API.Helpers
         public const string EmployerContribution = "EMPLOYER_CONTRIBUTION";
         public static readonly string[] HeadTypes = { Earnings, Deduction, Reimbursement, EmployerContribution };
 
+        public static string NormalizeHeadType(string? headType)
+        {
+            var value = (headType ?? string.Empty).Trim().ToUpperInvariant();
+            return value switch
+            {
+                "EARNING" => Earnings,
+                "DEDUCTIONS" => Deduction,
+                _ => value
+            };
+        }
+
         public const string FixedAmount = "FIXEDAMOUNT";
         public const string Percentage = "PERCENTAGE";
         public const string Formula = "FORMULA";
@@ -59,7 +70,10 @@ namespace Nomaro.API.Helpers
     /// </summary>
     public static class SalaryStructureCalculator
     {
-        public static SalaryStructureResultDto Calculate(IEnumerable<SalaryStructureRowDto> inputRows, IReadOnlyDictionary<int, SalaryHeads> heads)
+        public static SalaryStructureResultDto Calculate(
+            IEnumerable<SalaryStructureRowDto> inputRows,
+            IReadOnlyDictionary<int, SalaryHeads> heads,
+            bool allowManualHeads = false)
         {
             var rows = inputRows.ToList();
             var errors = new List<string>();
@@ -78,12 +92,18 @@ namespace Nomaro.API.Helpers
                     errors.Add($"Salary head {row.IdSalaryHead} does not exist.");
                     continue;
                 }
-                if (!head.IsActive || head.CalculationMethod == SalaryHeadConstants.Statutory || head.CalculationMethod == SalaryHeadConstants.Manual)
+                if (!head.IsActive
+                    || head.CalculationMethod == SalaryHeadConstants.Statutory
+                    || (!allowManualHeads && head.CalculationMethod == SalaryHeadConstants.Manual))
                 {
-                    errors.Add($"\"{head.SalaryHeadName}\" cannot be added here. Only active heads that are not Statutory or Manual are allowed.");
+                    errors.Add(allowManualHeads
+                        ? $"\"{head.SalaryHeadName}\" cannot be added here. Only active, non-statutory heads are allowed."
+                        : $"\"{head.SalaryHeadName}\" cannot be added here. Only active heads that are not Statutory or Manual are allowed.");
                     continue;
                 }
-                if (head.CalculationMethod == SalaryHeadConstants.FixedAmount && row.FixedAmount < 0)
+                if ((head.CalculationMethod == SalaryHeadConstants.FixedAmount
+                    || (allowManualHeads && head.CalculationMethod == SalaryHeadConstants.Manual))
+                    && row.FixedAmount < 0)
                 {
                     errors.Add("Enter an amount of 0 or more.");
                 }
@@ -102,7 +122,8 @@ namespace Nomaro.API.Helpers
                 }
             }
 
-            if (!rows.Any(r => heads.TryGetValue(r.IdSalaryHead, out var h) && h.HeadType == SalaryHeadConstants.Earnings))
+            if (!rows.Any(r => heads.TryGetValue(r.IdSalaryHead, out var h) &&
+                SalaryHeadConstants.NormalizeHeadType(h.HeadType) == SalaryHeadConstants.Earnings))
             {
                 errors.Add("Add at least one earning.");
             }
@@ -134,6 +155,11 @@ namespace Nomaro.API.Helpers
                 switch (head.CalculationMethod)
                 {
                     case SalaryHeadConstants.FixedAmount:
+                        fixedAmount = x.Row.FixedAmount ?? head.FixedValue ?? 0;
+                        value = fixedAmount.Value;
+                        break;
+
+                    case SalaryHeadConstants.Manual when allowManualHeads:
                         fixedAmount = x.Row.FixedAmount ?? head.FixedValue ?? 0;
                         value = fixedAmount.Value;
                         break;
@@ -175,7 +201,7 @@ namespace Nomaro.API.Helpers
                     CalculatedValue = value,
                     SalaryHeadCode = head.SalaryHeadCode,
                     SalaryHeadName = head.SalaryHeadName,
-                    HeadType = head.HeadType,
+                    HeadType = SalaryHeadConstants.NormalizeHeadType(head.HeadType),
                     CalculationMethod = head.CalculationMethod,
                     IdPercentageSalaryHead = head.IdPercentageSalaryHead,
                     PercentageOfSalaryHeadName = head.IdPercentageSalaryHead.HasValue && heads.TryGetValue(head.IdPercentageSalaryHead.Value, out var ph) ? ph.SalaryHeadName : null,
@@ -190,18 +216,18 @@ namespace Nomaro.API.Helpers
 
             // ---------- Totals ----------
             var monthly = result.Rows.Where(r => r.IsIncludedInMonthlyTotals).ToList();
-            var earningsOnly = monthly.Where(r => r.HeadType == SalaryHeadConstants.Earnings).Sum(r => r.CalculatedValue);
-            var reimbursements = monthly.Where(r => r.HeadType == SalaryHeadConstants.Reimbursement).Sum(r => r.CalculatedValue);
+            var earningsOnly = monthly.Where(r => SalaryHeadConstants.NormalizeHeadType(r.HeadType) == SalaryHeadConstants.Earnings).Sum(r => r.CalculatedValue);
+            var reimbursements = monthly.Where(r => SalaryHeadConstants.NormalizeHeadType(r.HeadType) == SalaryHeadConstants.Reimbursement).Sum(r => r.CalculatedValue);
 
             result.TotalEarnings = earningsOnly + reimbursements;
-            result.TotalDeductions = monthly.Where(r => r.HeadType == SalaryHeadConstants.Deduction).Sum(r => r.CalculatedValue);
-            result.TotalEmployerContribution = monthly.Where(r => r.HeadType == SalaryHeadConstants.EmployerContribution).Sum(r => r.CalculatedValue);
+            result.TotalDeductions = monthly.Where(r => SalaryHeadConstants.NormalizeHeadType(r.HeadType) == SalaryHeadConstants.Deduction).Sum(r => r.CalculatedValue);
+            result.TotalEmployerContribution = monthly.Where(r => SalaryHeadConstants.NormalizeHeadType(r.HeadType) == SalaryHeadConstants.EmployerContribution).Sum(r => r.CalculatedValue);
             result.NetSalary = result.TotalEarnings - result.TotalDeductions;
             result.GrossMonthly = earningsOnly;
             result.CTCMonthly = result.TotalEarnings + result.TotalEmployerContribution;
 
             var annualExtras = result.Rows
-                .Where(r => !r.IsIncludedInMonthlyTotals && r.HeadType != SalaryHeadConstants.Deduction)
+                .Where(r => !r.IsIncludedInMonthlyTotals && SalaryHeadConstants.NormalizeHeadType(r.HeadType) != SalaryHeadConstants.Deduction)
                 .Sum(r => r.CalculatedValue * PaymentsPerYear(heads[r.IdSalaryHead]));
             result.CTCAnnual = result.CTCMonthly * 12 + annualExtras;
 
@@ -215,7 +241,7 @@ namespace Nomaro.API.Helpers
         }
 
         /// <summary>Earnings, Reimbursement, Deduction, Employer Contribution.</summary>
-        public static int HeadTypeDisplayOrder(string? headType) => headType switch
+        public static int HeadTypeDisplayOrder(string? headType) => SalaryHeadConstants.NormalizeHeadType(headType) switch
         {
             SalaryHeadConstants.Earnings => 0,
             SalaryHeadConstants.Reimbursement => 1,

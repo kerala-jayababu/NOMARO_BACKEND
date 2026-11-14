@@ -424,6 +424,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 .Where(id => id.HasValue)
                 .Select(id => id!.Value)
                 .Append(config.CreatedBy)
+                .Concat(config.ApprovedBy.HasValue ? new[] { config.ApprovedBy.Value } : Array.Empty<int>())
                 .Distinct()
                 .ToList();
 
@@ -447,49 +448,76 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
                 });
             }
 
-            if (rowList.Count == 0)
+            if (rowList.Count > 0)
             {
-                return timeline;
-            }
-
-            var firstLevel = rowList[0].awa;
-            employeeLookup.TryGetValue(firstLevel.SourceIdEmployee, out var submitter);
-            timeline.Add(new SalaryConfigApprovalTimelineStepDto
-            {
-                EventKind = "SUBMITTED",
-                DisplayLabel = "Submitted for approval",
-                EventDate = firstLevel.SentDate,
-                ActorEmployeeId = firstLevel.SourceIdEmployee,
-                ActorName = submitter?.Name,
-                ActorDesignationName = submitter?.DesignationName,
-                WorkflowLevelNumber = null,
-                IdApprovalWorkFlow = firstLevel.IdApprovalWorkFlow
-            });
-
-            foreach (var (awa, wfd) in rowList)
-            {
-                if (!awa.ActionedBy.HasValue || !awa.ActionDate.HasValue)
-                {
-                    continue;
-                }
-
-                employeeLookup.TryGetValue(awa.ActionedBy.Value, out var approver);
-                var levelLabel = wfd?.ApprovalStatusName;
-                var displayLabel = !string.IsNullOrWhiteSpace(awa.ActionStatus)
-                    ? awa.ActionStatus
-                    : (!string.IsNullOrWhiteSpace(levelLabel) ? levelLabel : "Approved");
-
+                var firstLevel = rowList[0].awa;
+                employeeLookup.TryGetValue(firstLevel.SourceIdEmployee, out var submitter);
                 timeline.Add(new SalaryConfigApprovalTimelineStepDto
                 {
-                    EventKind = "APPROVED",
-                    DisplayLabel = displayLabel,
-                    EventDate = awa.ActionDate.Value,
-                    ActorEmployeeId = awa.ActionedBy,
-                    ActorName = approver?.Name,
-                    ActorDesignationName = approver?.DesignationName,
-                    WorkflowLevelNumber = awa.LevelNumber,
-                    IdApprovalWorkFlow = awa.IdApprovalWorkFlow
+                    EventKind = "SUBMITTED",
+                    DisplayLabel = "Submitted for approval",
+                    EventDate = firstLevel.SentDate,
+                    ActorEmployeeId = firstLevel.SourceIdEmployee,
+                    ActorName = submitter?.Name,
+                    ActorDesignationName = submitter?.DesignationName,
+                    WorkflowLevelNumber = null,
+                    IdApprovalWorkFlow = firstLevel.IdApprovalWorkFlow
                 });
+
+                foreach (var (awa, wfd) in rowList)
+                {
+                    if (!awa.ActionedBy.HasValue || !awa.ActionDate.HasValue)
+                    {
+                        continue;
+                    }
+
+                    employeeLookup.TryGetValue(awa.ActionedBy.Value, out var approver);
+                    var levelLabel = wfd?.ApprovalStatusName;
+                    var displayLabel = !string.IsNullOrWhiteSpace(awa.ActionStatus)
+                        ? awa.ActionStatus
+                        : (!string.IsNullOrWhiteSpace(levelLabel) ? levelLabel : "Approved");
+
+                    timeline.Add(new SalaryConfigApprovalTimelineStepDto
+                    {
+                        EventKind = "APPROVED",
+                        DisplayLabel = displayLabel,
+                        EventDate = awa.ActionDate.Value,
+                        ActorEmployeeId = awa.ActionedBy,
+                        ActorName = approver?.Name,
+                        ActorDesignationName = approver?.DesignationName,
+                        WorkflowLevelNumber = awa.LevelNumber,
+                        IdApprovalWorkFlow = awa.IdApprovalWorkFlow
+                    });
+                }
+            }
+
+            var approvedDate = config.ApprovedOn ?? config.ApprovedDate;
+            if (config.ApprovedBy.HasValue && approvedDate.HasValue)
+            {
+                var approverId = config.ApprovedBy.Value;
+                var approvalDate = approvedDate.Value;
+                var finalApprovalAlreadyPresent = timeline.Any(step =>
+                    step.EventKind == "APPROVED"
+                    && step.ActorEmployeeId == approverId
+                    && step.EventDate.Date == approvalDate.Date);
+
+                if (!finalApprovalAlreadyPresent)
+                {
+                    employeeLookup.TryGetValue(approverId, out var approver);
+                    timeline.Add(new SalaryConfigApprovalTimelineStepDto
+                    {
+                        EventKind = "APPROVED",
+                        DisplayLabel = string.IsNullOrWhiteSpace(config.ApprovalStatus)
+                            ? "Approved"
+                            : config.ApprovalStatus,
+                        EventDate = approvalDate,
+                        ActorEmployeeId = approverId,
+                        ActorName = approver?.Name,
+                        ActorDesignationName = approver?.DesignationName,
+                        WorkflowLevelNumber = null,
+                        IdApprovalWorkFlow = null
+                    });
+                }
             }
 
             return timeline;
@@ -570,7 +598,7 @@ LEFT JOIN Designations des ON e.IdDesignation = des.IdDesignation
         public async Task<SalaryStructureResultDto> CalculateSalaryStructure(IEnumerable<SalaryStructureRowDto> rows)
         {
             var heads = await _dbContext.SalaryHeads.AsNoTracking().ToDictionaryAsync(h => h.IdSalaryHead);
-            return SalaryStructureCalculator.Calculate(rows, heads);
+            return SalaryStructureCalculator.Calculate(rows, heads, allowManualHeads: true);
         }
 
         /// <summary>The employee's current approved, active structure (latest Valid From).</summary>
