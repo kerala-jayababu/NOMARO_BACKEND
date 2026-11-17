@@ -35,6 +35,8 @@ IF COL_LENGTH('dbo.EmployeeStatutoryDetails', 'PensionRegistrationNumber') IS NU
     ALTER TABLE dbo.EmployeeStatutoryDetails ADD PensionRegistrationNumber NVARCHAR(50) NULL;
 IF COL_LENGTH('dbo.EmployeeStatutoryDetails', 'UnemploymentInsuranceNo') IS NULL
     ALTER TABLE dbo.EmployeeStatutoryDetails ADD UnemploymentInsuranceNo NVARCHAR(50) NULL;
+IF COL_LENGTH('dbo.EmployeeStatutoryDetails', 'IdTaxRegime') IS NULL
+    ALTER TABLE dbo.EmployeeStatutoryDetails ADD IdTaxRegime INT NULL;
 
 /* dbo.EmployeeFamilyMembers */
 IF COL_LENGTH('dbo.EmployeeFamilyMembers', 'DependentEmiratesId') IS NULL
@@ -75,6 +77,7 @@ FROM (VALUES
     ('EmployeeStatutoryDetails', 'PensionScheme'),
     ('EmployeeStatutoryDetails', 'PensionRegistrationNumber'),
     ('EmployeeStatutoryDetails', 'UnemploymentInsuranceNo'),
+    ('EmployeeStatutoryDetails', 'IdTaxRegime'),
     ('EmployeeFamilyMembers', 'DependentEmiratesId'),
     ('Banks', 'RoutingCode'),
     ('Offices', 'TradeLicenceNumber'),

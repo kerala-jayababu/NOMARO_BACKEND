@@ -1,4 +1,4 @@
-/* Country fields step 1 - add the 20 new columns to EVERY NOMARO company / template database on THIS SQL Server.
+/* Country fields step 1 - add the new country and statutory columns to EVERY NOMARO company / template database on THIS SQL Server.
    Run it while connected to any database on the server (for example master). Run it once on each SQL Server
    that holds company databases (see the query at the bottom of this file to find which server each company uses).
    Skips NOMARO_GLOBAL and any database without dbo.Employees. Safe to run more than once. */
@@ -16,6 +16,7 @@ IF COL_LENGTH(''dbo.EmployeeStatutoryDetails'', ''IsPensionApplicable'') IS NULL
 IF COL_LENGTH(''dbo.EmployeeStatutoryDetails'', ''PensionScheme'') IS NULL ALTER TABLE dbo.EmployeeStatutoryDetails ADD PensionScheme NVARCHAR(30) NULL;
 IF COL_LENGTH(''dbo.EmployeeStatutoryDetails'', ''PensionRegistrationNumber'') IS NULL ALTER TABLE dbo.EmployeeStatutoryDetails ADD PensionRegistrationNumber NVARCHAR(50) NULL;
 IF COL_LENGTH(''dbo.EmployeeStatutoryDetails'', ''UnemploymentInsuranceNo'') IS NULL ALTER TABLE dbo.EmployeeStatutoryDetails ADD UnemploymentInsuranceNo NVARCHAR(50) NULL;
+IF COL_LENGTH(''dbo.EmployeeStatutoryDetails'', ''IdTaxRegime'') IS NULL ALTER TABLE dbo.EmployeeStatutoryDetails ADD IdTaxRegime INT NULL;
 IF COL_LENGTH(''dbo.EmployeeFamilyMembers'', ''DependentEmiratesId'') IS NULL ALTER TABLE dbo.EmployeeFamilyMembers ADD DependentEmiratesId VARCHAR(20) NULL;
 IF COL_LENGTH(''dbo.Banks'', ''RoutingCode'') IS NULL ALTER TABLE dbo.Banks ADD RoutingCode VARCHAR(20) NULL;
 IF COL_LENGTH(''dbo.Offices'', ''TradeLicenceNumber'') IS NULL ALTER TABLE dbo.Offices ADD TradeLicenceNumber NVARCHAR(50) NULL;
