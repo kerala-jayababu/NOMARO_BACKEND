@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using FluentValidation;
+using Microsoft.Data.SqlClient;
 using Nomaro.API.DTO;
 using Nomaro.API.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -154,6 +155,15 @@ namespace Nomaro.API.Controllers
             }
             catch (Exception ex)
             {
+                var sqlException = ex.GetBaseException() as SqlException;
+                if (sqlException?.Number is 2601 or 2627)
+                {
+                    var message = sqlException.Message.Contains("UX_EmpStat_PAN", StringComparison.OrdinalIgnoreCase)
+                        ? "PAN is already assigned to another employee."
+                        : "A statutory identifier is already assigned to another employee.";
+                    return Conflict(ApiResponseDto<string>.CreateFailure(message));
+                }
+
                 return StatusCode(500, ApiResponseDto<string>.CreateFailure($"An error occurred: {ex.Message}"));
             }
         }

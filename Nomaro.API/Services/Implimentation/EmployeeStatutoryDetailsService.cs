@@ -3,6 +3,7 @@ using Nomaro.API.Database;
 using Nomaro.API.DTO;
 using Nomaro.API.Models;
 using Nomaro.API.Services.Interface;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Nomaro.API.Services.Implimentation
@@ -177,8 +178,18 @@ namespace Nomaro.API.Services.Implimentation
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error saving statutory details for employee {IdEmployee}.", dto.IdEmployee);
-                return false;
+                var sqlException = ex.GetBaseException() as SqlException;
+                if (sqlException?.Number is 2601 or 2627)
+                {
+                    _logger.LogWarning(
+                        "A statutory unique-identifier constraint prevented saving details for employee {IdEmployee}.",
+                        dto.IdEmployee);
+                }
+                else
+                {
+                    _logger.LogError(ex, "Error saving statutory details for employee {IdEmployee}.", dto.IdEmployee);
+                }
+                throw;
             }
         }
 
