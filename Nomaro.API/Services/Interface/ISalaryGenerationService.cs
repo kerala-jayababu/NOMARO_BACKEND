@@ -7,7 +7,7 @@ namespace Nomaro.API.Services.Interface
     {
         Task<IEnumerable<SalaryGenerationDto>> GetSalaryConfigs(int employeeId, int? idSalaryMonth = null, string? dropdownFilter = null,int? idDepartment = null,int? idDesignation = null);
         Task<IEnumerable<SalarySlipDto>> GetSalarySlips(int idSalaryMonthFrom, int idSalaryMonthTo, string? dropdownFilter = null);
-        Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(int idSalaryMonth, int idEmployeeCreated);
+        Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(List<int> employeeIds, int idSalaryMonth, int idEmployeeCreated);
         Task<dynamic> GetSalaryapprovalValue(int IdEmployee);        
         Task<dynamic> ExportSalaryGenerationDetails(string employeeIds, int idSalaryMonth);
         Task<dynamic> ExportSalaryGenerationDetailsForApproved(string employeeIds, int idSalaryMonth);

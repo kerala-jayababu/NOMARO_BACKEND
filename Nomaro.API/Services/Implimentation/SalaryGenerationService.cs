@@ -100,12 +100,36 @@ namespace YourNamespace.Services.Implementation
         }
 
 
-        public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(int idSalaryMonth, int idEmployeeCreated)
+        public async Task<IEnumerable<SalaryGenerationStatusDto>> GenerateSalaryDraft(List<int> employeeIds, int idSalaryMonth, int idEmployeeCreated)
         {
-            
-
             try
             {
+                var selectedEmployeeIds = employeeIds.Distinct().ToList();
+                if (selectedEmployeeIds.Count == 0 || selectedEmployeeIds.Any(id => id <= 0))
+                {
+                    throw new ArgumentException("Select at least one valid employee for salary generation.");
+                }
+
+                var existingEmployeeIds = await _dbContext.Employees.AsNoTracking()
+                    .Where(e => e.IdEmployee.HasValue && selectedEmployeeIds.Contains(e.IdEmployee.Value))
+                    .Select(e => e.IdEmployee!.Value)
+                    .ToListAsync();
+                var missingEmployeeIds = selectedEmployeeIds.Except(existingEmployeeIds).ToList();
+                if (missingEmployeeIds.Count > 0)
+                {
+                    throw new ArgumentException($"Employee(s) not found: {string.Join(", ", missingEmployeeIds)}.");
+                }
+
+                await _dbContext.EmployeesForSalaryGenerationStatus.ExecuteDeleteAsync();
+                var statusRows = selectedEmployeeIds.Select(idEmployee => new EmployeesForSalaryGenerationStatus
+                {
+                    IdEmployee = idEmployee,
+                    IdSalaryMonth = idSalaryMonth,
+                    SalaryGenerationRemarks = null
+                });
+                await _dbContext.EmployeesForSalaryGenerationStatus.AddRangeAsync(statusRows);
+                await _dbContext.SaveChangesAsync();
+
                 using (var connection = _dbContext.Database.GetDbConnection() as SqlConnection)
                 {
                     if (connection.State == System.Data.ConnectionState.Closed)
@@ -113,7 +137,7 @@ namespace YourNamespace.Services.Implementation
 
                     var parameters = new DynamicParameters();
                     parameters.Add("@idSalaryMonth", idSalaryMonth);
-                    parameters.Add("@IdEmployeeCreated", idEmployeeCreated);
+                    parameters.Add("@IdUser", idEmployeeCreated);
 
                     var salaryStatusList = (await connection.QueryAsync<SalaryGenerationStatusDto>(
                  "GenerateMonthlySalary",
@@ -125,6 +149,10 @@ namespace YourNamespace.Services.Implementation
                     return salaryStatusList;
                 
                 }
+            }
+            catch (ArgumentException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

@@ -168,6 +168,8 @@ namespace Nomaro.API.Database
                       .ValueGeneratedOnAdd();  // important
             });
 
+            modelBuilder.Entity<Employee>().ToTable("Employees", tb => tb.UseSqlOutputClause(false));
+
             // the events table has a trigger that blocks UPDATE / DELETE
             modelBuilder.Entity<EmployeeAgreementEvents>().ToTable(tb => tb.HasTrigger("TR_EmployeeAgreementEvents_NoChange"));
             modelBuilder.Entity<GeneralDocumentAudit>().ToTable("GeneralDocumentAudit", tb => tb.HasTrigger("TR_GeneralDocumentAudit_NoChange"));

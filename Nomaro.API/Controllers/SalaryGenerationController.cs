@@ -98,11 +98,31 @@ namespace Nomaro.API.Controllers
 
 
         [HttpPost("GenerateSalaryDraft")]
-        public async Task<IActionResult> GenerateSalaryDraft([FromQuery] int idSalaryMonth)
+        public async Task<IActionResult> GenerateSalaryDraft([FromQuery] string? employeeIds, [FromQuery] int idSalaryMonth)
         {
-            if (idSalaryMonth == null || idSalaryMonth <= 0)
+            if (idSalaryMonth <= 0)
             {
                 return BadRequest(ApiResponseDto<string>.CreateFailure("Invalid Id. Id must be greater than 0 for getting salary genetation list."));
+            }
+
+            if (string.IsNullOrWhiteSpace(employeeIds))
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Select at least one employee for salary generation."));
+            }
+
+            var selectedEmployeeIds = new List<int>();
+            foreach (var value in employeeIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!int.TryParse(value, out var employeeId) || employeeId <= 0)
+                {
+                    return BadRequest(ApiResponseDto<string>.CreateFailure("The employee ID list is invalid."));
+                }
+                selectedEmployeeIds.Add(employeeId);
+            }
+
+            if (selectedEmployeeIds.Count == 0)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure("Select at least one employee for salary generation."));
             }
 
             var IdEmployee = HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -132,7 +152,7 @@ namespace Nomaro.API.Controllers
                     return Unauthorized(ApiResponseDto<string>.CreateFailure("User not authenticated."));
                 }
 
-                var result = await _salaryService.GenerateSalaryDraft(idSalaryMonth, int.Parse(idEmployee));
+                var result = await _salaryService.GenerateSalaryDraft(selectedEmployeeIds, idSalaryMonth, int.Parse(idEmployee));
 
                 if (!result.Any())
                 {
@@ -140,6 +160,10 @@ namespace Nomaro.API.Controllers
                 }
 
                 return Ok(ApiResponseDto<IEnumerable<dynamic>>.CreateSuccess(result, "Draft Salary generated successfully."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponseDto<string>.CreateFailure(ex.Message));
             }
             catch (Exception ex)
             {
